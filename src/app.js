@@ -21,7 +21,7 @@ class NipahClient {
 		VERSION: '1.0.0',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		// RESOURCE_ROOT: 'http://localhost:3000',
-		RESOURCE_ROOT: 'https://raw.githubusercontent.com/Xzensi/nipah-chat/main',
+		RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
 		DEBUG: true
 	}
 
@@ -72,6 +72,9 @@ class NipahClient {
 			info('Injecting styles..')
 
 			if (this.DEBUG) {
+				// Add permission for GM_xmlhttpRequest to make
+				//  requests to the resource root for development.
+				// @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
 					url: this.RESOURCE_ROOT + '/dist/kick.css',

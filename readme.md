@@ -26,12 +26,13 @@
 
 ## About The Project
 
-Nipah Chat aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. Nipah Chat addresses these shortcomings by offering a better interface and compatibility with multiple emote providers. 
+Nipah Chat aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. Nipah Chat addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
 
 <b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve Nipah Chat.
 
 <a name="demo-video"></a>
 <br />
+
 <div align="center">
   <video src="https://github.com/Xzensi/Nipah-Chat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
 </div>
@@ -45,7 +46,11 @@ To use Nipah Chat, you'll need to install a userscript manager like Violentmonke
 
 Currently, tab completion and emotes-in-chat rendering are not yet implemented but are on the way. For the time being, you still need to have the 7TV extension installed and enabled for 7TV emotes to render in chat. You can find the 7TV extension here: [Chrome](https://chromewebstore.google.com/detail/7tv/ammjkodgmmoknidbanneddgankgfejfh), [Firefox](https://7tv.app/).
 
-To install the userscript, click on the following link: [Nipah Chat client](https://github.com/Xzensi/NipahChat/raw/master/dist/client.user.js)
+To install the userscript, click on the following link: [Nipah Chat client](https://github.com/Xzensi/Nipah-Chat/raw/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
+
+1. Open your userscript manager (Violentmonkey) dashboard and click on the "New" button in the top left corner.
+2. Click "Install from URL" and paste the following URL: `https://github.com/Xzensi/Nipah-Chat/raw/master/dist/client.user.js`
+3. Click "Install" and you're all set!
 
 ## Roadmap
 
