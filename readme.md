@@ -2,7 +2,7 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/Xzensi/nipah-chat">
+  <a href="https://github.com/Xzensi/NipahChat">
     <img src="dist/logo_full.png" alt="Nipah" height="90">
   </a>
 
@@ -10,36 +10,42 @@
 
   <p align="center">
     <br />
-    <a href="https://github.com/Xzensi/nipah-chat/demo/demo.mp4">View Demo</a>
+    <a href="#demo-video">View Demo</a>
     ·
-    <a href="https://github.com/Xzensi/nipah-chat/issues">Report Bug</a>
+    <a href="https://github.com/Xzensi/NipahChat/issues">Report Bug</a>
     ·
-    <a href="https://github.com/Xzensi/nipah-chat/issues">Request Feature</a>
+    <a href="https://github.com/Xzensi/NipahChat/issues">Request Feature</a>
   </p>
   <br />
-
-  <img src="demo/screenshot_2.png">
-  <img src="demo/screenshot_3.png">
-  <video src="demo/demo.mp4" width="336"></video>
+  
+  <img src="demo/screenshot_2.png" />
+  <img src="demo/screenshot_3.png" />
 </div>
 
 <br />
 
 ## About The Project
 
-Nipah aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. Nipah addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
+Nipah Chat aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. Nipah Chat addresses these shortcomings by offering a better interface and compatibility with multiple emote providers. 
 
-<b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve Nipah.
+<b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve Nipah Chat.
+
+<a name="demo-video"></a>
+<br />
+<div align="center">
+  <video src="https://github.com/Xzensi/NipahChat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
+</div>
+<br />
 
 ## Getting Started
 
-To use Nipah, you'll need to install a userscript manager like Violentmonkey. Follow the links below to install the manager for your browser: [Chrome](https://chrome.google.com/webstore/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), [Edge](https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao).
+To use Nipah Chat, you'll need to install a userscript manager like Violentmonkey. Follow the links below to install the manager for your browser: [Chrome](https://chrome.google.com/webstore/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), [Edge](https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao).
 
 ### Installation
 
 Currently, tab completion and emotes-in-chat rendering are not yet implemented but are on the way. For the time being, you still need to have the 7TV extension installed and enabled for 7TV emotes to render in chat. You can find the 7TV extension here: [Chrome](https://chromewebstore.google.com/detail/7tv/ammjkodgmmoknidbanneddgankgfejfh), [Firefox](https://7tv.app/).
 
-To install the userscript, click on the following link: [Nipah Chat client](dist/client.user.js)
+To install the userscript, click on the following link: [Nipah Chat client](https://github.com/Xzensi/NipahChat/raw/master/dist/client.user.js)
 
 ## Roadmap
 
