@@ -21,12 +21,15 @@ class NipahClient {
 		VERSION: '1.0.0',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		// RESOURCE_ROOT: 'http://localhost:3000',
-		RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
-		DEBUG: true
+		// RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
+		RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master',
+		DEBUG: false
 	}
 
 	async initialize() {
 		info(`Initializing Nipah client ${this.VERSION}..`)
+
+		const { ENV_VARS } = this
 
 		if (window.app_name === 'Kick') {
 			this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK
@@ -47,10 +50,10 @@ class NipahClient {
 		const emotesManager = new EmotesManager(eventBus, channelData.kick_channel_id)
 
 		let userInterface
-		if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
+		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager })
 		} else {
-			return error('Platform has no user interface imlemented..', this.ENV_VARS.PLATFORM)
+			return error('Platform has no user interface imlemented..', ENV_VARS.PLATFORM)
 		}
 
 		this.loadStyles()

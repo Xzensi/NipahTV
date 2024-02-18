@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name Nipah chat client
+// @name Nipah Chat client
 // @namespace https://github.com/Xzensi/Nipah-Chat
 // @version 1.0
 // @author Xzensi
@@ -80,7 +80,7 @@
 
   // src/utils.js
   var logger = new Logger();
-  var log2 = logger.log.bind(logger);
+  var log = logger.log.bind(logger);
   var logEvent = logger.logEvent.bind(logger);
   var info = logger.info.bind(logger);
   var error2 = logger.error.bind(logger);
@@ -270,7 +270,7 @@
           return error2("Invalid emote data", emote);
         }
         if (this.emoteNameMap.has(emote.name)) {
-          return log2(`Duplicate emote ${emote.name}, skipping..`);
+          return log(`Duplicate emote ${emote.name}, skipping..`);
         }
         this.emoteMap.set("" + emote.id, emote);
         this.emoteNameMap.set(emote.name, emote);
@@ -406,17 +406,16 @@
 
   // src/UserInterface/Components/EmoteMenuButton.js
   var EmoteMenuButton = class extends AbstractComponent {
-    constructor({ ENV_VARS: ENV_VARS2, eventBus }) {
+    constructor({ ENV_VARS, eventBus }) {
       super();
-      this.ENV_VARS = ENV_VARS2;
+      this.ENV_VARS = ENV_VARS;
       this.eventBus = eventBus;
     }
     render() {
-      const basePath = this.ENV_VARS.RESOURCES_ROOT;
-      log(basePath);
+      const basePath = this.ENV_VARS.RESOURCE_ROOT;
       this.$element = $(`
             <div class="nipah_client_footer">
-                <img class="footer_logo_btn" srcset="${basePath}/logo_1.png 1x, ${basePath}/logo_2.png 2x, ${basePath}/logo_3.png 2x" draggable="false" alt="Nipah">
+                <img class="footer_logo_btn" srcset="${basePath}/dist/logo_1.png 1x, ${basePath}/dist/logo_1@2x.png 2x, ${basePath}/dist/logo_1@3x.png 3x" draggable="false" alt="Nipah">
             </div>
         `);
       $("#chatroom-footer .send-row").prepend(this.$element);
@@ -534,7 +533,7 @@
         this.switchPanel("emotes");
       }
       const emotesResult = this.emotesManager.search(searchVal.substring(0, 10));
-      log2(`Searching for emotes, found ${emotesResult.length} matches"`);
+      log(`Searching for emotes, found ${emotesResult.length} matches"`);
       this.panels.$search.empty();
       let maxResults = 75;
       for (const emoteResult of emotesResult) {
@@ -559,7 +558,7 @@
       this.activePanel = panel;
     }
     renderEmotes() {
-      log2("Rendering emotes in modal");
+      log("Rendering emotes in modal");
       const { emotesManager } = this;
       const $emotesPanel = this.panels.$emotes;
       const $sidebarSets = this.$sidebarSets;
@@ -743,8 +742,8 @@
      * @param {EventBus} eventBus
      * @param {object} deps
      */
-    constructor({ ENV_VARS: ENV_VARS2, eventBus, settingsManager, emotesManager }) {
-      if (ENV_VARS2 === void 0)
+    constructor({ ENV_VARS, eventBus, settingsManager, emotesManager }) {
+      if (ENV_VARS === void 0)
         throw new Error("ENV_VARS is required");
       if (eventBus === void 0)
         throw new Error("eventBus is required");
@@ -752,7 +751,7 @@
         throw new Error("emotesManager is required");
       if (settingsManager === void 0)
         throw new Error("settingsManager is required");
-      this.ENV_VARS = ENV_VARS2;
+      this.ENV_VARS = ENV_VARS;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
@@ -856,9 +855,9 @@
     }
     loadInterface() {
       info("Creating user interface..");
-      const { ENV_VARS: ENV_VARS2, eventBus, settingsManager, emotesManager } = this;
+      const { ENV_VARS, eventBus, settingsManager, emotesManager } = this;
       const emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
-      const emoteMenuButton = new EmoteMenuButton({ ENV_VARS: ENV_VARS2, eventBus }).init();
+      const emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init();
       const quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
       eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
         if (sendImmediately) {
@@ -929,7 +928,7 @@
       this.insertNodeInChat(embedNode);
     }
     insertNodeInChat(embedNode) {
-      log2(`Inserting node in chat`);
+      log(`Inserting node in chat`);
       if (embedNode.nodeType !== Node.TEXT_NODE && embedNode.nodeType !== Node.ELEMENT_NODE) {
         return error2("Invalid node type", embedNode);
       }
@@ -1002,14 +1001,14 @@
         });
       }
       if (!emoteSets.length) {
-        log2("No emotes found on Kick provider");
+        log("No emotes found on Kick provider");
         this.status = "no_emotes_found";
         return [];
       }
       if (emoteSets.length > 1) {
-        log2(`Fetched ${emoteSets.length} emote sets from Kick`);
+        log(`Fetched ${emoteSets.length} emote sets from Kick`);
       } else {
-        log2(`Fetched 1 emote set from Kick`);
+        log(`Fetched 1 emote set from Kick`);
       }
       this.status = "loaded";
       return emoteSets;
@@ -1042,7 +1041,7 @@
         return error2("Missing kick channel id for SevenTV provider.");
       const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${kick_user_id}`);
       if (!data.emote_set || !data.emote_set.emotes.length) {
-        log2("No emotes found on SevenTV provider");
+        log("No emotes found on SevenTV provider");
         this.status = "no_emotes_found";
         return [];
       }
@@ -1070,7 +1069,7 @@
           size
         };
       });
-      log2(`Fetched 1 emote set from SevenTV.`);
+      log(`Fetched 1 emote set from SevenTV.`);
       this.status = "loaded";
       return [
         {
@@ -1275,7 +1274,7 @@
     }
     render() {
       super.render();
-      log2("Rendering settings modal..");
+      log("Rendering settings modal..");
       const sharedSettings = this.settingsOpts.sharedSettings;
       const settingsMap = this.settingsOpts.settingsMap;
       const $modalBody = this.$modalBody;
@@ -1661,11 +1660,13 @@
       VERSION: "1.0.0",
       PLATFORM: PLATFORM_ENUM.NULL,
       // RESOURCE_ROOT: 'http://localhost:3000',
-      RESOURCE_ROOT: "https://github.com/Xzensi/Nipah-Chat/raw/master",
-      DEBUG: true
+      // RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
+      RESOURCE_ROOT: "https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master",
+      DEBUG: false
     };
     async initialize() {
       info(`Initializing Nipah client ${this.VERSION}..`);
+      const { ENV_VARS } = this;
       if (window2.app_name === "Kick") {
         this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
         info("Platform detected: Kick");
@@ -1681,10 +1682,10 @@
         return error2("Failed to load channel data");
       const emotesManager = new EmotesManager(eventBus, channelData.kick_channel_id);
       let userInterface;
-      if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
+      if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
       } else {
-        return error2("Platform has no user interface imlemented..", this.ENV_VARS.PLATFORM);
+        return error2("Platform has no user interface imlemented..", ENV_VARS.PLATFORM);
       }
       this.loadStyles().then(() => {
         userInterface.loadInterface();
@@ -1749,12 +1750,12 @@
     }
   };
   info("Running Nipah Client script.");
-  log2("Waiting for message input field..");
+  log("Waiting for message input field..");
   var awaitLoadInterval = setInterval(() => {
     if (window2.app_name !== "Kick" || !document.getElementById("message-input")) {
       return;
     }
-    log2("Message input field found.");
+    log("Message input field found.");
     clearInterval(awaitLoadInterval);
     setTimeout(() => {
       const nipahClient = new NipahClient();

@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name Nipah chat client
+// @name Nipah Chat client
 // @namespace https://github.com/Xzensi/Nipah-Chat
 // @version 1.0
 // @author Xzensi
@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://github.com/Xzensi/Nipah-Chat/raw/master/dist/kick.css
+// @resource KICK_CSS https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master/dist/kick.css
 // @supportURL https://github.com/Xzensi/Nipah-Chat
 // @homepageURL https://github.com/Xzensi/Nipah-Chat
 // @downloadURL https://github.com/Xzensi/Nipah-Chat/raw/master/dist/client.user.js
