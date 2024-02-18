@@ -10,7 +10,7 @@
 
   <p align="center">
     <br />
-    <a href="https://github.com/Xzensi/NipahChat/raw/master/demo/demo.mp4">View Demo</a>
+    <a href="#demo-video">View Demo</a>
     ·
     <a href="https://github.com/Xzensi/NipahChat/issues">Report Bug</a>
     ·
@@ -18,11 +18,9 @@
   </p>
   <br />
 
-  <div>
-    <img src="demo/screenshot_2.png">
-    <img src="demo/screenshot_3.png">
-    <video src="https://github.com/Xzensi/NipahChat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
-  </div>
+  |    |    |    |
+  | -- | -- | -- |
+  |<img src="demo/screenshot_2.png" width="280">|<img src="demo/screenshot_3.png" width="280">|<video name="demo-video" src="https://github.com/Xzensi/NipahChat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>|
 </div>
 
 <br />
