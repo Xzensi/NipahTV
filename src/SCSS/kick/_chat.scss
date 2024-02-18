@@ -1,0 +1,43 @@
+@use '../variables' as *;
+
+#chatroom {
+	[data-chat-entry] {
+		margin-top: 0;
+	}
+
+	&.nipah__alternating-background {
+		[data-chat-entry]:nth-child(odd) {
+			background-color: rgba(127, 127, 127, 0.05);
+		}
+	}
+
+	&.nipah__seperators {
+		&-basic {
+			[data-chat-entry] {
+				border-bottom: 1px solid $border-transparent-1;
+			}
+		}
+
+		&-3d {
+			[data-chat-entry] {
+				border-top: 1px solid rgba(255, 255, 255, 0.1);
+				border-bottom: 1px solid #000;
+			}
+		}
+
+		&-3d-inset {
+			[data-chat-entry] {
+				border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+				border-top: 1px solid #000;
+			}
+		}
+
+		&-wide {
+			[data-chat-entry] {
+				border-bottom: 2px solid $border-transparent-1;
+				border-top: 2px solid $border-transparent-1;
+				padding: 0.1em;
+			}
+		}
+	}
+}

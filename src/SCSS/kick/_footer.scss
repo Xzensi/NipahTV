@@ -1,0 +1,22 @@
+@use '../variables' as *;
+
+.nipah_client_footer {
+	font-size: $root_font_size;
+
+	.footer_logo_btn {
+		transition: background 0.0618s ease-in-out;
+		background: transparent;
+		border-radius: 0.25rem;
+		object-fit: contain;
+		line-height: 1.8em;
+		text-align: center;
+		font-size: 1.4em;
+		cursor: pointer;
+		height: 1.83em;
+		width: 4.5em;
+
+		&:hover {
+			background: hsla(0, 0%, 50%, 0.2);
+		}
+	}
+}

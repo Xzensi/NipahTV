@@ -1,0 +1,13 @@
+{
+	"name": "nipah-chat",
+	"version": "1.0.0",
+	"description": "Better Kick and 7TV Emote Integration for Kick",
+	"author": "Xzensi",
+	"license": "AGPL-3.0-only",
+	"scripts": {
+		"build": "rm -f dist/vm-script.user.js && cat compile_header.md >> dist/client.user.js && esbuild src/app.js --bundle >> dist/client.user.js"
+	},
+	"devDependencies": {
+		"esbuild": "0.20.0"
+	}
+}

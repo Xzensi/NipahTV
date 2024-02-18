@@ -1,0 +1,55 @@
+@use '../variables' as *;
+
+.nipah__settings-modal {
+	outline: 0.1em solid $border-transparent-1;
+
+	&__sidebar {
+		margin-right: 1.618em;
+		flex: 0 0 10em;
+
+		ul {
+			list-style: none;
+		}
+
+		li {
+			span {
+				// border-bottom: 0.1em solid $border-transparent-1;
+				display: inline-block;
+				padding: 0.618em 1.618em;
+				cursor: pointer;
+				width: 100%;
+			}
+		}
+	}
+
+	&__category {
+		position: relative;
+
+		&:before {
+			position: absolute;
+			content: '>';
+			top: 0.5em;
+			left: 0;
+		}
+	}
+
+	&__sub-category {
+		span {
+			transition: background-color 0.1s;
+
+			&:hover {
+				background-color: hsla(0, 0%, 50%, 0.2);
+			}
+		}
+	}
+
+	&_panels {
+		flex-direction: column;
+		flex: 1 1 100%;
+		display: flex;
+	}
+
+	.nipah__modal__body {
+		padding: 2em 3em 3em 3em;
+	}
+}

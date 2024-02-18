@@ -1,0 +1,60 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+.nipah__modal {
+	background: $background-transparent-1;
+	transform: translate(-50%, -50%);
+	box-shadow: $shadow-elevation-5;
+	font-size: $root_font_size;
+	flex-direction: column;
+	border-radius: 0.25em;
+	position: absolute;
+	max-width: 100%;
+	display: flex;
+	z-index: 1003;
+
+	// min-width: 64rem;
+	// min-height: 30rem;
+	max-width: 75vw;
+	max-height: 75vh;
+
+	--width: min(75vw, 128rem);
+	--height: min(75vh, calc(0.75 * var(--width)));
+	width: 75vw;
+	width: var(--width);
+	height: 50vh;
+	height: var(--height);
+	margin: 25px;
+
+	top: 25%;
+	left: 25%;
+	top: calc(calc(100vh - var(--height)) / 2);
+	left: calc(calc(100vw - var(--width)) / 2);
+
+	&__header {
+		border-bottom: 0.1em solid $border-transparent-1;
+		justify-content: flex-end;
+		display: flex;
+		padding: 2px;
+		width: 100%;
+
+		@include user_select;
+	}
+
+	&__close-btn {
+		padding: 0.382em 0.618em;
+		font-size: 1.618em;
+		font-weight: 100;
+		cursor: pointer;
+
+		&:hover {
+			background: hsla(0, 0%, 50%, 0.2);
+		}
+	}
+
+	&__body {
+		overflow: auto;
+		flex: 1 1 100%;
+		display: flex;
+	}
+}
