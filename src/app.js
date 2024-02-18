@@ -20,16 +20,20 @@ class NipahClient {
 	ENV_VARS = {
 		VERSION: '1.0.0',
 		PLATFORM: PLATFORM_ENUM.NULL,
-		// RESOURCE_ROOT: 'http://localhost:3000',
+		DEBUG_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
 		RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master',
-		DEBUG: false
+		DEBUG: true
 	}
 
 	async initialize() {
 		info(`Initializing Nipah client ${this.VERSION}..`)
 
 		const { ENV_VARS } = this
+
+		if (ENV_VARS.DEBUG) {
+			ENV_VARS.RESOURCE_ROOT = ENV_VARS.DEBUG_RESOURCE_ROOT
+		}
 
 		if (window.app_name === 'Kick') {
 			this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK
@@ -64,7 +68,9 @@ class NipahClient {
 
 		emotesManager.registerProvider(KickProvider)
 		emotesManager.registerProvider(SevenTVProvider)
-		emotesManager.loadProviderEmotes(channelData)
+
+		const providerLoadOrder = [PLATFORM_ENUM.KICK, PLATFORM_ENUM.SEVENTV]
+		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
 
 		// Test whether UI works correctly when data loading is delayed
 		// setTimeout(() => userInterface.loadInterface(), 3000)
@@ -74,13 +80,13 @@ class NipahClient {
 		return new Promise((resolve, reject) => {
 			info('Injecting styles..')
 
-			if (this.DEBUG) {
-				// Add permission for GM_xmlhttpRequest to make
-				//  requests to the resource root for development.
-				// @grant GM.xmlHttpRequest
+			if (this.ENV_VARS.DEBUG) {
+				// * Add permission for GM_xmlhttpRequest to make
+				// *  requests to the resource root for development.
+				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: this.RESOURCE_ROOT + '/dist/kick.css',
+					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/kick.css',
 					onerror: reject,
 					onload: function (response) {
 						GM_addStyle(response.responseText)

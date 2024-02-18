@@ -69,6 +69,7 @@ To install the userscript, click on the following link: [Nipah Chat client](http
 -   Settings option for quick emote holder height.
 -   Settings option to add settings panel to kick menu to keep UI tidy.
 -   Settings option for most used emotes tracking to be global instead of per channel.
+-   Settings option to automatically expand quick emote holder on hover.
 -   More to come...
 
 ## Contributing

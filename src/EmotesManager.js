@@ -1,6 +1,7 @@
 import { AbstractProvider } from './Providers/AbstractProvider'
 import { EmoteDatastore } from './EmoteDatastore'
 import { log, info, error } from './utils'
+import { PLATFORM_ENUM } from './constants'
 
 export class EmotesManager {
 	providers = new Map()
@@ -19,23 +20,39 @@ export class EmotesManager {
 		this.providers.set(provider.id, provider)
 	}
 
-	async loadProviderEmotes(channelData) {
+	async loadProviderEmotes(channelData, providerLoadOrder) {
 		const { datastore, providers, eventBus } = this
 
-		// Attempt to fetch and register emotes from all providers
 		const fetchEmoteProviderPromises = []
 		providers.forEach(provider => {
-			fetchEmoteProviderPromises.push(
-				provider.fetchEmotes(channelData).then(emoteSets => {
-					for (const emoteSet of emoteSets) {
-						datastore.registerEmoteSet(emoteSet)
-					}
-				})
-			)
+			fetchEmoteProviderPromises.push(provider.fetchEmotes(channelData))
 		})
 
 		info('Indexing emote providers..')
-		Promise.allSettled(fetchEmoteProviderPromises).then(() => {
+		Promise.allSettled(fetchEmoteProviderPromises).then(results => {
+			const providerSets = []
+			for (const promis of results) {
+				if (promis.status === 'rejected') {
+					error('Failed to fetch emotes from provider', promis.reason)
+				} else {
+					providerSets.push(promis.value)
+				}
+			}
+
+			// Sort by custom provider sorting index to ensure
+			//  correct order of emote overrides.
+			providerSets.sort((a, b) => {
+				const indexA = providerLoadOrder.indexOf(a[0].provider)
+				const indexB = providerLoadOrder.indexOf(b[0].provider)
+				return indexA - indexB
+			})
+
+			for (const emoteSets of providerSets) {
+				for (const emoteSet of emoteSets) {
+					datastore.registerEmoteSet(emoteSet)
+				}
+			}
+
 			this.loaded = true
 			eventBus.publish('nipah.providers.loaded')
 		})
@@ -83,6 +100,10 @@ export class EmotesManager {
 
 	registerEmoteEngagement(emoteId) {
 		this.datastore.registerEmoteEngagement(emoteId)
+	}
+
+	removeEmoteHistory(emoteId) {
+		this.datastore.removeEmoteHistory(emoteId)
 	}
 
 	search(searchVal) {

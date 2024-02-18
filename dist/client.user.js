@@ -7,11 +7,12 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://github.com/Xzensi/Nipah-Chat/raw/master/dist/kick.css
+//// @resource KICK_CSS https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master/dist/kick.css
 // @supportURL https://github.com/Xzensi/Nipah-Chat
 // @homepageURL https://github.com/Xzensi/Nipah-Chat
 // @downloadURL https://github.com/Xzensi/Nipah-Chat/raw/master/dist/client.user.js
 // @grant unsafeWindow
+// @grant GM_xmlhttpRequest
 // @grant GM_addStyle
 // @grant GM_getResourceText
 // @grant GM.setClipboard
@@ -248,8 +249,13 @@
       if (isEmpty(this.pendingHistoryChanges))
         return;
       for (const emoteId in this.pendingHistoryChanges) {
-        const entries = this.emoteHistory.get(emoteId).entries;
-        localStorage.setItem(`nipah_${this.channelId}_emote_history_${emoteId}`, entries);
+        const history = this.emoteHistory.get(emoteId);
+        if (!history) {
+          localStorage.removeItem(`nipah_${this.channelId}_emote_history_${emoteId}`);
+        } else {
+          const entries = history.entries;
+          localStorage.setItem(`nipah_${this.channelId}_emote_history_${emoteId}`, entries);
+        }
       }
       this.pendingHistoryChanges = {};
       if (this.pendingNewEmoteHistory) {
@@ -296,6 +302,12 @@
       this.emoteHistory.get(emoteId).addEntry();
       this.eventBus.publish("nipah.datastore.emotes.history.changed", { emoteId });
     }
+    removeEmoteHistory(emoteId) {
+      if (!emoteId)
+        return error2("Undefined required emoteId argument");
+      this.emoteHistory.delete(emoteId);
+      this.pendingHistoryChanges[emoteId] = true;
+    }
     searchEmotes(searchVal) {
       return this.fuse.search(searchVal).sort((a, b) => {
         const aHistory = (this.emoteHistory.get(a.item.id)?.getTotal() || 0) + 1;
@@ -309,6 +321,15 @@
         return 0;
       });
     }
+  };
+
+  // src/constants.js
+  var PLATFORM_ENUM = {
+    NULL: 0,
+    KICK: 1,
+    TWITCH: 2,
+    YOUTUBE: 3,
+    SEVENTV: 4
   };
 
   // src/EmotesManager.js
@@ -326,20 +347,32 @@
       const provider = new providerConstructor(this.datastore);
       this.providers.set(provider.id, provider);
     }
-    async loadProviderEmotes(channelData) {
+    async loadProviderEmotes(channelData, providerLoadOrder) {
       const { datastore, providers, eventBus } = this;
       const fetchEmoteProviderPromises = [];
       providers.forEach((provider) => {
-        fetchEmoteProviderPromises.push(
-          provider.fetchEmotes(channelData).then((emoteSets) => {
-            for (const emoteSet of emoteSets) {
-              datastore.registerEmoteSet(emoteSet);
-            }
-          })
-        );
+        fetchEmoteProviderPromises.push(provider.fetchEmotes(channelData));
       });
       info("Indexing emote providers..");
-      Promise.allSettled(fetchEmoteProviderPromises).then(() => {
+      Promise.allSettled(fetchEmoteProviderPromises).then((results) => {
+        const providerSets = [];
+        for (const promis of results) {
+          if (promis.status === "rejected") {
+            error2("Failed to fetch emotes from provider", promis.reason);
+          } else {
+            providerSets.push(promis.value);
+          }
+        }
+        providerSets.sort((a, b) => {
+          const indexA = providerLoadOrder.indexOf(a[0].provider);
+          const indexB = providerLoadOrder.indexOf(b[0].provider);
+          return indexA - indexB;
+        });
+        for (const emoteSets of providerSets) {
+          for (const emoteSet of emoteSets) {
+            datastore.registerEmoteSet(emoteSet);
+          }
+        }
         this.loaded = true;
         eventBus.publish("nipah.providers.loaded");
       });
@@ -380,6 +413,9 @@
     }
     registerEmoteEngagement(emoteId) {
       this.datastore.registerEmoteEngagement(emoteId);
+    }
+    removeEmoteHistory(emoteId) {
+      this.datastore.removeEmoteHistory(emoteId);
     }
     search(searchVal) {
       return this.datastore.searchEmotes(searchVal);
@@ -700,8 +736,10 @@
     updateEmoteHistory(emoteId) {
       const { emotesManager } = this;
       const emote = emotesManager.getEmote(emoteId);
-      if (!emote)
-        return error2("Invalid emote");
+      if (!emote) {
+        emotesManager.removeEmoteHistory(emoteId);
+        return error2("History encountered emote missing from provider emote sets..", emoteId);
+      }
       const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.id === emoteId);
       if (emoteInSortingListIndex !== -1) {
         const emoteToSort = this.sortingList[emoteInSortingListIndex];
@@ -950,15 +988,6 @@
       textFieldEl.dispatchEvent(new Event("input"));
       textFieldEl.focus();
     }
-  };
-
-  // src/constants.js
-  var PLATFORM_ENUM = {
-    NULL: 0,
-    KICK: 1,
-    TWITCH: 2,
-    YOUTUBE: 3,
-    SEVENTV: 4
   };
 
   // src/Providers/KickProvider.js
@@ -1659,14 +1688,17 @@
     ENV_VARS = {
       VERSION: "1.0.0",
       PLATFORM: PLATFORM_ENUM.NULL,
-      // RESOURCE_ROOT: 'http://localhost:3000',
+      DEBUG_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
       RESOURCE_ROOT: "https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master",
-      DEBUG: false
+      DEBUG: true
     };
     async initialize() {
       info(`Initializing Nipah client ${this.VERSION}..`);
       const { ENV_VARS } = this;
+      if (ENV_VARS.DEBUG) {
+        ENV_VARS.RESOURCE_ROOT = ENV_VARS.DEBUG_RESOURCE_ROOT;
+      }
       if (window2.app_name === "Kick") {
         this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
         info("Platform detected: Kick");
@@ -1692,15 +1724,16 @@
       }).catch((response) => error2("Failed to load styles.", response));
       emotesManager.registerProvider(KickProvider);
       emotesManager.registerProvider(SevenTVProvider);
-      emotesManager.loadProviderEmotes(channelData);
+      const providerLoadOrder = [PLATFORM_ENUM.KICK, PLATFORM_ENUM.SEVENTV];
+      emotesManager.loadProviderEmotes(channelData, providerLoadOrder);
     }
     loadStyles() {
       return new Promise((resolve, reject) => {
         info("Injecting styles..");
-        if (this.DEBUG) {
+        if (this.ENV_VARS.DEBUG) {
           GM_xmlhttpRequest({
             method: "GET",
-            url: this.RESOURCE_ROOT + "/dist/kick.css",
+            url: this.ENV_VARS.RESOURCE_ROOT + "/dist/kick.css",
             onerror: reject,
             onload: function(response) {
               GM_addStyle(response.responseText);

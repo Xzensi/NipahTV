@@ -68,7 +68,11 @@ export class QuickEmotesHolder extends AbstractComponent {
 	updateEmoteHistory(emoteId) {
 		const { emotesManager } = this
 		const emote = emotesManager.getEmote(emoteId)
-		if (!emote) return error('Invalid emote')
+		if (!emote) {
+			// Remove emote from history since it's not in the provider emote sets
+			emotesManager.removeEmoteHistory(emoteId)
+			return error('History encountered emote missing from provider emote sets..', emoteId)
+		}
 
 		const emoteInSortingListIndex = this.sortingList.findIndex(entry => entry.id === emoteId)
 

@@ -54,8 +54,13 @@ export class EmoteDatastore {
 		if (isEmpty(this.pendingHistoryChanges)) return
 
 		for (const emoteId in this.pendingHistoryChanges) {
-			const entries = this.emoteHistory.get(emoteId).entries
-			localStorage.setItem(`nipah_${this.channelId}_emote_history_${emoteId}`, entries)
+			const history = this.emoteHistory.get(emoteId)
+			if (!history) {
+				localStorage.removeItem(`nipah_${this.channelId}_emote_history_${emoteId}`)
+			} else {
+				const entries = history.entries
+				localStorage.setItem(`nipah_${this.channelId}_emote_history_${emoteId}`, entries)
+			}
 		}
 
 		this.pendingHistoryChanges = {}
@@ -122,6 +127,15 @@ export class EmoteDatastore {
 		this.pendingHistoryChanges[emoteId] = true
 		this.emoteHistory.get(emoteId).addEntry()
 		this.eventBus.publish('nipah.datastore.emotes.history.changed', { emoteId })
+	}
+
+	removeEmoteHistory(emoteId) {
+		if (!emoteId) return error('Undefined required emoteId argument')
+
+		this.emoteHistory.delete(emoteId)
+		this.pendingHistoryChanges[emoteId] = true
+		// Calling event here will cause recursive loops
+		// this.eventBus.publish('nipah.datastore.emotes.history.changed', { emoteId })
 	}
 
 	searchEmotes(searchVal) {
