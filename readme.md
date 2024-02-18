@@ -30,10 +30,12 @@ Nipah Chat aims to enhance the emote integration experience within Kick chat by 
 
 <b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve Nipah Chat.
 
+<a name="demo-video"></a>
+<br />
 <div align="center">
-  <a name="demo-video"></a>
   <video src="https://github.com/Xzensi/NipahChat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
 </div>
+<br />
 
 ## Getting Started
 
