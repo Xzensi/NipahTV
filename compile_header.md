@@ -4,7 +4,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://github.com/Xzensi/nipah-chat/dist/kick.css
+// @resource KICK_CSS https://github.com/Xzensi/Nipah-Chat/raw/master/dist/kick.css
 // @version 1.0
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
