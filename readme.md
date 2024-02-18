@@ -17,19 +17,23 @@
     <a href="https://github.com/Xzensi/NipahChat/issues">Request Feature</a>
   </p>
   <br />
-
-  |    |    |    |
-  | -- | -- | -- |
-  |<img src="demo/screenshot_2.png" width="280">|<img src="demo/screenshot_3.png" width="280">|<video name="demo-video" src="https://github.com/Xzensi/NipahChat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>|
+  
+  <img src="demo/screenshot_2.png" />
+  <img src="demo/screenshot_3.png" />
 </div>
 
 <br />
 
 ## About The Project
 
-Nipah Chat aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. Nipah Chat addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
+Nipah Chat aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. Nipah Chat addresses these shortcomings by offering a better interface and compatibility with multiple emote providers. 
 
 <b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve Nipah Chat.
+
+<div align="center">
+  <a name="demo-video"></a>
+  <video src="https://github.com/Xzensi/NipahChat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
+</div>
 
 ## Getting Started
 
