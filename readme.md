@@ -2,7 +2,7 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/Xzensi/NipahChat">
+  <a href="https://github.com/Xzensi/Nipah-Chat">
     <img src="dist/logo_full.png" alt="Nipah" height="90">
   </a>
 
@@ -12,9 +12,9 @@
     <br />
     <a href="#demo-video">View Demo</a>
     ·
-    <a href="https://github.com/Xzensi/NipahChat/issues">Report Bug</a>
+    <a href="https://github.com/Xzensi/Nipah-Chat/issues">Report Bug</a>
     ·
-    <a href="https://github.com/Xzensi/NipahChat/issues">Request Feature</a>
+    <a href="https://github.com/Xzensi/Nipah-Chat/issues">Request Feature</a>
   </p>
   <br />
   
@@ -33,7 +33,7 @@ Nipah Chat aims to enhance the emote integration experience within Kick chat by 
 <a name="demo-video"></a>
 <br />
 <div align="center">
-  <video src="https://github.com/Xzensi/NipahChat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
+  <video src="https://github.com/Xzensi/Nipah-Chat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
 </div>
 <br />
 
