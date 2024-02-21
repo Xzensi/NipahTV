@@ -2,7 +2,7 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/Xzensi/Nipah-Chat">
+  <a href="https://github.com/Xzensi/NipahTV">
     <img src="dist/logo_full.png" alt="Nipah" height="90">
   </a>
 
@@ -12,9 +12,9 @@
     <br />
     <a href="#demo-video">View Demo</a>
     ·
-    <a href="https://github.com/Xzensi/Nipah-Chat/issues">Report Bug</a>
+    <a href="https://github.com/Xzensi/NipahTV/issues">Report Bug</a>
     ·
-    <a href="https://github.com/Xzensi/Nipah-Chat/issues">Request Feature</a>
+    <a href="https://github.com/Xzensi/NipahTV/issues">Request Feature</a>
   </p>
   <br />
   
@@ -34,7 +34,7 @@ Nipah Chat aims to enhance the emote integration experience within Kick chat by 
 <br />
 
 <div align="center">
-  <video src="https://github.com/Xzensi/Nipah-Chat/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
+  <video src="https://github.com/Xzensi/NipahTV/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
 </div>
 <br />
 
@@ -46,10 +46,10 @@ To use Nipah Chat, you'll need to install a userscript manager like Violentmonke
 
 Currently, tab completion and emotes-in-chat rendering are not yet implemented but are on the way. For the time being, you still need to have the 7TV extension installed and enabled for 7TV emotes to render in chat. You can find the 7TV extension here: [Chrome](https://chromewebstore.google.com/detail/7tv/ammjkodgmmoknidbanneddgankgfejfh), [Firefox](https://7tv.app/).
 
-To install the userscript, click on the following link: [Nipah Chat client](https://github.com/Xzensi/Nipah-Chat/raw/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
+To install the userscript, click on the following link: [Nipah Chat client](https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
 
 1. Open your userscript manager (Violentmonkey) dashboard and click on the "New" button in the top left corner.
-2. Click "Install from URL" and paste the following URL: `https://github.com/Xzensi/Nipah-Chat/raw/master/dist/client.user.js`
+2. Click "Install from URL" and paste the following URL: `https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js`
 3. Click "Install" and you're all set!
 
 ## Roadmap
@@ -65,6 +65,7 @@ To install the userscript, click on the following link: [Nipah Chat client](http
 -   Chat emotes rendering, so that 7TV extension does not need to be enabled.
 -   Emote tab completion (incompatible with 7TV extension).
 -   BetterTTV provider support
+-   Show emote sets of other subscribed kick channels other than the current one.
 -   Settings option to sort by size or not.
 -   Settings option for quick emote holder height.
 -   Settings option to add settings panel to kick menu to keep UI tidy.

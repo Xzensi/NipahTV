@@ -72,7 +72,14 @@ export class SettingsModal extends AbstractModal {
 				$panels.append($subCategoryPanel)
 
 				for (const group of subCategory.children) {
-					const $group = $(`<div class="nipah__settings__group"></div>`)
+					const $group = $(
+						`<div class="nipah__settings-modal__group">
+							<div class="nipah__settings-modal__group-header">
+								<h4>${group.label}</h4>
+								${group.description ? `<p>${group.description}</p>` : ''}
+							</div>
+						</div>`
+					)
 					$subCategoryPanel.append($group)
 
 					for (const setting of group.children) {

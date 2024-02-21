@@ -40,6 +40,20 @@ export class SettingsManager {
 
 	sharedSettings = [
 		{
+			label: 'Appearance',
+			children: [
+				{
+					label: 'Layout',
+					children: [
+						{
+							label: 'Channel',
+							children: []
+						}
+					]
+				}
+			]
+		},
+		{
 			label: 'Chat',
 			children: [
 				{
@@ -131,6 +145,41 @@ export class SettingsManager {
 									label: 'Show the search box (not yet implemented)',
 									id: 'shared.chat.emote_menu.appearance.search_box',
 									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Emote providers',
+					children: [
+						{
+							label: 'Kick',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Show global emote set.',
+									id: 'shared.chat.emote_providers.kick.filter_global',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show current channel emote set.',
+									id: 'shared.chat.emote_providers.kick.filter_current_channel',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show other channel emote sets.',
+									id: 'shared.chat.emote_providers.kick.filter_other_channels',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show Emoji emote set.',
+									id: 'shared.chat.emote_providers.kick.filter_emojis',
+									default: false,
 									type: 'checkbox'
 								}
 							]

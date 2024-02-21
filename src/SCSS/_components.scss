@@ -1,12 +1,54 @@
 @use 'variables' as *;
 
-$spacing: 0.382em;
+$spacing: 1em;
 
 .nipah__checkbox {
+	white-space: nowrap;
 	margin: $spacing 0;
 
 	input {
-		margin-right: 1em;
+		border: 0.15em solid $primary;
+		vertical-align: middle;
+		border-radius: 0.15em;
+		margin: 0 1em 0 0;
+		appearance: none;
+		height: 1.618em;
+		width: 1.618em;
+
+		position: relative;
+		opacity: 0.75;
+		// left: -2em;
+
+		&::before {
+			transition: 120ms transform ease-in-out;
+			box-shadow: inset 1em 1em $primary;
+			// transform: scale(0);
+			// height: 0.618em;
+			// width: 0.618em;
+			content: '';
+
+			transform: translate(-50%, -50%) scale(0);
+			position: absolute;
+			height: 0.9em;
+			width: 0.9em;
+			left: 50%;
+			top: 50%;
+		}
+
+		&:hover {
+			opacity: 0.95;
+		}
+
+		&:checked::before {
+			// transform: scale(1);
+			transform: translate(-50%, -50%) scale(1);
+		}
+	}
+
+	label {
+		display: inline-block;
+		vertical-align: top;
+		white-space: normal;
 	}
 }
 

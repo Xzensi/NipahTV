@@ -1,16 +1,16 @@
 // ==UserScript==
-// @name Nipah Chat client
-// @namespace https://github.com/Xzensi/Nipah-Chat
+// @name NipahTV
+// @namespace https://github.com/Xzensi/NipahTV
 // @version 1.0
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-//// @resource KICK_CSS https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master/dist/kick.css
-// @supportURL https://github.com/Xzensi/Nipah-Chat
-// @homepageURL https://github.com/Xzensi/Nipah-Chat
-// @downloadURL https://github.com/Xzensi/Nipah-Chat/raw/master/dist/client.user.js
+// @resource KICK_CSS https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master/dist/kick.css
+// @supportURL https://github.com/Xzensi/NipahTV
+// @homepageURL https://github.com/Xzensi/NipahTV
+// @downloadURL https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js
 // @grant unsafeWindow
 // @grant GM_xmlhttpRequest
 // @grant GM_addStyle
@@ -336,15 +336,16 @@
   var EmotesManager = class {
     providers = /* @__PURE__ */ new Map();
     loaded = false;
-    constructor(eventBus, channelId) {
+    constructor({ eventBus, settingsManager }, channelId) {
       this.eventBus = eventBus;
+      this.settingsManager = settingsManager;
       this.datastore = new EmoteDatastore(eventBus, channelId);
     }
     registerProvider(providerConstructor) {
       if (!(providerConstructor.prototype instanceof AbstractProvider)) {
         return error2("Invalid provider constructor", providerConstructor);
       }
-      const provider = new providerConstructor(this.datastore);
+      const provider = new providerConstructor(this.datastore, this.settingsManager);
       this.providers.set(provider.id, provider);
     }
     async loadProviderEmotes(channelData, providerLoadOrder) {
@@ -359,7 +360,7 @@
         for (const promis of results) {
           if (promis.status === "rejected") {
             error2("Failed to fetch emotes from provider", promis.reason);
-          } else {
+          } else if (promis.value && promis.value.length) {
             providerSets.push(promis.value);
           }
         }
@@ -448,10 +449,10 @@
       this.eventBus = eventBus;
     }
     render() {
-      const basePath = this.ENV_VARS.RESOURCE_ROOT;
+      const basePath = this.ENV_VARS.RESOURCE_ROOT + "/dist/img";
       this.$element = $(`
             <div class="nipah_client_footer">
-                <img class="footer_logo_btn" srcset="${basePath}/dist/logo_1.png 1x, ${basePath}/dist/logo_1@2x.png 2x, ${basePath}/dist/logo_1@3x.png 3x" draggable="false" alt="Nipah">
+                <img class="footer_logo_btn" srcset="${basePath}/logo.png 1x, ${basePath}/logo@2x.png 2x, ${basePath}/logo@3x.png 3x" draggable="false" alt="Nipah">
             </div>
         `);
       $("#chatroom-footer .send-row").prepend(this.$element);
@@ -994,17 +995,39 @@
   var KickProvider = class extends AbstractProvider {
     id = PLATFORM_ENUM.KICK;
     status = "unloaded";
-    constructor(datastore) {
+    constructor(datastore, settingsManager) {
       super(datastore);
+      this.settingsManager = settingsManager;
     }
     async fetchEmotes({ kick_channel_id, kick_channel_name }) {
       if (!kick_channel_id)
         return error2("Missing channel id for Kick provider");
       if (!kick_channel_name)
         return error2("Missing channel name for Kick provider");
+      const { settingsManager } = this;
+      const includeGlobalEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_global");
+      const includeCurrentChannelEmoteSet = settingsManager.getSetting(
+        "shared.chat.emote_providers.kick.filter_current_channel"
+      );
+      const includeOtherChannelEmoteSets = settingsManager.getSetting(
+        "shared.chat.emote_providers.kick.filter_other_channels"
+      );
+      const includeEmojiEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_emojis");
       info("Fetching emote data from Kick..");
       const data = await fetchJSON(`https://kick.com/emotes/${kick_channel_name}`);
-      const dataFiltered = data.filter((entry) => entry.id === kick_channel_id || entry.id === "Global");
+      let dataFiltered = data;
+      if (!includeGlobalEmoteSet) {
+        dataFiltered = dataFiltered.filter((entry) => entry.id !== "Global");
+      }
+      if (!includeEmojiEmoteSet) {
+        dataFiltered = dataFiltered.filter((entry) => entry.id !== "Emoji");
+      }
+      if (!includeCurrentChannelEmoteSet) {
+        dataFiltered = dataFiltered.filter((entry) => entry.id !== kick_channel_id);
+      }
+      if (!includeOtherChannelEmoteSets) {
+        dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
+      }
       const emoteSets = [];
       for (const dataSet of dataFiltered) {
         const { emotes, subscription_enabled } = dataSet;
@@ -1030,7 +1053,7 @@
         });
       }
       if (!emoteSets.length) {
-        log("No emotes found on Kick provider");
+        log("No emote sets found on Kick provider with current settings.");
         this.status = "no_emotes_found";
         return [];
       }
@@ -1061,14 +1084,16 @@
   var SevenTVProvider = class extends AbstractProvider {
     id = PLATFORM_ENUM.SEVENTV;
     status = "unloaded";
-    constructor(datastore) {
+    constructor(datastore, settingsManager) {
       super(datastore);
+      this.settingsManager = settingsManager;
     }
     async fetchEmotes({ kick_user_id }) {
       info("Fetching emote data from SevenTV..");
       if (!kick_user_id)
         return error2("Missing kick channel id for SevenTV provider.");
       const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${kick_user_id}`);
+      log(data);
       if (!data.emote_set || !data.emote_set.emotes.length) {
         log("No emotes found on SevenTV provider");
         this.status = "no_emotes_found";
@@ -1343,7 +1368,14 @@
           );
           $panels.append($subCategoryPanel);
           for (const group of subCategory.children) {
-            const $group = $(`<div class="nipah__settings__group"></div>`);
+            const $group = $(
+              `<div class="nipah__settings-modal__group">
+							<div class="nipah__settings-modal__group-header">
+								<h4>${group.label}</h4>
+								${group.description ? `<p>${group.description}</p>` : ""}
+							</div>
+						</div>`
+            );
             $subCategoryPanel.append($group);
             for (const setting of group.children) {
               let settingComponent;
@@ -1437,6 +1469,20 @@
        */
     sharedSettings = [
       {
+        label: "Appearance",
+        children: [
+          {
+            label: "Layout",
+            children: [
+              {
+                label: "Channel",
+                children: []
+              }
+            ]
+          }
+        ]
+      },
+      {
         label: "Chat",
         children: [
           {
@@ -1528,6 +1574,41 @@
                     label: "Show the search box (not yet implemented)",
                     id: "shared.chat.emote_menu.appearance.search_box",
                     default: true,
+                    type: "checkbox"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            label: "Emote providers",
+            children: [
+              {
+                label: "Kick",
+                description: "These settings require a page refresh to take effect.",
+                children: [
+                  {
+                    label: "Show global emote set.",
+                    id: "shared.chat.emote_providers.kick.filter_global",
+                    default: true,
+                    type: "checkbox"
+                  },
+                  {
+                    label: "Show current channel emote set.",
+                    id: "shared.chat.emote_providers.kick.filter_current_channel",
+                    default: true,
+                    type: "checkbox"
+                  },
+                  {
+                    label: "Show other channel emote sets.",
+                    id: "shared.chat.emote_providers.kick.filter_other_channels",
+                    default: true,
+                    type: "checkbox"
+                  },
+                  {
+                    label: "Show Emoji emote set.",
+                    id: "shared.chat.emote_providers.kick.filter_emojis",
+                    default: false,
                     type: "checkbox"
                   }
                 ]
@@ -1688,16 +1769,16 @@
     ENV_VARS = {
       VERSION: "1.0.0",
       PLATFORM: PLATFORM_ENUM.NULL,
-      DEBUG_RESOURCE_ROOT: "http://localhost:3000",
-      // RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
-      RESOURCE_ROOT: "https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master",
+      LOCAL_RESOURCE_ROOT: "http://localhost:3000",
+      // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
+      RESOURCE_ROOT: "https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master",
       DEBUG: true
     };
     async initialize() {
       info(`Initializing Nipah client ${this.VERSION}..`);
       const { ENV_VARS } = this;
       if (ENV_VARS.DEBUG) {
-        ENV_VARS.RESOURCE_ROOT = ENV_VARS.DEBUG_RESOURCE_ROOT;
+        ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
       }
       if (window2.app_name === "Kick") {
         this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
@@ -1712,7 +1793,7 @@
       const channelData = await this.loadChannelData();
       if (!channelData)
         return error2("Failed to load channel data");
-      const emotesManager = new EmotesManager(eventBus, channelData.kick_channel_id);
+      const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id);
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });

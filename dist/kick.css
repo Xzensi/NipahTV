@@ -1,12 +1,45 @@
 .nipah__checkbox {
-  margin: 0.382em 0;
+  white-space: nowrap;
+  margin: 1em 0;
 }
 .nipah__checkbox input {
-  margin-right: 1em;
+  border: 0.15em solid #fd61a2;
+  vertical-align: middle;
+  border-radius: 0.15em;
+  margin: 0 1em 0 0;
+  -webkit-appearance: none;
+     -moz-appearance: none;
+          appearance: none;
+  height: 1.618em;
+  width: 1.618em;
+  position: relative;
+  opacity: 0.75;
+}
+.nipah__checkbox input::before {
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em #fd61a2;
+  content: "";
+  transform: translate(-50%, -50%) scale(0);
+  position: absolute;
+  height: 0.9em;
+  width: 0.9em;
+  left: 50%;
+  top: 50%;
+}
+.nipah__checkbox input:hover {
+  opacity: 0.95;
+}
+.nipah__checkbox input:checked::before {
+  transform: translate(-50%, -50%) scale(1);
+}
+.nipah__checkbox label {
+  display: inline-block;
+  vertical-align: top;
+  white-space: normal;
 }
 
 .nipah__dropdown {
-  margin: 0.382em 0;
+  margin: 1em 0;
 }
 .nipah__dropdown select {
   border: 0.2em solid rgba(255, 255, 255, 0.1019607843);
@@ -20,7 +53,7 @@
 }
 
 .nipah__color {
-  margin: 0.382em 0;
+  margin: 1em 0;
 }
 .nipah__color label {
   margin-right: 1em;
@@ -35,25 +68,26 @@
 }
 .nipah__settings-modal__sidebar {
   margin-right: 1.618em;
-  flex: 0 0 10em;
+  flex: 0 0 fit-content;
 }
 .nipah__settings-modal__sidebar ul {
   list-style: none;
 }
-.nipah__settings-modal__sidebar li span {
+.nipah__settings-modal__sidebar span {
   display: inline-block;
   padding: 0.618em 1.618em;
   cursor: pointer;
   width: 100%;
 }
 .nipah__settings-modal__category {
+  margin-bottom: 1.618em;
   position: relative;
 }
-.nipah__settings-modal__category:before {
-  position: absolute;
-  content: ">";
-  top: 0.5em;
-  left: 0;
+.nipah__settings-modal__category > span {
+  padding: 0 1.618em 0 1.3em;
+  margin-bottom: 0.5em;
+  font-size: 1.333em;
+  cursor: default;
 }
 .nipah__settings-modal__sub-category span {
   transition: background-color 0.1s;
@@ -61,10 +95,22 @@
 .nipah__settings-modal__sub-category span:hover {
   background-color: hsla(0, 0%, 50%, 0.2);
 }
+.nipah__settings-modal__group {
+  margin-bottom: 1.618em;
+}
+.nipah__settings-modal__group-header {
+  margin-bottom: 1.5em;
+}
+.nipah__settings-modal__group-header h4 {
+  font-size: 1.333em;
+}
 .nipah__settings-modal_panels {
   flex-direction: column;
   flex: 1 1 100%;
   display: flex;
+}
+.nipah__settings-modal_panels__panel {
+  padding-top: 0.618em;
 }
 .nipah__settings-modal .nipah__modal__body {
   padding: 2em 3em 3em 3em;
@@ -307,7 +353,7 @@ supported by Chrome, Edge, Opera and Firefox */
 }
 
 .nipah_client_quick_emotes_holder {
-  max-height: 5.6em;
+  max-height: 8.4em;
   font-size: 14px;
   align-items: center;
   overflow: hidden;
@@ -349,10 +395,11 @@ supported by Chrome, Edge, Opera and Firefox */
      object-fit: contain;
   line-height: 1.8em;
   text-align: center;
+  padding: 0 0.333em;
   font-size: 1.4em;
   cursor: pointer;
   height: 1.83em;
-  width: 4.5em;
+  width: 6em;
 }
 .nipah_client_footer .footer_logo_btn:hover {
   background: hsla(0, 0%, 50%, 0.2);

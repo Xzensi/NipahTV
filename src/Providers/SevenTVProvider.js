@@ -6,16 +6,17 @@ export class SevenTVProvider extends AbstractProvider {
 	id = PLATFORM_ENUM.SEVENTV
 	status = 'unloaded'
 
-	constructor(datastore) {
+	constructor(datastore, settingsManager) {
 		super(datastore)
+		this.settingsManager = settingsManager
 	}
 
 	async fetchEmotes({ kick_user_id }) {
 		info('Fetching emote data from SevenTV..')
 		if (!kick_user_id) return error('Missing kick channel id for SevenTV provider.')
 
-		// TODO Global 7tv emotes are still missing, seems to be hardcoded?
 		const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${kick_user_id}`)
+		log(data)
 		if (!data.emote_set || !data.emote_set.emotes.length) {
 			log('No emotes found on SevenTV provider')
 			this.status = 'no_emotes_found'

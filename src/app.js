@@ -20,9 +20,9 @@ class NipahClient {
 	ENV_VARS = {
 		VERSION: '1.0.0',
 		PLATFORM: PLATFORM_ENUM.NULL,
-		DEBUG_RESOURCE_ROOT: 'http://localhost:3000',
-		// RESOURCE_ROOT: 'https://github.com/Xzensi/Nipah-Chat/raw/master',
-		RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/Nipah-Chat@master',
+		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
+		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
+		RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		DEBUG: true
 	}
 
@@ -32,7 +32,7 @@ class NipahClient {
 		const { ENV_VARS } = this
 
 		if (ENV_VARS.DEBUG) {
-			ENV_VARS.RESOURCE_ROOT = ENV_VARS.DEBUG_RESOURCE_ROOT
+			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
 		}
 
 		if (window.app_name === 'Kick') {
@@ -51,7 +51,7 @@ class NipahClient {
 		const channelData = await this.loadChannelData()
 		if (!channelData) return error('Failed to load channel data')
 
-		const emotesManager = new EmotesManager(eventBus, channelData.kick_channel_id)
+		const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id)
 
 		let userInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {

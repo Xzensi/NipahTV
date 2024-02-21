@@ -6,17 +6,42 @@ export class KickProvider extends AbstractProvider {
 	id = PLATFORM_ENUM.KICK
 	status = 'unloaded'
 
-	constructor(datastore) {
+	constructor(datastore, settingsManager) {
 		super(datastore)
+		this.settingsManager = settingsManager
 	}
 
 	async fetchEmotes({ kick_channel_id, kick_channel_name }) {
 		if (!kick_channel_id) return error('Missing channel id for Kick provider')
 		if (!kick_channel_name) return error('Missing channel name for Kick provider')
 
+		const { settingsManager } = this
+
+		const includeGlobalEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_global')
+		const includeCurrentChannelEmoteSet = settingsManager.getSetting(
+			'shared.chat.emote_providers.kick.filter_current_channel'
+		)
+		const includeOtherChannelEmoteSets = settingsManager.getSetting(
+			'shared.chat.emote_providers.kick.filter_other_channels'
+		)
+		const includeEmojiEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_emojis')
+
 		info('Fetching emote data from Kick..')
 		const data = await fetchJSON(`https://kick.com/emotes/${kick_channel_name}`)
-		const dataFiltered = data.filter(entry => entry.id === kick_channel_id || entry.id === 'Global')
+
+		let dataFiltered = data
+		if (!includeGlobalEmoteSet) {
+			dataFiltered = dataFiltered.filter(entry => entry.id !== 'Global')
+		}
+		if (!includeEmojiEmoteSet) {
+			dataFiltered = dataFiltered.filter(entry => entry.id !== 'Emoji')
+		}
+		if (!includeCurrentChannelEmoteSet) {
+			dataFiltered = dataFiltered.filter(entry => entry.id !== kick_channel_id)
+		}
+		if (!includeOtherChannelEmoteSets) {
+			dataFiltered = dataFiltered.filter(entry => !entry.user_id)
+		}
 
 		const emoteSets = []
 		for (const dataSet of dataFiltered) {
@@ -48,7 +73,7 @@ export class KickProvider extends AbstractProvider {
 		}
 
 		if (!emoteSets.length) {
-			log('No emotes found on Kick provider')
+			log('No emote sets found on Kick provider with current settings.')
 			this.status = 'no_emotes_found'
 			return []
 		}

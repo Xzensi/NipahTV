@@ -7,8 +7,9 @@ export class EmotesManager {
 	providers = new Map()
 	loaded = false
 
-	constructor(eventBus, channelId) {
+	constructor({ eventBus, settingsManager }, channelId) {
 		this.eventBus = eventBus
+		this.settingsManager = settingsManager
 		this.datastore = new EmoteDatastore(eventBus, channelId)
 	}
 
@@ -16,7 +17,7 @@ export class EmotesManager {
 		if (!(providerConstructor.prototype instanceof AbstractProvider)) {
 			return error('Invalid provider constructor', providerConstructor)
 		}
-		const provider = new providerConstructor(this.datastore)
+		const provider = new providerConstructor(this.datastore, this.settingsManager)
 		this.providers.set(provider.id, provider)
 	}
 
@@ -34,7 +35,7 @@ export class EmotesManager {
 			for (const promis of results) {
 				if (promis.status === 'rejected') {
 					error('Failed to fetch emotes from provider', promis.reason)
-				} else {
+				} else if (promis.value && promis.value.length) {
 					providerSets.push(promis.value)
 				}
 			}

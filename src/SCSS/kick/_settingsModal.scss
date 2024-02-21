@@ -5,31 +5,40 @@
 
 	&__sidebar {
 		margin-right: 1.618em;
-		flex: 0 0 10em;
+		flex: 0 0 fit-content;
 
 		ul {
 			list-style: none;
 		}
 
-		li {
-			span {
-				// border-bottom: 0.1em solid $border-transparent-1;
-				display: inline-block;
-				padding: 0.618em 1.618em;
-				cursor: pointer;
-				width: 100%;
-			}
+		span {
+			// border-bottom: 0.1em solid $border-transparent-1;
+			display: inline-block;
+			padding: 0.618em 1.618em;
+			cursor: pointer;
+			width: 100%;
 		}
 	}
 
 	&__category {
+		margin-bottom: 1.618em;
 		position: relative;
 
-		&:before {
-			position: absolute;
-			content: '>';
-			top: 0.5em;
-			left: 0;
+		// &:before {
+		// 	font-size: 1.209em;
+		// 	position: absolute;
+		// 	content: '>';
+		// 	top: 0.57em;
+		// 	left: 0;
+		// }
+
+		> span {
+			// padding-left: 1.3em;
+			// padding: 0.209em 1.618em 0.333em 1.3em;
+			padding: 0 1.618em 0 1.3em;
+			margin-bottom: 0.5em;
+			font-size: 1.333em;
+			cursor: default;
 		}
 	}
 
@@ -43,10 +52,26 @@
 		}
 	}
 
+	&__group {
+		margin-bottom: 1.618em;
+
+		&-header {
+			margin-bottom: 1.5em;
+
+			h4 {
+				font-size: 1.333em;
+			}
+		}
+	}
+
 	&_panels {
 		flex-direction: column;
 		flex: 1 1 100%;
 		display: flex;
+
+		&__panel {
+			padding-top: 0.618em;
+		}
 	}
 
 	.nipah__modal__body {
