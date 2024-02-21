@@ -26,9 +26,9 @@
 
 ## About The Project
 
-Nipah Chat aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. Nipah Chat addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
+NipahTV aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. NipahTV addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
 
-<b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve Nipah Chat.
+<b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve NipahTV.
 
 <a name="demo-video"></a>
 <br />
@@ -40,13 +40,13 @@ Nipah Chat aims to enhance the emote integration experience within Kick chat by 
 
 ## Getting Started
 
-To use Nipah Chat, you'll need to install a userscript manager like Violentmonkey. Follow the links below to install the manager for your browser: [Chrome](https://chrome.google.com/webstore/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), [Edge](https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao).
+To use NipahTV, you'll need to install a userscript manager like Violentmonkey. Follow the links below to install the manager for your browser: [Chrome](https://chrome.google.com/webstore/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), [Edge](https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao).
 
 ### Installation
 
 Currently, tab completion and emotes-in-chat rendering are not yet implemented but are on the way. For the time being, you still need to have the 7TV extension installed and enabled for 7TV emotes to render in chat. You can find the 7TV extension here: [Chrome](https://chromewebstore.google.com/detail/7tv/ammjkodgmmoknidbanneddgankgfejfh), [Firefox](https://7tv.app/).
 
-To install the userscript, click on the following link: [Nipah Chat client](https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
+To install the userscript, click on the following link: [NipahTV client](https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
 
 1. Open your userscript manager (Violentmonkey) dashboard and click on the "New" button in the top left corner.
 2. Click "Install from URL" and paste the following URL: `https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js`
