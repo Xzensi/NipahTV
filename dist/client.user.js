@@ -10,6 +10,7 @@
 // @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/kick.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
+// @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
 // @grant unsafeWindow
 // @grant GM_xmlhttpRequest
 // @grant GM_addStyle

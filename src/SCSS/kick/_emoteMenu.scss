@@ -156,6 +156,7 @@
 		flex: 1 1 $emote_size;
 		scrollbar-width: thin;
 		padding-right: 8px;
+		overflow-x: hidden;
 		overflow-y: scroll;
 		height: 100%;
 
@@ -177,7 +178,6 @@
 		flex: 1 1 $emote_size;
 		scrollbar-width: thin;
 		overflow-y: scroll;
-		height: 100%;
 	}
 
 	&__panel {

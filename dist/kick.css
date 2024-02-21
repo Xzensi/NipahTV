@@ -252,6 +252,7 @@ supported by Chrome, Edge, Opera and Firefox */
   flex: 1 1 2.8em;
   scrollbar-width: thin;
   padding-right: 8px;
+  overflow-x: hidden;
   overflow-y: scroll;
   height: 100%;
 }
@@ -267,7 +268,6 @@ supported by Chrome, Edge, Opera and Firefox */
   flex: 1 1 2.8em;
   scrollbar-width: thin;
   overflow-y: scroll;
-  height: 100%;
 }
 .nipah__emote-menu__panel__emotes, .nipah__emote-menu__panel__search {
   width: 19.6em;
