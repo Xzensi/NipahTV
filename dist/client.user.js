@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master/dist/kick.css
+//// @resource KICK_CSS https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master/dist/kick.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js
@@ -307,6 +307,7 @@
         return error2("Undefined required emoteId argument");
       this.emoteHistory.delete(emoteId);
       this.pendingHistoryChanges[emoteId] = true;
+      this.eventBus.publish("nipah.datastore.emotes.history.changed", { emoteId });
     }
     searchEmotes(searchVal) {
       return this.fuse.search(searchVal).sort((a, b) => {
@@ -705,17 +706,8 @@
           return error2("Invalid emote id");
         this.handleEmoteClick(emoteId, !!evt.ctrlKey);
       });
-      this.eventBus.subscribe("nipah.providers.loaded", this.loadEmotes.bind(this), true);
-      this.eventBus.subscribe("nipah.datastore.emotes.history.changed", this.handleEmotesHistoryChanged.bind(this));
-    }
-    loadEmotes() {
-      const { emotesManager } = this;
-      const emoteHistory = emotesManager.getEmoteHistory();
-      if (emoteHistory.size) {
-        for (const [emoteId, history] of emoteHistory) {
-          this.updateEmoteHistory(emoteId);
-        }
-      }
+      this.eventBus.subscribe("nipah.providers.loaded", this.renderQuickEmotes.bind(this), true);
+      this.eventBus.subscribe("nipah.ui.submit_input", this.renderQuickEmotes.bind(this));
     }
     handleEmoteClick(emoteId, sendImmediately = false) {
       assertArgDefined(emoteId);
@@ -725,20 +717,22 @@
         return error2("Invalid emote");
       this.eventBus.publish("nipah.ui.emote.click", { emoteId, sendImmediately });
     }
-    /**
-     * When an emote is used, it's history count is updated and the emote is moved to the correct position
-     *  in the quick emote holder according to the updated history count.
-     */
-    handleEmotesHistoryChanged({ emoteId }) {
-      if (!emoteId)
-        return error2("Invalid emote id");
-      this.updateEmoteHistory(emoteId);
+    renderQuickEmotes() {
+      const { emotesManager } = this;
+      const emoteHistory = emotesManager.getEmoteHistory();
+      if (emoteHistory.size) {
+        for (const [emoteId, history] of emoteHistory) {
+          this.renderQuickEmote(emoteId);
+        }
+      }
     }
-    updateEmoteHistory(emoteId) {
+    /**
+     * Move the emote to the correct position in the emote holder, append if new emote.
+     */
+    renderQuickEmote(emoteId) {
       const { emotesManager } = this;
       const emote = emotesManager.getEmote(emoteId);
       if (!emote) {
-        emotesManager.removeEmoteHistory(emoteId);
         return error2("History encountered emote missing from provider emote sets..", emoteId);
       }
       const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.id === emoteId);
@@ -906,7 +900,8 @@
         }
       });
       this.elm.$textField.on("input", this.handleInput.bind(this));
-      this.elm.$textField.on("click", () => emoteMenu.toggleShow(false));
+      this.elm.$textField.on("click", emoteMenu.toggleShow.bind(emoteMenu, false));
+      this.elm.$submitButton.on("click", eventBus.publish.bind(eventBus, "nipah.ui.submit_input"));
       if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
         $("#chatroom").addClass("nipah__alternating-background");
       }
@@ -935,14 +930,19 @@
     sendEmoteToChat(emoteId) {
       assertArgDefined(emoteId);
       const textFieldEl = this.elm.$textField[0];
-      const submitButton = this.elm.$submitButton[0];
       const oldMessage = textFieldEl.innerHTML;
       textFieldEl.innerHTML = "";
       this.insertEmoteInChat(emoteId);
       textFieldEl.dispatchEvent(new Event("input"));
-      submitButton.dispatchEvent(new Event("click"));
+      this.submitInput();
       textFieldEl.innerHTML = oldMessage;
       textFieldEl.dispatchEvent(new Event("input"));
+    }
+    submitInput() {
+      const submitButton = this.elm.$submitButton[0];
+      const { eventBus } = this;
+      submitButton.dispatchEvent(new Event("click"));
+      eventBus.publish("nipah.ui.submit_input");
     }
     insertEmoteInChat(emoteId) {
       assertArgDefined(emoteId);

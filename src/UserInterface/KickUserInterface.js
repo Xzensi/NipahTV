@@ -32,7 +32,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 
 		this.elm.$textField.on('input', this.handleInput.bind(this))
-		this.elm.$textField.on('click', () => emoteMenu.toggleShow(false))
+		this.elm.$textField.on('click', emoteMenu.toggleShow.bind(emoteMenu, false))
+
+		this.elm.$submitButton.on('click', eventBus.publish.bind(eventBus, 'nipah.ui.submit_input'))
 
 		// Add alternating background to chat messages
 		if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
@@ -69,17 +71,24 @@ export class KickUserInterface extends AbstractUserInterface {
 	sendEmoteToChat(emoteId) {
 		assertArgDefined(emoteId)
 		const textFieldEl = this.elm.$textField[0]
-		const submitButton = this.elm.$submitButton[0]
 
 		const oldMessage = textFieldEl.innerHTML
 		textFieldEl.innerHTML = ''
 		this.insertEmoteInChat(emoteId)
 
 		textFieldEl.dispatchEvent(new Event('input'))
-		submitButton.dispatchEvent(new Event('click'))
+		this.submitInput()
 
 		textFieldEl.innerHTML = oldMessage
 		textFieldEl.dispatchEvent(new Event('input'))
+	}
+
+	submitInput() {
+		const submitButton = this.elm.$submitButton[0]
+		const { eventBus } = this
+
+		submitButton.dispatchEvent(new Event('click'))
+		eventBus.publish('nipah.ui.submit_input')
 	}
 
 	insertEmoteInChat(emoteId) {

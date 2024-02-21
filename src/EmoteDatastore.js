@@ -134,8 +134,7 @@ export class EmoteDatastore {
 
 		this.emoteHistory.delete(emoteId)
 		this.pendingHistoryChanges[emoteId] = true
-		// Calling event here will cause recursive loops
-		// this.eventBus.publish('nipah.datastore.emotes.history.changed', { emoteId })
+		this.eventBus.publish('nipah.datastore.emotes.history.changed', { emoteId })
 	}
 
 	searchEmotes(searchVal) {

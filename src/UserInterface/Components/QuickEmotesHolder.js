@@ -28,21 +28,9 @@ export class QuickEmotesHolder extends AbstractComponent {
 		})
 
 		// Wait for all emotes to load before we populate the quick emotes holder
-		this.eventBus.subscribe('nipah.providers.loaded', this.loadEmotes.bind(this), true)
+		this.eventBus.subscribe('nipah.providers.loaded', this.renderQuickEmotes.bind(this), true)
 
-		// Update the quick emotes holder when emote history changes
-		this.eventBus.subscribe('nipah.datastore.emotes.history.changed', this.handleEmotesHistoryChanged.bind(this))
-	}
-
-	loadEmotes() {
-		const { emotesManager } = this
-		const emoteHistory = emotesManager.getEmoteHistory()
-
-		if (emoteHistory.size) {
-			for (const [emoteId, history] of emoteHistory) {
-				this.updateEmoteHistory(emoteId)
-			}
-		}
+		this.eventBus.subscribe('nipah.ui.submit_input', this.renderQuickEmotes.bind(this))
 	}
 
 	handleEmoteClick(emoteId, sendImmediately = false) {
@@ -55,22 +43,28 @@ export class QuickEmotesHolder extends AbstractComponent {
 		this.eventBus.publish('nipah.ui.emote.click', { emoteId, sendImmediately })
 	}
 
-	/**
-	 * When an emote is used, it's history count is updated and the emote is moved to the correct position
-	 *  in the quick emote holder according to the updated history count.
-	 */
-	handleEmotesHistoryChanged({ emoteId }) {
-		if (!emoteId) return error('Invalid emote id')
+	renderQuickEmotes() {
+		const { emotesManager } = this
+		// TODO instead of looking through all emotes for history changes, use "nipah.datastore.emotes.history.changed" event to cache the emotes that are changed on "nipah.ui.submit_input"
+		const emoteHistory = emotesManager.getEmoteHistory()
 
-		this.updateEmoteHistory(emoteId)
+		if (emoteHistory.size) {
+			for (const [emoteId, history] of emoteHistory) {
+				this.renderQuickEmote(emoteId)
+			}
+		}
 	}
 
-	updateEmoteHistory(emoteId) {
+	/**
+	 * Move the emote to the correct position in the emote holder, append if new emote.
+	 */
+	renderQuickEmote(emoteId) {
 		const { emotesManager } = this
 		const emote = emotesManager.getEmote(emoteId)
 		if (!emote) {
+			// TODO rethink this, doesn't seem like a good idea. If ever connection to the provider is lost, the emote will be removed from the history.
 			// Remove emote from history since it's not in the provider emote sets
-			emotesManager.removeEmoteHistory(emoteId)
+			// emotesManager.removeEmoteHistory(emoteId)
 			return error('History encountered emote missing from provider emote sets..', emoteId)
 		}
 
