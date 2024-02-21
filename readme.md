@@ -3,7 +3,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/Xzensi/NipahTV">
-    <img src="dist/logo_full.png" alt="Nipah" height="90">
+    <img src="dist/img/logo_full.png" alt="Nipah" height="90">
   </a>
 
   <h3 align="center">Better Kick and 7TV Emote Integration for Kick</h3>
