@@ -49,7 +49,7 @@ Currently, tab completion and emotes-in-chat rendering are not yet implemented b
 To install the userscript, click on the following link: [NipahTV client](https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
 
 1. Open your userscript manager (Violentmonkey) dashboard and click on the "New" button in the top left corner.
-2. Click "Install from URL" and paste the following URL: `https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js`
+2. Click "Install from URL" and paste the following URL: `https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master/dist/client.user.js`
 3. Click "Install" and you're all set!
 
 ## Roadmap
