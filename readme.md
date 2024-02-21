@@ -46,10 +46,10 @@ To use NipahTV, you'll need to install a userscript manager like Violentmonkey. 
 
 Currently, tab completion and emotes-in-chat rendering are not yet implemented but are on the way. For the time being, you still need to have the 7TV extension installed and enabled for 7TV emotes to render in chat. You can find the 7TV extension here: [Chrome](https://chromewebstore.google.com/detail/7tv/ammjkodgmmoknidbanneddgankgfejfh), [Firefox](https://7tv.app/).
 
-To install the userscript, click on the following link: [NipahTV client](https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
+To install the userscript, click on the following link: [NipahTV client](https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
 
 1. Open your userscript manager (Violentmonkey) dashboard and click on the "New" button in the top left corner.
-2. Click "Install from URL" and paste the following URL: `https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master/dist/client.user.js`
+2. Click "Install from URL" and paste the following URL: `https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js`
 3. Click "Install" and you're all set!
 
 ## Roadmap

@@ -22,7 +22,8 @@ class NipahClient {
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
-		RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
+		// RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
+		RESOURCE_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV/master',
 		DEBUG: false
 	}
 

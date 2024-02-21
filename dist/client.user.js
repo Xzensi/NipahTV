@@ -7,10 +7,9 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master/dist/kick.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/kick.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
-// @downloadURL https://github.com/Xzensi/NipahTV/raw/master/dist/client.user.js
 // @grant unsafeWindow
 // @grant GM_xmlhttpRequest
 // @grant GM_addStyle
@@ -1771,7 +1770,8 @@
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
-      RESOURCE_ROOT: "https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master",
+      // RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
+      RESOURCE_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV/master",
       DEBUG: false
     };
     async initialize() {
