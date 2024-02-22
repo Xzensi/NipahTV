@@ -112,6 +112,7 @@ export class SettingsManager {
 						},
 						{
 							label: 'General',
+							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
 									label: 'Use Ctrl+E to open the Emote Menu (not yet implemented)',
@@ -120,7 +121,7 @@ export class SettingsManager {
 									type: 'checkbox'
 								},
 								{
-									label: 'Use Ctrl+Spacebar to open the Emote Menu (not yet implemented)',
+									label: 'Use Ctrl+Spacebar to open the Emote Menu',
 									id: 'shared.chat.appearance.emote_menu_ctrl_spacebar',
 									default: true,
 									type: 'checkbox'

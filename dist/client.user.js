@@ -562,11 +562,13 @@
         if (evt.which === 27)
           this.toggleShow(false);
       });
-      $(document).on("keydown", (evt) => {
-        if (evt.ctrlKey && evt.keyCode === 32) {
-          this.toggleShow();
-        }
-      });
+      if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_spacebar")) {
+        $(document).on("keydown", (evt) => {
+          if (evt.ctrlKey && evt.keyCode === 32) {
+            this.toggleShow();
+          }
+        });
+      }
     }
     handleSearchInput(evt) {
       const searchVal = evt.target.value;
@@ -1565,6 +1567,7 @@
               },
               {
                 label: "General",
+                description: "These settings require a page refresh to take effect.",
                 children: [
                   {
                     label: "Use Ctrl+E to open the Emote Menu (not yet implemented)",
@@ -1573,7 +1576,7 @@
                     type: "checkbox"
                   },
                   {
-                    label: "Use Ctrl+Spacebar to open the Emote Menu (not yet implemented)",
+                    label: "Use Ctrl+Spacebar to open the Emote Menu",
                     id: "shared.chat.appearance.emote_menu_ctrl_spacebar",
                     default: true,
                     type: "checkbox"
