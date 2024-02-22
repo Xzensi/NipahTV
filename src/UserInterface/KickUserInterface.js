@@ -21,21 +21,26 @@ export class KickUserInterface extends AbstractUserInterface {
 		info('Creating user interface..')
 		const { ENV_VARS, eventBus, settingsManager, emotesManager } = this
 
-		const emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init()
-		const emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init()
-		const quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
-		this.emoteMenu = emoteMenu
-		this.emoteMenuButton = emoteMenuButton
-		this.quickEmotesHolder = quickEmotesHolder
+		this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init()
+		this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init()
+		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
 
-		eventBus.subscribe('nipah.ui.emote.click', ({ emoteId, sendImmediately }) => {
-			if (sendImmediately) {
-				this.sendEmoteToChat(emoteId)
-			} else {
-				this.insertEmoteInChat(emoteId)
-			}
-		})
+		// Add alternating background color to chat messages
+		if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
+			$('#chatroom').addClass('nipah__alternating-background')
+		}
 
+		// Add seperator lines to chat messages
+		const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
+		if (seperatorSettingVal && seperatorSettingVal !== 'none') {
+			$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
+		}
+	}
+
+	attachEventListeners() {
+		const { emoteMenu, eventBus } = this
+
+		this.elm.$submitButton.on('click', eventBus.publish.bind(eventBus, 'nipah.ui.submit_input'))
 		this.elm.$textField.on('input', this.handleInput.bind(this))
 		this.elm.$textField.on('click', emoteMenu.toggleShow.bind(emoteMenu, false))
 
@@ -47,21 +52,21 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		})
 
-		this.elm.$submitButton.on('click', eventBus.publish.bind(eventBus, 'nipah.ui.submit_input'))
+		// Inject or send emote to chat on emote click
+		eventBus.subscribe('nipah.ui.emote.click', ({ emoteId, sendImmediately }) => {
+			if (sendImmediately) {
+				this.sendEmoteToChat(emoteId)
+			} else {
+				this.insertEmoteInChat(emoteId)
+			}
+		})
 
-		// Add alternating background to chat messages
-		if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
-			$('#chatroom').addClass('nipah__alternating-background')
-		}
+		// Add alternating background color to chat messages
 		eventBus.subscribe('nipah.settings.change.shared.chat.appearance.alternating_background', value => {
 			$('#chatroom').toggleClass('nipah__alternating-background', value)
 		})
 
-		// Add seperators to chat messages
-		const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
-		if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-			$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
-		}
+		// Add seperator lines to chat messages
 		eventBus.subscribe('nipah.settings.change.shared.chat.appearance.seperators', ({ value, prevValue }) => {
 			if (prevValue !== 'none') $('#chatroom').removeClass(`nipah__seperators-${prevValue}`)
 			if (!value || value === 'none') return

@@ -908,19 +908,20 @@
       await this.waitForPageLoad();
       info("Creating user interface..");
       const { ENV_VARS, eventBus, settingsManager, emotesManager } = this;
-      const emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
-      const emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init();
-      const quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
-      this.emoteMenu = emoteMenu;
-      this.emoteMenuButton = emoteMenuButton;
-      this.quickEmotesHolder = quickEmotesHolder;
-      eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
-        if (sendImmediately) {
-          this.sendEmoteToChat(emoteId);
-        } else {
-          this.insertEmoteInChat(emoteId);
-        }
-      });
+      this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
+      this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init();
+      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
+      if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
+        $("#chatroom").addClass("nipah__alternating-background");
+      }
+      const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
+      if (seperatorSettingVal && seperatorSettingVal !== "none") {
+        $("#chatroom").addClass(`nipah__seperators-${seperatorSettingVal}`);
+      }
+    }
+    attachEventListeners() {
+      const { emoteMenu, eventBus } = this;
+      this.elm.$submitButton.on("click", eventBus.publish.bind(eventBus, "nipah.ui.submit_input"));
       this.elm.$textField.on("input", this.handleInput.bind(this));
       this.elm.$textField.on("click", emoteMenu.toggleShow.bind(emoteMenu, false));
       this.elm.$textField.on("keyup", (evt) => {
@@ -928,17 +929,16 @@
           eventBus.publish("nipah.ui.submit_input");
         }
       });
-      this.elm.$submitButton.on("click", eventBus.publish.bind(eventBus, "nipah.ui.submit_input"));
-      if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
-        $("#chatroom").addClass("nipah__alternating-background");
-      }
+      eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
+        if (sendImmediately) {
+          this.sendEmoteToChat(emoteId);
+        } else {
+          this.insertEmoteInChat(emoteId);
+        }
+      });
       eventBus.subscribe("nipah.settings.change.shared.chat.appearance.alternating_background", (value) => {
         $("#chatroom").toggleClass("nipah__alternating-background", value);
       });
-      const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
-      if (seperatorSettingVal && seperatorSettingVal !== "none") {
-        $("#chatroom").addClass(`nipah__seperators-${seperatorSettingVal}`);
-      }
       eventBus.subscribe("nipah.settings.change.shared.chat.appearance.seperators", ({ value, prevValue }) => {
         if (prevValue !== "none")
           $("#chatroom").removeClass(`nipah__seperators-${prevValue}`);
