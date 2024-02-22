@@ -28,7 +28,7 @@
 
 NipahTV aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. NipahTV addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
 
-<b>Please note:</b> This project is actively under development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve NipahTV.
+<b>Please note:</b> This project is under active development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve NipahTV.
 
 <a name="demo-video"></a>
 <br />
