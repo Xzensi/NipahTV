@@ -22,6 +22,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		const emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init()
 		const emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init()
 		const quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
+		this.emoteMenu = emoteMenu
+		this.emoteMenuButton = emoteMenuButton
+		this.quickEmotesHolder = quickEmotesHolder
 
 		eventBus.subscribe('nipah.ui.emote.click', ({ emoteId, sendImmediately }) => {
 			if (sendImmediately) {
@@ -171,5 +174,15 @@ export class KickUserInterface extends AbstractUserInterface {
 		//     }
 		//     currentMergingTextNode = null
 		// }
+	}
+
+	destroy() {
+		this.elm.$textField.off('input')
+		this.elm.$textField.off('click')
+		this.elm.$submitButton.off('click')
+
+		this.emoteMenu.destroy()
+		this.emoteMenuButton.destroy()
+		this.quickEmotesHolder.destroy()
 	}
 }

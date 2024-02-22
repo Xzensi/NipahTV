@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.3',
+		VERSION: '1.0.4',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -55,6 +55,7 @@ class NipahClient {
 		const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id)
 
 		let userInterface
+		this.userInterface = userInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager })
 		} else {
@@ -141,6 +142,12 @@ class NipahClient {
 
 		return channelData
 	}
+
+	destroy() {
+		if (this.userInterface) {
+			this.userInterface.destroy()
+		}
+	}
 }
 
 info('Running Nipah Client script.')
@@ -159,6 +166,7 @@ const awaitLoadInterval = setInterval(() => {
 		// TODO quick fix for navigation handling
 		if (window.navigation) {
 			window.navigation.addEventListener('navigate', event => {
+				nipahClient.destroy()
 				nipahClient = new NipahClient()
 				nipahClient.initialize()
 			})
@@ -167,6 +175,7 @@ const awaitLoadInterval = setInterval(() => {
 			setInterval(() => {
 				if (navigationUrl !== window.location.href) {
 					navigationUrl = window.location.href
+					nipahClient.destroy()
 					nipahClient = new NipahClient()
 					nipahClient.initialize()
 				}

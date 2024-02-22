@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.3
+// @version 1.0.4
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -463,6 +463,10 @@
         this.eventBus.publish("nipah.ui.footer.click");
       });
     }
+    destroy() {
+      this.$element.remove();
+      this.$element = null;
+    }
   };
 
   // src/UserInterface/Components/EmoteMenu.js
@@ -682,6 +686,10 @@
       this.$container.toggle(this.isShowing);
       this.scrollableHeight = this.$scrollable.height();
     }
+    destroy() {
+      this.$container.remove();
+      this.$container = null;
+    }
   };
 
   // src/UserInterface/Components/QuickEmotesHolder.js
@@ -766,6 +774,10 @@
       return this.sortingList.findIndex((entry) => {
         return emotesManager.getEmoteHistoryCount(entry.id) < emoteHistoryCount;
       });
+    }
+    destroy() {
+      this.$element.remove();
+      this.$element = null;
     }
   };
 
@@ -892,6 +904,9 @@
       const emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
       const emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init();
       const quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
+      this.emoteMenu = emoteMenu;
+      this.emoteMenuButton = emoteMenuButton;
+      this.quickEmotesHolder = quickEmotesHolder;
       eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
         if (sendImmediately) {
           this.sendEmoteToChat(emoteId);
@@ -988,6 +1003,14 @@
       textFieldEl.normalize();
       textFieldEl.dispatchEvent(new Event("input"));
       textFieldEl.focus();
+    }
+    destroy() {
+      this.elm.$textField.off("input");
+      this.elm.$textField.off("click");
+      this.elm.$submitButton.off("click");
+      this.emoteMenu.destroy();
+      this.emoteMenuButton.destroy();
+      this.quickEmotesHolder.destroy();
     }
   };
 
@@ -1767,7 +1790,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.3",
+      VERSION: "1.0.4",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -1796,6 +1819,7 @@
         return error2("Failed to load channel data");
       const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id);
       let userInterface;
+      this.userInterface = userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
       } else {
@@ -1861,6 +1885,11 @@
       this.channelData = channelData;
       return channelData;
     }
+    destroy() {
+      if (this.userInterface) {
+        this.userInterface.destroy();
+      }
+    }
   };
   info("Running Nipah Client script.");
   log("Waiting for message input field..");
@@ -1875,6 +1904,7 @@
       nipahClient.initialize();
       if (window2.navigation) {
         window2.navigation.addEventListener("navigate", (event) => {
+          nipahClient.destroy();
           nipahClient = new NipahClient();
           nipahClient.initialize();
         });
@@ -1883,6 +1913,7 @@
         setInterval(() => {
           if (navigationUrl !== window2.location.href) {
             navigationUrl = window2.location.href;
+            nipahClient.destroy();
             nipahClient = new NipahClient();
             nipahClient.initialize();
           }

@@ -107,4 +107,9 @@ export class QuickEmotesHolder extends AbstractComponent {
 			return emotesManager.getEmoteHistoryCount(entry.id) < emoteHistoryCount
 		})
 	}
+
+	destroy() {
+		this.$element.remove()
+		this.$element = null
+	}
 }

@@ -23,4 +23,9 @@ export class EmoteMenuButton extends AbstractComponent {
 			this.eventBus.publish('nipah.ui.footer.click')
 		})
 	}
+
+	destroy() {
+		this.$element.remove()
+		this.$element = null
+	}
 }

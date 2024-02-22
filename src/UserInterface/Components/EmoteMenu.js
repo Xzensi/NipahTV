@@ -264,4 +264,9 @@ export class EmoteMenu extends AbstractComponent {
 		this.$container.toggle(this.isShowing)
 		this.scrollableHeight = this.$scrollable.height()
 	}
+
+	destroy() {
+		this.$container.remove()
+		this.$container = null
+	}
 }
