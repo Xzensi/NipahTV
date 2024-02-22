@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.2
+// @version 1.0.3
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1767,7 +1767,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.2",
+      VERSION: "1.0.3",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -1815,7 +1815,7 @@
         if (this.ENV_VARS.DEBUG) {
           GM_xmlhttpRequest({
             method: "GET",
-            url: this.ENV_VARS.RESOURCE_ROOT + "/dist/css/kick.css",
+            url: this.ENV_VARS.RESOURCE_ROOT + "/dist/css/kick.min.css",
             onerror: reject,
             onload: function(response) {
               GM_addStyle(response.responseText);
@@ -1861,8 +1861,6 @@
       this.channelData = channelData;
       return channelData;
     }
-    initKeyboardShortcuts() {
-    }
   };
   info("Running Nipah Client script.");
   log("Waiting for message input field..");
@@ -1873,8 +1871,23 @@
     log("Message input field found.");
     clearInterval(awaitLoadInterval);
     setTimeout(() => {
-      const nipahClient = new NipahClient();
+      let nipahClient = new NipahClient();
       nipahClient.initialize();
+      if (window2.navigation) {
+        window2.navigation.addEventListener("navigate", (event) => {
+          nipahClient = new NipahClient();
+          nipahClient.initialize();
+        });
+      } else {
+        let navigationUrl = window2.location.href;
+        setInterval(() => {
+          if (navigationUrl !== window2.location.href) {
+            navigationUrl = window2.location.href;
+            nipahClient = new NipahClient();
+            nipahClient.initialize();
+          }
+        }, 100);
+      }
     }, 1500);
   }, 100);
 })();

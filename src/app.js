@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.2',
+		VERSION: '1.0.3',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -87,7 +87,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/css/kick.css',
+					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/css/kick.min.css',
 					onerror: reject,
 					onload: function (response) {
 						GM_addStyle(response.responseText)
@@ -141,8 +141,6 @@ class NipahClient {
 
 		return channelData
 	}
-
-	initKeyboardShortcuts() {}
 }
 
 info('Running Nipah Client script.')
@@ -155,7 +153,24 @@ const awaitLoadInterval = setInterval(() => {
 	log('Message input field found.')
 	clearInterval(awaitLoadInterval)
 	setTimeout(() => {
-		const nipahClient = new NipahClient()
+		let nipahClient = new NipahClient()
 		nipahClient.initialize()
+
+		// TODO quick fix for navigation handling
+		if (window.navigation) {
+			window.navigation.addEventListener('navigate', event => {
+				nipahClient = new NipahClient()
+				nipahClient.initialize()
+			})
+		} else {
+			let navigationUrl = window.location.href
+			setInterval(() => {
+				if (navigationUrl !== window.location.href) {
+					navigationUrl = window.location.href
+					nipahClient = new NipahClient()
+					nipahClient.initialize()
+				}
+			}, 100)
+		}
 	}, 1500)
 }, 100)
