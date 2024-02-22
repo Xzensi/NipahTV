@@ -2,7 +2,7 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "build",
+			"label": "Build",
 			"type": "npm",
 			"script": "build",
 			"group": {
@@ -19,6 +19,40 @@
 				"close": false
 			},
 			"problemMatcher": []
+		},
+		{
+			"label": "Update Version (Node)",
+			"type": "shell",
+			"command": "node task-build.js",
+			"group": {
+				"kind": "build"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"panel": "shared",
+				"showReuseMessage": false,
+				"clear": true,
+				"close": false
+			}
+		},
+		{
+			"label": "SCSS Compile (Node)",
+			"type": "shell",
+			"command": "node task-compile-sass.js",
+			"group": {
+				"kind": "build"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"panel": "shared",
+				"showReuseMessage": false,
+				"clear": true,
+				"close": false
+			}
 		}
 	]
 }

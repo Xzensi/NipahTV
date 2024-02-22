@@ -87,7 +87,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/kick.css',
+					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/css/kick.css',
 					onerror: reject,
 					onload: function (response) {
 						GM_addStyle(response.responseText)
