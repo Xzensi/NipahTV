@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.0
+// @version 1.0.1
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1767,7 +1767,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.0",
+      VERSION: "1.0.1",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
