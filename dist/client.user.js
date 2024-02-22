@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.8
+// @version 1.0.9
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -615,9 +615,9 @@
       $sidebarSets.empty();
       $emotesPanel.empty();
       const emoteSets = this.emotesManager.getEmoteSets();
-      const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index > b.order_index);
+      const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index);
       for (const emoteSet of orderedEmoteSets) {
-        const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width > b.width);
+        const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
         const sidebarIcon = $(`<img data-id="${emoteSet.id}" src="${emoteSet.icon}">`).appendTo($sidebarSets);
         this.sidebarMap.set(emoteSet.id, sidebarIcon[0]);
         $emotesPanel.append(`
@@ -1816,7 +1816,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.8",
+      VERSION: "1.0.9",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -170,10 +170,10 @@ export class EmoteMenu extends AbstractComponent {
 		$emotesPanel.empty()
 
 		const emoteSets = this.emotesManager.getEmoteSets()
-		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index > b.order_index)
+		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index)
 
 		for (const emoteSet of orderedEmoteSets) {
-			const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width > b.width)
+			const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width)
 
 			const sidebarIcon = $(`<img data-id="${emoteSet.id}" src="${emoteSet.icon}">`).appendTo($sidebarSets)
 			this.sidebarMap.set(emoteSet.id, sidebarIcon[0])
