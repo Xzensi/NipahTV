@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.9',
+		VERSION: '1.0.10',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -62,7 +62,7 @@ class NipahClient {
 		const channelData = await this.loadChannelData()
 		if (!channelData) return error('Failed to load channel data')
 
-		const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id)
+		const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.channel_id)
 
 		let userInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
@@ -133,23 +133,40 @@ class NipahClient {
 	}
 
 	async loadChannelData() {
-		// We extract channel name from the URL
-		const channelName = window.location.pathname.substring(1).split('/')[0]
-		if (!channelName) throw new Error('Failed to extract channel name from URL')
+		let channelData = {}
 
-		// We extract channel data from the Kick API
-		const channelRequestData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)
-		if (!channelRequestData) {
-			throw new Error('Failed to fetch channel data')
-		}
-		if (!channelRequestData.id || !channelRequestData.user_id) {
-			throw new Error('Invalid channel data')
-		}
+		if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
+			// We extract channel name from the URL
+			const channelName = window.location.pathname.substring(1).split('/')[0]
+			if (!channelName) throw new Error('Failed to extract channel name from URL')
 
-		const channelData = {
-			kick_user_id: channelRequestData.user_id,
-			kick_channel_id: channelRequestData.id,
-			kick_channel_name: channelName
+			// We extract channel data from the Kick API
+			const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)
+			if (!responseChannelData) {
+				throw new Error('Failed to fetch channel data')
+			}
+			if (!responseChannelData.id || !responseChannelData.user_id) {
+				throw new Error('Invalid channel data')
+			}
+
+			const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`)
+			if (!responseChannelMeData) {
+				throw new Error('Failed to fetch channel me data')
+			}
+
+			channelData = {
+				user_id: responseChannelData.user_id,
+				channel_id: responseChannelData.id,
+				channel_name: channelName,
+				me: {
+					is_subscribed: !!responseChannelMeData.subscription,
+					is_following: !!responseChannelMeData.is_following,
+					is_super_admin: !!responseChannelMeData.is_super_admin,
+					is_broadcaster: !!responseChannelMeData.is_broadcaster,
+					is_moderator: !!responseChannelMeData.is_moderator,
+					is_banned: !!responseChannelMeData.banned
+				}
+			}
 		}
 
 		this.channelData = channelData

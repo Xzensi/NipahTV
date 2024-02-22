@@ -11,11 +11,11 @@ export class SevenTVProvider extends AbstractProvider {
 		this.settingsManager = settingsManager
 	}
 
-	async fetchEmotes({ kick_user_id }) {
+	async fetchEmotes({ user_id }) {
 		info('Fetching emote data from SevenTV..')
-		if (!kick_user_id) return error('Missing kick channel id for SevenTV provider.')
+		if (!user_id) return error('Missing kick channel id for SevenTV provider.')
 
-		const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${kick_user_id}`)
+		const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`)
 		log(data)
 		if (!data.emote_set || !data.emote_set.emotes.length) {
 			log('No emotes found on SevenTV provider')

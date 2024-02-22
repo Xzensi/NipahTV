@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.9
+// @version 1.0.10
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1047,10 +1047,10 @@
       super(datastore);
       this.settingsManager = settingsManager;
     }
-    async fetchEmotes({ kick_channel_id, kick_channel_name }) {
-      if (!kick_channel_id)
+    async fetchEmotes({ channel_id, channel_name, user_id, me }) {
+      if (!channel_id)
         return error2("Missing channel id for Kick provider");
-      if (!kick_channel_name)
+      if (!channel_name)
         return error2("Missing channel name for Kick provider");
       const { settingsManager } = this;
       const includeGlobalEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_global");
@@ -1062,7 +1062,7 @@
       );
       const includeEmojiEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_emojis");
       info("Fetching emote data from Kick..");
-      const data = await fetchJSON(`https://kick.com/emotes/${kick_channel_name}`);
+      const data = await fetchJSON(`https://kick.com/emotes/${channel_name}`);
       let dataFiltered = data;
       if (!includeGlobalEmoteSet) {
         dataFiltered = dataFiltered.filter((entry) => entry.id !== "Global");
@@ -1071,17 +1071,18 @@
         dataFiltered = dataFiltered.filter((entry) => entry.id !== "Emoji");
       }
       if (!includeCurrentChannelEmoteSet) {
-        dataFiltered = dataFiltered.filter((entry) => entry.id !== kick_channel_id);
+        dataFiltered = dataFiltered.filter((entry) => entry.id !== channel_id);
       }
       if (!includeOtherChannelEmoteSets) {
         dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
       }
       const emoteSets = [];
       for (const dataSet of dataFiltered) {
-        const { emotes, subscription_enabled } = dataSet;
-        const emotesFiltered = emotes.filter(
-          (emote) => !emote.subscription_enabled || emote.subscribers_only && subscription_enabled
-        );
+        const { emotes } = dataSet;
+        let emotesFiltered = emotes;
+        if (dataSet.user_id === user_id) {
+          emotesFiltered = emotes.filter((emote) => me.is_subscribed || !emote.subscribers_only);
+        }
         const emotesMapped = emotesFiltered.map((emote) => ({
           id: "" + emote.id,
           name: emote.name,
@@ -1136,11 +1137,11 @@
       super(datastore);
       this.settingsManager = settingsManager;
     }
-    async fetchEmotes({ kick_user_id }) {
+    async fetchEmotes({ user_id }) {
       info("Fetching emote data from SevenTV..");
-      if (!kick_user_id)
+      if (!user_id)
         return error2("Missing kick channel id for SevenTV provider.");
-      const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${kick_user_id}`);
+      const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`);
       log(data);
       if (!data.emote_set || !data.emote_set.emotes.length) {
         log("No emotes found on SevenTV provider");
@@ -1816,7 +1817,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.9",
+      VERSION: "1.0.10",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -1850,7 +1851,7 @@
       const channelData = await this.loadChannelData();
       if (!channelData)
         return error2("Failed to load channel data");
-      const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id);
+      const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.channel_id);
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
@@ -1904,21 +1905,36 @@
       });
     }
     async loadChannelData() {
-      const channelName = window2.location.pathname.substring(1).split("/")[0];
-      if (!channelName)
-        throw new Error("Failed to extract channel name from URL");
-      const channelRequestData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`);
-      if (!channelRequestData) {
-        throw new Error("Failed to fetch channel data");
+      let channelData = {};
+      if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
+        const channelName = window2.location.pathname.substring(1).split("/")[0];
+        if (!channelName)
+          throw new Error("Failed to extract channel name from URL");
+        const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`);
+        if (!responseChannelData) {
+          throw new Error("Failed to fetch channel data");
+        }
+        if (!responseChannelData.id || !responseChannelData.user_id) {
+          throw new Error("Invalid channel data");
+        }
+        const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`);
+        if (!responseChannelMeData) {
+          throw new Error("Failed to fetch channel me data");
+        }
+        channelData = {
+          user_id: responseChannelData.user_id,
+          channel_id: responseChannelData.id,
+          channel_name: channelName,
+          me: {
+            is_subscribed: !!responseChannelMeData.subscription,
+            is_following: !!responseChannelMeData.is_following,
+            is_super_admin: !!responseChannelMeData.is_super_admin,
+            is_broadcaster: !!responseChannelMeData.is_broadcaster,
+            is_moderator: !!responseChannelMeData.is_moderator,
+            is_banned: !!responseChannelMeData.banned
+          }
+        };
       }
-      if (!channelRequestData.id || !channelRequestData.user_id) {
-        throw new Error("Invalid channel data");
-      }
-      const channelData = {
-        kick_user_id: channelRequestData.user_id,
-        kick_channel_id: channelRequestData.id,
-        kick_channel_name: channelName
-      };
       this.channelData = channelData;
       return channelData;
     }
