@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.4',
+		VERSION: '1.0.5',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -55,9 +55,9 @@ class NipahClient {
 		const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id)
 
 		let userInterface
-		this.userInterface = userInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager })
+			this.userInterface = userInterface
 		} else {
 			return error('Platform has no user interface imlemented..', ENV_VARS.PLATFORM)
 		}
@@ -144,6 +144,7 @@ class NipahClient {
 	}
 
 	destroy() {
+		log('Destroying old session')
 		if (this.userInterface) {
 			this.userInterface.destroy()
 		}
@@ -167,19 +168,24 @@ const awaitLoadInterval = setInterval(() => {
 		if (window.navigation) {
 			window.navigation.addEventListener('navigate', event => {
 				nipahClient.destroy()
-				nipahClient = new NipahClient()
-				nipahClient.initialize()
+				setTimeout(() => {
+					nipahClient = new NipahClient()
+					nipahClient.initialize()
+				}, 1000)
 			})
 		} else {
 			let navigationUrl = window.location.href
 			setInterval(() => {
 				if (navigationUrl !== window.location.href) {
-					navigationUrl = window.location.href
 					nipahClient.destroy()
-					nipahClient = new NipahClient()
-					nipahClient.initialize()
+
+					setTimeout(() => {
+						navigationUrl = window.location.href
+						nipahClient = new NipahClient()
+						nipahClient.initialize()
+					}, 1000)
 				}
-			}, 100)
+			}, 300)
 		}
 	}, 1500)
 }, 100)

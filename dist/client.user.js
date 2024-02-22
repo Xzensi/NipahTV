@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.4
+// @version 1.0.5
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -450,6 +450,7 @@
       this.eventBus = eventBus;
     }
     render() {
+      $(".nipah_client_footer").remove();
       const basePath = this.ENV_VARS.RESOURCE_ROOT + "/dist/img";
       this.$element = $(`
             <div class="nipah_client_footer">
@@ -465,7 +466,6 @@
     }
     destroy() {
       this.$element.remove();
-      this.$element = null;
     }
   };
 
@@ -483,6 +483,7 @@
       this.emotesManager = emotesManager;
     }
     render() {
+      $(".nipah__emote-menu").remove();
       this.$container = $(`
             <div class="nipah__emote-menu" style="display: none">
                 <div class="nipah__emote-menu__header">
@@ -688,7 +689,6 @@
     }
     destroy() {
       this.$container.remove();
-      this.$container = null;
     }
   };
 
@@ -702,6 +702,7 @@
       this.emotesManager = emotesManager;
     }
     render() {
+      $(".nipah_client_quick_emotes_holder").remove();
       this.$element = $(`<div class="nipah_client_quick_emotes_holder"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
       $oldEmotesHolder.after(this.$element);
@@ -777,7 +778,6 @@
     }
     destroy() {
       this.$element.remove();
-      this.$element = null;
     }
   };
 
@@ -1005,9 +1005,6 @@
       textFieldEl.focus();
     }
     destroy() {
-      this.elm.$textField.off("input");
-      this.elm.$textField.off("click");
-      this.elm.$submitButton.off("click");
       this.emoteMenu.destroy();
       this.emoteMenuButton.destroy();
       this.quickEmotesHolder.destroy();
@@ -1790,7 +1787,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.4",
+      VERSION: "1.0.5",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -1819,9 +1816,9 @@
         return error2("Failed to load channel data");
       const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.kick_channel_id);
       let userInterface;
-      this.userInterface = userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
+        this.userInterface = userInterface;
       } else {
         return error2("Platform has no user interface imlemented..", ENV_VARS.PLATFORM);
       }
@@ -1886,6 +1883,7 @@
       return channelData;
     }
     destroy() {
+      log("Destroying old session");
       if (this.userInterface) {
         this.userInterface.destroy();
       }
@@ -1905,19 +1903,23 @@
       if (window2.navigation) {
         window2.navigation.addEventListener("navigate", (event) => {
           nipahClient.destroy();
-          nipahClient = new NipahClient();
-          nipahClient.initialize();
+          setTimeout(() => {
+            nipahClient = new NipahClient();
+            nipahClient.initialize();
+          }, 1e3);
         });
       } else {
         let navigationUrl = window2.location.href;
         setInterval(() => {
           if (navigationUrl !== window2.location.href) {
-            navigationUrl = window2.location.href;
             nipahClient.destroy();
-            nipahClient = new NipahClient();
-            nipahClient.initialize();
+            setTimeout(() => {
+              navigationUrl = window2.location.href;
+              nipahClient = new NipahClient();
+              nipahClient.initialize();
+            }, 1e3);
           }
-        }, 100);
+        }, 300);
       }
     }, 1500);
   }, 100);

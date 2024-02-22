@@ -177,10 +177,6 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	destroy() {
-		this.elm.$textField.off('input')
-		this.elm.$textField.off('click')
-		this.elm.$submitButton.off('click')
-
 		this.emoteMenu.destroy()
 		this.emoteMenuButton.destroy()
 		this.quickEmotesHolder.destroy()
