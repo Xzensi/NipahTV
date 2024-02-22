@@ -82,7 +82,6 @@
 			line-height: 3em;
 			outline: none;
 			border: none;
-			height: 100%;
 			width: 100%;
 
 			&::placeholder {
@@ -158,6 +157,7 @@
 		padding-right: 8px;
 		overflow-x: hidden;
 		overflow-y: scroll;
+		height: 100%;
 
 		&::-webkit-scrollbar {
 			// width: 10px;
