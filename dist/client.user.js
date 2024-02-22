@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.7
+// @version 1.0.8
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -230,6 +230,13 @@
         this.storeDatabase();
       }, 5 * 60 * 1e3);
       setInterval(() => this.storeDatabase(), 3 * 1e3);
+      eventBus.subscribe("nipah.session.destroy", () => {
+        delete this.emoteSets;
+        delete this.emoteMap;
+        delete this.emoteNameMap;
+        delete this.emoteHistory;
+        delete this.pendingHistoryChanges;
+      });
     }
     loadDatabase() {
       info("Reading out localstorage..");
@@ -276,7 +283,7 @@
           return error2("Invalid emote data", emote);
         }
         if (this.emoteNameMap.has(emote.name)) {
-          return log(`Duplicate emote ${emote.name}, skipping..`);
+          return log(`Skipping duplicate emote ${emote.name}.`);
         }
         this.emoteMap.set("" + emote.id, emote);
         this.emoteNameMap.set(emote.name, emote);
@@ -450,7 +457,6 @@
       this.eventBus = eventBus;
     }
     render() {
-      $(".nipah_client_footer").remove();
       const basePath = this.ENV_VARS.RESOURCE_ROOT + "/dist/img";
       this.$element = $(`
             <div class="nipah_client_footer">
@@ -483,7 +489,6 @@
       this.emotesManager = emotesManager;
     }
     render() {
-      $(".nipah__emote-menu").remove();
       this.$container = $(`
             <div class="nipah__emote-menu" style="display: none">
                 <div class="nipah__emote-menu__header">
@@ -899,7 +904,8 @@
     constructor(deps) {
       super(deps);
     }
-    loadInterface() {
+    async loadInterface() {
+      await this.waitForPageLoad();
       info("Creating user interface..");
       const { ENV_VARS, eventBus, settingsManager, emotesManager } = this;
       const emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
@@ -940,6 +946,7 @@
           return;
         $("#chatroom").addClass(`nipah__seperators-${value}`);
       });
+      eventBus.subscribe("nipah.session.destroy", this.destroy.bind(this));
     }
     handleInput(evt) {
       const textFieldEl = this.elm.$textField[0];
@@ -1009,6 +1016,21 @@
       textFieldEl.normalize();
       textFieldEl.dispatchEvent(new Event("input"));
       textFieldEl.focus();
+    }
+    waitForPageLoad() {
+      info("Waiting for page load to render user interface..");
+      const requiredElements = ["#message-input", ".quick-emotes-holder"];
+      return new Promise((resolve) => {
+        let interval;
+        const checkElements = function() {
+          if (requiredElements.every((selector) => document.querySelector(selector))) {
+            clearInterval(interval);
+            resolve();
+          }
+        };
+        interval = setInterval(checkElements, 100);
+        checkElements();
+      });
     }
     destroy() {
       this.emoteMenu.destroy();
@@ -1794,7 +1816,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.7",
+      VERSION: "1.0.8",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -1802,9 +1824,10 @@
       RESOURCE_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV/master",
       DEBUG: false
     };
-    async initialize(skipStyles = false) {
-      info(`Initializing Nipah client ${this.VERSION}..`);
+    stylesLoaded = false;
+    async initialize() {
       const { ENV_VARS } = this;
+      info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
       if (ENV_VARS.DEBUG) {
         ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
       }
@@ -1814,7 +1837,13 @@
       } else {
         return error2("Unsupported platform", window2.app_name);
       }
+      this.attachPageNavigationListener();
+      this.setupClientEnvironment();
+    }
+    async setupClientEnvironment() {
+      const { ENV_VARS } = this;
       const eventBus = new Publisher();
+      this.eventBus = eventBus;
       const settingsManager = new SettingsManager(eventBus);
       settingsManager.initialize();
       settingsManager.loadSettings();
@@ -1825,12 +1854,12 @@
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
-        this.userInterface = userInterface;
       } else {
         return error2("Platform has no user interface imlemented..", ENV_VARS.PLATFORM);
       }
-      if (!skipStyles) {
+      if (!this.stylesLoaded) {
         this.loadStyles().then(() => {
+          this.stylesLoaded = true;
           userInterface.loadInterface();
         }).catch((response) => error2("Failed to load styles.", response));
       } else {
@@ -1893,45 +1922,48 @@
       this.channelData = channelData;
       return channelData;
     }
-    destroy() {
-      log("Destroying old session");
-      if (this.userInterface) {
-        this.userInterface.destroy();
+    attachPageNavigationListener() {
+      info("Current URL:", window2.location.href);
+      let locationURL = window2.location.href;
+      if (window2.navigation) {
+        window2.navigation.addEventListener("navigate", (event) => {
+          setTimeout(() => {
+            if (locationURL === window2.location.href)
+              return;
+            locationURL = window2.location.href;
+            info("Navigated to:", window2.location.href);
+            this.cleanupOldClientEnvironment();
+            this.setupClientEnvironment();
+          }, 100);
+        });
+      } else {
+        setInterval(() => {
+          if (locationURL !== window2.location.href) {
+            locationURL = window2.location.href;
+            info("Navigated to:", locationURL);
+            this.cleanupOldClientEnvironment();
+            this.setupClientEnvironment();
+          }
+        }, 100);
+      }
+    }
+    cleanupOldClientEnvironment() {
+      log("Cleaning up old session..");
+      if (this.eventBus) {
+        this.eventBus.publish("nipah.session.destroy");
+        this.eventBus = null;
       }
     }
   };
   info("Running Nipah Client script.");
-  log("Waiting for message input field..");
+  log("Waiting for platform to load..");
   var awaitLoadInterval = setInterval(() => {
-    if (window2.app_name !== "Kick" || !document.getElementById("message-input")) {
+    if (window2.app_name !== "Kick") {
       return;
     }
-    log("Message input field found.");
+    log("Platform loaded.");
     clearInterval(awaitLoadInterval);
-    setTimeout(() => {
-      let nipahClient = new NipahClient();
-      nipahClient.initialize();
-      if (window2.navigation) {
-        window2.navigation.addEventListener("navigate", (event) => {
-          nipahClient.destroy();
-          setTimeout(() => {
-            nipahClient = new NipahClient();
-            nipahClient.initialize(true);
-          }, 1e3);
-        });
-      } else {
-        let navigationUrl = window2.location.href;
-        setInterval(() => {
-          if (navigationUrl !== window2.location.href) {
-            nipahClient.destroy();
-            setTimeout(() => {
-              navigationUrl = window2.location.href;
-              nipahClient = new NipahClient(true);
-              nipahClient.initialize();
-            }, 1e3);
-          }
-        }, 300);
-      }
-    }, 1500);
+    let nipahClient = new NipahClient();
+    nipahClient.initialize();
   }, 100);
 })();

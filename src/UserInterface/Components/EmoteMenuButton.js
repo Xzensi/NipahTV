@@ -9,9 +9,6 @@ export class EmoteMenuButton extends AbstractComponent {
 	}
 
 	render() {
-		// TODO figure out why its somehow duplicating this on page navigation..
-		$('.nipah_client_footer').remove()
-
 		const basePath = this.ENV_VARS.RESOURCE_ROOT + '/dist/img'
 		this.$element = $(`
             <div class="nipah_client_footer">

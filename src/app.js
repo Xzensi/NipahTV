@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.7',
+		VERSION: '1.0.8',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -27,10 +27,12 @@ class NipahClient {
 		DEBUG: false
 	}
 
-	async initialize(skipStyles = false) {
-		info(`Initializing Nipah client ${this.VERSION}..`)
+	stylesLoaded = false
 
+	async initialize() {
 		const { ENV_VARS } = this
+
+		info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`)
 
 		if (ENV_VARS.DEBUG) {
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
@@ -43,7 +45,15 @@ class NipahClient {
 			return error('Unsupported platform', window.app_name)
 		}
 
+		this.attachPageNavigationListener()
+		this.setupClientEnvironment()
+	}
+
+	async setupClientEnvironment() {
+		const { ENV_VARS } = this
+
 		const eventBus = new Publisher()
+		this.eventBus = eventBus
 
 		const settingsManager = new SettingsManager(eventBus)
 		settingsManager.initialize()
@@ -57,14 +67,14 @@ class NipahClient {
 		let userInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager })
-			this.userInterface = userInterface
 		} else {
 			return error('Platform has no user interface imlemented..', ENV_VARS.PLATFORM)
 		}
 
-		if (!skipStyles) {
+		if (!this.stylesLoaded) {
 			this.loadStyles()
 				.then(() => {
+					this.stylesLoaded = true
 					userInterface.loadInterface()
 				})
 				.catch(response => error('Failed to load styles.', response))
@@ -147,49 +157,54 @@ class NipahClient {
 		return channelData
 	}
 
-	destroy() {
-		log('Destroying old session')
-		if (this.userInterface) {
-			this.userInterface.destroy()
+	attachPageNavigationListener() {
+		info('Current URL:', window.location.href)
+		let locationURL = window.location.href
+
+		if (window.navigation) {
+			window.navigation.addEventListener('navigate', event => {
+				setTimeout(() => {
+					if (locationURL === window.location.href) return
+					locationURL = window.location.href
+
+					info('Navigated to:', window.location.href)
+
+					this.cleanupOldClientEnvironment()
+					this.setupClientEnvironment()
+				}, 100)
+			})
+		} else {
+			setInterval(() => {
+				if (locationURL !== window.location.href) {
+					locationURL = window.location.href
+					info('Navigated to:', locationURL)
+
+					this.cleanupOldClientEnvironment()
+					this.setupClientEnvironment()
+				}
+			}, 100)
+		}
+	}
+
+	cleanupOldClientEnvironment() {
+		log('Cleaning up old session..')
+
+		if (this.eventBus) {
+			this.eventBus.publish('nipah.session.destroy')
+			this.eventBus = null
 		}
 	}
 }
 
 info('Running Nipah Client script.')
-log('Waiting for message input field..')
+log('Waiting for platform to load..')
 const awaitLoadInterval = setInterval(() => {
-	if (window.app_name !== 'Kick' || !document.getElementById('message-input')) {
+	if (window.app_name !== 'Kick') {
 		return
 	}
 
-	log('Message input field found.')
+	log('Platform loaded.')
 	clearInterval(awaitLoadInterval)
-	setTimeout(() => {
-		let nipahClient = new NipahClient()
-		nipahClient.initialize()
-
-		// TODO quick fix for navigation handling
-		if (window.navigation) {
-			window.navigation.addEventListener('navigate', event => {
-				nipahClient.destroy()
-				setTimeout(() => {
-					nipahClient = new NipahClient()
-					nipahClient.initialize(true)
-				}, 1000)
-			})
-		} else {
-			let navigationUrl = window.location.href
-			setInterval(() => {
-				if (navigationUrl !== window.location.href) {
-					nipahClient.destroy()
-
-					setTimeout(() => {
-						navigationUrl = window.location.href
-						nipahClient = new NipahClient(true)
-						nipahClient.initialize()
-					}, 1000)
-				}
-			}, 300)
-		}
-	}, 1500)
+	let nipahClient = new NipahClient()
+	nipahClient.initialize()
 }, 100)

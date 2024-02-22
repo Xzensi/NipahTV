@@ -15,7 +15,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		super(deps)
 	}
 
-	loadInterface() {
+	async loadInterface() {
+		await this.waitForPageLoad()
+
 		info('Creating user interface..')
 		const { ENV_VARS, eventBus, settingsManager, emotesManager } = this
 
@@ -37,7 +39,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.elm.$textField.on('input', this.handleInput.bind(this))
 		this.elm.$textField.on('click', emoteMenu.toggleShow.bind(emoteMenu, false))
 
-		// TODO dirt patch, fix this properly
+		// TODO dirty patch, fix this properly
 		// On submit with enter key
 		this.elm.$textField.on('keyup', evt => {
 			if (evt.keyCode === 13) {
@@ -65,6 +67,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!value || value === 'none') return
 			$('#chatroom').addClass(`nipah__seperators-${value}`)
 		})
+
+		// On sigterm signal, cleanup user interface
+		eventBus.subscribe('nipah.session.destroy', this.destroy.bind(this))
 	}
 
 	handleInput(evt) {
@@ -182,6 +187,23 @@ export class KickUserInterface extends AbstractUserInterface {
 		//     }
 		//     currentMergingTextNode = null
 		// }
+	}
+
+	waitForPageLoad() {
+		info('Waiting for page load to render user interface..')
+		const requiredElements = ['#message-input', '.quick-emotes-holder']
+
+		return new Promise(resolve => {
+			let interval
+			const checkElements = function () {
+				if (requiredElements.every(selector => document.querySelector(selector))) {
+					clearInterval(interval)
+					resolve()
+				}
+			}
+			interval = setInterval(checkElements, 100)
+			checkElements()
+		})
 	}
 
 	destroy() {

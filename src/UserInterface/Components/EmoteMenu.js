@@ -17,9 +17,6 @@ export class EmoteMenu extends AbstractComponent {
 	}
 
 	render() {
-		// TODO figure out why its somehow duplicating this on page navigation..
-		$('.nipah__emote-menu').remove()
-
 		this.$container = $(`
             <div class="nipah__emote-menu" style="display: none">
                 <div class="nipah__emote-menu__header">

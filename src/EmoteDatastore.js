@@ -30,6 +30,14 @@ export class EmoteDatastore {
 		}, 5 * 60 * 1000)
 
 		setInterval(() => this.storeDatabase(), 3 * 1000)
+
+		eventBus.subscribe('nipah.session.destroy', () => {
+			delete this.emoteSets
+			delete this.emoteMap
+			delete this.emoteNameMap
+			delete this.emoteHistory
+			delete this.pendingHistoryChanges
+		})
 	}
 
 	loadDatabase() {
@@ -87,7 +95,7 @@ export class EmoteDatastore {
 				return error('Invalid emote data', emote)
 			}
 			if (this.emoteNameMap.has(emote.name)) {
-				return log(`Duplicate emote ${emote.name}, skipping..`)
+				return log(`Skipping duplicate emote ${emote.name}.`)
 			}
 
 			this.emoteMap.set('' + emote.id, emote)
