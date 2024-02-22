@@ -11,9 +11,9 @@ export class KickProvider extends AbstractProvider {
 		this.settingsManager = settingsManager
 	}
 
-	async fetchEmotes({ kick_channel_id, kick_channel_name }) {
-		if (!kick_channel_id) return error('Missing channel id for Kick provider')
-		if (!kick_channel_name) return error('Missing channel name for Kick provider')
+	async fetchEmotes({ channel_id, channel_name, user_id, me }) {
+		if (!channel_id) return error('Missing channel id for Kick provider')
+		if (!channel_name) return error('Missing channel name for Kick provider')
 
 		const { settingsManager } = this
 
@@ -27,7 +27,7 @@ export class KickProvider extends AbstractProvider {
 		const includeEmojiEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_emojis')
 
 		info('Fetching emote data from Kick..')
-		const data = await fetchJSON(`https://kick.com/emotes/${kick_channel_name}`)
+		const data = await fetchJSON(`https://kick.com/emotes/${channel_name}`)
 
 		let dataFiltered = data
 		if (!includeGlobalEmoteSet) {
@@ -37,7 +37,7 @@ export class KickProvider extends AbstractProvider {
 			dataFiltered = dataFiltered.filter(entry => entry.id !== 'Emoji')
 		}
 		if (!includeCurrentChannelEmoteSet) {
-			dataFiltered = dataFiltered.filter(entry => entry.id !== kick_channel_id)
+			dataFiltered = dataFiltered.filter(entry => entry.id !== channel_id)
 		}
 		if (!includeOtherChannelEmoteSets) {
 			dataFiltered = dataFiltered.filter(entry => !entry.user_id)
@@ -45,12 +45,14 @@ export class KickProvider extends AbstractProvider {
 
 		const emoteSets = []
 		for (const dataSet of dataFiltered) {
-			const { emotes, subscription_enabled } = dataSet
+			const { emotes } = dataSet
 
 			// Filter out sub emotes when not subscribed
-			const emotesFiltered = emotes.filter(
-				emote => !emote.subscription_enabled || (emote.subscribers_only && subscription_enabled)
-			)
+			//  only need to check for the current channel's emotes
+			let emotesFiltered = emotes
+			if (dataSet.user_id === user_id) {
+				emotesFiltered = emotes.filter(emote => me.is_subscribed || !emote.subscribers_only)
+			}
 			const emotesMapped = emotesFiltered.map(emote => ({
 				id: '' + emote.id,
 				name: emote.name,
