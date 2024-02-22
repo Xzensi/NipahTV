@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.5
+// @version 1.0.6
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -702,7 +702,6 @@
       this.emotesManager = emotesManager;
     }
     render() {
-      $(".nipah_client_quick_emotes_holder").remove();
       this.$element = $(`<div class="nipah_client_quick_emotes_holder"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
       $oldEmotesHolder.after(this.$element);
@@ -1787,7 +1786,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.5",
+      VERSION: "1.0.6",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -1795,7 +1794,7 @@
       RESOURCE_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV/master",
       DEBUG: false
     };
-    async initialize() {
+    async initialize(skipStyles = false) {
       info(`Initializing Nipah client ${this.VERSION}..`);
       const { ENV_VARS } = this;
       if (ENV_VARS.DEBUG) {
@@ -1822,9 +1821,13 @@
       } else {
         return error2("Platform has no user interface imlemented..", ENV_VARS.PLATFORM);
       }
-      this.loadStyles().then(() => {
+      if (!skipStyles) {
+        this.loadStyles().then(() => {
+          userInterface.loadInterface();
+        }).catch((response) => error2("Failed to load styles.", response));
+      } else {
         userInterface.loadInterface();
-      }).catch((response) => error2("Failed to load styles.", response));
+      }
       emotesManager.registerProvider(KickProvider);
       emotesManager.registerProvider(SevenTVProvider);
       const providerLoadOrder = [PLATFORM_ENUM.KICK, PLATFORM_ENUM.SEVENTV];
@@ -1905,7 +1908,7 @@
           nipahClient.destroy();
           setTimeout(() => {
             nipahClient = new NipahClient();
-            nipahClient.initialize();
+            nipahClient.initialize(true);
           }, 1e3);
         });
       } else {
@@ -1915,7 +1918,7 @@
             nipahClient.destroy();
             setTimeout(() => {
               navigationUrl = window2.location.href;
-              nipahClient = new NipahClient();
+              nipahClient = new NipahClient(true);
               nipahClient.initialize();
             }, 1e3);
           }

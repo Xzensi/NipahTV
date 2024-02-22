@@ -13,9 +13,6 @@ export class QuickEmotesHolder extends AbstractComponent {
 	}
 
 	render() {
-		// TODO figure out why its somehow duplicating this on page navigation..
-		$('.nipah_client_quick_emotes_holder').remove()
-
 		this.$element = $(`<div class="nipah_client_quick_emotes_holder"></div>`)
 
 		const $oldEmotesHolder = $('#chatroom-footer .quick-emotes-holder')

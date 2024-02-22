@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.5',
+		VERSION: '1.0.6',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -27,7 +27,7 @@ class NipahClient {
 		DEBUG: false
 	}
 
-	async initialize() {
+	async initialize(skipStyles = false) {
 		info(`Initializing Nipah client ${this.VERSION}..`)
 
 		const { ENV_VARS } = this
@@ -62,11 +62,15 @@ class NipahClient {
 			return error('Platform has no user interface imlemented..', ENV_VARS.PLATFORM)
 		}
 
-		this.loadStyles()
-			.then(() => {
-				userInterface.loadInterface()
-			})
-			.catch(response => error('Failed to load styles.', response))
+		if (!skipStyles) {
+			this.loadStyles()
+				.then(() => {
+					userInterface.loadInterface()
+				})
+				.catch(response => error('Failed to load styles.', response))
+		} else {
+			userInterface.loadInterface()
+		}
 
 		emotesManager.registerProvider(KickProvider)
 		emotesManager.registerProvider(SevenTVProvider)
@@ -170,7 +174,7 @@ const awaitLoadInterval = setInterval(() => {
 				nipahClient.destroy()
 				setTimeout(() => {
 					nipahClient = new NipahClient()
-					nipahClient.initialize()
+					nipahClient.initialize(true)
 				}, 1000)
 			})
 		} else {
@@ -181,7 +185,7 @@ const awaitLoadInterval = setInterval(() => {
 
 					setTimeout(() => {
 						navigationUrl = window.location.href
-						nipahClient = new NipahClient()
+						nipahClient = new NipahClient(true)
 						nipahClient.initialize()
 					}, 1000)
 				}
