@@ -37,6 +37,14 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.elm.$textField.on('input', this.handleInput.bind(this))
 		this.elm.$textField.on('click', emoteMenu.toggleShow.bind(emoteMenu, false))
 
+		// TODO dirt patch, fix this properly
+		// On submit with enter key
+		this.elm.$textField.on('keyup', evt => {
+			if (evt.keyCode === 13) {
+				eventBus.publish('nipah.ui.submit_input')
+			}
+		})
+
 		this.elm.$submitButton.on('click', eventBus.publish.bind(eventBus, 'nipah.ui.submit_input'))
 
 		// Add alternating background to chat messages

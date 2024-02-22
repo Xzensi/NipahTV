@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.6
+// @version 1.0.7
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -915,6 +915,11 @@
       });
       this.elm.$textField.on("input", this.handleInput.bind(this));
       this.elm.$textField.on("click", emoteMenu.toggleShow.bind(emoteMenu, false));
+      this.elm.$textField.on("keyup", (evt) => {
+        if (evt.keyCode === 13) {
+          eventBus.publish("nipah.ui.submit_input");
+        }
+      });
       this.elm.$submitButton.on("click", eventBus.publish.bind(eventBus, "nipah.ui.submit_input"));
       if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
         $("#chatroom").addClass("nipah__alternating-background");
@@ -1786,7 +1791,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.6",
+      VERSION: "1.0.7",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
