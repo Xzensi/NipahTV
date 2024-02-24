@@ -55,6 +55,8 @@ class NipahClient {
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
 
+		// TODO settings are not guaranteed to be loaded before the UI is initialized
+		//  (although with current localstorage implementation is synchronous)
 		const settingsManager = new SettingsManager(eventBus)
 		settingsManager.initialize()
 		settingsManager.loadSettings()

@@ -79,7 +79,7 @@ export class EmoteMenu extends AbstractComponent {
 				const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
 				const $tooltip = $(`
 					<div class="nipah__emote-tooltip ${imageInTooltop ? 'nipah__emote-tooltip--has-image' : ''}">
-						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote) : ''}
+						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, 'nipah_emote') : ''}
 						<span>${emote.name}</span>
 					</div>`).appendTo(document.body)
 
@@ -137,7 +137,7 @@ export class EmoteMenu extends AbstractComponent {
 		let maxResults = 75
 		for (const emoteResult of emotesResult) {
 			if (maxResults-- <= 0) break
-			this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item))
+			this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item, 'nipah_emote'))
 		}
 	}
 
@@ -188,7 +188,9 @@ export class EmoteMenu extends AbstractComponent {
                         </div>
                     </div>
                     <div class="nipah__emote-set__emotes">
-                    ${sortedEmotes.map(emote => emotesManager.getRenderableEmote(emote)).join('')}
+                    ${sortedEmotes
+						.map(emote => emotesManager.getRenderableEmote(emote, 'nipah_emote nipah__emote-set__emote'))
+						.join('')}
                     </div>
                 </div>
             `)

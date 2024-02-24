@@ -33,3 +33,17 @@ export function isEmpty(obj) {
 	}
 	return true
 }
+
+export function waitForElements(selectors) {
+	return new Promise(resolve => {
+		let interval
+		const checkElements = function () {
+			if (selectors.every(selector => document.querySelector(selector))) {
+				clearInterval(interval)
+				resolve()
+			}
+		}
+		interval = setInterval(checkElements, 100)
+		checkElements()
+	})
+}

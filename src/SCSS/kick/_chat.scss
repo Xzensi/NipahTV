@@ -2,7 +2,8 @@
 
 #chatroom {
 	[data-chat-entry] {
-		margin-top: 0;
+		// TODO don't alter default style, add settings option
+		// margin-top: 0;
 	}
 
 	&.nipah__alternating-background {
@@ -39,5 +40,12 @@
 				padding: 0.1em;
 			}
 		}
+	}
+}
+
+.nipah__sticky-scroll {
+	// Hide "chat paused for scrolling" when scroll is sticky
+	> div.absolute:nth-child(2) {
+		display: none;
 	}
 }

@@ -89,11 +89,11 @@ export class KickProvider extends AbstractProvider {
 		return emoteSets
 	}
 
-	getRenderableEmote(emote) {
+	getRenderableEmote(emote, classes = '') {
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
 		return `
-			<img class="nipah_emote" tabindex="0" size="1" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
+			<img class="${classes}" tabindex="0" size="1" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
 		`
 	}
 

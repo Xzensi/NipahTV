@@ -106,6 +106,19 @@
     }
     return true;
   }
+  function waitForElements(selectors) {
+    return new Promise((resolve) => {
+      let interval;
+      const checkElements = function() {
+        if (selectors.every((selector) => document.querySelector(selector))) {
+          clearInterval(interval);
+          resolve();
+        }
+      };
+      interval = setInterval(checkElements, 100);
+      checkElements();
+    });
+  }
 
   // src/DTO.js
   var DTO = class {
@@ -213,6 +226,8 @@
     emoteMap = /* @__PURE__ */ new Map();
     emoteNameMap = /* @__PURE__ */ new Map();
     emoteHistory = /* @__PURE__ */ new Map();
+    // Map of provider ids containing map of emote names to emote ids
+    emoteProviderNameMap = /* @__PURE__ */ new Map();
     // Map of pending history changes to be stored in localstorage
     pendingHistoryChanges = {};
     pendingNewEmoteHistory = false;
@@ -287,12 +302,21 @@
         }
         this.emoteMap.set("" + emote.id, emote);
         this.emoteNameMap.set(emote.name, emote);
+        let providerEmoteNameMap = this.emoteProviderNameMap.get(emote.provider);
+        if (!providerEmoteNameMap) {
+          providerEmoteNameMap = /* @__PURE__ */ new Map();
+          this.emoteProviderNameMap.set(emote.provider, providerEmoteNameMap);
+        }
+        providerEmoteNameMap.set(emote.name, emote.id);
         this.fuse.add(emote);
       });
       this.eventBus.publish("nipah.datastore.emotes.changed");
     }
     getEmote(emoteId) {
       return this.emoteMap.get(emoteId);
+    }
+    getEmoteIdByProviderName(providerId, emoteName) {
+      return this.emoteProviderNameMap.get(providerId)?.get(emoteName);
     }
     getEmoteHistoryCount(emoteId) {
       return this.emoteHistory.get(emoteId)?.getTotal() || 0;
@@ -389,6 +413,9 @@
     getEmote(emoteId) {
       return this.datastore.getEmote(emoteId);
     }
+    getEmoteIdByProviderName(providerId, emoteName) {
+      return this.datastore.getEmoteIdByProviderName(providerId, emoteName);
+    }
     getEmoteSrc(emoteId) {
       const emote = this.getEmote(emoteId);
       if (!emote)
@@ -404,14 +431,14 @@
     getEmoteHistoryCount(emoteId) {
       return this.datastore.getEmoteHistoryCount(emoteId);
     }
-    getRenderableEmote(emote) {
+    getRenderableEmote(emote, classes = "") {
       if (typeof emote !== "object") {
         emote = this.getEmote(emote);
         if (!emote)
           return error2("Emote not found");
       }
       const provider = this.providers.get(emote.provider);
-      return provider.getRenderableEmote(emote);
+      return provider.getRenderableEmote(emote, classes);
     }
     getEmoteEmbeddable(emoteId) {
       const emote = this.getEmote(emoteId);
@@ -544,7 +571,7 @@
         const imageInTooltop = settingsManager.getSetting("shared.chat.tooltips.images");
         const $tooltip = $(`
 					<div class="nipah__emote-tooltip ${imageInTooltop ? "nipah__emote-tooltip--has-image" : ""}">
-						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote) : ""}
+						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "nipah_emote") : ""}
 						<span>${emote.name}</span>
 					</div>`).appendTo(document.body);
         const rect = evt.target.getBoundingClientRect();
@@ -589,7 +616,7 @@
       for (const emoteResult of emotesResult) {
         if (maxResults-- <= 0)
           break;
-        this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item));
+        this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item, "nipah_emote"));
       }
     }
     switchPanel(panel) {
@@ -630,7 +657,7 @@
                         </div>
                     </div>
                     <div class="nipah__emote-set__emotes">
-                    ${sortedEmotes.map((emote) => emotesManager.getRenderableEmote(emote)).join("")}
+                    ${sortedEmotes.map((emote) => emotesManager.getRenderableEmote(emote, "nipah_emote nipah__emote-set__emote")).join("")}
                     </div>
                 </div>
             `);
@@ -764,7 +791,7 @@
           this.$element.append(emoteToSort.$emote);
         }
       } else {
-        const $emotePartial = $(emotesManager.getRenderableEmote(emoteId));
+        const $emotePartial = $(emotesManager.getRenderableEmote(emoteId, "nipah_emote"));
         const insertIndex = this.getSortedEmoteIndex(emoteId);
         if (insertIndex !== -1) {
           this.sortingList.splice(insertIndex, 0, { id: emoteId, $emote: $emotePartial });
@@ -898,36 +925,46 @@
   // src/UserInterface/KickUserInterface.js
   var KickUserInterface = class extends AbstractUserInterface {
     elm = {
-      $textField: $("#message-input"),
-      $submitButton: $("#chatroom-footer button.base-button")
+      $textField: null,
+      $submitButton: null,
+      $chatMessagesContainer: null
     };
+    stickyScroll = true;
     constructor(deps) {
       super(deps);
     }
     async loadInterface() {
-      await this.waitForPageLoad();
       info("Creating user interface..");
-      const { ENV_VARS, eventBus, settingsManager, emotesManager } = this;
-      this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
-      this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init();
-      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
-      if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
-        $("#chatroom").addClass("nipah__alternating-background");
-      }
-      const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
-      if (seperatorSettingVal && seperatorSettingVal !== "none") {
-        $("#chatroom").addClass(`nipah__seperators-${seperatorSettingVal}`);
-      }
-    }
-    attachEventListeners() {
-      const { emoteMenu, eventBus } = this;
-      this.elm.$submitButton.on("click", eventBus.publish.bind(eventBus, "nipah.ui.submit_input"));
-      this.elm.$textField.on("input", this.handleInput.bind(this));
-      this.elm.$textField.on("click", emoteMenu.toggleShow.bind(emoteMenu, false));
-      this.elm.$textField.on("keyup", (evt) => {
-        if (evt.keyCode === 13) {
-          eventBus.publish("nipah.ui.submit_input");
+      const { eventBus, settingsManager } = this;
+      waitForElements(["#message-input"]).then(() => {
+        const $textField = this.elm.$textField = $("#message-input");
+        $textField.on("input", this.handleInput.bind(this));
+        $textField.on("keyup", (evt) => {
+          if (evt.keyCode === 13) {
+            eventBus.publish("nipah.ui.submit_input");
+          }
+        });
+        this.loadEmoteMenu();
+        this.loadQuickEmotesHolder();
+      });
+      waitForElements(["#chatroom-footer button.base-button"]).then(() => {
+        const $submitButton = this.elm.$submitButton = $("#chatroom-footer button.base-button");
+        $submitButton.on("click", eventBus.publish.bind(eventBus, "nipah.ui.submit_input"));
+        this.loadEmoteMenuButton();
+      });
+      waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"]).then(() => {
+        const $chatMessagesContainer = this.elm.$chatMessagesContainer = $(
+          "#chatroom > div:nth-child(2) > .overflow-y-scroll"
+        );
+        if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
+          $("#chatroom").addClass("nipah__alternating-background");
         }
+        const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
+        if (seperatorSettingVal && seperatorSettingVal !== "none") {
+          $("#chatroom").addClass(`nipah__seperators-${seperatorSettingVal}`);
+        }
+        this.observeChatMessages();
+        this.loadScrollingBehaviour();
       });
       eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
         if (sendImmediately) {
@@ -947,6 +984,95 @@
         $("#chatroom").addClass(`nipah__seperators-${value}`);
       });
       eventBus.subscribe("nipah.session.destroy", this.destroy.bind(this));
+      eventBus.subscribe("nipah.providers.loaded", this.renderEmotesInChat.bind(this), true);
+    }
+    async loadEmoteMenu() {
+      const { eventBus, settingsManager, emotesManager } = this;
+      this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
+      this.elm.$textField.on("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
+    }
+    async loadEmoteMenuButton() {
+      const { ENV_VARS, eventBus } = this;
+      this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init();
+    }
+    async loadQuickEmotesHolder() {
+      const { eventBus, emotesManager } = this;
+      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
+    }
+    observeChatMessages() {
+      const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
+      const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
+      const observer = this.chatObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes.length) {
+            for (const messageNode of mutation.addedNodes) {
+              this.renderEmotesInMessage(messageNode);
+            }
+            if (this.stickyScroll) {
+              window.requestAnimationFrame(scrollToBottom);
+            }
+          }
+        });
+      });
+      observer.observe(chatMessagesContainerEl, { childList: true });
+    }
+    loadScrollingBehaviour() {
+      const $chatMessagesContainer = this.elm.$chatMessagesContainer;
+      if (this.stickyScroll)
+        $chatMessagesContainer.parent().addClass("nipah__sticky-scroll");
+      $chatMessagesContainer[0].addEventListener(
+        "scroll",
+        (evt) => {
+          if (!this.stickyScroll) {
+            const target = evt.target;
+            const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 15;
+            if (isAtBottom) {
+              $chatMessagesContainer.parent().addClass("nipah__sticky-scroll");
+              target.scrollTop = 99999;
+              this.stickyScroll = true;
+            }
+          }
+        },
+        { passive: true }
+      );
+      $chatMessagesContainer[0].addEventListener(
+        "wheel",
+        (evt) => {
+          if (this.stickyScroll && evt.deltaY < 0) {
+            $chatMessagesContainer.parent().removeClass("nipah__sticky-scroll");
+            this.stickyScroll = false;
+          }
+        },
+        { passive: true }
+      );
+    }
+    renderEmotesInChat() {
+      const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
+      const chatMessagesContainerNode = chatMessagesContainerEl;
+      for (const messageNode of chatMessagesContainerNode.children) {
+        this.renderEmotesInMessage(messageNode);
+      }
+    }
+    renderEmotesInMessage(messageNode) {
+      const { emotesManager } = this;
+      const messageContentNodes = messageNode.querySelectorAll(".chat-entry-content");
+      for (const contentNode of messageContentNodes) {
+        const contentNodeText = contentNode.textContent;
+        const tokens = contentNodeText.split(" ");
+        const uniqueTokens = [...new Set(tokens)];
+        let innerHTML = contentNode.innerHTML;
+        for (const token of uniqueTokens) {
+          const emoteId = emotesManager.getEmoteIdByProviderName(PLATFORM_ENUM.SEVENTV, token);
+          if (emoteId) {
+            const emoteRender = emotesManager.getRenderableEmote(emoteId, "chat-emote");
+            innerHTML = innerHTML.replaceAll(
+              token,
+              `<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
+            );
+          }
+        }
+        contentNode.innerHTML = innerHTML;
+      }
     }
     handleInput(evt) {
       const textFieldEl = this.elm.$textField[0];
@@ -1017,25 +1143,15 @@
       textFieldEl.dispatchEvent(new Event("input"));
       textFieldEl.focus();
     }
-    waitForPageLoad() {
-      info("Waiting for page load to render user interface..");
-      const requiredElements = ["#message-input", ".quick-emotes-holder"];
-      return new Promise((resolve) => {
-        let interval;
-        const checkElements = function() {
-          if (requiredElements.every((selector) => document.querySelector(selector))) {
-            clearInterval(interval);
-            resolve();
-          }
-        };
-        interval = setInterval(checkElements, 100);
-        checkElements();
-      });
-    }
     destroy() {
-      this.emoteMenu.destroy();
-      this.emoteMenuButton.destroy();
-      this.quickEmotesHolder.destroy();
+      if (this.emoteMenu)
+        this.emoteMenu.destroy();
+      if (this.emoteMenuButton)
+        this.emoteMenuButton.destroy();
+      if (this.quickEmotesHolder)
+        this.quickEmotesHolder.destroy();
+      if (this.chatObserver)
+        this.chatObserver.disconnect();
     }
   };
 
@@ -1114,10 +1230,10 @@
       this.status = "loaded";
       return emoteSets;
     }
-    getRenderableEmote(emote) {
+    getRenderableEmote(emote, classes = "") {
       const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`;
       return `
-			<img class="nipah_emote" tabindex="0" size="1" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
+			<img class="${classes}" tabindex="0" size="1" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
 		`;
     }
     getEmbeddableEmote(emote) {
@@ -1185,10 +1301,10 @@
         }
       ];
     }
-    getRenderableEmote(emote) {
+    getRenderableEmote(emote, classes = "") {
       const srcset = `https://cdn.7tv.app/emote/${emote.id}/1x.avif 1x, https://cdn.7tv.app/emote/${emote.id}/2x.avif 2x, https://cdn.7tv.app/emote/${emote.id}/3x.avif 3x, https://cdn.7tv.app/emote/${emote.id}/4x.avif 4x`;
       return `
-			<img class="nipah_emote" tabindex="0" size="${emote.size}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
+			<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
 		`;
     }
     getEmbeddableEmote(emote) {

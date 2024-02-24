@@ -6,3 +6,13 @@
 @use 'kick/footer';
 @use 'kick/modal';
 @use 'kick/chat';
+
+#chatroom {
+	.overflow-y-scroll {
+		// scroll-behavior: smooth;
+
+		// > div:last-child {
+		// 	padding-bottom: -1em;
+		// }
+	}
+}

@@ -63,6 +63,10 @@ export class EmotesManager {
 		return this.datastore.getEmote(emoteId)
 	}
 
+	getEmoteIdByProviderName(providerId, emoteName) {
+		return this.datastore.getEmoteIdByProviderName(providerId, emoteName)
+	}
+
 	getEmoteSrc(emoteId) {
 		const emote = this.getEmote(emoteId)
 		if (!emote) return error('Emote not found')
@@ -81,14 +85,14 @@ export class EmotesManager {
 		return this.datastore.getEmoteHistoryCount(emoteId)
 	}
 
-	getRenderableEmote(emote) {
+	getRenderableEmote(emote, classes = '') {
 		if (typeof emote !== 'object') {
 			emote = this.getEmote(emote)
 			if (!emote) return error('Emote not found')
 		}
 
 		const provider = this.providers.get(emote.provider)
-		return provider.getRenderableEmote(emote)
+		return provider.getRenderableEmote(emote, classes)
 	}
 
 	getEmoteEmbeddable(emoteId) {

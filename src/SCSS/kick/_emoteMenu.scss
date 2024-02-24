@@ -256,6 +256,10 @@
 		// 	width: (100% - $emotes_in_row * 1%) / $emotes_in_row;
 		// }
 	}
+
+	&__emote {
+		// background: hsla(0, 0%, 50%, 0.06);
+	}
 }
 
 .nipah_chevron {

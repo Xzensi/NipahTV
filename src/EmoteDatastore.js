@@ -7,6 +7,9 @@ export class EmoteDatastore {
 	emoteNameMap = new Map()
 	emoteHistory = new Map()
 
+	// Map of provider ids containing map of emote names to emote ids
+	emoteProviderNameMap = new Map()
+
 	// Map of pending history changes to be stored in localstorage
 	pendingHistoryChanges = {}
 	pendingNewEmoteHistory = false
@@ -101,6 +104,13 @@ export class EmoteDatastore {
 			this.emoteMap.set('' + emote.id, emote)
 			this.emoteNameMap.set(emote.name, emote)
 
+			let providerEmoteNameMap = this.emoteProviderNameMap.get(emote.provider)
+			if (!providerEmoteNameMap) {
+				providerEmoteNameMap = new Map()
+				this.emoteProviderNameMap.set(emote.provider, providerEmoteNameMap)
+			}
+			providerEmoteNameMap.set(emote.name, emote.id)
+
 			// const emoteHistoryWindow = this.emoteHistory.get(emote.id)
 			// if (emoteHistoryWindow) emote.weight = emoteHistoryWindow.getTotal()
 
@@ -112,6 +122,10 @@ export class EmoteDatastore {
 
 	getEmote(emoteId) {
 		return this.emoteMap.get(emoteId)
+	}
+
+	getEmoteIdByProviderName(providerId, emoteName) {
+		return this.emoteProviderNameMap.get(providerId)?.get(emoteName)
 	}
 
 	getEmoteHistoryCount(emoteId) {

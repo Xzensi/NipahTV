@@ -1,55 +1,71 @@
 import { EmoteMenuButton } from './Components/EmoteMenuButton'
 import { EmoteMenu } from './Components/EmoteMenu'
 import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
-import { log, info, error, assertArgDefined } from '../utils'
+import { log, info, error, assertArgDefined, waitForElements } from '../utils'
 import { AbstractUserInterface } from './AbstractUserInterface'
 import { Caret } from './Caret'
+import { PLATFORM_ENUM } from '../constants'
 
 export class KickUserInterface extends AbstractUserInterface {
 	elm = {
-		$textField: $('#message-input'),
-		$submitButton: $('#chatroom-footer button.base-button')
+		$textField: null,
+		$submitButton: null,
+		$chatMessagesContainer: null
 	}
+	stickyScroll = true
 
 	constructor(deps) {
 		super(deps)
 	}
 
 	async loadInterface() {
-		await this.waitForPageLoad()
-
 		info('Creating user interface..')
-		const { ENV_VARS, eventBus, settingsManager, emotesManager } = this
+		const { eventBus, settingsManager } = this
 
-		this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init()
-		this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init()
-		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
+		// Wait for text input to load
+		waitForElements(['#message-input']).then(() => {
+			const $textField = (this.elm.$textField = $('#message-input'))
+			$textField.on('input', this.handleInput.bind(this))
 
-		// Add alternating background color to chat messages
-		if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
-			$('#chatroom').addClass('nipah__alternating-background')
-		}
+			// TODO dirty patch, fix this properly
+			// On submit with enter key
+			$textField.on('keyup', evt => {
+				if (evt.keyCode === 13) {
+					eventBus.publish('nipah.ui.submit_input')
+				}
+			})
 
-		// Add seperator lines to chat messages
-		const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
-		if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-			$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
-		}
-	}
+			this.loadEmoteMenu()
+			this.loadQuickEmotesHolder()
+		})
 
-	attachEventListeners() {
-		const { emoteMenu, eventBus } = this
+		// Wait for submit button to load
+		waitForElements(['#chatroom-footer button.base-button']).then(() => {
+			const $submitButton = (this.elm.$submitButton = $('#chatroom-footer button.base-button'))
+			$submitButton.on('click', eventBus.publish.bind(eventBus, 'nipah.ui.submit_input'))
 
-		this.elm.$submitButton.on('click', eventBus.publish.bind(eventBus, 'nipah.ui.submit_input'))
-		this.elm.$textField.on('input', this.handleInput.bind(this))
-		this.elm.$textField.on('click', emoteMenu.toggleShow.bind(emoteMenu, false))
+			this.loadEmoteMenuButton()
+		})
 
-		// TODO dirty patch, fix this properly
-		// On submit with enter key
-		this.elm.$textField.on('keyup', evt => {
-			if (evt.keyCode === 13) {
-				eventBus.publish('nipah.ui.submit_input')
+		// Wait for chat messages container to load
+		waitForElements(['#chatroom > div:nth-child(2) > .overflow-y-scroll']).then(() => {
+			const $chatMessagesContainer = (this.elm.$chatMessagesContainer = $(
+				'#chatroom > div:nth-child(2) > .overflow-y-scroll'
+			))
+
+			// Add alternating background color to chat messages
+			if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
+				$('#chatroom').addClass('nipah__alternating-background')
 			}
+
+			// Add seperator lines to chat messages
+			const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
+			if (seperatorSettingVal && seperatorSettingVal !== 'none') {
+				$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
+			}
+
+			this.observeChatMessages()
+			this.loadScrollingBehaviour()
 		})
 
 		// Inject or send emote to chat on emote click
@@ -75,6 +91,118 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// On sigterm signal, cleanup user interface
 		eventBus.subscribe('nipah.session.destroy', this.destroy.bind(this))
+
+		// Render emotes in chat when providers are loaded
+		eventBus.subscribe('nipah.providers.loaded', this.renderEmotesInChat.bind(this), true)
+	}
+
+	async loadEmoteMenu() {
+		const { eventBus, settingsManager, emotesManager } = this
+		this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init()
+
+		this.elm.$textField.on('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
+	}
+
+	async loadEmoteMenuButton() {
+		const { ENV_VARS, eventBus } = this
+		this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init()
+	}
+
+	async loadQuickEmotesHolder() {
+		const { eventBus, emotesManager } = this
+		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
+	}
+
+	observeChatMessages() {
+		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
+
+		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
+
+		const observer = (this.chatObserver = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.addedNodes.length) {
+					for (const messageNode of mutation.addedNodes) {
+						this.renderEmotesInMessage(messageNode)
+					}
+					if (this.stickyScroll) {
+						// We need to wait for the next frame paint call to render before scrolling to bottom
+						window.requestAnimationFrame(scrollToBottom)
+					}
+				}
+			})
+		}))
+
+		observer.observe(chatMessagesContainerEl, { childList: true })
+	}
+
+	loadScrollingBehaviour() {
+		const $chatMessagesContainer = this.elm.$chatMessagesContainer
+
+		// Scroll is sticky by default
+		if (this.stickyScroll) $chatMessagesContainer.parent().addClass('nipah__sticky-scroll')
+
+		// Enable sticky scroll when user scrolls to bottom
+		$chatMessagesContainer[0].addEventListener(
+			'scroll',
+			evt => {
+				if (!this.stickyScroll) {
+					// Calculate if user has scrolled to bottom and set sticky scroll to true
+					const target = evt.target
+					const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 15
+					if (isAtBottom) {
+						$chatMessagesContainer.parent().addClass('nipah__sticky-scroll')
+						target.scrollTop = 99999
+						this.stickyScroll = true
+					}
+				}
+			},
+			{ passive: true }
+		)
+
+		// Disable sticky scroll when user scrolls up
+		$chatMessagesContainer[0].addEventListener(
+			'wheel',
+			evt => {
+				if (this.stickyScroll && evt.deltaY < 0) {
+					$chatMessagesContainer.parent().removeClass('nipah__sticky-scroll')
+					this.stickyScroll = false
+				}
+			},
+			{ passive: true }
+		)
+	}
+
+	renderEmotesInChat() {
+		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
+		const chatMessagesContainerNode = chatMessagesContainerEl
+		for (const messageNode of chatMessagesContainerNode.children) {
+			this.renderEmotesInMessage(messageNode)
+		}
+	}
+
+	renderEmotesInMessage(messageNode) {
+		const { emotesManager } = this
+		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
+
+		for (const contentNode of messageContentNodes) {
+			const contentNodeText = contentNode.textContent
+			const tokens = contentNodeText.split(' ')
+			const uniqueTokens = [...new Set(tokens)]
+			let innerHTML = contentNode.innerHTML
+
+			for (const token of uniqueTokens) {
+				const emoteId = emotesManager.getEmoteIdByProviderName(PLATFORM_ENUM.SEVENTV, token)
+
+				if (emoteId) {
+					const emoteRender = emotesManager.getRenderableEmote(emoteId, 'chat-emote')
+					innerHTML = innerHTML.replaceAll(
+						token,
+						`<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
+					)
+				}
+			}
+			contentNode.innerHTML = innerHTML
+		}
 	}
 
 	handleInput(evt) {
@@ -194,26 +322,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		// }
 	}
 
-	waitForPageLoad() {
-		info('Waiting for page load to render user interface..')
-		const requiredElements = ['#message-input', '.quick-emotes-holder']
-
-		return new Promise(resolve => {
-			let interval
-			const checkElements = function () {
-				if (requiredElements.every(selector => document.querySelector(selector))) {
-					clearInterval(interval)
-					resolve()
-				}
-			}
-			interval = setInterval(checkElements, 100)
-			checkElements()
-		})
-	}
-
 	destroy() {
-		this.emoteMenu.destroy()
-		this.emoteMenuButton.destroy()
-		this.quickEmotesHolder.destroy()
+		if (this.emoteMenu) this.emoteMenu.destroy()
+		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
+		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
+		if (this.chatObserver) this.chatObserver.disconnect()
 	}
 }

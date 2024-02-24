@@ -66,11 +66,11 @@ export class SevenTVProvider extends AbstractProvider {
 		]
 	}
 
-	getRenderableEmote(emote) {
+	getRenderableEmote(emote, classes = '') {
 		const srcset = `https://cdn.7tv.app/emote/${emote.id}/1x.avif 1x, https://cdn.7tv.app/emote/${emote.id}/2x.avif 2x, https://cdn.7tv.app/emote/${emote.id}/3x.avif 3x, https://cdn.7tv.app/emote/${emote.id}/4x.avif 4x`
 
 		return `
-			<img class="nipah_emote" tabindex="0" size="${emote.size}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
+			<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
 		`
 	}
 
