@@ -5,6 +5,7 @@ import { log, info, error, assertArgDefined, waitForElements } from '../utils'
 import { AbstractUserInterface } from './AbstractUserInterface'
 import { Caret } from './Caret'
 import { PLATFORM_ENUM } from '../constants'
+import { MessagesHistory } from '../MessagesHistory'
 
 export class KickUserInterface extends AbstractUserInterface {
 	elm = {
@@ -13,6 +14,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		$chatMessagesContainer: null
 	}
 	stickyScroll = true
+	messageHistory = new MessagesHistory()
 
 	constructor(deps) {
 		super(deps)
@@ -30,19 +32,25 @@ export class KickUserInterface extends AbstractUserInterface {
 			// TODO dirty patch, fix this properly
 			// On submit with enter key
 			$textField.on('keyup', evt => {
+				log('Keydown event', evt.keyCode)
 				if (evt.keyCode === 13) {
-					eventBus.publish('nipah.ui.submit_input')
+					this.submitInput()
 				}
+			})
+
+			$textField.parent()[0].addEventListener('keydown', evt => {
+				log('Keydown event2', evt.keyCode)
 			})
 
 			this.loadEmoteMenu()
 			this.loadQuickEmotesHolder()
+			this.loadChatHistoryBehaviour()
 		})
 
 		// Wait for submit button to load
 		waitForElements(['#chatroom-footer button.base-button']).then(() => {
 			const $submitButton = (this.elm.$submitButton = $('#chatroom-footer button.base-button'))
-			$submitButton.on('click', eventBus.publish.bind(eventBus, 'nipah.ui.submit_input'))
+			$submitButton.on('click', this.submitInput.bind(this))
 
 			this.loadEmoteMenuButton()
 		})
@@ -113,26 +121,24 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
 	}
 
-	observeChatMessages() {
-		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
+	loadChatHistoryBehaviour() {
+		const $textField = this.elm.$textField
 
-		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
+		$textField.on('keydown', evt => {
+			if (evt.keyCode === 38 || evt.keyCode === 40) {
+				// Check if caret is at the start of the text field
+				if (Caret.isCaretAtStartOfNode($textField[0])) {
+					log('Caret is at start of text field')
+					evt.preventDefault()
+					// evt.stopPropagation()
+					evt.keyCode === 38 ? this.messageHistory.moveCursorUp() : this.messageHistory.moveCursorDown()
 
-		const observer = (this.chatObserver = new MutationObserver(mutations => {
-			mutations.forEach(mutation => {
-				if (mutation.addedNodes.length) {
-					for (const messageNode of mutation.addedNodes) {
-						this.renderEmotesInMessage(messageNode)
-					}
-					if (this.stickyScroll) {
-						// We need to wait for the next frame paint call to render before scrolling to bottom
-						window.requestAnimationFrame(scrollToBottom)
-					}
+					const message = this.messageHistory.getMessage()
+					$textField.html(message)
+					log('Message', message)
 				}
-			})
-		}))
-
-		observer.observe(chatMessagesContainerEl, { childList: true })
+			}
+		})
 	}
 
 	loadScrollingBehaviour() {
@@ -172,6 +178,28 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 	}
 
+	observeChatMessages() {
+		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
+
+		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
+
+		const observer = (this.chatObserver = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.addedNodes.length) {
+					for (const messageNode of mutation.addedNodes) {
+						this.renderEmotesInMessage(messageNode)
+					}
+					if (this.stickyScroll) {
+						// We need to wait for the next frame paint call to render before scrolling to bottom
+						window.requestAnimationFrame(scrollToBottom)
+					}
+				}
+			})
+		}))
+
+		observer.observe(chatMessagesContainerEl, { childList: true })
+	}
+
 	renderEmotesInChat() {
 		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
 		const chatMessagesContainerNode = chatMessagesContainerEl
@@ -205,6 +233,19 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 	}
 
+	submitInput(isButtonClickEvent = false) {
+		const { eventBus } = this
+		const submitButton = this.elm.$submitButton[0]
+		const textFieldEl = this.elm.$textField[0]
+		const inputVal = textFieldEl.innerHTML
+
+		log('Submitting input', this.elm.$textField, inputVal)
+		this.messageHistory.addMessage(inputVal)
+
+		if (!isButtonClickEvent) submitButton.dispatchEvent(new Event('click'))
+		eventBus.publish('nipah.ui.submit_input')
+	}
+
 	handleInput(evt) {
 		const textFieldEl = this.elm.$textField[0]
 
@@ -230,14 +271,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldEl.innerHTML = oldMessage
 		textFieldEl.dispatchEvent(new Event('input'))
-	}
-
-	submitInput() {
-		const submitButton = this.elm.$submitButton[0]
-		const { eventBus } = this
-
-		submitButton.dispatchEvent(new Event('click'))
-		eventBus.publish('nipah.ui.submit_input')
 	}
 
 	insertEmoteInChat(emoteId) {

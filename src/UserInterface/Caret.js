@@ -106,4 +106,33 @@ export class Caret {
 			childNode.after(node)
 		}
 	}
+
+	// Checks if the caret is at the start of a node
+	static isCaretAtStartOfNode(node) {
+		const selection = window.getSelection()
+		if (!selection.rangeCount) return false
+		const range = selection.getRangeAt(0)
+
+		// Find the first text node or child node
+		let firstRelevantNode = null
+		for (const child of node.childNodes) {
+			if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.ELEMENT_NODE) {
+				firstRelevantNode = child
+				break
+			}
+		}
+
+		if (!firstRelevantNode) return false // Node has no relevant children
+
+		const nodeRange = document.createRange()
+		if (firstRelevantNode.nodeType === Node.TEXT_NODE) {
+			nodeRange.selectNodeContents(firstRelevantNode)
+		} else {
+			// For element nodes
+			nodeRange.selectNode(firstRelevantNode)
+		}
+		nodeRange.collapse(true)
+
+		return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) === 0
+	}
 }
