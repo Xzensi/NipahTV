@@ -122,7 +122,7 @@ export class Caret {
 			}
 		}
 
-		if (!firstRelevantNode) return false // Node has no relevant children
+		if (!firstRelevantNode) return true // Node has no relevant children
 
 		const nodeRange = document.createRange()
 		if (firstRelevantNode.nodeType === Node.TEXT_NODE) {
@@ -134,5 +134,34 @@ export class Caret {
 		nodeRange.collapse(true)
 
 		return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) === 0
+	}
+
+	static isCaretAtEndOfNode(node) {
+		const selection = window.getSelection()
+		if (!selection.rangeCount) return false
+		const range = selection.getRangeAt(0)
+
+		// Find the last text node or child node
+		let lastRelevantNode = null
+		for (let i = node.childNodes.length - 1; i >= 0; i--) {
+			const child = node.childNodes[i]
+			if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.ELEMENT_NODE) {
+				lastRelevantNode = child
+				break
+			}
+		}
+
+		if (!lastRelevantNode) return true // Node has no relevant children
+
+		const nodeRange = document.createRange()
+		if (lastRelevantNode.nodeType === Node.TEXT_NODE) {
+			nodeRange.selectNodeContents(lastRelevantNode)
+		} else {
+			// For element nodes
+			nodeRange.selectNode(lastRelevantNode)
+		}
+		nodeRange.collapse(false) // Collapse to the end of the node
+
+		return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) === 0
 	}
 }

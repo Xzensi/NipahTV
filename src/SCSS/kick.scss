@@ -9,10 +9,35 @@
 
 #chatroom {
 	.overflow-y-scroll {
-		scroll-behavior: smooth;
+		// scroll-behavior: smooth;
 
 		// > div:last-child {
 		// 	padding-bottom: -1em;
 		// }
+	}
+}
+
+#message-input {
+	display: none;
+}
+
+#nipah__message-input {
+	outline: 2px solid transparent;
+	line-height: 1.25rem;
+	outline-offset: 2px;
+	font-size: 0.875rem;
+	word-break: break-word;
+	max-width: 100%;
+	flex-shrink: 1;
+	flex-grow: 0;
+	cursor: text;
+	white-space: pre-wrap;
+	border-width: 1px;
+	border-color: transparent;
+	background-color: transparent;
+
+	&:empty:before {
+		content: attr(data-placeholder);
+		opacity: 0.5;
 	}
 }

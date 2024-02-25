@@ -26,21 +26,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Wait for text input to load
 		waitForElements(['#message-input']).then(() => {
-			const $textField = (this.elm.$textField = $('#message-input'))
-			$textField.on('input', this.handleInput.bind(this))
-
-			// TODO dirty patch, fix this properly
-			// On submit with enter key
-			$textField.on('keyup', evt => {
-				log('Keydown event', evt.keyCode)
-				if (evt.keyCode === 13) {
-					this.submitInput()
-				}
-			})
-
-			$textField.parent()[0].addEventListener('keydown', evt => {
-				log('Keydown event2', evt.keyCode)
-			})
+			this.loadShadowProxyTextField()
 
 			this.loadEmoteMenu()
 			this.loadQuickEmotesHolder()
@@ -50,7 +36,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Wait for submit button to load
 		waitForElements(['#chatroom-footer button.base-button']).then(() => {
 			const $submitButton = (this.elm.$submitButton = $('#chatroom-footer button.base-button'))
-			$submitButton.on('click', this.submitInput.bind(this))
+			$submitButton.on('click', this.submitInput.bind(this, true))
 
 			this.loadEmoteMenuButton()
 		})
@@ -121,21 +107,72 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
 	}
 
+	loadShadowProxyTextField() {
+		const $originalTextField = (this.elm.$originalTextField = $('#message-input'))
+		const placeholder = $originalTextField.data('placeholder')
+		const $textField = (this.elm.$textField = $(
+			`<div id="nipah__message-input" contenteditable="true" data-placeholder="${placeholder}"></div>`
+		))
+		const textFieldEl = $textField[0]
+		$originalTextField.after(textFieldEl)
+
+		textFieldEl.addEventListener('keydown', evt => {
+			if (evt.keyCode === 13) {
+				evt.preventDefault()
+				this.submitInput()
+			}
+		})
+
+		textFieldEl.addEventListener('keyup', evt => {
+			$originalTextField[0].innerHTML = textFieldEl.innerHTML
+			$originalTextField[0].dispatchEvent(new Event('input'))
+
+			if (evt.keyCode > 47 && evt.keyCode < 112) {
+				// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
+				this.messageHistory.resetCursor()
+			}
+		})
+	}
+
 	loadChatHistoryBehaviour() {
-		const $textField = this.elm.$textField
+		const originalTextFieldEl = this.elm.$originalTextField[0]
+		const textFieldEl = this.elm.$textField[0]
 
-		$textField.on('keydown', evt => {
+		textFieldEl.addEventListener('keydown', evt => {
 			if (evt.keyCode === 38 || evt.keyCode === 40) {
+				// TODO there's a bug where caret is at start but requires 2 key presses to traverse history
 				// Check if caret is at the start of the text field
-				if (Caret.isCaretAtStartOfNode($textField[0])) {
-					log('Caret is at start of text field')
+				if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.keyCode === 38) {
 					evt.preventDefault()
-					// evt.stopPropagation()
-					evt.keyCode === 38 ? this.messageHistory.moveCursorUp() : this.messageHistory.moveCursorDown()
 
-					const message = this.messageHistory.getMessage()
-					$textField.html(message)
-					log('Message', message)
+					if (!this.messageHistory.canMoveCursor(1)) return
+
+					// Store leftover html in case history traversal was accidental
+					const leftoverHTML = textFieldEl.innerHTML
+					if (this.messageHistory.isCursorAtStart() && leftoverHTML) {
+						this.messageHistory.addMessage(leftoverHTML)
+						this.messageHistory.moveCursor(2)
+					} else {
+						this.messageHistory.moveCursor(1)
+					}
+
+					textFieldEl.innerHTML = this.messageHistory.getMessage()
+				} else if (Caret.isCaretAtEndOfNode(textFieldEl) && evt.keyCode === 40) {
+					evt.preventDefault()
+
+					// Reached most recent message traversing down history
+					if (this.messageHistory.canMoveCursor(-1)) {
+						this.messageHistory.moveCursor(-1)
+						textFieldEl.innerHTML = this.messageHistory.getMessage()
+					} else {
+						// Store leftover html in case history traversal was accidental
+						const leftoverHTML = textFieldEl.innerHTML
+						if (leftoverHTML) this.messageHistory.addMessage(leftoverHTML)
+
+						// Moved past most recent message, empty text field
+						this.messageHistory.resetCursor()
+						textFieldEl.innerHTML = ''
+					}
 				}
 			}
 		})
@@ -233,49 +270,62 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 	}
 
+	// Submits input to chat
 	submitInput(isButtonClickEvent = false) {
 		const { eventBus } = this
-		const submitButton = this.elm.$submitButton[0]
+		const originalTextFieldEl = this.elm.$originalTextField[0]
+		const submitButtonEl = this.elm.$submitButton[0]
 		const textFieldEl = this.elm.$textField[0]
-		const inputVal = textFieldEl.innerHTML
 
-		log('Submitting input', this.elm.$textField, inputVal)
-		this.messageHistory.addMessage(inputVal)
+		const inputHTML = textFieldEl.innerHTML
+		originalTextFieldEl.innerHTML = inputHTML
 
-		if (!isButtonClickEvent) submitButton.dispatchEvent(new Event('click'))
+		// TODO implement max message length checks, take into account emotes and pasting
+		//  do emotes count as a single token?
+		textFieldEl.innerHTML = ''
+
+		this.messageHistory.addMessage(inputHTML)
+		this.messageHistory.resetCursor()
+
+		// Don't submit if this function was called by submit button click to prevent infinite recursion
+		if (!isButtonClickEvent) submitButtonEl.dispatchEvent(new Event('click'))
 		eventBus.publish('nipah.ui.submit_input')
-	}
-
-	handleInput(evt) {
-		const textFieldEl = this.elm.$textField[0]
-
-		// Remove <br> tags from html that somehow get injected by poor text input implementation of Kick
-		if (textFieldEl.innerHTML.includes('<br>')) {
-			textFieldEl.innerHTML = textFieldEl.innerHTML.replaceAll('<br>', '')
-		}
-
-		// const inputVal = textFieldEl.textContent
 	}
 
 	// Sends emote to chat and restores previous message
 	sendEmoteToChat(emoteId) {
 		assertArgDefined(emoteId)
+
+		const originalTextFieldEl = this.elm.$originalTextField[0]
 		const textFieldEl = this.elm.$textField[0]
 
 		const oldMessage = textFieldEl.innerHTML
 		textFieldEl.innerHTML = ''
-		this.insertEmoteInChat(emoteId)
 
-		textFieldEl.dispatchEvent(new Event('input'))
+		this.insertEmoteInChat(emoteId)
 		this.submitInput()
 
 		textFieldEl.innerHTML = oldMessage
-		textFieldEl.dispatchEvent(new Event('input'))
+		originalTextFieldEl.innerHTML = oldMessage
+		originalTextFieldEl.dispatchEvent(new Event('input'))
+
+		// TODO fix this, need to wait till message is sent before re-enabling submit button or Kick will override it
+		// if (oldMessage) {
+		// 	window.requestAnimationFrame(() => {
+		// 		this.elm.$submitButton.removeAttr('disabled')
+		// 	})
+		// 	setTimeout(() => {
+		// 		this.elm.$submitButton.removeAttr('disabled')
+		// 	}, 1000)
+		// }
 	}
 
 	insertEmoteInChat(emoteId) {
 		assertArgDefined(emoteId)
 		const { emotesManager } = this
+
+		// Inserting emote means you chose the history entry, so we reset the cursor
+		this.messageHistory.resetCursor()
 
 		// Update emotes history when emotes are used
 		emotesManager.registerEmoteEngagement(emoteId)
