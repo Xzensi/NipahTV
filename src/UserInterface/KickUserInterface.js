@@ -442,6 +442,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		this.insertNodeInChat(embedNode)
+		this.elm.$submitButton.removeAttr('disabled')
 	}
 
 	insertNodeInChat(embedNode) {

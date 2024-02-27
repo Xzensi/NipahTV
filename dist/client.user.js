@@ -1546,6 +1546,7 @@
         embedNode = document.createTextNode(paddedEmbedding);
       }
       this.insertNodeInChat(embedNode);
+      this.elm.$submitButton.removeAttr("disabled");
     }
     insertNodeInChat(embedNode) {
       log(`Inserting node in chat`);
