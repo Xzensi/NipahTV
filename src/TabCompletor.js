@@ -163,6 +163,10 @@ export class TabCompletor {
 		}
 	}
 
+	isClickInsideModal(target) {
+		return this.$modal[0]?.contains(target)
+	}
+
 	reset() {
 		this.suggestions = []
 		this.selectedIndex = -1

@@ -1203,6 +1203,9 @@
         selection.addRange(range);
       }
     }
+    isClickInsideModal(target) {
+      return this.$modal[0]?.contains(target);
+    }
     reset() {
       this.suggestions = [];
       this.selectedIndex = -1;
@@ -1413,6 +1416,12 @@
           if (textFieldEl.textContent.trim() === "" || !textFieldEl.childNodes.length) {
             tabCompletor.reset();
           }
+        }
+      });
+      document.addEventListener("click", (evt) => {
+        const isClickInsideModal = tabCompletor.isClickInsideModal(evt.target);
+        if (!isClickInsideModal) {
+          tabCompletor.reset();
         }
       });
     }

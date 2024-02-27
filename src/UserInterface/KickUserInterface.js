@@ -268,6 +268,14 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}
 		})
+
+		// Hide tab completion modal when clicking outside of it by calling tabCompletor.reset()
+		document.addEventListener('click', evt => {
+			const isClickInsideModal = tabCompletor.isClickInsideModal(evt.target)
+			if (!isClickInsideModal) {
+				tabCompletor.reset()
+			}
+		})
 	}
 
 	loadScrollingBehaviour() {
