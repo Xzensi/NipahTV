@@ -26,6 +26,8 @@ export class TabCompletor {
 		const { word, start, end, node } = Caret.getWordBeforeCaret()
 		if (!word) return
 
+		log('Word:', word, start, end, node)
+
 		this.start = start
 		this.end = end
 		this.node = node
@@ -133,6 +135,32 @@ export class TabCompletor {
 			embedNode = document.createTextNode(emoteEmbedding)
 		}
 		Caret.replaceTextInRange(node, start, end, embedNode)
+
+		// const selection = window.getSelection()
+		// const range = document.createRange()
+		// Caret.collapseToEndOfNode(selection, range, embedNode)
+
+		// Move the caret to the end of the emote
+		if (isHTML) {
+			const range = document.createRange()
+			// range.selectNode(embedNode)
+			range.setStartAfter(embedNode)
+			range.collapse(true)
+			const selection = window.getSelection()
+			selection.removeAllRanges()
+			selection.addRange(range)
+			selection.collapseToEnd()
+		} else {
+			// We have to use start as startOffset and look for end of the word in the text node
+			//  because embedNode got concatenated within the text node
+			const newStart = start + emoteEmbedding.length
+			const range = document.createRange()
+			range.setStart(node, newStart)
+			range.setEnd(node, newStart)
+			const selection = window.getSelection()
+			selection.removeAllRanges()
+			selection.addRange(range)
+		}
 	}
 
 	reset() {

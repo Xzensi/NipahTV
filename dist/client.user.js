@@ -997,6 +997,7 @@
     // Replacement can be a string or an element node.
     static replaceTextInRange(container, start, end, replacement) {
       const text = container.textContent;
+      log("NODE TYPE", replacement.nodeType);
       if (replacement.nodeType === Node.TEXT_NODE) {
         const newText = text.slice(0, start) + replacement.textContent + text.slice(end);
         container.textContent = newText;
@@ -1004,8 +1005,7 @@
         const before = text.slice(0, start);
         const after = text.slice(end);
         container.textContent = before;
-        container.after(replacement);
-        container.after(document.createTextNode(after));
+        container.after(replacement, document.createTextNode(after));
       }
     }
   };
@@ -1096,6 +1096,7 @@
       const { word, start, end, node } = Caret.getWordBeforeCaret();
       if (!word)
         return;
+      log("Word:", word, start, end, node);
       this.start = start;
       this.end = end;
       this.node = node;
@@ -1184,6 +1185,23 @@
         embedNode = document.createTextNode(emoteEmbedding);
       }
       Caret.replaceTextInRange(node, start, end, embedNode);
+      if (isHTML) {
+        const range = document.createRange();
+        range.setStartAfter(embedNode);
+        range.collapse(true);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        selection.collapseToEnd();
+      } else {
+        const newStart = start + emoteEmbedding.length;
+        const range = document.createRange();
+        range.setStart(node, newStart);
+        range.setEnd(node, newStart);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
     }
     reset() {
       this.suggestions = [];

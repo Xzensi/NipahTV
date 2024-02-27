@@ -200,6 +200,7 @@ export class Caret {
 	// Replacement can be a string or an element node.
 	static replaceTextInRange(container, start, end, replacement) {
 		const text = container.textContent
+		log('NODE TYPE', replacement.nodeType)
 		if (replacement.nodeType === Node.TEXT_NODE) {
 			// Splice the text
 			const newText = text.slice(0, start) + replacement.textContent + text.slice(end)
@@ -209,8 +210,7 @@ export class Caret {
 			const before = text.slice(0, start)
 			const after = text.slice(end)
 			container.textContent = before
-			container.after(replacement)
-			container.after(document.createTextNode(after))
+			container.after(replacement, document.createTextNode(after))
 		}
 	}
 }
