@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-8fe2f30d.min.css
+//// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-00705d0e.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -315,6 +315,9 @@
     getEmote(emoteId) {
       return this.emoteMap.get(emoteId);
     }
+    getEmoteIdByName(emoteName) {
+      return this.emoteNameMap.get(emoteName)?.id;
+    }
     getEmoteIdByProviderName(providerId, emoteName) {
       return this.emoteProviderNameMap.get(providerId)?.get(emoteName);
     }
@@ -353,15 +356,6 @@
         return 0;
       });
     }
-  };
-
-  // src/constants.js
-  var PLATFORM_ENUM = {
-    NULL: 0,
-    KICK: 1,
-    TWITCH: 2,
-    YOUTUBE: 3,
-    SEVENTV: 4
   };
 
   // src/EmotesManager.js
@@ -411,7 +405,10 @@
       });
     }
     getEmote(emoteId) {
-      return this.datastore.getEmote(emoteId);
+      return this.datastore.getEmote("" + emoteId);
+    }
+    getEmoteIdByName(emoteName) {
+      return this.datastore.getEmoteIdByName(emoteName);
     }
     getEmoteIdByProviderName(providerId, emoteName) {
       return this.datastore.getEmoteIdByProviderName(providerId, emoteName);
@@ -453,8 +450,11 @@
     removeEmoteHistory(emoteId) {
       this.datastore.removeEmoteHistory(emoteId);
     }
-    search(searchVal) {
-      return this.datastore.searchEmotes(searchVal);
+    search(searchVal, limit = false) {
+      const results = this.datastore.searchEmotes(searchVal);
+      if (limit)
+        return results.slice(0, limit);
+      return results;
     }
   };
 
@@ -920,6 +920,281 @@
         childNode.after(node);
       }
     }
+    // Checks if the caret is at the start of a node
+    static isCaretAtStartOfNode(node) {
+      const selection = window.getSelection();
+      if (!selection.rangeCount)
+        return false;
+      const range = selection.getRangeAt(0);
+      let firstRelevantNode = null;
+      for (const child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.ELEMENT_NODE) {
+          firstRelevantNode = child;
+          break;
+        }
+      }
+      if (!firstRelevantNode)
+        return true;
+      const nodeRange = document.createRange();
+      if (firstRelevantNode.nodeType === Node.TEXT_NODE) {
+        nodeRange.selectNodeContents(firstRelevantNode);
+      } else {
+        nodeRange.selectNode(firstRelevantNode);
+      }
+      nodeRange.collapse(true);
+      return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) === 0;
+    }
+    static isCaretAtEndOfNode(node) {
+      const selection = window.getSelection();
+      if (!selection.rangeCount)
+        return false;
+      const range = selection.getRangeAt(0);
+      let lastRelevantNode = null;
+      for (let i = node.childNodes.length - 1; i >= 0; i--) {
+        const child = node.childNodes[i];
+        if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.ELEMENT_NODE) {
+          lastRelevantNode = child;
+          break;
+        }
+      }
+      if (!lastRelevantNode)
+        return true;
+      const nodeRange = document.createRange();
+      if (lastRelevantNode.nodeType === Node.TEXT_NODE) {
+        nodeRange.selectNodeContents(lastRelevantNode);
+      } else {
+        nodeRange.selectNode(lastRelevantNode);
+      }
+      nodeRange.collapse(false);
+      return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) === 0;
+    }
+    static getWordBeforeCaret() {
+      const selection = window.getSelection();
+      const range = selection.getRangeAt(0);
+      if (range.startContainer.nodeType !== Node.TEXT_NODE)
+        return false;
+      const text = range.startContainer.textContent;
+      const offset = range.startOffset;
+      let start = offset;
+      while (start > 0 && text[start - 1] !== " ")
+        start--;
+      let end = offset;
+      while (end < text.length && text[end] !== " ")
+        end++;
+      const word = text.slice(start, end);
+      if (word === "")
+        return false;
+      return {
+        word,
+        start,
+        end,
+        node: range.startContainer
+      };
+    }
+    // Replace text at start to end with replacement.
+    // Container is guaranteed to be a text node
+    // Start and end are the indices of the text node
+    // Replacement can be a string or an element node.
+    static replaceTextInRange(container, start, end, replacement) {
+      const text = container.textContent;
+      if (replacement.nodeType === Node.TEXT_NODE) {
+        const newText = text.slice(0, start) + replacement.textContent + text.slice(end);
+        container.textContent = newText;
+      } else {
+        const before = text.slice(0, start);
+        const after = text.slice(end);
+        container.textContent = before;
+        container.after(replacement);
+        container.after(document.createTextNode(after));
+      }
+    }
+  };
+
+  // src/constants.js
+  var PLATFORM_ENUM = {
+    NULL: 0,
+    KICK: 1,
+    TWITCH: 2,
+    YOUTUBE: 3
+  };
+  var PROVIDER_ENUM = {
+    NULL: 0,
+    KICK: 1,
+    SEVENTV: 2
+  };
+
+  // src/MessagesHistory.js
+  var MessagesHistory = class {
+    constructor() {
+      this.messages = [];
+      this.cursorIndex = -1;
+      this.maxMessages = 50;
+    }
+    addMessage(message) {
+      if (message === "")
+        return;
+      if (this.messages[0] === message)
+        return;
+      this.messages.unshift(message);
+      if (this.messages.length > this.maxMessages) {
+        this.messages.pop();
+      }
+    }
+    canMoveCursor(direction) {
+      if (direction === 1) {
+        return this.cursorIndex < this.messages.length - 1;
+      } else if (direction === -1) {
+        return this.cursorIndex > 0;
+      }
+    }
+    moveCursor(direction) {
+      this.cursorIndex += direction;
+      if (this.cursorIndex < 0) {
+        this.cursorIndex = 0;
+      } else if (this.cursorIndex >= this.messages.length) {
+        this.cursorIndex = this.messages.length - 1;
+      }
+    }
+    moveCursorUp() {
+      if (this.cursorIndex < this.messages.length - 1) {
+        this.cursorIndex++;
+      }
+    }
+    moveCursorDown() {
+      if (this.cursorIndex > 0) {
+        this.cursorIndex--;
+      }
+    }
+    isCursorAtStart() {
+      return this.cursorIndex === -1;
+    }
+    getMessage() {
+      return this.messages[this.cursorIndex];
+    }
+    resetCursor() {
+      this.cursorIndex = -1;
+    }
+  };
+
+  // src/TabCompletor.js
+  var TabCompletor = class {
+    suggestions = [];
+    selectedIndex = -1;
+    isShowingModal = false;
+    start = 0;
+    end = 0;
+    node = null;
+    constructor(emotesManager) {
+      this.emotesManager = emotesManager;
+    }
+    getSelectedSuggestionEmoteId() {
+      if (this.selectedIndex === -1)
+        return null;
+      return this.emotesManager.getEmoteIdByName(this.suggestions[this.selectedIndex]);
+    }
+    updateSuggestions() {
+      const { word, start, end, node } = Caret.getWordBeforeCaret();
+      if (!word)
+        return;
+      this.start = start;
+      this.end = end;
+      this.node = node;
+      const searchResults = this.emotesManager.search(word, 6);
+      log("Search results:", searchResults);
+      this.suggestions = searchResults.map((result) => result.item.name);
+      this.suggestionIds = searchResults.map((result) => this.emotesManager.getEmoteIdByName(result.item.name));
+      this.$list.empty();
+      for (let i = 0; i < this.suggestions.length; i++) {
+        const emoteName = this.suggestions[i];
+        const emoteId = this.suggestionIds[i];
+        const emoteRender = this.emotesManager.getRenderableEmote(emoteId, "nipah__emote");
+        this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`);
+      }
+    }
+    createModal() {
+      const $modal = this.$modal = $(
+        `<div class="nipah__tab-suggestions"><ul class="nipah__tab-suggestions__list"></ul></div>`
+      );
+      this.$list = $modal.find("ul");
+      $("body").append($modal);
+      this.$list.on("click", "li", (e) => {
+        const emoteId = $(e.currentTarget).data("emote-id");
+        this.insertEmote(emoteId);
+        this.hideModal();
+        this.reset();
+      });
+    }
+    showModal() {
+      if (this.isShowingModal || !this.suggestions.length)
+        return;
+      const selection = window.getSelection();
+      const range = selection.getRangeAt(0);
+      let startContainer = range.startContainer;
+      if (startContainer.nodeType === Node.TEXT_NODE) {
+        startContainer = startContainer.parentElement;
+      }
+      const rect = startContainer.getBoundingClientRect();
+      this.$modal.css({
+        left: rect.left + "px",
+        top: rect.top - 15 + "px"
+      });
+      this.$modal.show();
+      this.isShowingModal = true;
+    }
+    hideModal() {
+      this.$modal.hide();
+      this.isShowingModal = false;
+    }
+    moveSelectorDown() {
+      this.$list.find("li.selected").removeClass("selected");
+      if (this.selectedIndex > 0) {
+        this.selectedIndex--;
+        this.$list.find("li").eq(this.selectedIndex).addClass("selected");
+      } else if (this.selectedIndex === 0) {
+        this.selectedIndex = -1;
+      }
+    }
+    moveSelectorUp() {
+      if (this.selectedIndex < this.suggestions.length - 1) {
+        this.selectedIndex++;
+      } else if (this.selectedIndex === this.suggestions.length - 1) {
+        this.selectedIndex = 0;
+      }
+      this.$list.find("li.selected").removeClass("selected");
+      this.$list.find("li").eq(this.selectedIndex).addClass("selected");
+    }
+    selectEmote() {
+      const emoteId = this.suggestionIds[this.selectedIndex];
+      this.insertEmote(emoteId);
+      this.hideModal();
+      this.reset();
+    }
+    insertEmote(emoteId) {
+      const emoteEmbedding = this.emotesManager.getEmoteEmbeddable("" + emoteId);
+      if (!emoteEmbedding)
+        return error2("Invalid emote embedding");
+      const isHTML = emoteEmbedding[0] === "<" && emoteEmbedding[emoteEmbedding.length - 1] === ">";
+      const { start, end, node } = this;
+      if (!node)
+        return error2("Invalid node");
+      let embedNode;
+      if (isHTML) {
+        embedNode = jQuery.parseHTML(emoteEmbedding)[0];
+      } else {
+        embedNode = document.createTextNode(emoteEmbedding);
+      }
+      Caret.replaceTextInRange(node, start, end, embedNode);
+    }
+    reset() {
+      this.suggestions = [];
+      this.selectedIndex = -1;
+      this.$list.empty();
+      this.$modal.hide();
+      this.isShowingModal = false;
+      this.start = 0;
+      this.end = 0;
+      this.node = null;
+    }
   };
 
   // src/UserInterface/KickUserInterface.js
@@ -930,6 +1205,7 @@
       $chatMessagesContainer: null
     };
     stickyScroll = true;
+    messageHistory = new MessagesHistory();
     constructor(deps) {
       super(deps);
     }
@@ -937,19 +1213,15 @@
       info("Creating user interface..");
       const { eventBus, settingsManager } = this;
       waitForElements(["#message-input"]).then(() => {
-        const $textField = this.elm.$textField = $("#message-input");
-        $textField.on("input", this.handleInput.bind(this));
-        $textField.on("keyup", (evt) => {
-          if (evt.keyCode === 13) {
-            eventBus.publish("nipah.ui.submit_input");
-          }
-        });
+        this.loadShadowProxyTextField();
         this.loadEmoteMenu();
         this.loadQuickEmotesHolder();
+        this.loadChatHistoryBehaviour();
+        this.loadTabCompletionBehaviour();
       });
       waitForElements(["#chatroom-footer button.base-button"]).then(() => {
         const $submitButton = this.elm.$submitButton = $("#chatroom-footer button.base-button");
-        $submitButton.on("click", eventBus.publish.bind(eventBus, "nipah.ui.submit_input"));
+        $submitButton.on("click", this.submitInput.bind(this, true));
         this.loadEmoteMenuButton();
       });
       waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"]).then(() => {
@@ -999,22 +1271,114 @@
       const { eventBus, emotesManager } = this;
       this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
     }
-    observeChatMessages() {
-      const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
-      const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
-      const observer = this.chatObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.addedNodes.length) {
-            for (const messageNode of mutation.addedNodes) {
-              this.renderEmotesInMessage(messageNode);
+    loadShadowProxyTextField() {
+      const $originalTextField = this.elm.$originalTextField = $("#message-input");
+      const placeholder = $originalTextField.data("placeholder");
+      const $textField = this.elm.$textField = $(
+        `<div id="nipah__message-input" contenteditable="true" data-placeholder="${placeholder}"></div>`
+      );
+      const textFieldEl = $textField[0];
+      $originalTextField.after(textFieldEl);
+      textFieldEl.addEventListener("keydown", (evt) => {
+        if (evt.key === "Enter" && !this.tabCompletor.isShowingModal) {
+          evt.preventDefault();
+          this.submitInput();
+        }
+      });
+      textFieldEl.addEventListener("keyup", (evt) => {
+        $originalTextField[0].innerHTML = textFieldEl.innerHTML;
+        $originalTextField[0].dispatchEvent(new Event("input"));
+        if (evt.keyCode > 47 && evt.keyCode < 112) {
+          this.messageHistory.resetCursor();
+        }
+      });
+    }
+    loadChatHistoryBehaviour() {
+      const originalTextFieldEl = this.elm.$originalTextField[0];
+      const textFieldEl = this.elm.$textField[0];
+      textFieldEl.addEventListener("keydown", (evt) => {
+        if (this.tabCompletor.isShowingModal)
+          return;
+        if (evt.keyCode === 38 || evt.keyCode === 40) {
+          if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.keyCode === 38) {
+            evt.preventDefault();
+            if (!this.messageHistory.canMoveCursor(1))
+              return;
+            const leftoverHTML = textFieldEl.innerHTML;
+            if (this.messageHistory.isCursorAtStart() && leftoverHTML) {
+              this.messageHistory.addMessage(leftoverHTML);
+              this.messageHistory.moveCursor(2);
+            } else {
+              this.messageHistory.moveCursor(1);
             }
-            if (this.stickyScroll) {
-              window.requestAnimationFrame(scrollToBottom);
+            textFieldEl.innerHTML = this.messageHistory.getMessage();
+          } else if (Caret.isCaretAtEndOfNode(textFieldEl) && evt.keyCode === 40) {
+            evt.preventDefault();
+            if (this.messageHistory.canMoveCursor(-1)) {
+              this.messageHistory.moveCursor(-1);
+              textFieldEl.innerHTML = this.messageHistory.getMessage();
+            } else {
+              const leftoverHTML = textFieldEl.innerHTML;
+              if (leftoverHTML)
+                this.messageHistory.addMessage(leftoverHTML);
+              this.messageHistory.resetCursor();
+              textFieldEl.innerHTML = "";
             }
           }
-        });
+        }
       });
-      observer.observe(chatMessagesContainerEl, { childList: true });
+    }
+    loadTabCompletionBehaviour() {
+      const textFieldEl = this.elm.$textField[0];
+      const tabCompletor = this.tabCompletor = new TabCompletor(this.emotesManager);
+      tabCompletor.createModal();
+      textFieldEl.addEventListener("keydown", (evt) => {
+        if (evt.key === "Tab") {
+          evt.preventDefault();
+          if (textFieldEl.textContent.trim() === "")
+            return;
+          if (this.tabCompletor.isShowingModal) {
+            if (evt.shiftKey) {
+              tabCompletor.moveSelectorDown();
+            } else {
+              tabCompletor.moveSelectorUp();
+            }
+          } else {
+            tabCompletor.updateSuggestions();
+            tabCompletor.showModal();
+          }
+        } else if (this.tabCompletor.isShowingModal) {
+          if (evt.key === "ArrowUp" || evt.key === "ArrowDown") {
+            evt.preventDefault();
+            if (evt.key === "ArrowUp") {
+              tabCompletor.moveSelectorUp();
+            } else {
+              tabCompletor.moveSelectorDown();
+            }
+          } else if (evt.key === "ArrowRight" || evt.key === "Enter") {
+            evt.preventDefault();
+            const selectedEmoteId = tabCompletor.getSelectedSuggestionEmoteId();
+            if (selectedEmoteId) {
+              this.tabCompletor.selectEmote();
+            }
+            tabCompletor.reset();
+          } else if (evt.key === "ArrowLeft") {
+            evt.preventDefault();
+            tabCompletor.reset();
+          } else if (evt.key === " " || evt.key === "Escape") {
+            tabCompletor.reset();
+          } else {
+            tabCompletor.updateSuggestions();
+          }
+        }
+      });
+      textFieldEl.addEventListener("keyup", (evt) => {
+        if (this.tabCompletor.isShowingModal) {
+          if (textFieldEl.textContent.trim() === "" || !textFieldEl.childNodes.length) {
+            tabCompletor.reset();
+          }
+        }
+      });
     }
     loadScrollingBehaviour() {
       const $chatMessagesContainer = this.elm.$chatMessagesContainer;
@@ -1046,6 +1410,23 @@
         { passive: true }
       );
     }
+    observeChatMessages() {
+      const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
+      const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
+      const observer = this.chatObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes.length) {
+            for (const messageNode of mutation.addedNodes) {
+              this.renderEmotesInMessage(messageNode);
+            }
+            if (this.stickyScroll) {
+              window.requestAnimationFrame(scrollToBottom);
+            }
+          }
+        });
+      });
+      observer.observe(chatMessagesContainerEl, { childList: true });
+    }
     renderEmotesInChat() {
       const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
       const chatMessagesContainerNode = chatMessagesContainerEl;
@@ -1062,7 +1443,7 @@
         const uniqueTokens = [...new Set(tokens)];
         let innerHTML = contentNode.innerHTML;
         for (const token of uniqueTokens) {
-          const emoteId = emotesManager.getEmoteIdByProviderName(PLATFORM_ENUM.SEVENTV, token);
+          const emoteId = emotesManager.getEmoteIdByProviderName(PROVIDER_ENUM.SEVENTV, token);
           if (emoteId) {
             const emoteRender = emotesManager.getRenderableEmote(emoteId, "chat-emote");
             innerHTML = innerHTML.replaceAll(
@@ -1074,33 +1455,38 @@
         contentNode.innerHTML = innerHTML;
       }
     }
-    handleInput(evt) {
+    // Submits input to chat
+    submitInput(isButtonClickEvent = false) {
+      const { eventBus } = this;
+      const originalTextFieldEl = this.elm.$originalTextField[0];
+      const submitButtonEl = this.elm.$submitButton[0];
       const textFieldEl = this.elm.$textField[0];
-      if (textFieldEl.innerHTML.includes("<br>")) {
-        textFieldEl.innerHTML = textFieldEl.innerHTML.replaceAll("<br>", "");
-      }
+      const inputHTML = textFieldEl.innerHTML;
+      originalTextFieldEl.innerHTML = inputHTML;
+      textFieldEl.innerHTML = "";
+      this.messageHistory.addMessage(inputHTML);
+      this.messageHistory.resetCursor();
+      if (!isButtonClickEvent)
+        submitButtonEl.dispatchEvent(new Event("click"));
+      eventBus.publish("nipah.ui.submit_input");
     }
     // Sends emote to chat and restores previous message
     sendEmoteToChat(emoteId) {
       assertArgDefined(emoteId);
+      const originalTextFieldEl = this.elm.$originalTextField[0];
       const textFieldEl = this.elm.$textField[0];
       const oldMessage = textFieldEl.innerHTML;
       textFieldEl.innerHTML = "";
       this.insertEmoteInChat(emoteId);
-      textFieldEl.dispatchEvent(new Event("input"));
       this.submitInput();
       textFieldEl.innerHTML = oldMessage;
-      textFieldEl.dispatchEvent(new Event("input"));
-    }
-    submitInput() {
-      const submitButton = this.elm.$submitButton[0];
-      const { eventBus } = this;
-      submitButton.dispatchEvent(new Event("click"));
-      eventBus.publish("nipah.ui.submit_input");
+      originalTextFieldEl.innerHTML = oldMessage;
+      originalTextFieldEl.dispatchEvent(new Event("input"));
     }
     insertEmoteInChat(emoteId) {
       assertArgDefined(emoteId);
       const { emotesManager } = this;
+      this.messageHistory.resetCursor();
       emotesManager.registerEmoteEngagement(emoteId);
       const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteId);
       if (!emoteEmbedding)
@@ -1157,7 +1543,7 @@
 
   // src/Providers/KickProvider.js
   var KickProvider = class extends AbstractProvider {
-    id = PLATFORM_ENUM.KICK;
+    id = PROVIDER_ENUM.KICK;
     status = "unloaded";
     constructor(datastore, settingsManager) {
       super(datastore);
@@ -1202,7 +1588,7 @@
         const emotesMapped = emotesFiltered.map((emote) => ({
           id: "" + emote.id,
           name: emote.name,
-          provider: PLATFORM_ENUM.KICK,
+          provider: PROVIDER_ENUM.KICK,
           width: 32,
           size: 1
         }));
@@ -1247,7 +1633,7 @@
 
   // src/Providers/SevenTVProvider.js
   var SevenTVProvider = class extends AbstractProvider {
-    id = PLATFORM_ENUM.SEVENTV;
+    id = PROVIDER_ENUM.SEVENTV;
     status = "unloaded";
     constructor(datastore, settingsManager) {
       super(datastore);
@@ -1283,7 +1669,7 @@
         return {
           id: "" + emote.id,
           name: emote.name,
-          provider: PLATFORM_ENUM.SEVENTV,
+          provider: PROVIDER_ENUM.SEVENTV,
           width: file.width,
           size
         };
@@ -1984,7 +2370,7 @@
       }
       emotesManager.registerProvider(KickProvider);
       emotesManager.registerProvider(SevenTVProvider);
-      const providerLoadOrder = [PLATFORM_ENUM.KICK, PLATFORM_ENUM.SEVENTV];
+      const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV];
       emotesManager.loadProviderEmotes(channelData, providerLoadOrder);
     }
     loadStyles() {

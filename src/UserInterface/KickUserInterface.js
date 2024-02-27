@@ -4,8 +4,9 @@ import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
 import { log, info, error, assertArgDefined, waitForElements } from '../utils'
 import { AbstractUserInterface } from './AbstractUserInterface'
 import { Caret } from './Caret'
-import { PLATFORM_ENUM } from '../constants'
+import { PROVIDER_ENUM } from '../constants'
 import { MessagesHistory } from '../MessagesHistory'
+import { TabCompletor } from '../TabCompletor'
 
 export class KickUserInterface extends AbstractUserInterface {
 	elm = {
@@ -31,6 +32,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			this.loadEmoteMenu()
 			this.loadQuickEmotesHolder()
 			this.loadChatHistoryBehaviour()
+			this.loadTabCompletionBehaviour()
 		})
 
 		// Wait for submit button to load
@@ -117,7 +119,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		$originalTextField.after(textFieldEl)
 
 		textFieldEl.addEventListener('keydown', evt => {
-			if (evt.keyCode === 13) {
+			if (evt.key === 'Enter' && !this.tabCompletor.isShowingModal) {
 				evt.preventDefault()
 				this.submitInput()
 			}
@@ -139,6 +141,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		const textFieldEl = this.elm.$textField[0]
 
 		textFieldEl.addEventListener('keydown', evt => {
+			if (this.tabCompletor.isShowingModal) return
+
 			if (evt.keyCode === 38 || evt.keyCode === 40) {
 				// TODO there's a bug where caret is at start but requires 2 key presses to traverse history
 				// Check if caret is at the start of the text field
@@ -173,6 +177,70 @@ export class KickUserInterface extends AbstractUserInterface {
 						this.messageHistory.resetCursor()
 						textFieldEl.innerHTML = ''
 					}
+				}
+			}
+		})
+	}
+
+	loadTabCompletionBehaviour() {
+		const textFieldEl = this.elm.$textField[0]
+
+		const tabCompletor = (this.tabCompletor = new TabCompletor(this.emotesManager))
+		tabCompletor.createModal()
+
+		textFieldEl.addEventListener('keydown', evt => {
+			if (evt.key === 'Tab') {
+				evt.preventDefault()
+
+				if (textFieldEl.textContent.trim() === '') return
+
+				if (this.tabCompletor.isShowingModal) {
+					// Traverse tab completion suggestions up/down depending on whether shift is held with tab
+					if (evt.shiftKey) {
+						tabCompletor.moveSelectorDown()
+					} else {
+						tabCompletor.moveSelectorUp()
+					}
+				} else {
+					// Show tab completion popup
+					tabCompletor.updateSuggestions()
+					tabCompletor.showModal()
+				}
+			} else if (this.tabCompletor.isShowingModal) {
+				if (evt.key === 'ArrowUp' || evt.key === 'ArrowDown') {
+					evt.preventDefault()
+
+					if (evt.key === 'ArrowUp') {
+						tabCompletor.moveSelectorUp()
+					} else {
+						tabCompletor.moveSelectorDown()
+					}
+				} else if (evt.key === 'ArrowRight' || evt.key === 'Enter') {
+					evt.preventDefault()
+
+					// Apply selected tab completion
+					const selectedEmoteId = tabCompletor.getSelectedSuggestionEmoteId()
+					if (selectedEmoteId) {
+						this.tabCompletor.selectEmote()
+					}
+
+					tabCompletor.reset()
+				} else if (evt.key === 'ArrowLeft') {
+					evt.preventDefault()
+
+					tabCompletor.reset()
+				} else if (evt.key === ' ' || evt.key === 'Escape') {
+					tabCompletor.reset()
+				} else {
+					tabCompletor.updateSuggestions()
+				}
+			}
+		})
+
+		textFieldEl.addEventListener('keyup', evt => {
+			if (this.tabCompletor.isShowingModal) {
+				if (textFieldEl.textContent.trim() === '' || !textFieldEl.childNodes.length) {
+					tabCompletor.reset()
 				}
 			}
 		})
@@ -256,7 +324,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			let innerHTML = contentNode.innerHTML
 
 			for (const token of uniqueTokens) {
-				const emoteId = emotesManager.getEmoteIdByProviderName(PLATFORM_ENUM.SEVENTV, token)
+				const emoteId = emotesManager.getEmoteIdByProviderName(PROVIDER_ENUM.SEVENTV, token)
 
 				if (emoteId) {
 					const emoteRender = emotesManager.getRenderableEmote(emoteId, 'chat-emote')

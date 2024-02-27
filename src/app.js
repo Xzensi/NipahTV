@@ -12,7 +12,7 @@ import { KickProvider } from './Providers/KickProvider'
 import { SevenTVProvider } from './Providers/SevenTVProvider'
 
 // Utils
-import { PLATFORM_ENUM } from './constants'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, fetchJSON } from './utils'
 import { SettingsManager } from './SettingsManager'
 
@@ -87,7 +87,7 @@ class NipahClient {
 		emotesManager.registerProvider(KickProvider)
 		emotesManager.registerProvider(SevenTVProvider)
 
-		const providerLoadOrder = [PLATFORM_ENUM.KICK, PLATFORM_ENUM.SEVENTV]
+		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
 
 		// Test whether UI works correctly when data loading is delayed

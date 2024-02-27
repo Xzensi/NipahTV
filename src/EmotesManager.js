@@ -1,7 +1,6 @@
 import { AbstractProvider } from './Providers/AbstractProvider'
 import { EmoteDatastore } from './EmoteDatastore'
 import { log, info, error } from './utils'
-import { PLATFORM_ENUM } from './constants'
 
 export class EmotesManager {
 	providers = new Map()
@@ -60,7 +59,11 @@ export class EmotesManager {
 	}
 
 	getEmote(emoteId) {
-		return this.datastore.getEmote(emoteId)
+		return this.datastore.getEmote('' + emoteId)
+	}
+
+	getEmoteIdByName(emoteName) {
+		return this.datastore.getEmoteIdByName(emoteName)
 	}
 
 	getEmoteIdByProviderName(providerId, emoteName) {
@@ -111,7 +114,9 @@ export class EmotesManager {
 		this.datastore.removeEmoteHistory(emoteId)
 	}
 
-	search(searchVal) {
-		return this.datastore.searchEmotes(searchVal)
+	search(searchVal, limit = false) {
+		const results = this.datastore.searchEmotes(searchVal)
+		if (limit) return results.slice(0, limit)
+		return results
 	}
 }

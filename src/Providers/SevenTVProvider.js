@@ -1,9 +1,9 @@
 import { AbstractProvider } from './AbstractProvider'
-import { PLATFORM_ENUM } from '../constants'
+import { PROVIDER_ENUM } from '../constants'
 import { log, info, error, fetchJSON } from '../utils'
 
 export class SevenTVProvider extends AbstractProvider {
-	id = PLATFORM_ENUM.SEVENTV
+	id = PROVIDER_ENUM.SEVENTV
 	status = 'unloaded'
 
 	constructor(datastore, settingsManager) {
@@ -44,7 +44,7 @@ export class SevenTVProvider extends AbstractProvider {
 			return {
 				id: '' + emote.id,
 				name: emote.name,
-				provider: PLATFORM_ENUM.SEVENTV,
+				provider: PROVIDER_ENUM.SEVENTV,
 				width: file.width,
 				size
 			}

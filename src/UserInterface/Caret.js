@@ -164,4 +164,53 @@ export class Caret {
 
 		return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) === 0
 	}
+
+	static getWordBeforeCaret() {
+		const selection = window.getSelection()
+		const range = selection.getRangeAt(0)
+
+		// return false if the caret is not in a text node
+		if (range.startContainer.nodeType !== Node.TEXT_NODE) return false
+
+		const text = range.startContainer.textContent
+		const offset = range.startOffset
+
+		// Find the start of the word
+		let start = offset
+		while (start > 0 && text[start - 1] !== ' ') start--
+
+		// Find the end of the word
+		let end = offset
+		while (end < text.length && text[end] !== ' ') end++
+
+		const word = text.slice(start, end)
+		if (word === '') return false
+
+		return {
+			word,
+			start,
+			end,
+			node: range.startContainer
+		}
+	}
+
+	// Replace text at start to end with replacement.
+	// Container is guaranteed to be a text node
+	// Start and end are the indices of the text node
+	// Replacement can be a string or an element node.
+	static replaceTextInRange(container, start, end, replacement) {
+		const text = container.textContent
+		if (replacement.nodeType === Node.TEXT_NODE) {
+			// Splice the text
+			const newText = text.slice(0, start) + replacement.textContent + text.slice(end)
+			container.textContent = newText
+		} else {
+			// We cannot insert an element node into a text node, so we need to split the text node
+			const before = text.slice(0, start)
+			const after = text.slice(end)
+			container.textContent = before
+			container.after(replacement)
+			container.after(document.createTextNode(after))
+		}
+	}
 }

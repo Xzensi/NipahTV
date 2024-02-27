@@ -124,6 +124,10 @@ export class EmoteDatastore {
 		return this.emoteMap.get(emoteId)
 	}
 
+	getEmoteIdByName(emoteName) {
+		return this.emoteNameMap.get(emoteName)?.id
+	}
+
 	getEmoteIdByProviderName(providerId, emoteName) {
 		return this.emoteProviderNameMap.get(providerId)?.get(emoteName)
 	}
