@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.0.10
+// @version 1.0.11
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1841,18 +1841,22 @@
   // src/UserInterface/Components/DropdownComponent.js
   var DropdownComponent = class extends AbstractComponent {
     event = new EventTarget();
-    constructor(id, label, options = []) {
+    constructor(id, label, options = [], selectedOption = null) {
       super();
       this.id = id;
       this.label = label;
       this.options = options;
+      this.selectedOption = selectedOption;
     }
     render() {
       this.$element = $(`
             <div class="nipah__dropdown">
                 <label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
-                    ${this.options.map((option) => `<option value="${option.value}">${option.label}</option>`).join("")}
+                    ${this.options.map((option) => {
+        const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
+        return `<option value="${option.value}" ${selected}>${option.label}</option>`;
+      }).join("")}
                 </select>
             </div>
         `);
@@ -2319,7 +2323,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.0.10",
+      VERSION: "1.0.11",
       PLATFORM: PLATFORM_ENUM.NULL,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

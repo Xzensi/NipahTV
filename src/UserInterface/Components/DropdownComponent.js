@@ -3,11 +3,12 @@ import { AbstractComponent } from './AbstractComponent'
 export class DropdownComponent extends AbstractComponent {
 	event = new EventTarget()
 
-	constructor(id, label, options = []) {
+	constructor(id, label, options = [], selectedOption = null) {
 		super()
 		this.id = id
 		this.label = label
 		this.options = options
+		this.selectedOption = selectedOption
 	}
 
 	render() {
@@ -15,7 +16,13 @@ export class DropdownComponent extends AbstractComponent {
             <div class="nipah__dropdown">
                 <label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
-                    ${this.options.map(option => `<option value="${option.value}">${option.label}</option>`).join('')}
+                    ${this.options
+						.map(option => {
+							const selected =
+								this.selectedOption && option.value === this.selectedOption ? 'selected' : ''
+							return `<option value="${option.value}" ${selected}>${option.label}</option>`
+						})
+						.join('')}
                 </select>
             </div>
         `)

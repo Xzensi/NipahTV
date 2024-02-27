@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.10',
+		VERSION: '1.0.11',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
