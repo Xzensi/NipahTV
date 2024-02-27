@@ -1226,11 +1226,16 @@
         const observer = new MutationObserver((mutations) => {
           if (!this.elm || !this.elm.$textField)
             return;
+          observer.disconnect();
           if (!this.elm.$textField[0].innerHTML) {
             $submitButton.attr("disabled", true);
           } else {
             $submitButton.removeAttr("disabled");
           }
+          observer.observe($submitButton[0], {
+            attributes: true,
+            attributeFilter: ["disabled"]
+          });
         });
         observer.observe($submitButton[0], {
           attributes: true,
