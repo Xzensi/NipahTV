@@ -1223,6 +1223,19 @@
         const $submitButton = this.elm.$submitButton = $("#chatroom-footer button.base-button");
         $submitButton.on("click", this.submitInput.bind(this, true));
         this.loadEmoteMenuButton();
+        const observer = new MutationObserver((mutations) => {
+          if (!this.elm || !this.elm.$textField)
+            return;
+          if (!this.elm.$textField[0].innerHTML) {
+            $submitButton.attr("disabled", true);
+          } else {
+            $submitButton.removeAttr("disabled");
+          }
+        });
+        observer.observe($submitButton[0], {
+          attributes: true,
+          attributeFilter: ["disabled"]
+        });
       });
       waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"]).then(() => {
         const $chatMessagesContainer = this.elm.$chatMessagesContainer = $(
@@ -1428,6 +1441,8 @@
       observer.observe(chatMessagesContainerEl, { childList: true });
     }
     renderEmotesInChat() {
+      if (!this.elm || !this.elm.$chatMessagesContainer)
+        return;
       const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
       const chatMessagesContainerNode = chatMessagesContainerEl;
       for (const messageNode of chatMessagesContainerNode.children) {
@@ -1482,6 +1497,9 @@
       textFieldEl.innerHTML = oldMessage;
       originalTextFieldEl.innerHTML = oldMessage;
       originalTextFieldEl.dispatchEvent(new Event("input"));
+      if (oldMessage) {
+        this.elm.$submitButton.removeAttr("disabled");
+      }
     }
     insertEmoteInChat(emoteId) {
       assertArgDefined(emoteId);

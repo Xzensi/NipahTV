@@ -41,6 +41,22 @@ export class KickUserInterface extends AbstractUserInterface {
 			$submitButton.on('click', this.submitInput.bind(this, true))
 
 			this.loadEmoteMenuButton()
+
+			// TODO quick fix for submit button being disabled when text field is not empty
+			const observer = new MutationObserver(mutations => {
+				if (!this.elm || !this.elm.$textField) return
+
+				if (!this.elm.$textField[0].innerHTML) {
+					$submitButton.attr('disabled', true)
+				} else {
+					$submitButton.removeAttr('disabled')
+				}
+			})
+
+			observer.observe($submitButton[0], {
+				attributes: true,
+				attributeFilter: ['disabled']
+			})
 		})
 
 		// Wait for chat messages container to load
@@ -306,6 +322,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderEmotesInChat() {
+		if (!this.elm || !this.elm.$chatMessagesContainer) return
 		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
 		const chatMessagesContainerNode = chatMessagesContainerEl
 		for (const messageNode of chatMessagesContainerNode.children) {
@@ -378,14 +395,16 @@ export class KickUserInterface extends AbstractUserInterface {
 		originalTextFieldEl.dispatchEvent(new Event('input'))
 
 		// TODO fix this, need to wait till message is sent before re-enabling submit button or Kick will override it
-		// if (oldMessage) {
-		// 	window.requestAnimationFrame(() => {
-		// 		this.elm.$submitButton.removeAttr('disabled')
-		// 	})
-		// 	setTimeout(() => {
-		// 		this.elm.$submitButton.removeAttr('disabled')
-		// 	}, 1000)
-		// }
+
+		if (oldMessage) {
+			this.elm.$submitButton.removeAttr('disabled')
+			// 	window.requestAnimationFrame(() => {
+			// 		this.elm.$submitButton.removeAttr('disabled')
+			// 	})
+			// 	setTimeout(() => {
+			// 		this.elm.$submitButton.removeAttr('disabled')
+			// 	}, 1000)
+		}
 	}
 
 	insertEmoteInChat(emoteId) {
