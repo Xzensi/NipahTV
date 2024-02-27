@@ -1556,6 +1556,7 @@
       }
       this.insertNodeInChat(embedNode);
       this.elm.$submitButton.removeAttr("disabled");
+      this.elm.$originalTextField[0].innerHTML = this.elm.$textField[0].innerHTML;
     }
     insertNodeInChat(embedNode) {
       log(`Inserting node in chat`);

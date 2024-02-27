@@ -451,6 +451,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		this.insertNodeInChat(embedNode)
 		this.elm.$submitButton.removeAttr('disabled')
+
+		// Update original text field to match the shadow text field
+		this.elm.$originalTextField[0].innerHTML = this.elm.$textField[0].innerHTML
 	}
 
 	insertNodeInChat(embedNode) {
