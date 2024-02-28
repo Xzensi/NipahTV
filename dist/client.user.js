@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-554ae957.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-42bfbae7.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -119,6 +119,9 @@
       interval = setInterval(checkElements, 100);
       checkElements();
     });
+  }
+  function cleanupHTML(html) {
+    return html.replaceAll(/\s\s|\r\n|\r|\n/g, "");
   }
 
   // src/DTO.js
@@ -486,11 +489,13 @@
     }
     render() {
       const basePath = this.ENV_VARS.RESOURCE_ROOT + "/dist/img";
-      this.$element = $(`
-            <div class="nipah_client_footer">
-                <img class="footer_logo_btn" srcset="${basePath}/logo.png 1x, ${basePath}/logo@2x.png 2x, ${basePath}/logo@3x.png 3x" draggable="false" alt="Nipah">
-            </div>
-        `);
+      this.$element = $(
+        cleanupHTML(`
+				<div class="nipah_client_footer">
+					<img class="footer_logo_btn" srcset="${basePath}/logo.png 1x, ${basePath}/logo@2x.png 2x, ${basePath}/logo@3x.png 3x" draggable="false" alt="Nipah">
+				</div>
+			`)
+      );
       $("#chatroom-footer .send-row").prepend(this.$element);
     }
     attachEventHandlers() {
@@ -517,32 +522,37 @@
       this.emotesManager = emotesManager;
     }
     render() {
-      this.$container = $(`
-            <div class="nipah__emote-menu" style="display: none">
-                <div class="nipah__emote-menu__header">
-					<div class="nipah__emote-menu__search">
-						<div class="nipah__emote-menu__search__icon">
-							<svg width="15" height="15" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"><path d="M11.3733 5.68667C11.3733 6.94156 10.966 8.10077 10.2797 9.04125L13.741 12.5052C14.0827 12.8469 14.0827 13.4019 13.741 13.7437C13.3992 14.0854 12.8442 14.0854 12.5025 13.7437L9.04125 10.2797C8.10077 10.9687 6.94156 11.3733 5.68667 11.3733C2.54533 11.3733 0 8.828 0 5.68667C0 2.54533 2.54533 0 5.68667 0C8.828 0 11.3733 2.54533 11.3733 5.68667ZM5.68667 9.62359C7.86018 9.62359 9.62359 7.86018 9.62359 5.68667C9.62359 3.51316 7.86018 1.74974 5.68667 1.74974C3.51316 1.74974 1.74974 3.51316 1.74974 5.68667C1.74974 7.86018 3.51316 9.62359 5.68667 9.62359Z"></path></svg>
-						</div>
-						<input type="text" tabindex="0" placeholder="Search emote..">
-					</div>
-                </div>
-                <div class="nipah__emote-menu__body">
-                    <div class="nipah__emote-menu__scrollable">
-						<div class="nipah__emote-menu__panel__emotes"></div>
-						<div class="nipah__emote-menu__panel__search" display="none"></div>
-					</div>
-                    <div class="nipah__emote-menu__sidebar">
-						<div class="nipah__emote-menu__sidebar__sets"></div>
-						<div class="nipah__emote-menu__settings-btn">
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-								<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
-							</svg>
+      const { settingsManager } = this;
+      const hideSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
+      const hideSidebar = settingsManager.getSetting("shared.chat.emote_menu.appearance.sidebar");
+      this.$container = $(
+        cleanupHTML(`
+				<div class="nipah__emote-menu" style="display: none">
+					<div class="nipah__emote-menu__header">
+						<div class="nipah__emote-menu__search ${hideSearchBox ? "nipah__hidden" : ""}">
+							<div class="nipah__emote-menu__search__icon">
+								<svg width="15" height="15" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"><path d="M11.3733 5.68667C11.3733 6.94156 10.966 8.10077 10.2797 9.04125L13.741 12.5052C14.0827 12.8469 14.0827 13.4019 13.741 13.7437C13.3992 14.0854 12.8442 14.0854 12.5025 13.7437L9.04125 10.2797C8.10077 10.9687 6.94156 11.3733 5.68667 11.3733C2.54533 11.3733 0 8.828 0 5.68667C0 2.54533 2.54533 0 5.68667 0C8.828 0 11.3733 2.54533 11.3733 5.68667ZM5.68667 9.62359C7.86018 9.62359 9.62359 7.86018 9.62359 5.68667C9.62359 3.51316 7.86018 1.74974 5.68667 1.74974C3.51316 1.74974 1.74974 3.51316 1.74974 5.68667C1.74974 7.86018 3.51316 9.62359 5.68667 9.62359Z"></path></svg>
+							</div>
+							<input type="text" tabindex="0" placeholder="Search emote..">
 						</div>
 					</div>
-                </div>
-            </div>
-        `);
+					<div class="nipah__emote-menu__body">
+						<div class="nipah__emote-menu__scrollable">
+							<div class="nipah__emote-menu__panel__emotes"></div>
+							<div class="nipah__emote-menu__panel__search" display="none"></div>
+						</div>
+						<div class="nipah__emote-menu__sidebar ${hideSidebar ? "nipah__hidden" : ""}">
+							<div class="nipah__emote-menu__sidebar__sets"></div>
+							<div class="nipah__emote-menu__settings-btn">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+									<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
+								</svg>
+							</div>
+						</div>
+					</div>
+				</div>
+			`)
+      );
       this.$searchInput = $(".nipah__emote-menu__search input", this.$container);
       this.$scrollable = $(".nipah__emote-menu__scrollable", this.$container);
       this.$settingsBtn = $(".nipah__emote-menu__settings-btn", this.$container);
@@ -570,11 +580,13 @@
         if (!emote)
           return;
         const imageInTooltop = settingsManager.getSetting("shared.chat.tooltips.images");
-        const $tooltip = $(`
+        const $tooltip = $(
+          cleanupHTML(`
 					<div class="nipah__emote-tooltip ${imageInTooltop ? "nipah__emote-tooltip--has-image" : ""}">
 						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "nipah_emote") : ""}
 						<span>${emote.name}</span>
-					</div>`).appendTo(document.body);
+					</div>`)
+        ).appendTo(document.body);
         const rect = evt.target.getBoundingClientRect();
         $tooltip.css({
           top: rect.top - rect.height / 2,
@@ -657,20 +669,22 @@
         const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
         const sidebarIcon = $(`<img data-id="${emoteSet.id}" src="${emoteSet.icon}">`).appendTo($sidebarSets);
         this.sidebarMap.set(emoteSet.id, sidebarIcon[0]);
-        $emotesPanel.append(`
-                <div class="nipah__emote-set" data-id="${emoteSet.id}">
-                    <div class="nipah__emote-set__header">
-						<img src="${emoteSet.icon}">
-						<span>${emoteSet.name}</span>
-						<div class="nipah_chevron">
-                            <svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
-                        </div>
-                    </div>
-                    <div class="nipah__emote-set__emotes">
-                    ${sortedEmotes.map((emote) => emotesManager.getRenderableEmote(emote, "nipah_emote nipah__emote-set__emote")).join("")}
-                    </div>
-                </div>
-            `);
+        $emotesPanel.append(
+          cleanupHTML(`
+					<div class="nipah__emote-set" data-id="${emoteSet.id}">
+						<div class="nipah__emote-set__header">
+							<img src="${emoteSet.icon}">
+							<span>${emoteSet.name}</span>
+							<div class="nipah_chevron">
+								<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
+							</div>
+						</div>
+						<div class="nipah__emote-set__emotes">
+						${sortedEmotes.map((emote) => emotesManager.getRenderableEmote(emote, "nipah_emote nipah__emote-set__emote")).join("")}
+						</div>
+					</div>
+				`)
+        );
       }
       const sidebarIcons = $("img", this.$sidebarSets);
       sidebarIcons.on("click", (evt) => {
@@ -2060,35 +2074,39 @@
            = Chat
                = Appearance
                    (Appearance)
+    			- Hide Kick's emote menu button
                    - Highlight first messages
                    - Highlight Color	
                    - Display lines with alternating background colors
-                   - Seperators (dropdown)
+                   - Separators (dropdown)
                    (General)
                    - Use Ctrl+E to open the Emote Menu
+                   - Use Ctrl+Spacebar for quick emote access
+    		= Behavior
+    			(General)
+    			- Enable chat smooth scrolling
                = Emote Menu
                    (Appearance)
                    - Show a quick navigation bar along the side of the menu
                    - Show the search box
+    		= Emote providers
+    			(Kick)
+    			- Show global emote set
+    			- Show current channel emote set
+    			- Show other channel emote sets
+    			- Show Emoji emote set
                = Input
-                   (Recent Messages)
-                   - Allow pressing up and down to recall previously sent chat messages
-                   (Tab completion)
-                   - Display multiple entries in the tab-completion tooltip
-                   - Display a tooltip when using tab-completion
-                   - Allow tab-completion of emoji
-                   - Allow tab-completion of emotes without typing a colon. (:)
-                   - Priortize favorite emotes at the top
+    			(Recent Messages)
+    			- Allow pressing up and down to recall previously sent chat messages
+    			(Tab completion)
+    			- Display multiple entries in the tab-completion tooltip
+    			- Display a tooltip when using tab-completion
+    			- Allow tab-completion of emoji
+    			- Allow tab-completion of emotes without typing a colon. (:) 
+    			- Priortize favorite emotes at the top
                = Tooltips
-                   (General)
-                   - Display images in tooltips
-       - Platform specific settings, because limited UI specific support
-       - Provider specific settings
-           - 7TV
-               - Specify what emotes to load, channel emotes, global emotes, personal emotes
-               - Show emote update messages
-           - BetterTTV
-               - Specify what emotes to load, channel emotes, global emotes
+    			(General)
+    			- Display images in tooltips
        */
     sharedSettings = [
       {
@@ -2211,16 +2229,17 @@
               {
                 label: "Appearance",
                 children: [
+                  // Dangerous, impossible to undo because settings button will be hidden
+                  // {
+                  // 	label: 'Hide the navigation sidebar on the side of the menu',
+                  // 	id: 'shared.chat.emote_menu.appearance.sidebar',
+                  // 	default: false,
+                  // 	type: 'checkbox'
+                  // },
                   {
-                    label: "Show a quick navigation bar along the side of the menu (not yet implemented)",
-                    id: "shared.chat.emote_menu.appearance.quick_nav",
-                    default: true,
-                    type: "checkbox"
-                  },
-                  {
-                    label: "Show the search box (not yet implemented)",
+                    label: "Hide the search box",
                     id: "shared.chat.emote_menu.appearance.search_box",
-                    default: true,
+                    default: false,
                     type: "checkbox"
                   }
                 ]
@@ -2280,15 +2299,22 @@
                 label: "Tab completion",
                 children: [
                   {
-                    label: "Display multiple entries in the tab-completion tooltip (not yet implemented)",
-                    id: "shared.chat.input.tab_completion.multiple_entries",
+                    label: "Display a tooltip when using tab-completion",
+                    id: "shared.chat.input.tab_completion.tooltip",
                     default: true,
                     type: "checkbox"
                   },
+                  // This would be same as above anyway
+                  // {
+                  // 	label: 'Enable in-place tab-completion in text input (not yet implemented)',
+                  // 	id: 'shared.chat.input.tab_completion.multiple_entries',
+                  // 	default: true,
+                  // 	type: 'checkbox'
+                  // },
                   {
-                    label: "Display a tooltip when using tab-completion (not yet implemented)",
-                    id: "shared.chat.input.tab_completion.tooltip",
-                    default: true,
+                    label: "Enable automatic in-place tab-completion suggestions in text input while typing (not yet implemented)",
+                    id: "shared.chat.input.tab_completion.multiple_entries",
+                    default: false,
                     type: "checkbox"
                   },
                   {
@@ -2296,19 +2322,13 @@
                     id: "shared.chat.input.tab_completion.emoji",
                     default: false,
                     type: "checkbox"
-                  },
-                  {
-                    label: "Allow tab-completion of emotes without typing a colon. (:) (not yet implemented)",
-                    id: "shared.chat.input.tab_completion.no_colon",
-                    default: false,
-                    type: "checkbox"
-                  },
-                  {
-                    label: "Priortize favorite emotes at the top (not yet implemented)",
-                    id: "shared.chat.input.tab_completion.favorite",
-                    default: true,
-                    type: "checkbox"
                   }
+                  // {
+                  // 	label: 'Allow tab-completion of emotes without typing a colon. (:) (not yet implemented)',
+                  // 	id: 'shared.chat.input.tab_completion.no_colon',
+                  // 	default: false,
+                  // 	type: 'checkbox'
+                  // },
                 ]
               }
             ]

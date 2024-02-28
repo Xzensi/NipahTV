@@ -47,3 +47,7 @@ export function waitForElements(selectors) {
 		checkElements()
 	})
 }
+
+export function cleanupHTML(html) {
+	return html.replaceAll(/\s\s|\r\n|\r|\n/g, '')
+}
