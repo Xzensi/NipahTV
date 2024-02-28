@@ -63,6 +63,12 @@ export class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
+									label: "Hide Kick's emote menu button",
+									id: 'shared.chat.appearance.hide_emote_menu_button',
+									default: true,
+									type: 'checkbox'
+								},
+								{
 									label: 'Highlight first messages (not yet implemented)',
 									id: 'shared.chat.appearance.highlight',
 									default: false,

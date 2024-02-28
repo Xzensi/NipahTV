@@ -7,11 +7,12 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-487fcc30.min.css
+//// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-fbeb1beb.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
 // @grant unsafeWindow
+// @grant GM_getValue
 // @grant GM_xmlhttpRequest
 // @grant GM_addStyle
 // @grant GM_getResourceText
@@ -1262,6 +1263,9 @@
           attributes: true,
           attributeFilter: ["disabled"]
         });
+        if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
+          $("#chatroom").addClass("nipah__hide-emote-menu-button");
+        }
       });
       waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"]).then(() => {
         const $chatMessagesContainer = this.elm.$chatMessagesContainer = $(
@@ -2099,6 +2103,12 @@
                 label: "Appearance",
                 children: [
                   {
+                    label: "Hide Kick's emote menu button",
+                    id: "shared.chat.appearance.hide_emote_menu_button",
+                    default: true,
+                    type: "checkbox"
+                  },
+                  {
                     label: "Highlight first messages (not yet implemented)",
                     id: "shared.chat.appearance.highlight",
                     default: false,
@@ -2381,13 +2391,14 @@
       // RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
       // RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
       RESOURCE_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV/master",
-      DEBUG: false
+      DEBUG: GM_getValue("environment")?.debug || false
     };
     stylesLoaded = false;
     async initialize() {
       const { ENV_VARS } = this;
       info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
       if (ENV_VARS.DEBUG) {
+        info("Running in debug mode enabled..");
         ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
       }
       if (window2.app_name === "Kick") {

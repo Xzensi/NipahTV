@@ -42,6 +42,12 @@
 		}
 	}
 
+	&.nipah__hide-emote-menu-button {
+		.chat-input-wrapper > div:not(#nipah__message-input) {
+			display: none;
+		}
+	}
+
 	.overflow-y-scroll {
 		// scroll-behavior: smooth;
 

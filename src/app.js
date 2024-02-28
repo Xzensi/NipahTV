@@ -24,7 +24,7 @@ class NipahClient {
 		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		RESOURCE_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV/master',
-		DEBUG: false
+		DEBUG: GM_getValue('environment')?.debug || false
 	}
 
 	stylesLoaded = false
@@ -35,6 +35,7 @@ class NipahClient {
 		info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`)
 
 		if (ENV_VARS.DEBUG) {
+			info('Running in debug mode enabled..')
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
 		}
 

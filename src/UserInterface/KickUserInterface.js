@@ -65,6 +65,10 @@ export class KickUserInterface extends AbstractUserInterface {
 				attributes: true,
 				attributeFilter: ['disabled']
 			})
+
+			if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
+				$('#chatroom').addClass('nipah__hide-emote-menu-button')
+			}
 		})
 
 		// Wait for chat messages container to load
