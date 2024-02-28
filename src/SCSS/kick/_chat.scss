@@ -41,11 +41,48 @@
 			}
 		}
 	}
+
+	.overflow-y-scroll {
+		// scroll-behavior: smooth;
+
+		// > div:last-child {
+		// 	padding-bottom: -1em;
+		// }
+	}
 }
 
 .nipah__sticky-scroll {
 	// Hide "chat paused for scrolling" when scroll is sticky
 	> div.absolute:nth-child(2) {
 		display: none;
+	}
+}
+
+#message-input {
+	display: none;
+}
+
+#nipah__message-input {
+	outline: 2px solid transparent;
+	background-color: transparent;
+	border-color: transparent;
+	word-break: break-word;
+	white-space: pre-wrap;
+	line-height: 1.25rem;
+	font-size: 0.875rem;
+	border-width: 1px;
+	padding: 0.618em;
+	flex-shrink: 1;
+	flex-grow: 0;
+	cursor: text;
+	width: 100%;
+
+	outline-width: 2px;
+	outline-offset: 2px;
+	outline-color: transparent;
+
+	&:empty:before {
+		content: attr(data-placeholder);
+		opacity: 0.5;
 	}
 }
