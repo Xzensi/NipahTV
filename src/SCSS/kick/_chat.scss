@@ -48,12 +48,10 @@
 		}
 	}
 
-	.overflow-y-scroll {
-		// scroll-behavior: smooth;
-
-		// > div:last-child {
-		// 	padding-bottom: -1em;
-		// }
+	&.nipah__smooth-scrolling {
+		.overflow-y-scroll {
+			scroll-behavior: smooth;
+		}
 	}
 }
 

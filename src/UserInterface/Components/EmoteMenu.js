@@ -113,7 +113,18 @@ export class EmoteMenu extends AbstractComponent {
 		// On ctrl+spacebar key, open the modal
 		if (settingsManager.getSetting('shared.chat.appearance.emote_menu_ctrl_spacebar')) {
 			$(document).on('keydown', evt => {
-				if (evt.ctrlKey && evt.keyCode === 32) {
+				if (evt.ctrlKey && evt.key === ' ') {
+					evt.preventDefault()
+					this.toggleShow()
+				}
+			})
+		}
+
+		// On ctrl+e key, open the modal
+		if (settingsManager.getSetting('shared.chat.appearance.emote_menu_ctrl_e')) {
+			$(document).on('keydown', evt => {
+				if (evt.ctrlKey && evt.key === 'e') {
+					evt.preventDefault()
 					this.toggleShow()
 				}
 			})

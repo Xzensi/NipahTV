@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-//// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-fbeb1beb.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-554ae957.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -597,7 +597,16 @@
       });
       if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_spacebar")) {
         $(document).on("keydown", (evt) => {
-          if (evt.ctrlKey && evt.keyCode === 32) {
+          if (evt.ctrlKey && evt.key === " ") {
+            evt.preventDefault();
+            this.toggleShow();
+          }
+        });
+      }
+      if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_e")) {
+        $(document).on("keydown", (evt) => {
+          if (evt.ctrlKey && evt.key === "e") {
+            evt.preventDefault();
             this.toggleShow();
           }
         });
@@ -1265,6 +1274,9 @@
         });
         if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
           $("#chatroom").addClass("nipah__hide-emote-menu-button");
+        }
+        if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
+          $("#chatroom").addClass("nipah__smooth-scrolling");
         }
       });
       waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"]).then(() => {
@@ -2161,7 +2173,7 @@
                 description: "These settings require a page refresh to take effect.",
                 children: [
                   {
-                    label: "Use Ctrl+E to open the Emote Menu (not yet implemented)",
+                    label: "Use Ctrl+E to open the Emote Menu",
                     id: "shared.chat.appearance.emote_menu_ctrl_e",
                     default: false,
                     type: "checkbox"
@@ -2170,6 +2182,23 @@
                     label: "Use Ctrl+Spacebar to open the Emote Menu",
                     id: "shared.chat.appearance.emote_menu_ctrl_spacebar",
                     default: true,
+                    type: "checkbox"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            label: "Behavior",
+            children: [
+              {
+                label: "General",
+                description: "These settings require a page refresh to take effect.",
+                children: [
+                  {
+                    label: "Enable chat smooth scrolling",
+                    id: "shared.chat.behavior.smooth_scrolling",
+                    default: false,
                     type: "checkbox"
                   }
                 ]

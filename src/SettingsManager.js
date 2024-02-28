@@ -121,7 +121,7 @@ export class SettingsManager {
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
-									label: 'Use Ctrl+E to open the Emote Menu (not yet implemented)',
+									label: 'Use Ctrl+E to open the Emote Menu',
 									id: 'shared.chat.appearance.emote_menu_ctrl_e',
 									default: false,
 									type: 'checkbox'
@@ -130,6 +130,23 @@ export class SettingsManager {
 									label: 'Use Ctrl+Spacebar to open the Emote Menu',
 									id: 'shared.chat.appearance.emote_menu_ctrl_spacebar',
 									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Behavior',
+					children: [
+						{
+							label: 'General',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Enable chat smooth scrolling',
+									id: 'shared.chat.behavior.smooth_scrolling',
+									default: false,
 									type: 'checkbox'
 								}
 							]
