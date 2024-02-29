@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-077b2a77.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-41bb8463.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -1353,7 +1353,9 @@
         `<div id="nipah__message-input" contenteditable="true" data-placeholder="${placeholder}"></div>`
       );
       const textFieldEl = $textField[0];
-      $originalTextField.after(textFieldEl);
+      const $textFieldWrapper = $(`<div class="nipah__message-input__wrapper"></div>`);
+      $textFieldWrapper.append($textField);
+      $originalTextField.parent().parent().append($textFieldWrapper);
       textFieldEl.addEventListener("keydown", (evt) => {
         if (evt.key === "Enter" && !this.tabCompletor.isShowingModal) {
           evt.preventDefault();
@@ -1363,6 +1365,10 @@
       textFieldEl.addEventListener("keyup", (evt) => {
         $originalTextField[0].innerHTML = textFieldEl.innerHTML;
         $originalTextField[0].dispatchEvent(new Event("input"));
+        const $brTags = $textField.children("br");
+        if ($brTags.length) {
+          $brTags.remove();
+        }
         if (evt.keyCode > 47 && evt.keyCode < 112) {
           this.messageHistory.resetCursor();
         }

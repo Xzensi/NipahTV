@@ -148,7 +148,10 @@ export class KickUserInterface extends AbstractUserInterface {
 			`<div id="nipah__message-input" contenteditable="true" data-placeholder="${placeholder}"></div>`
 		))
 		const textFieldEl = $textField[0]
-		$originalTextField.after(textFieldEl)
+
+		const $textFieldWrapper = $(`<div class="nipah__message-input__wrapper"></div>`)
+		$textFieldWrapper.append($textField)
+		$originalTextField.parent().parent().append($textFieldWrapper)
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (evt.key === 'Enter' && !this.tabCompletor.isShowingModal) {
@@ -160,6 +163,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		textFieldEl.addEventListener('keyup', evt => {
 			$originalTextField[0].innerHTML = textFieldEl.innerHTML
 			$originalTextField[0].dispatchEvent(new Event('input'))
+
+			// Remove <br> tags from $textField injected by Kick, please stop doing that..
+			const $brTags = $textField.children('br')
+			if ($brTags.length) {
+				$brTags.remove()
+			}
 
 			if (evt.keyCode > 47 && evt.keyCode < 112) {
 				// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
