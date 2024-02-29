@@ -8,6 +8,7 @@ export class TabCompletor {
 	start = 0
 	end = 0
 	node = null
+	// word = ''
 
 	constructor(emotesManager) {
 		this.emotesManager = emotesManager
@@ -28,6 +29,7 @@ export class TabCompletor {
 
 		log('Word:', word, start, end, node)
 
+		// this.word = word
 		this.start = start
 		this.end = end
 		this.node = node
@@ -66,7 +68,7 @@ export class TabCompletor {
 		})
 	}
 
-	showSuggestion() {
+	showInlineSuggestion() {
 		const selectedSuggestion = this.suggestions[this.selectedIndex]
 		if (!selectedSuggestion) return
 	}
@@ -126,7 +128,7 @@ export class TabCompletor {
 	}
 
 	insertEmote(emoteId) {
-		const emoteEmbedding = this.emotesManager.getEmoteEmbeddable('' + emoteId)
+		const emoteEmbedding = this.emotesManager.getRenderableEmote('' + emoteId, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embedding')
 
 		const isHTML = emoteEmbedding[0] === '<' && emoteEmbedding[emoteEmbedding.length - 1] === '>'
@@ -141,6 +143,7 @@ export class TabCompletor {
 		} else {
 			embedNode = document.createTextNode(emoteEmbedding)
 		}
+		log(embedNode)
 		Caret.replaceTextInRange(node, start, end, embedNode)
 
 		// const selection = window.getSelection()

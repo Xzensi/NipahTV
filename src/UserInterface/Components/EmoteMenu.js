@@ -8,12 +8,13 @@ export class EmoteMenu extends AbstractComponent {
 	panels = {}
 	sidebarMap = new Map()
 
-	constructor({ eventBus, settingsManager, emotesManager }) {
+	constructor({ eventBus, settingsManager, emotesManager }, container) {
 		super()
 
 		this.eventBus = eventBus
 		this.settingsManager = settingsManager
 		this.emotesManager = emotesManager
+		this.parentContainer = container
 	}
 
 	render() {
@@ -58,7 +59,7 @@ export class EmoteMenu extends AbstractComponent {
 		this.panels.$emotes = $('.nipah__emote-menu__panel__emotes', this.$container)
 		this.panels.$search = $('.nipah__emote-menu__panel__search', this.$container)
 
-		$('body').append(this.$container)
+		$(this.parentContainer).append(this.$container)
 	}
 
 	attachEventHandlers() {
@@ -87,7 +88,7 @@ export class EmoteMenu extends AbstractComponent {
 				const $tooltip = $(
 					cleanupHTML(`
 					<div class="nipah__emote-tooltip ${imageInTooltop ? 'nipah__emote-tooltip--has-image' : ''}">
-						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, 'nipah_emote') : ''}
+						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, 'nipah__emote') : ''}
 						<span>${emote.name}</span>
 					</div>`)
 				).appendTo(document.body)
@@ -157,7 +158,7 @@ export class EmoteMenu extends AbstractComponent {
 		let maxResults = 75
 		for (const emoteResult of emotesResult) {
 			if (maxResults-- <= 0) break
-			this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item, 'nipah_emote'))
+			this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item, 'nipah__emote'))
 		}
 	}
 
@@ -217,7 +218,7 @@ export class EmoteMenu extends AbstractComponent {
 			const $newEmoteSetEmotes = $('.nipah__emote-set__emotes', $newEmoteSet)
 			for (const emote of sortedEmotes) {
 				$newEmoteSetEmotes.append(
-					emotesManager.getRenderableEmote(emote, 'nipah_emote nipah__emote-set__emote')
+					emotesManager.getRenderableEmote(emote, 'nipah__emote nipah__emote-set__emote')
 				)
 			}
 		}

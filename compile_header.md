@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-41bb8463.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-9289650e.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js

@@ -92,14 +92,11 @@ export class KickProvider extends AbstractProvider {
 	getRenderableEmote(emote, classes = '') {
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
-		return `
-			<img class="${classes}" tabindex="0" size="1" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
-		`
+		return `<img class="${classes}" tabindex="0" size="1" :data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getEmbeddableEmote(emote) {
-		const src = `https://files.kick.com/emotes/${emote.id}/fullsize`
-		return `<img :data-emote-name="${emote.name}" class="gc-emote-c" data-emote-id="${emote.id}" src="${src}">`
+		return `[emote:${emote.id}:${emote.name}]`
 	}
 
 	getEmoteSrc(emote) {

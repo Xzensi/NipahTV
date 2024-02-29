@@ -1,7 +1,7 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 
-.nipah_emote {
+.nipah__emote {
 	min-width: $emote_size;
 	height: $emote_size;
 
@@ -43,4 +43,15 @@
 		max-height: 1.75rem;
 		max-width: none;
 	}
+}
+
+.nipah__inline-emote {
+	vertical-align: middle;
+	-o-object-fit: contain;
+	margin-right: 0.125rem;
+	margin-left: 0.125rem;
+	display: inline-block;
+	object-fit: contain;
+	min-width: 1.5rem;
+	height: 1.5rem;
 }

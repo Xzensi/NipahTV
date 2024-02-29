@@ -30,9 +30,13 @@ export class KickUserInterface extends AbstractUserInterface {
 			this.loadShadowProxyTextField()
 
 			this.loadEmoteMenu()
-			this.loadQuickEmotesHolder()
 			this.loadChatHistoryBehaviour()
 			this.loadTabCompletionBehaviour()
+		})
+
+		// Wait for quick emotes holder to load
+		waitForElements(['#chatroom-footer .quick-emotes-holder']).then(() => {
+			this.loadQuickEmotesHolder()
 		})
 
 		// Wait for submit button to load
@@ -126,7 +130,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async loadEmoteMenu() {
 		const { eventBus, settingsManager, emotesManager } = this
-		this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init()
+		const container = this.elm.$textField.parent().parent()[0]
+		this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }, container).init()
 
 		this.elm.$textField.on('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
 	}
@@ -145,13 +150,17 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $originalTextField = (this.elm.$originalTextField = $('#message-input'))
 		const placeholder = $originalTextField.data('placeholder')
 		const $textField = (this.elm.$textField = $(
-			`<div id="nipah__message-input" contenteditable="true" data-placeholder="${placeholder}"></div>`
+			`<div id="nipah__message-input" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
 		))
+		const originalTextFieldEl = $originalTextField[0]
 		const textFieldEl = $textField[0]
 
 		const $textFieldWrapper = $(`<div class="nipah__message-input__wrapper"></div>`)
 		$textFieldWrapper.append($textField)
 		$originalTextField.parent().parent().append($textFieldWrapper)
+
+		// Shift focus to shadow text field when original text field is focused
+		originalTextFieldEl.addEventListener('focus', () => textFieldEl.focus())
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (evt.key === 'Enter' && !this.tabCompletor.isShowingModal) {
@@ -165,10 +174,57 @@ export class KickUserInterface extends AbstractUserInterface {
 			$originalTextField[0].dispatchEvent(new Event('input'))
 
 			// Remove <br> tags from $textField injected by Kick, please stop doing that..
-			const $brTags = $textField.children('br')
-			if ($brTags.length) {
-				$brTags.remove()
+			// const $brTags = $textField.children('br')
+
+			// TODO contenteditable is a nightmare in Firefox, keeps injecting <br> tags
+			//  best solution I found yet, is to use ::before to prevent collapse
+			//  but now the caret gets placed after the :before pseudo element..
+			//  Also bugs in Firefox keep causing the caret to shift outside the text field.
+			if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === 'BR') {
+				textFieldEl.children[0].remove()
+				// log('Removed <br> tag from shadow text field')
+				// Set caret to before :before pseudo element
+				// const range = document.createRange()
+				// const selection = window.getSelection()
+				// range.setStart(textFieldEl, 0)
+				// range.collapse(true)
+				// selection.removeAllRanges()
+				// selection.addRange(range)
+
+				// document.activeElement.blur()
+				// // textFieldEl.focus()
+				// setTimeout(() => {
+				// 	log('Focusing shadow text field')
+				// 	textFieldEl.focus()
+				// }, 2000)
+				textFieldEl.normalize()
+				// document.activeElement.blur()
+				// textFieldEl.focus()
 			}
+
+			// log('ADASDSDSD', textFieldEl.childNodes, textFieldEl.childNodes.length)
+			// if (textFieldEl.childNodes.length === 0) {
+			// 	document.activeElement.blur()
+			// 	// textFieldEl.focus()
+			// 	setTimeout(() => {
+			// 		log('Focusing shadow text field')
+			// 		textFieldEl.focus()
+			// 	}, 2000)
+			// }
+
+			// const brTags = textFieldEl.querySelectorAll('br')
+			// if (textFieldEl.children.length > 1) {
+			// 	log('Removing <br> tags from shadow text field', brTags)
+			// 	// $brTags.remove()
+			// 	// setTimeout(() => ($brTags[0].innerHTML = $brTags[0].innerHTML.replaceAll('<br>', '')), 1)
+			// 	// $brTags[0].innerHTML = ''
+			// 	for (const brTag of brTags) {
+			// 		brTag.remove()
+			// 	}
+			// 	// const textNode = document.createTextNode('')
+			// 	// log('Appending text node to shadow text field', textNode)
+			// 	// textFieldEl.appendChild(textNode)
+			// }
 
 			if (evt.keyCode > 47 && evt.keyCode < 112) {
 				// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
@@ -234,6 +290,11 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (evt.key === 'Tab') {
+				// TODO fix @ name tagging
+				// Don't enable tab-completion for @ name tagging
+				const { word } = Caret.getWordBeforeCaret()
+				if (word && word[0] === '@') return
+
 				evt.preventDefault()
 
 				if (textFieldEl.textContent.trim() === '') return
@@ -393,19 +454,32 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	// Submits input to chat
 	submitInput(isButtonClickEvent = false) {
-		const { eventBus } = this
+		const { eventBus, emotesManager } = this
 		const originalTextFieldEl = this.elm.$originalTextField[0]
 		const submitButtonEl = this.elm.$submitButton[0]
 		const textFieldEl = this.elm.$textField[0]
 
-		const inputHTML = textFieldEl.innerHTML
-		originalTextFieldEl.innerHTML = inputHTML
-
 		// TODO implement max message length checks, take into account emotes and pasting
 		//  do emotes count as a single token?
+
+		let parsedString = ''
+		for (const node of textFieldEl.childNodes) {
+			if (node.nodeType === Node.TEXT_NODE) {
+				parsedString += node.textContent
+			} else if (node.nodeType === Node.ELEMENT_NODE) {
+				const emoteId = node.dataset.emoteId
+
+				if (emoteId) {
+					const spacingBefore = parsedString[parsedString.length - 1] !== ' '
+					parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore)
+				}
+			}
+		}
+
+		originalTextFieldEl.innerHTML = parsedString
 		textFieldEl.innerHTML = ''
 
-		this.messageHistory.addMessage(inputHTML)
+		this.messageHistory.addMessage(textFieldEl.innerHTML)
 		this.messageHistory.resetCursor()
 
 		// Don't submit if this function was called by submit button click to prevent infinite recursion
@@ -453,7 +527,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Update emotes history when emotes are used
 		emotesManager.registerEmoteEngagement(emoteId)
 
-		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteId)
+		const emoteEmbedding = emotesManager.getRenderableEmote(emoteId, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embed')
 
 		let embedNode

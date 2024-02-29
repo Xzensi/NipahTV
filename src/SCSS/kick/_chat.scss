@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 #chatroom {
 	[data-chat-entry] {
@@ -80,7 +81,6 @@
 	border-color: #a8b1b855;
 	padding-right: 0.5rem;
 	padding-left: 0.5rem;
-	align-items: center;
 	border-radius: 4px;
 	border-width: 1px;
 	display: flex;
@@ -95,9 +95,12 @@
 	white-space: pre-wrap !important;
 	outline: 2px solid transparent;
 	border-color: transparent;
+	vertical-align: middle;
 	word-break: break-word;
+	display: inline-block;
 	line-height: 1.618em;
 	font-size: 0.875rem;
+	position: relative;
 	border-width: 1px;
 	padding: 0.618em;
 	flex-shrink: 1;
@@ -109,13 +112,21 @@
 	outline-offset: 2px;
 	outline-color: transparent;
 
-	&:empty:before {
-		content: attr(data-placeholder);
+	&:empty::before {
+		content: attr(placeholder);
+		pointer-events: none;
+		overflow: clip;
 		opacity: 0.5;
+
+		@include user_select;
 	}
 
 	&:focus-visible {
 		outline: 2px solid transparent;
 		outline-offset: 2px;
 	}
+}
+
+#chatroom-footer .send-row button {
+	display: none;
 }

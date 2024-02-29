@@ -98,12 +98,16 @@ export class EmotesManager {
 		return provider.getRenderableEmote(emote, classes)
 	}
 
-	getEmoteEmbeddable(emoteId) {
+	getEmoteEmbeddable(emoteId, spacingBefore = false) {
 		const emote = this.getEmote(emoteId)
 		if (!emote) return error('Emote not found')
 
 		const provider = this.providers.get(emote.provider)
-		return provider.getEmbeddableEmote(emote)
+		if (spacingBefore && emote.spacing) {
+			return ' ' + provider.getEmbeddableEmote(emote)
+		} else {
+			return provider.getEmbeddableEmote(emote)
+		}
 	}
 
 	registerEmoteEngagement(emoteId) {
