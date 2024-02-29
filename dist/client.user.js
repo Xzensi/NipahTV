@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-41bb8463.min.css
+//// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-8708ee3d.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -441,12 +441,16 @@
       const provider = this.providers.get(emote.provider);
       return provider.getRenderableEmote(emote, classes);
     }
-    getEmoteEmbeddable(emoteId) {
+    getEmoteEmbeddable(emoteId, spacingBefore = false) {
       const emote = this.getEmote(emoteId);
       if (!emote)
         return error2("Emote not found");
       const provider = this.providers.get(emote.provider);
-      return provider.getEmbeddableEmote(emote);
+      if (spacingBefore && emote.spacing) {
+        return " " + provider.getEmbeddableEmote(emote);
+      } else {
+        return provider.getEmbeddableEmote(emote);
+      }
     }
     registerEmoteEngagement(emoteId) {
       this.datastore.registerEmoteEngagement(emoteId);
@@ -515,11 +519,12 @@
     activePanel = "emotes";
     panels = {};
     sidebarMap = /* @__PURE__ */ new Map();
-    constructor({ eventBus, settingsManager, emotesManager }) {
+    constructor({ eventBus, settingsManager, emotesManager }, container) {
       super();
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
+      this.parentContainer = container;
     }
     render() {
       const { settingsManager } = this;
@@ -559,7 +564,7 @@
       this.$sidebarSets = $(".nipah__emote-menu__sidebar__sets", this.$container);
       this.panels.$emotes = $(".nipah__emote-menu__panel__emotes", this.$container);
       this.panels.$search = $(".nipah__emote-menu__panel__search", this.$container);
-      $("body").append(this.$container);
+      $(this.parentContainer).append(this.$container);
     }
     attachEventHandlers() {
       const { eventBus, settingsManager } = this;
@@ -583,7 +588,7 @@
         const $tooltip = $(
           cleanupHTML(`
 					<div class="nipah__emote-tooltip ${imageInTooltop ? "nipah__emote-tooltip--has-image" : ""}">
-						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "nipah_emote") : ""}
+						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "nipah__emote") : ""}
 						<span>${emote.name}</span>
 					</div>`)
         ).appendTo(document.body);
@@ -638,7 +643,7 @@
       for (const emoteResult of emotesResult) {
         if (maxResults-- <= 0)
           break;
-        this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item, "nipah_emote"));
+        this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item, "nipah__emote"));
       }
     }
     switchPanel(panel) {
@@ -687,7 +692,7 @@
         const $newEmoteSetEmotes = $(".nipah__emote-set__emotes", $newEmoteSet);
         for (const emote of sortedEmotes) {
           $newEmoteSetEmotes.append(
-            emotesManager.getRenderableEmote(emote, "nipah_emote nipah__emote-set__emote")
+            emotesManager.getRenderableEmote(emote, "nipah__emote nipah__emote-set__emote")
           );
         }
       }
@@ -820,7 +825,7 @@
           this.$element.append(emoteToSort.$emote);
         }
       } else {
-        const $emotePartial = $(emotesManager.getRenderableEmote(emoteId, "nipah_emote"));
+        const $emotePartial = $(emotesManager.getRenderableEmote(emoteId, "nipah__emote"));
         const insertIndex = this.getSortedEmoteIndex(emoteId);
         if (insertIndex !== -1) {
           this.sortingList.splice(insertIndex, 0, { id: emoteId, $emote: $emotePartial });
@@ -1113,6 +1118,7 @@
     start = 0;
     end = 0;
     node = null;
+    // word = ''
     constructor(emotesManager) {
       this.emotesManager = emotesManager;
     }
@@ -1155,7 +1161,7 @@
         this.reset();
       });
     }
-    showSuggestion() {
+    showInlineSuggestion() {
       const selectedSuggestion = this.suggestions[this.selectedIndex];
       if (!selectedSuggestion)
         return;
@@ -1201,7 +1207,7 @@
       this.reset();
     }
     insertEmote(emoteId) {
-      const emoteEmbedding = this.emotesManager.getEmoteEmbeddable("" + emoteId);
+      const emoteEmbedding = this.emotesManager.getRenderableEmote("" + emoteId, "nipah__inline-emote");
       if (!emoteEmbedding)
         return error2("Invalid emote embedding");
       const isHTML = emoteEmbedding[0] === "<" && emoteEmbedding[emoteEmbedding.length - 1] === ">";
@@ -1214,6 +1220,7 @@
       } else {
         embedNode = document.createTextNode(emoteEmbedding);
       }
+      log(embedNode);
       Caret.replaceTextInRange(node, start, end, embedNode);
       if (isHTML) {
         const range = document.createRange();
@@ -1266,9 +1273,11 @@
       waitForElements(["#message-input"]).then(() => {
         this.loadShadowProxyTextField();
         this.loadEmoteMenu();
-        this.loadQuickEmotesHolder();
         this.loadChatHistoryBehaviour();
         this.loadTabCompletionBehaviour();
+      });
+      waitForElements(["#chatroom-footer .quick-emotes-holder"]).then(() => {
+        this.loadQuickEmotesHolder();
       });
       waitForElements(["#chatroom-footer button.base-button"]).then(() => {
         const $submitButton = this.elm.$submitButton = $("#chatroom-footer button.base-button");
@@ -1335,7 +1344,8 @@
     }
     async loadEmoteMenu() {
       const { eventBus, settingsManager, emotesManager } = this;
-      this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }).init();
+      const container = this.elm.$textField.parent().parent()[0];
+      this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }, container).init();
       this.elm.$textField.on("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
     }
     async loadEmoteMenuButton() {
@@ -1350,12 +1360,14 @@
       const $originalTextField = this.elm.$originalTextField = $("#message-input");
       const placeholder = $originalTextField.data("placeholder");
       const $textField = this.elm.$textField = $(
-        `<div id="nipah__message-input" contenteditable="true" data-placeholder="${placeholder}"></div>`
+        `<div id="nipah__message-input" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
       );
+      const originalTextFieldEl = $originalTextField[0];
       const textFieldEl = $textField[0];
       const $textFieldWrapper = $(`<div class="nipah__message-input__wrapper"></div>`);
       $textFieldWrapper.append($textField);
       $originalTextField.parent().parent().append($textFieldWrapper);
+      originalTextFieldEl.addEventListener("focus", () => textFieldEl.focus());
       textFieldEl.addEventListener("keydown", (evt) => {
         if (evt.key === "Enter" && !this.tabCompletor.isShowingModal) {
           evt.preventDefault();
@@ -1365,9 +1377,9 @@
       textFieldEl.addEventListener("keyup", (evt) => {
         $originalTextField[0].innerHTML = textFieldEl.innerHTML;
         $originalTextField[0].dispatchEvent(new Event("input"));
-        const $brTags = $textField.children("br");
-        if ($brTags.length) {
-          $brTags.remove();
+        if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === "BR") {
+          textFieldEl.children[0].remove();
+          textFieldEl.normalize();
         }
         if (evt.keyCode > 47 && evt.keyCode < 112) {
           this.messageHistory.resetCursor();
@@ -1549,14 +1561,25 @@
     }
     // Submits input to chat
     submitInput(isButtonClickEvent = false) {
-      const { eventBus } = this;
+      const { eventBus, emotesManager } = this;
       const originalTextFieldEl = this.elm.$originalTextField[0];
       const submitButtonEl = this.elm.$submitButton[0];
       const textFieldEl = this.elm.$textField[0];
-      const inputHTML = textFieldEl.innerHTML;
-      originalTextFieldEl.innerHTML = inputHTML;
+      let parsedString = "";
+      for (const node of textFieldEl.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          parsedString += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const emoteId = node.dataset.emoteId;
+          if (emoteId) {
+            const spacingBefore = parsedString[parsedString.length - 1] !== " ";
+            parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore);
+          }
+        }
+      }
+      originalTextFieldEl.innerHTML = parsedString;
       textFieldEl.innerHTML = "";
-      this.messageHistory.addMessage(inputHTML);
+      this.messageHistory.addMessage(textFieldEl.innerHTML);
       this.messageHistory.resetCursor();
       if (!isButtonClickEvent)
         submitButtonEl.dispatchEvent(new Event("click"));
@@ -1583,7 +1606,7 @@
       const { emotesManager } = this;
       this.messageHistory.resetCursor();
       emotesManager.registerEmoteEngagement(emoteId);
-      const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteId);
+      const emoteEmbedding = emotesManager.getRenderableEmote(emoteId, "nipah__inline-emote");
       if (!emoteEmbedding)
         return error2("Invalid emote embed");
       let embedNode;
@@ -1715,13 +1738,10 @@
     }
     getRenderableEmote(emote, classes = "") {
       const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`;
-      return `
-			<img class="${classes}" tabindex="0" size="1" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
-		`;
+      return `<img class="${classes}" tabindex="0" size="1" :data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
     }
     getEmbeddableEmote(emote) {
-      const src = `https://files.kick.com/emotes/${emote.id}/fullsize`;
-      return `<img :data-emote-name="${emote.name}" class="gc-emote-c" data-emote-id="${emote.id}" src="${src}">`;
+      return `[emote:${emote.id}:${emote.name}]`;
     }
     getEmoteSrc(emote) {
       return `https://files.kick.com/emotes/${emote.id}/fullsize`;
@@ -1767,6 +1787,7 @@
           id: "" + emote.id,
           name: emote.name,
           provider: PROVIDER_ENUM.SEVENTV,
+          spacing: true,
           width: file.width,
           size
         };
@@ -1786,9 +1807,7 @@
     }
     getRenderableEmote(emote, classes = "") {
       const srcset = `https://cdn.7tv.app/emote/${emote.id}/1x.avif 1x, https://cdn.7tv.app/emote/${emote.id}/2x.avif 2x, https://cdn.7tv.app/emote/${emote.id}/3x.avif 3x, https://cdn.7tv.app/emote/${emote.id}/4x.avif 4x`;
-      return `
-			<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
-		`;
+      return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
     }
     getEmbeddableEmote(emote) {
       return emote.name;
