@@ -1,12 +1,13 @@
 import { log } from '../utils'
 
 export class Caret {
-	static collapseToEndOfNode(selection, range, node) {
-		const newRange = range.cloneRange()
-		newRange.setStartAfter(node)
-		newRange.collapse(true)
+	static collapseToEndOfNode(node) {
+		const selection = window.getSelection()
+		const range = document.createRange()
+		range.setStartAfter(node)
+		range.collapse(true)
 		selection.removeAllRanges()
-		selection.addRange(newRange)
+		selection.addRange(range)
 		selection.collapseToEnd()
 	}
 
@@ -169,8 +170,31 @@ export class Caret {
 		const selection = window.getSelection()
 		const range = selection.getRangeAt(0)
 
-		// return false if the caret is not in a text node
-		if (range.startContainer.nodeType !== Node.TEXT_NODE) return false
+		// If not text node, see if we can get the last direct text node child and get the word from there instead
+		if (range.startContainer.nodeType !== Node.TEXT_NODE) {
+			const textNode = range.startContainer.childNodes[range.startOffset - 1]
+
+			if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+				const text = textNode.textContent
+				const startOffset = text.lastIndexOf(' ') + 1
+				const word = text.slice(startOffset)
+				if (word) {
+					return {
+						word,
+						start: startOffset,
+						end: text.length,
+						node: textNode
+					}
+				}
+			}
+
+			return {
+				word: null,
+				start: 0,
+				end: 0,
+				node: textNode
+			}
+		}
 
 		const text = range.startContainer.textContent
 		const offset = range.startOffset
@@ -200,7 +224,6 @@ export class Caret {
 	// Replacement can be a string or an element node.
 	static replaceTextInRange(container, start, end, replacement) {
 		const text = container.textContent
-		log('NODE TYPE', replacement.nodeType)
 		if (replacement.nodeType === Node.TEXT_NODE) {
 			// Splice the text
 			const newText = text.slice(0, start) + replacement.textContent + text.slice(end)

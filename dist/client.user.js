@@ -875,12 +875,13 @@
 
   // src/UserInterface/Caret.js
   var Caret = class {
-    static collapseToEndOfNode(selection, range, node) {
-      const newRange = range.cloneRange();
-      newRange.setStartAfter(node);
-      newRange.collapse(true);
+    static collapseToEndOfNode(node) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.setStartAfter(node);
+      range.collapse(true);
       selection.removeAllRanges();
-      selection.addRange(newRange);
+      selection.addRange(range);
       selection.collapseToEnd();
     }
     static hasNonWhitespaceCharacterBeforeCaret() {
@@ -1005,8 +1006,28 @@
     static getWordBeforeCaret() {
       const selection = window.getSelection();
       const range = selection.getRangeAt(0);
-      if (range.startContainer.nodeType !== Node.TEXT_NODE)
-        return false;
+      if (range.startContainer.nodeType !== Node.TEXT_NODE) {
+        const textNode = range.startContainer.childNodes[range.startOffset - 1];
+        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+          const text2 = textNode.textContent;
+          const startOffset = text2.lastIndexOf(" ") + 1;
+          const word2 = text2.slice(startOffset);
+          if (word2) {
+            return {
+              word: word2,
+              start: startOffset,
+              end: text2.length,
+              node: textNode
+            };
+          }
+        }
+        return {
+          word: null,
+          start: 0,
+          end: 0,
+          node: textNode
+        };
+      }
       const text = range.startContainer.textContent;
       const offset = range.startOffset;
       let start = offset;
@@ -1031,7 +1052,6 @@
     // Replacement can be a string or an element node.
     static replaceTextInRange(container, start, end, replacement) {
       const text = container.textContent;
-      log("NODE TYPE", replacement.nodeType);
       if (replacement.nodeType === Node.TEXT_NODE) {
         const newText = text.slice(0, start) + replacement.textContent + text.slice(end);
         container.textContent = newText;
@@ -1115,10 +1135,12 @@
     suggestions = [];
     selectedIndex = 0;
     isShowingModal = false;
+    // Context
     start = 0;
     end = 0;
     node = null;
-    // word = ''
+    word = null;
+    embedNode = null;
     constructor(emotesManager) {
       this.emotesManager = emotesManager;
     }
@@ -1129,9 +1151,10 @@
     }
     updateSuggestions() {
       const { word, start, end, node } = Caret.getWordBeforeCaret();
+      log("Word:", word, start, end, node);
       if (!word)
         return;
-      log("Word:", word, start, end, node);
+      this.word = word;
       this.start = start;
       this.end = end;
       this.node = node;
@@ -1140,13 +1163,16 @@
       this.suggestions = searchResults.map((result) => result.item.name);
       this.suggestionIds = searchResults.map((result) => this.emotesManager.getEmoteIdByName(result.item.name));
       this.$list.empty();
-      for (let i = 0; i < this.suggestions.length; i++) {
-        const emoteName = this.suggestions[i];
-        const emoteId = this.suggestionIds[i];
-        const emoteRender = this.emotesManager.getRenderableEmote(emoteId, "nipah__emote");
-        this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`);
+      if (this.suggestions.length) {
+        for (let i = 0; i < this.suggestions.length; i++) {
+          const emoteName = this.suggestions[i];
+          const emoteId = this.suggestionIds[i];
+          const emoteRender = this.emotesManager.getRenderableEmote(emoteId, "nipah__emote");
+          this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`);
+        }
+        this.$list.find("li").eq(this.selectedIndex).addClass("selected");
+        this.renderInlineEmote();
       }
-      this.$list.find("li").eq(this.selectedIndex).addClass("selected");
     }
     createModal(containerEl) {
       const $modal = this.$modal = $(
@@ -1155,16 +1181,11 @@
       this.$list = $modal.find("ul");
       $(containerEl).append($modal);
       this.$list.on("click", "li", (e) => {
-        const emoteId = $(e.currentTarget).data("emote-id");
-        this.insertEmote(emoteId);
+        this.selectedIndex = $(e.currentTarget).index();
+        this.renderInlineEmote();
         this.hideModal();
         this.reset();
       });
-    }
-    showInlineSuggestion() {
-      const selectedSuggestion = this.suggestions[this.selectedIndex];
-      if (!selectedSuggestion)
-        return;
     }
     showModal() {
       if (this.isShowingModal || !this.suggestions.length)
@@ -1182,15 +1203,6 @@
       this.$modal.hide();
       this.isShowingModal = false;
     }
-    moveSelectorDown() {
-      this.$list.find("li.selected").removeClass("selected");
-      if (this.selectedIndex > 0) {
-        this.selectedIndex--;
-        this.$list.find("li").eq(this.selectedIndex).addClass("selected");
-      } else if (this.selectedIndex === 0) {
-        this.selectedIndex = 0;
-      }
-    }
     moveSelectorUp() {
       if (this.selectedIndex < this.suggestions.length - 1) {
         this.selectedIndex++;
@@ -1199,49 +1211,106 @@
       }
       this.$list.find("li.selected").removeClass("selected");
       this.$list.find("li").eq(this.selectedIndex).addClass("selected");
+      this.renderInlineEmote();
     }
-    selectEmote() {
+    moveSelectorDown() {
+      this.$list.find("li.selected").removeClass("selected");
+      if (this.selectedIndex > 0) {
+        this.selectedIndex--;
+        this.$list.find("li").eq(this.selectedIndex).addClass("selected");
+      } else if (this.selectedIndex === 0) {
+        this.selectedIndex = 0;
+      }
+      this.renderInlineEmote();
+    }
+    renderInlineEmote() {
       const emoteId = this.suggestionIds[this.selectedIndex];
-      this.insertEmote(emoteId);
-      this.hideModal();
-      this.reset();
+      if (!emoteId)
+        return;
+      if (this.embedNode) {
+        const emoteEmbedding = this.emotesManager.getRenderableEmote("" + emoteId, "nipah__inline-emote");
+        if (!emoteEmbedding)
+          return error2("Invalid emote embedding");
+        const embedNode = jQuery.parseHTML(emoteEmbedding)[0];
+        this.embedNode.after(embedNode);
+        this.embedNode.remove();
+        this.embedNode = embedNode;
+        Caret.collapseToEndOfNode(embedNode);
+      } else {
+        this.insertEmote(emoteId);
+      }
     }
     insertEmote(emoteId) {
       const emoteEmbedding = this.emotesManager.getRenderableEmote("" + emoteId, "nipah__inline-emote");
       if (!emoteEmbedding)
         return error2("Invalid emote embedding");
-      const isHTML = emoteEmbedding[0] === "<" && emoteEmbedding[emoteEmbedding.length - 1] === ">";
       const { start, end, node } = this;
       if (!node)
         return error2("Invalid node");
-      let embedNode;
-      if (isHTML) {
-        embedNode = jQuery.parseHTML(emoteEmbedding)[0];
-      } else {
-        embedNode = document.createTextNode(emoteEmbedding);
-      }
-      log(embedNode);
+      const embedNode = this.embedNode = jQuery.parseHTML(emoteEmbedding)[0];
       Caret.replaceTextInRange(node, start, end, embedNode);
-      if (isHTML) {
-        const range = document.createRange();
-        range.setStartAfter(embedNode);
-        range.collapse(true);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        selection.collapseToEnd();
-      } else {
-        const newStart = start + emoteEmbedding.length;
-        const range = document.createRange();
-        range.setStart(node, newStart);
-        range.setEnd(node, newStart);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
+      const range = document.createRange();
+      range.setStartAfter(embedNode);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      selection.collapseToEnd();
     }
     isClickInsideModal(target) {
       return this.$modal[0]?.contains(target);
+    }
+    handleKeydown(evt) {
+      if (evt.key === "Tab") {
+        if (this.isShowingModal) {
+          if (evt.shiftKey) {
+            this.moveSelectorDown();
+          } else {
+            this.moveSelectorUp();
+          }
+        } else {
+          this.updateSuggestions();
+          this.showModal();
+        }
+      } else if (this.isShowingModal) {
+        if (evt.key === "ArrowUp") {
+          evt.preventDefault();
+          this.moveSelectorUp();
+        } else if (evt.key === "ArrowDown") {
+          evt.preventDefault();
+          this.moveSelectorDown();
+        } else if (evt.key === "ArrowRight" || evt.key === "Enter") {
+          if (evt.key === "Enter")
+            evt.preventDefault();
+          const selectedEmoteId = this.getSelectedSuggestionEmoteId();
+          if (selectedEmoteId) {
+            this.hideModal();
+            this.reset();
+          }
+          this.reset();
+        } else if (evt.key === "ArrowLeft" || evt.key === " " || evt.key === "Escape") {
+          this.reset();
+        } else if (evt.key === "Backspace") {
+          evt.preventDefault();
+          if (this.word) {
+            const textNode = document.createTextNode(this.word);
+            this.embedNode.after(textNode);
+            this.embedNode.remove();
+            Caret.collapseToEndOfNode(textNode);
+            const parentEL = textNode.parentElement;
+            log(parentEL.childNodes);
+            textNode.parentElement.normalize();
+            log(parentEL.childNodes);
+          }
+          this.hideModal();
+          this.reset();
+        } else {
+          this.hideModal();
+          this.reset();
+        }
+      }
+    }
+    handleKeyup(evt) {
     }
     reset() {
       this.suggestions = [];
@@ -1252,6 +1321,8 @@
       this.start = 0;
       this.end = 0;
       this.node = null;
+      this.word = null;
+      this.embedNode = null;
     }
   };
 
@@ -1436,44 +1507,12 @@
           evt.preventDefault();
           if (textFieldEl.textContent.trim() === "")
             return;
-          if (this.tabCompletor.isShowingModal) {
-            if (evt.shiftKey) {
-              tabCompletor.moveSelectorDown();
-            } else {
-              tabCompletor.moveSelectorUp();
-            }
-          } else {
-            tabCompletor.updateSuggestions();
-            tabCompletor.showModal();
-          }
-        } else if (this.tabCompletor.isShowingModal) {
-          if (evt.key === "ArrowUp" || evt.key === "ArrowDown") {
-            evt.preventDefault();
-            if (evt.key === "ArrowUp") {
-              tabCompletor.moveSelectorUp();
-            } else {
-              tabCompletor.moveSelectorDown();
-            }
-          } else if (evt.key === "ArrowRight" || evt.key === "Enter") {
-            evt.preventDefault();
-            const selectedEmoteId = tabCompletor.getSelectedSuggestionEmoteId();
-            if (selectedEmoteId) {
-              this.tabCompletor.selectEmote();
-            }
-            tabCompletor.reset();
-          } else if (evt.key === "ArrowLeft") {
-            evt.preventDefault();
-            tabCompletor.reset();
-          } else if (evt.key === " " || evt.key === "Escape") {
-            tabCompletor.reset();
-          } else {
-            tabCompletor.updateSuggestions();
-          }
         }
+        tabCompletor.handleKeydown(evt);
       });
       textFieldEl.addEventListener("keyup", (evt) => {
         if (this.tabCompletor.isShowingModal) {
-          if (textFieldEl.textContent.trim() === "" || !textFieldEl.childNodes.length) {
+          if (textFieldEl.textContent.trim() === "" && !textFieldEl.childNodes.length) {
             tabCompletor.reset();
           }
         }
@@ -1644,7 +1683,7 @@
         } else {
           textFieldEl.appendChild(embedNode);
         }
-        Caret.collapseToEndOfNode(selection, range, embedNode);
+        Caret.collapseToEndOfNode(embedNode);
       } else {
         textFieldEl.appendChild(embedNode);
       }
