@@ -477,10 +477,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		originalTextFieldEl.innerHTML = parsedString
-		textFieldEl.innerHTML = ''
 
 		this.messageHistory.addMessage(textFieldEl.innerHTML)
 		this.messageHistory.resetCursor()
+
+		textFieldEl.innerHTML = ''
 
 		// Don't submit if this function was called by submit button click to prevent infinite recursion
 		if (!isButtonClickEvent) submitButtonEl.dispatchEvent(new Event('click'))

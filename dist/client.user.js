@@ -1581,9 +1581,9 @@
         }
       }
       originalTextFieldEl.innerHTML = parsedString;
-      textFieldEl.innerHTML = "";
       this.messageHistory.addMessage(textFieldEl.innerHTML);
       this.messageHistory.resetCursor();
+      textFieldEl.innerHTML = "";
       if (!isButtonClickEvent)
         submitButtonEl.dispatchEvent(new Event("click"));
       eventBus.publish("nipah.ui.submit_input");
