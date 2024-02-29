@@ -3,7 +3,7 @@ import { error, log } from './utils'
 
 export class TabCompletor {
 	suggestions = []
-	selectedIndex = -1
+	selectedIndex = 0
 	isShowingModal = false
 	start = 0
 	end = 0
@@ -46,15 +46,17 @@ export class TabCompletor {
 			const emoteRender = this.emotesManager.getRenderableEmote(emoteId, 'nipah__emote')
 			this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`)
 		}
+
+		this.$list.find('li').eq(this.selectedIndex).addClass('selected')
 	}
 
-	createModal() {
+	createModal(containerEl) {
 		const $modal = (this.$modal = $(
-			`<div class="nipah__tab-suggestions"><ul class="nipah__tab-suggestions__list"></ul></div>`
+			`<div class="nipah__tab-completion"><ul class="nipah__tab-completion__list"></ul></div>`
 		))
 
 		this.$list = $modal.find('ul')
-		$('body').append($modal)
+		$(containerEl).append($modal)
 
 		this.$list.on('click', 'li', e => {
 			const emoteId = $(e.currentTarget).data('emote-id')
@@ -62,6 +64,11 @@ export class TabCompletor {
 			this.hideModal()
 			this.reset()
 		})
+	}
+
+	showSuggestion() {
+		const selectedSuggestion = this.suggestions[this.selectedIndex]
+		if (!selectedSuggestion) return
 	}
 
 	showModal() {
@@ -74,11 +81,11 @@ export class TabCompletor {
 			startContainer = startContainer.parentElement
 		}
 
-		const rect = startContainer.getBoundingClientRect()
-		this.$modal.css({
-			left: rect.left + 'px',
-			top: rect.top - 15 + 'px'
-		})
+		// const rect = startContainer.getBoundingClientRect()
+		// this.$modal.css({
+		// 	left: rect.left + 'px',
+		// 	top: rect.top - 15 + 'px'
+		// })
 
 		this.$modal.show()
 		this.isShowingModal = true
@@ -97,7 +104,7 @@ export class TabCompletor {
 			this.$list.find('li').eq(this.selectedIndex).addClass('selected')
 		} else if (this.selectedIndex === 0) {
 			// this.selectedIndex = this.suggestions.length - 1
-			this.selectedIndex = -1
+			this.selectedIndex = 0
 		}
 	}
 
@@ -169,7 +176,7 @@ export class TabCompletor {
 
 	reset() {
 		this.suggestions = []
-		this.selectedIndex = -1
+		this.selectedIndex = 0
 		this.$list.empty()
 		this.$modal.hide()
 		this.isShowingModal = false

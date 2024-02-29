@@ -169,16 +169,18 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadChatHistoryBehaviour() {
-		const originalTextFieldEl = this.elm.$originalTextField[0]
+		const { settingsManager } = this
+		if (!settingsManager.getSetting('shared.chat.input.history.enable')) return
+
 		const textFieldEl = this.elm.$textField[0]
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (this.tabCompletor.isShowingModal) return
 
-			if (evt.keyCode === 38 || evt.keyCode === 40) {
+			if (evt.key === 'ArrowUp' || evt.key === 'ArrowDown') {
 				// TODO there's a bug where caret is at start but requires 2 key presses to traverse history
 				// Check if caret is at the start of the text field
-				if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.keyCode === 38) {
+				if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.key === 'ArrowUp') {
 					evt.preventDefault()
 
 					if (!this.messageHistory.canMoveCursor(1)) return
@@ -193,7 +195,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					}
 
 					textFieldEl.innerHTML = this.messageHistory.getMessage()
-				} else if (Caret.isCaretAtEndOfNode(textFieldEl) && evt.keyCode === 40) {
+				} else if (Caret.isCaretAtEndOfNode(textFieldEl) && evt.key === 'ArrowDown') {
 					evt.preventDefault()
 
 					// Reached most recent message traversing down history
@@ -215,10 +217,11 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadTabCompletionBehaviour() {
-		const textFieldEl = this.elm.$textField[0]
+		const $textField = this.elm.$textField
+		const textFieldEl = $textField[0]
 
 		const tabCompletor = (this.tabCompletor = new TabCompletor(this.emotesManager))
-		tabCompletor.createModal()
+		tabCompletor.createModal($textField.parent().parent()[0])
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (evt.key === 'Tab') {

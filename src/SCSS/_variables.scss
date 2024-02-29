@@ -1,49 +1,44 @@
+@use '_functions' as *;
+
 $root_font_size: 14px;
 $emote_size: 2.8em;
 $emote_row_size: 7;
 $sidebar_width: $emote_size;
 
-$text-color-normal: #f0f0f0;
-$text-color-secondary: #f0f0f078;
-$input-background: #232323;
-$input-border: #4c4c4c;
-$input-background-highlight: #2b2b2b;
-$embed-background: #18181b;
-$embed-background-highlight: #26262b;
-$embed-border: #121214;
-$highlight-neutral-1: #8080803b;
-$background-transparent-1: #171717;
-$background-lesser-transparent-1: #191919;
-$background-transparent-2: #131313;
-$background-transparent-3: #111;
-$border-transparent-1: #ffffff1a;
-$background-shade-1: #171717;
-$background-shade-2: #131313;
-$background-shade-3: #111;
-// $primary: #29b6f6;
-$primary: #fd61a2;
-$accent: #66bb6a;
-$warning: #df4545;
-$muted: #999;
+// Opacity Scale
+$opacity-1: 0.05;
+$opacity-2: 0.08;
+$opacity-3: 0.13;
+$opacity-4: 0.16;
+$opacity-5: 0.22;
+$opacity-6: 0.28;
+$opacity-7: 0.4;
 
-$color-opac-b-1: rgba(0, 0, 0, 0.05);
-$color-opac-b-2: rgba(0, 0, 0, 0.08);
-$color-opac-b-3: rgba(0, 0, 0, 0.13);
-$color-opac-b-4: rgba(0, 0, 0, 0.16);
-$color-opac-b-5: rgba(0, 0, 0, 0.22);
-$color-opac-b-6: rgba(0, 0, 0, 0.28);
-$color-opac-b-7: rgba(0, 0, 0, 0.4);
-$color-opac-b-8: rgba(0, 0, 0, 0.5);
-$color-opac-b-9: rgba(0, 0, 0, 0.6);
-$color-opac-b-10: rgba(0, 0, 0, 0.7);
-$color-opac-b-11: rgba(0, 0, 0, 0.75);
-$color-opac-b-12: rgba(0, 0, 0, 0.8);
-$color-opac-b-13: rgba(0, 0, 0, 0.85);
-$color-opac-b-14: rgba(0, 0, 0, 0.9);
-$color-opac-b-15: rgba(0, 0, 0, 0.95);
+// Base Color Palette
+$color-primary: #fd61a2;
+$color-secondary: #66bb6a;
+$color-accent: #29b6f6;
+$color-warning: #df4545;
+$color-muted: #999;
 
-$shadow-elevation-1: 0 1px 2px $color-opac-b-14, 0 0px 2px $color-opac-b-14;
-$shadow-elevation-2: 0 4px 8px $color-opac-b-7, 0 0px 4px $color-opac-b-7;
-$shadow-elevation-3: 0 6px 16px $color-opac-b-8, 0 0px 4px $color-opac-b-7;
-$shadow-elevation-4: 0 12px 32px $color-opac-b-8, 0 0px 8px $color-opac-b-7;
-$shadow-elevation-5: 0 32px 64px $color-opac-b-9, 0 0px 16px $color-opac-b-7;
+// Background Color Palette
+$dark-theme-background-color: #181717;
+
+:root {
+	--background-color: #{$dark-theme-background-color};
+	--background-color-tint-1: #{tint($dark-theme-background-color, 3%)};
+	--background-color-tint-2: #{tint($dark-theme-background-color, 6%)};
+	--background-color-tint-3: #{tint($dark-theme-background-color, 8%)};
+	--background-color-shade-1: #{shade($dark-theme-background-color, 20%)};
+	--background-color-shade-2: #{shade($dark-theme-background-color, 40%)};
+
+	--background-highlight-1: hsla(0, 0%, 50%, 0.125);
+	--background-highlight-2: hsla(0, 0%, 50%, 0.202);
+
+	--border-transparent-1: #ffffff1a;
+
+	--text-color: rgba(255, 255, 255, 0.87);
+	--text-color-medium-emphasis: rgba(255, 255, 255, 0.6);
+	--text-color-low-emphasis: rgba(255, 255, 255, 0.4);
+	--text-color-disabled-emphasis: rgba(255, 255, 255, 0.38);
+}

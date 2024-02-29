@@ -7,7 +7,7 @@ $spacing: 1em;
 	margin: $spacing 0;
 
 	input {
-		border: 0.15em solid $primary;
+		border: 0.15em solid $color-primary;
 		vertical-align: middle;
 		border-radius: 0.15em;
 		margin: 0 1em 0 0;
@@ -21,7 +21,7 @@ $spacing: 1em;
 
 		&::before {
 			transition: 120ms transform ease-in-out;
-			box-shadow: inset 1em 1em $primary;
+			box-shadow: inset 1em 1em $color-primary;
 			// transform: scale(0);
 			// height: 0.618em;
 			// width: 0.618em;
@@ -56,14 +56,14 @@ $spacing: 1em;
 	margin: $spacing 0;
 
 	select {
-		border: 0.2em solid $border-transparent-1;
+		border: 0.2em solid var(--border-transparent-1);
 		padding: 0.382em 0.618em;
 		background: transparent;
 		border-radius: 0.25em;
 		margin-right: 1em;
 
 		option {
-			background: $background-transparent-1;
+			background-color: var(--background-color-shade-1);
 		}
 	}
 }
@@ -78,57 +78,5 @@ $spacing: 1em;
 	input {
 		vertical-align: middle;
 		height: 2em;
-	}
-}
-
-.nipah__tab-suggestions {
-	background-color: $background-transparent-1;
-	box-shadow: $shadow-elevation-3;
-	transform: translateY(-100%);
-	font-size: $root_font_size;
-	border-radius: 0.25em;
-	position: absolute;
-	padding: 0.618em 0;
-	max-width: 15em;
-	z-index: 1000;
-
-	display: none;
-
-	&__list {
-		flex-direction: column-reverse;
-		list-style: none;
-		display: flex;
-
-		li {
-			border-bottom: 1px solid $border-transparent-1;
-			border-top: 1px solid $border-transparent-1;
-			grid-template-columns: 4rem 1fr;
-			line-height: 1.618em;
-			white-space: nowrap;
-			align-items: center;
-			column-gap: 0.5em;
-			padding: 0.618em;
-			cursor: pointer;
-			display: grid;
-
-			&:hover {
-				background-color: $background-transparent-2;
-			}
-
-			&.selected {
-				background-color: $background-transparent-3;
-			}
-
-			img {
-				// object-fit: contain;
-				justify-self: center;
-				max-width: 100%;
-				height: 2.618em;
-			}
-
-			span {
-				overflow: hidden;
-			}
-		}
 	}
 }

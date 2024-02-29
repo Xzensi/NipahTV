@@ -17,7 +17,7 @@
 		width: 6em;
 
 		&:hover {
-			background: hsla(0, 0%, 50%, 0.2);
+			background-color: var(--background-highlight-2);
 		}
 	}
 }

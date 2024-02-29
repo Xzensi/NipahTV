@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-42bfbae7.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-077b2a77.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -669,7 +669,7 @@
         const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
         const sidebarIcon = $(`<img data-id="${emoteSet.id}" src="${emoteSet.icon}">`).appendTo($sidebarSets);
         this.sidebarMap.set(emoteSet.id, sidebarIcon[0]);
-        $emotesPanel.append(
+        const $newEmoteSet = $(
           cleanupHTML(`
 					<div class="nipah__emote-set" data-id="${emoteSet.id}">
 						<div class="nipah__emote-set__header">
@@ -679,12 +679,17 @@
 								<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
 							</div>
 						</div>
-						<div class="nipah__emote-set__emotes">
-						${sortedEmotes.map((emote) => emotesManager.getRenderableEmote(emote, "nipah_emote nipah__emote-set__emote")).join("")}
-						</div>
+						<div class="nipah__emote-set__emotes"></div>
 					</div>
 				`)
         );
+        $emotesPanel.append($newEmoteSet);
+        const $newEmoteSetEmotes = $(".nipah__emote-set__emotes", $newEmoteSet);
+        for (const emote of sortedEmotes) {
+          $newEmoteSetEmotes.append(
+            emotesManager.getRenderableEmote(emote, "nipah_emote nipah__emote-set__emote")
+          );
+        }
       }
       const sidebarIcons = $("img", this.$sidebarSets);
       sidebarIcons.on("click", (evt) => {
@@ -1103,7 +1108,7 @@
   // src/TabCompletor.js
   var TabCompletor = class {
     suggestions = [];
-    selectedIndex = -1;
+    selectedIndex = 0;
     isShowingModal = false;
     start = 0;
     end = 0;
@@ -1135,19 +1140,25 @@
         const emoteRender = this.emotesManager.getRenderableEmote(emoteId, "nipah__emote");
         this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`);
       }
+      this.$list.find("li").eq(this.selectedIndex).addClass("selected");
     }
-    createModal() {
+    createModal(containerEl) {
       const $modal = this.$modal = $(
-        `<div class="nipah__tab-suggestions"><ul class="nipah__tab-suggestions__list"></ul></div>`
+        `<div class="nipah__tab-completion"><ul class="nipah__tab-completion__list"></ul></div>`
       );
       this.$list = $modal.find("ul");
-      $("body").append($modal);
+      $(containerEl).append($modal);
       this.$list.on("click", "li", (e) => {
         const emoteId = $(e.currentTarget).data("emote-id");
         this.insertEmote(emoteId);
         this.hideModal();
         this.reset();
       });
+    }
+    showSuggestion() {
+      const selectedSuggestion = this.suggestions[this.selectedIndex];
+      if (!selectedSuggestion)
+        return;
     }
     showModal() {
       if (this.isShowingModal || !this.suggestions.length)
@@ -1158,11 +1169,6 @@
       if (startContainer.nodeType === Node.TEXT_NODE) {
         startContainer = startContainer.parentElement;
       }
-      const rect = startContainer.getBoundingClientRect();
-      this.$modal.css({
-        left: rect.left + "px",
-        top: rect.top - 15 + "px"
-      });
       this.$modal.show();
       this.isShowingModal = true;
     }
@@ -1176,7 +1182,7 @@
         this.selectedIndex--;
         this.$list.find("li").eq(this.selectedIndex).addClass("selected");
       } else if (this.selectedIndex === 0) {
-        this.selectedIndex = -1;
+        this.selectedIndex = 0;
       }
     }
     moveSelectorUp() {
@@ -1232,7 +1238,7 @@
     }
     reset() {
       this.suggestions = [];
-      this.selectedIndex = -1;
+      this.selectedIndex = 0;
       this.$list.empty();
       this.$modal.hide();
       this.isShowingModal = false;
@@ -1363,13 +1369,15 @@
       });
     }
     loadChatHistoryBehaviour() {
-      const originalTextFieldEl = this.elm.$originalTextField[0];
+      const { settingsManager } = this;
+      if (!settingsManager.getSetting("shared.chat.input.history.enable"))
+        return;
       const textFieldEl = this.elm.$textField[0];
       textFieldEl.addEventListener("keydown", (evt) => {
         if (this.tabCompletor.isShowingModal)
           return;
-        if (evt.keyCode === 38 || evt.keyCode === 40) {
-          if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.keyCode === 38) {
+        if (evt.key === "ArrowUp" || evt.key === "ArrowDown") {
+          if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.key === "ArrowUp") {
             evt.preventDefault();
             if (!this.messageHistory.canMoveCursor(1))
               return;
@@ -1381,7 +1389,7 @@
               this.messageHistory.moveCursor(1);
             }
             textFieldEl.innerHTML = this.messageHistory.getMessage();
-          } else if (Caret.isCaretAtEndOfNode(textFieldEl) && evt.keyCode === 40) {
+          } else if (Caret.isCaretAtEndOfNode(textFieldEl) && evt.key === "ArrowDown") {
             evt.preventDefault();
             if (this.messageHistory.canMoveCursor(-1)) {
               this.messageHistory.moveCursor(-1);
@@ -1398,9 +1406,10 @@
       });
     }
     loadTabCompletionBehaviour() {
-      const textFieldEl = this.elm.$textField[0];
+      const $textField = this.elm.$textField;
+      const textFieldEl = $textField[0];
       const tabCompletor = this.tabCompletor = new TabCompletor(this.emotesManager);
-      tabCompletor.createModal();
+      tabCompletor.createModal($textField.parent().parent()[0]);
       textFieldEl.addEventListener("keydown", (evt) => {
         if (evt.key === "Tab") {
           evt.preventDefault();
@@ -2288,8 +2297,8 @@
                 label: "Recent Messages",
                 children: [
                   {
-                    label: "Allow pressing up and down to recall previously sent chat messages (not yet implemented)",
-                    id: "shared.chat.input.recent_messages.recall",
+                    label: "Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages",
+                    id: "shared.chat.input.history.enable",
                     default: true,
                     type: "checkbox"
                   }

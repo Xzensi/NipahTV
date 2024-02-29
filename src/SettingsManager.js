@@ -222,8 +222,8 @@ export class SettingsManager {
 							label: 'Recent Messages',
 							children: [
 								{
-									label: 'Allow pressing up and down to recall previously sent chat messages (not yet implemented)',
-									id: 'shared.chat.input.recent_messages.recall',
+									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages',
+									id: 'shared.chat.input.history.enable',
 									default: true,
 									type: 'checkbox'
 								}

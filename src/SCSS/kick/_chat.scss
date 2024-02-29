@@ -15,7 +15,7 @@
 	&.nipah__seperators {
 		&-basic {
 			[data-chat-entry] {
-				border-bottom: 1px solid $border-transparent-1;
+				border-bottom: 1px solid var(--border-transparent-1);
 			}
 		}
 
@@ -35,8 +35,8 @@
 
 		&-wide {
 			[data-chat-entry] {
-				border-bottom: 2px solid $border-transparent-1;
-				border-top: 2px solid $border-transparent-1;
+				border-bottom: 2px solid var(--border-transparent-1);
+				border-top: 2px solid var(--border-transparent-1);
 				padding: 0.1em;
 			}
 		}
@@ -67,11 +67,11 @@
 }
 
 #nipah__message-input {
+	white-space: pre-wrap !important;
 	outline: 2px solid transparent;
 	background-color: transparent;
 	border-color: transparent;
 	word-break: break-word;
-	white-space: pre-wrap;
 	line-height: 1.25rem;
 	font-size: 0.875rem;
 	border-width: 1px;
