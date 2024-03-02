@@ -1,11 +1,11 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 
-.nipah_emote {
+.nipah__emote {
 	min-width: $emote_size;
 	height: $emote_size;
 
-	background: hsla(0, 0%, 50%, 0.06);
+	content-visibility: auto;
 	border-radius: 0.25rem;
 	display: inline-block;
 	object-fit: contain;
@@ -31,4 +31,27 @@
 	// &[size='4'] {
 	// 	width: $emote_size * 4;
 	// }
+}
+
+.nipah__emote-box {
+	vertical-align: middle;
+	// margin-right: 0.125rem;
+	// margin-left: 0.125rem;
+	display: inline-block;
+
+	.chat-emote {
+		max-height: 1.75rem;
+		max-width: none;
+	}
+}
+
+.nipah__inline-emote {
+	vertical-align: middle;
+	-o-object-fit: contain;
+	margin-right: 0.125rem;
+	margin-left: 0.125rem;
+	display: inline-block;
+	object-fit: contain;
+	min-width: 1.5rem;
+	height: 1.5rem;
 }

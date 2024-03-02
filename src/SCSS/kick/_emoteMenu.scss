@@ -1,42 +1,28 @@
 @use '../variables' as *;
+@use '../functions' as *;
 @use '../mixins' as *;
 
 .nipah__emote-menu {
-	// box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
-	// box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-	background-color: $background-transparent-1;
-	outline: 0.1em solid $border-transparent-1;
-	box-shadow: $shadow-elevation-4;
+	outline: 0.1em solid var(--border-transparent-1);
+	background-color: var(--background-color);
+	box-shadow: shadow_elevation(4);
+	transform: translateY(-100%);
 	font-size: $root_font_size;
 	flex-direction: column;
 	border-radius: 0.25em;
 	position: absolute;
 	max-height: 61.8vh;
 	flex-wrap: wrap;
-	right: 0.618em;
+	// right: 0.618em;
 	display: flex;
 	z-index: 1001;
 	height: 45em;
-	bottom: 9em;
-
-	button {
-		background: #9d4bff70;
-		padding: 0.382em 0.618em;
-		border-radius: 0.382em;
-	}
-
-	button.active {
-		background: green;
-	}
-
-	h3 {
-		border-bottom: solid 1px #80808091;
-		padding-bottom: 0.2em;
-		margin-bottom: 0.2em;
-	}
+	left: 0.618em;
+	// bottom: 9em;
+	top: -1.618em;
 
 	&__header {
-		border-bottom: 0.1em solid $border-transparent-1;
+		border-bottom: 0.1em solid var(--border-transparent-1);
 		justify-content: flex-end;
 		display: flex;
 		padding: 2px;
@@ -53,7 +39,7 @@
 		width: 100%;
 
 		&__icon {
-			color: $border-transparent-1;
+			color: var(--border-transparent-1);
 			-webkit-user-select: none;
 			pointer-events: none;
 			place-items: center;
@@ -76,8 +62,8 @@
 		}
 
 		input {
-			background-color: $background-shade-1;
 			transition: background-color 0.14s;
+			background-color: transparent;
 			padding-left: 3em;
 			line-height: 3em;
 			outline: none;
@@ -85,7 +71,11 @@
 			width: 100%;
 
 			&::placeholder {
-				color: $input-border;
+				color: var(--text-color-low-emphasis);
+			}
+
+			&:focus {
+				background-color: var(--background-color-shade-1);
 			}
 		}
 	}
@@ -97,8 +87,9 @@
 	}
 
 	&__sidebar {
-		border-left: 1px solid $border-transparent-1;
-		background: hsla(0, 0%, 50%, 0.06);
+		background-color: var(--background-color-tint-1);
+		border-left: 1px solid var(--border-transparent-1);
+		// background: hsla(0, 0%, 50%, 0.06);
 		justify-content: space-between;
 		flex: 0 0 $sidebar_width;
 		flex-direction: column;
@@ -117,7 +108,7 @@
 			width: 1.618em;
 
 			&:hover {
-				background: hsla(0, 0%, 50%, 0.3) !important;
+				background-color: var(--background-highlight-2) !important;
 			}
 		}
 	}
@@ -145,12 +136,12 @@
 		}
 
 		&:hover {
-			background: hsla(0, 0%, 50%, 0.2);
+			background-color: var(--background-highlight-2);
 		}
 	}
 
 	&__scrollable {
-		scrollbar-color: #535353 transparent;
+		scrollbar-color: var(--background-color-tint-3) transparent;
 		scroll-behavior: smooth;
 		flex: 1 1 $emote_size;
 		scrollbar-width: thin;
@@ -171,14 +162,6 @@
 		}
 	}
 
-	&__search-body {
-		scrollbar-color: #535353 transparent;
-		scroll-behavior: smooth;
-		flex: 1 1 $emote_size;
-		scrollbar-width: thin;
-		overflow-y: scroll;
-	}
-
 	&__panel {
 		&__emotes,
 		&__search {
@@ -188,7 +171,7 @@
 }
 
 .nipah__emote-tooltip {
-	background: $background-shade-2;
+	background-color: var(--background-color-shade-2);
 	transform: translate(-50%, -45%);
 	font-size: $root_font_size;
 	padding: 0.382em 1.382em;
@@ -220,7 +203,7 @@
 
 .nipah__emote-set {
 	&__header {
-		background: $background-transparent-2;
+		background-color: var(--background-color-shade-1);
 		grid-template-columns: auto 1fr 1.5em;
 		padding: 0.5em 1.25em;
 		column-gap: 0.5em;
@@ -251,10 +234,14 @@
 		flex-wrap: wrap;
 		display: flex;
 
-		// img.nipah_emote {
+		// img.nipah__emote {
 		// 	$emotes_in_row: 7;
 		// 	width: (100% - $emotes_in_row * 1%) / $emotes_in_row;
 		// }
+	}
+
+	&__emote {
+		// background: hsla(0, 0%, 50%, 0.06);
 	}
 }
 
@@ -268,7 +255,7 @@
 	display: flex;
 
 	&:hover {
-		background: $input-background-highlight;
+		background-color: var(--background-highlight-1);
 	}
 
 	svg {

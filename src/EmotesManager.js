@@ -1,7 +1,6 @@
 import { AbstractProvider } from './Providers/AbstractProvider'
 import { EmoteDatastore } from './EmoteDatastore'
-import { log, info, error } from './utils'
-import { PLATFORM_ENUM } from './constants'
+import { log, info, error, splitEmoteName } from './utils'
 
 export class EmotesManager {
 	providers = new Map()
@@ -50,6 +49,15 @@ export class EmotesManager {
 
 			for (const emoteSets of providerSets) {
 				for (const emoteSet of emoteSets) {
+					for (const emote of emoteSet.emotes) {
+						const parts = splitEmoteName(emote.name, 2)
+						if (parts.length && parts[0] !== emote.name) {
+							emote.parts = parts
+						} else {
+							emote.parts = []
+						}
+					}
+
 					datastore.registerEmoteSet(emoteSet)
 				}
 			}
@@ -60,7 +68,15 @@ export class EmotesManager {
 	}
 
 	getEmote(emoteId) {
-		return this.datastore.getEmote(emoteId)
+		return this.datastore.getEmote('' + emoteId)
+	}
+
+	getEmoteIdByName(emoteName) {
+		return this.datastore.getEmoteIdByName(emoteName)
+	}
+
+	getEmoteIdByProviderName(providerId, emoteName) {
+		return this.datastore.getEmoteIdByProviderName(providerId, emoteName)
 	}
 
 	getEmoteSrc(emoteId) {
@@ -81,22 +97,26 @@ export class EmotesManager {
 		return this.datastore.getEmoteHistoryCount(emoteId)
 	}
 
-	getRenderableEmote(emote) {
+	getRenderableEmote(emote, classes = '') {
 		if (typeof emote !== 'object') {
 			emote = this.getEmote(emote)
 			if (!emote) return error('Emote not found')
 		}
 
 		const provider = this.providers.get(emote.provider)
-		return provider.getRenderableEmote(emote)
+		return provider.getRenderableEmote(emote, classes)
 	}
 
-	getEmoteEmbeddable(emoteId) {
+	getEmoteEmbeddable(emoteId, spacingBefore = false) {
 		const emote = this.getEmote(emoteId)
 		if (!emote) return error('Emote not found')
 
 		const provider = this.providers.get(emote.provider)
-		return provider.getEmbeddableEmote(emote)
+		if (spacingBefore && emote.spacing) {
+			return ' ' + provider.getEmbeddableEmote(emote)
+		} else {
+			return provider.getEmbeddableEmote(emote)
+		}
 	}
 
 	registerEmoteEngagement(emoteId) {
@@ -107,7 +127,17 @@ export class EmotesManager {
 		this.datastore.removeEmoteHistory(emoteId)
 	}
 
-	search(searchVal) {
-		return this.datastore.searchEmotes(searchVal)
+	searchEmotes(search, limit = 0) {
+		const { settingsManager } = this
+		const biasCurrentChannel = settingsManager.getSetting('shared.chat.behavior.search_bias_subscribed_channels')
+		const biasSubscribedChannels = settingsManager.getSetting('shared.chat.behavior.search_bias_current_channels')
+
+		const results = this.datastore.searchEmotes(search, biasCurrentChannel, biasSubscribedChannels)
+		if (limit) return results.slice(0, limit)
+		return results
+	}
+
+	contextfulSearch(search) {
+		this.datastore.contextfulSearch(search)
 	}
 }

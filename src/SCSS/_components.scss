@@ -7,7 +7,7 @@ $spacing: 1em;
 	margin: $spacing 0;
 
 	input {
-		border: 0.15em solid $primary;
+		border: 0.15em solid $color-primary;
 		vertical-align: middle;
 		border-radius: 0.15em;
 		margin: 0 1em 0 0;
@@ -21,7 +21,7 @@ $spacing: 1em;
 
 		&::before {
 			transition: 120ms transform ease-in-out;
-			box-shadow: inset 1em 1em $primary;
+			box-shadow: inset 1em 1em $color-primary;
 			// transform: scale(0);
 			// height: 0.618em;
 			// width: 0.618em;
@@ -55,15 +55,20 @@ $spacing: 1em;
 .nipah__dropdown {
 	margin: $spacing 0;
 
+	> label {
+		margin-bottom: 0.618em;
+		display: inline-block;
+	}
+
 	select {
-		border: 0.2em solid $border-transparent-1;
+		border: 0.2em solid var(--border-transparent-1);
 		padding: 0.382em 0.618em;
 		background: transparent;
 		border-radius: 0.25em;
 		margin-right: 1em;
 
 		option {
-			background: $background-transparent-1;
+			background-color: var(--background-color-shade-1);
 		}
 	}
 }

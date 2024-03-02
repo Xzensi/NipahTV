@@ -5,19 +5,46 @@
 
 	.footer_logo_btn {
 		transition: background 0.0618s ease-in-out;
+		padding: 0.333em 0.4em 0.333em 0.5em;
 		background: transparent;
 		border-radius: 0.25rem;
 		object-fit: contain;
 		line-height: 1.8em;
 		text-align: center;
-		padding: 0 0.333em;
 		font-size: 1.4em;
 		cursor: pointer;
-		height: 1.83em;
-		width: 6em;
+		height: 1.5em;
+		// width: 6em;
 
 		&:hover {
-			background: hsla(0, 0%, 50%, 0.2);
+			background-color: var(--background-highlight-2);
+		}
+
+		&.nipah {
+			height: 1.8em;
+		}
+
+		&.nipahtv {
+			height: 1.8em;
+		}
+
+		&.ntv {
+		}
+
+		&.ntv_3d {
+		}
+
+		&.ntv_3d_rgb {
+		}
+
+		&.ntv_3d_rgb_shadow {
+			padding: 0.2em 0.4em 0.2em 0.5em;
+			height: 1.7em;
+		}
+
+		&.ntv_3d_rgb_shadow_bevel {
+			padding: 0.2em 0.4em 0.2em 0.5em;
+			height: 1.675em;
 		}
 	}
 }
