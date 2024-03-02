@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.1
+// @version 1.1.3
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-aae89883.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-9f2b8764.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -3789,6 +3789,7 @@
         }
         this.$list.find("li").eq(this.selectedIndex).addClass("selected");
         this.renderInlineEmote();
+        this.scrollSelectedIntoView();
       }
     }
     createModal(containerEl) {
@@ -3820,6 +3821,17 @@
       this.$modal.hide();
       this.isShowingModal = false;
     }
+    scrollSelectedIntoView() {
+      const $selected = this.$list.find("li.selected");
+      const $list = this.$list;
+      const listHeight = $list.height();
+      const selectedTop = $selected.position().top;
+      const selectedHeight = $selected.height();
+      const selectedCenter = selectedTop + selectedHeight / 2;
+      const middleOfList = listHeight / 2;
+      const scroll = selectedCenter - middleOfList + ($list.scrollTop() || 0);
+      $list.scrollTop(scroll);
+    }
     moveSelectorUp() {
       if (this.selectedIndex < this.suggestions.length - 1) {
         this.selectedIndex++;
@@ -3829,15 +3841,18 @@
       this.$list.find("li.selected").removeClass("selected");
       this.$list.find("li").eq(this.selectedIndex).addClass("selected");
       this.renderInlineEmote();
+      this.scrollSelectedIntoView();
     }
     moveSelectorDown() {
       this.$list.find("li.selected").removeClass("selected");
       if (this.selectedIndex > 0) {
         this.selectedIndex--;
-        this.$list.find("li").eq(this.selectedIndex).addClass("selected");
-      } else if (this.selectedIndex === 0) {
+      } else {
+        this.selectedIndex = this.suggestions.length - 1;
       }
+      this.$list.find("li").eq(this.selectedIndex).addClass("selected");
       this.renderInlineEmote();
+      this.scrollSelectedIntoView();
     }
     renderInlineEmote() {
       const emoteId = this.suggestionIds[this.selectedIndex];
@@ -3878,6 +3893,7 @@
     }
     handleKeydown(evt) {
       if (evt.key === "Tab") {
+        evt.preventDefault();
         if (this.isShowingModal) {
           if (evt.shiftKey) {
             this.moveSelectorDown();
@@ -3919,6 +3935,7 @@
           }
           this.hideModal();
           this.reset();
+        } else if (evt.key === "Shift") {
         } else {
           this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex]);
           this.hideModal();
@@ -4134,11 +4151,9 @@
       textFieldEl.addEventListener("keydown", (evt) => {
         if (evt.key === "Tab") {
           const { word } = Caret.getWordBeforeCaret();
-          if (word && word[0] === "@")
-            return;
-          evt.preventDefault();
-          if (textFieldEl.textContent.trim() === "")
-            return;
+          if (word && word[0] === "@") {
+            evt.preventDefault();
+          }
         }
         tabCompletor.handleKeydown(evt);
       });
@@ -5195,7 +5210,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.1",
+      VERSION: "1.1.3",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

@@ -16,6 +16,9 @@
 
 	&__list {
 		flex-direction: column-reverse;
+		scrollbar-width: thin;
+		max-height: 23.4em;
+		overflow-y: scroll;
 		list-style: none;
 		display: flex;
 

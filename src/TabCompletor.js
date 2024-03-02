@@ -51,6 +51,7 @@ export class TabCompletor {
 
 			// Render first suggestion as inline emote
 			this.renderInlineEmote()
+			this.scrollSelectedIntoView()
 		}
 	}
 
@@ -97,6 +98,20 @@ export class TabCompletor {
 		this.isShowingModal = false
 	}
 
+	scrollSelectedIntoView() {
+		// Scroll selected element into middle of the list which has max height set and is scrollable
+		const $selected = this.$list.find('li.selected')
+		const $list = this.$list
+		const listHeight = $list.height()
+		const selectedTop = $selected.position().top
+		const selectedHeight = $selected.height()
+		const selectedCenter = selectedTop + selectedHeight / 2
+		const middleOfList = listHeight / 2
+		const scroll = selectedCenter - middleOfList + ($list.scrollTop() || 0)
+
+		$list.scrollTop(scroll)
+	}
+
 	moveSelectorUp() {
 		if (this.selectedIndex < this.suggestions.length - 1) {
 			this.selectedIndex++
@@ -107,6 +122,7 @@ export class TabCompletor {
 		this.$list.find('li').eq(this.selectedIndex).addClass('selected')
 
 		this.renderInlineEmote()
+		this.scrollSelectedIntoView()
 	}
 
 	moveSelectorDown() {
@@ -114,12 +130,14 @@ export class TabCompletor {
 
 		if (this.selectedIndex > 0) {
 			this.selectedIndex--
-			this.$list.find('li').eq(this.selectedIndex).addClass('selected')
-		} else if (this.selectedIndex === 0) {
-			// this.selectedIndex = this.suggestions.length - 1
+		} else {
+			this.selectedIndex = this.suggestions.length - 1
 		}
 
+		this.$list.find('li').eq(this.selectedIndex).addClass('selected')
+
 		this.renderInlineEmote()
+		this.scrollSelectedIntoView()
 	}
 
 	renderInlineEmote() {
@@ -168,6 +186,8 @@ export class TabCompletor {
 
 	handleKeydown(evt) {
 		if (evt.key === 'Tab') {
+			evt.preventDefault()
+
 			if (this.isShowingModal) {
 				// Traverse tab completion suggestions up/down depending on whether shift is held with tab
 				if (evt.shiftKey) {
@@ -216,6 +236,8 @@ export class TabCompletor {
 
 				this.hideModal()
 				this.reset()
+			} else if (evt.key === 'Shift') {
+				// Ignore shift key press
 			} else {
 				this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex])
 				this.hideModal()
