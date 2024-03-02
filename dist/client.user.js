@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-33b03bb7.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-b6153d08.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -3085,20 +3085,23 @@
       const filename = this.getFile();
       this.$element = $(
         cleanupHTML(`
-				<div class="nipah_client_footer ${filename.toLowerCase()}">
-					<img class="footer_logo_btn" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
+				<div class="nipah_client_footer">
+					<img class="footer_logo_btn ${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
 			`)
       );
+      this.$footerLogoBtn = $(".footer_logo_btn", this.$element);
       $("#chatroom-footer .send-row").prepend(this.$element);
     }
     attachEventHandlers() {
-      $(".footer_logo_btn", this.$element).click(() => {
-        this.eventBus.publish("nipah.ui.footer.click");
-      });
       this.eventBus.subscribe("nipah.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
         const filename = this.getFile();
-        $(".footer_logo_btn", this.$element).attr("src", `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/${filename}.png`);
+        this.$footerLogoBtn.attr("src", `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/btn/${filename}.png`);
+        this.$footerLogoBtn.removeClass();
+        this.$footerLogoBtn.addClass(`footer_logo_btn ${filename.toLowerCase()}`);
+      });
+      $(".footer_logo_btn", this.$element).click(() => {
+        this.eventBus.publish("nipah.ui.footer.click");
       });
     }
     getFile() {
@@ -4961,9 +4964,13 @@
                   {
                     label: "Choose the style of the emote menu button.",
                     id: "shared.chat.emote_menu.appearance.button_style",
-                    default: "nipahtv",
+                    default: "nipah",
                     type: "dropdown",
                     options: [
+                      {
+                        label: "Nipah",
+                        value: "nipah"
+                      },
                       {
                         label: "NipahTV",
                         value: "nipahtv"

@@ -16,22 +16,25 @@ export class EmoteMenuButton extends AbstractComponent {
 
 		this.$element = $(
 			cleanupHTML(`
-				<div class="nipah_client_footer ${filename.toLowerCase()}">
-					<img class="footer_logo_btn" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
+				<div class="nipah_client_footer">
+					<img class="footer_logo_btn ${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
 			`)
 		)
+		this.$footerLogoBtn = $('.footer_logo_btn', this.$element)
 		$('#chatroom-footer .send-row').prepend(this.$element)
 	}
 
 	attachEventHandlers() {
-		$('.footer_logo_btn', this.$element).click(() => {
-			this.eventBus.publish('nipah.ui.footer.click')
-		})
-
 		this.eventBus.subscribe('nipah.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
 			const filename = this.getFile()
-			$('.footer_logo_btn', this.$element).attr('src', `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/${filename}.png`)
+			this.$footerLogoBtn.attr('src', `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/btn/${filename}.png`)
+			this.$footerLogoBtn.removeClass()
+			this.$footerLogoBtn.addClass(`footer_logo_btn ${filename.toLowerCase()}`)
+		})
+
+		$('.footer_logo_btn', this.$element).click(() => {
+			this.eventBus.publish('nipah.ui.footer.click')
 		})
 	}
 

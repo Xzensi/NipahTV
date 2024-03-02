@@ -184,9 +184,13 @@ export class SettingsManager {
 								{
 									label: 'Choose the style of the emote menu button.',
 									id: 'shared.chat.emote_menu.appearance.button_style',
-									default: 'nipahtv',
+									default: 'nipah',
 									type: 'dropdown',
 									options: [
+										{
+											label: 'Nipah',
+											value: 'nipah'
+										},
 										{
 											label: 'NipahTV',
 											value: 'nipahtv'
