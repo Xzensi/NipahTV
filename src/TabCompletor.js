@@ -3,6 +3,7 @@ import { error, log } from './utils'
 
 export class TabCompletor {
 	suggestions = []
+	suggestionIds = []
 	selectedIndex = 0
 	isShowingModal = false
 
@@ -17,18 +18,12 @@ export class TabCompletor {
 		this.emotesManager = emotesManager
 	}
 
-	getSelectedSuggestionEmoteId() {
-		if (this.selectedIndex === -1) return null
-		return this.emotesManager.getEmoteIdByName(this.suggestions[this.selectedIndex])
-	}
-
 	updateSuggestions() {
 		// TODO implement automatic cancelling of processing to prevent UI lag and hangups
 		//  Maybe use a web worker for this
 
 		// Get word before caret
 		const { word, start, end, node } = Caret.getWordBeforeCaret()
-		log('Word:', word, start, end, node)
 		if (!word) return
 
 		this.word = word
@@ -36,9 +31,8 @@ export class TabCompletor {
 		this.end = end
 		this.node = node
 
-		// TODO implement smarter search function that splits the emote names into multiple parts
 		// Get suggestions of emotes
-		const searchResults = this.emotesManager.search(word, 6)
+		const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20)
 		log('Search results:', searchResults)
 		this.suggestions = searchResults.map(result => result.item.name)
 		this.suggestionIds = searchResults.map(result => this.emotesManager.getEmoteIdByName(result.item.name))
@@ -123,7 +117,6 @@ export class TabCompletor {
 			this.$list.find('li').eq(this.selectedIndex).addClass('selected')
 		} else if (this.selectedIndex === 0) {
 			// this.selectedIndex = this.suggestions.length - 1
-			this.selectedIndex = 0
 		}
 
 		this.renderInlineEmote()
@@ -198,10 +191,11 @@ export class TabCompletor {
 				if (evt.key === 'Enter') evt.preventDefault()
 
 				// Apply selected tab completion
-				const selectedEmoteId = this.getSelectedSuggestionEmoteId()
+				const selectedEmoteId = this.suggestionIds[this.selectedIndex]
 				if (selectedEmoteId) {
 					this.hideModal()
 					this.reset()
+					this.emotesManager.registerEmoteEngagement(selectedEmoteId)
 				}
 
 				this.reset()
@@ -217,14 +211,13 @@ export class TabCompletor {
 					this.embedNode.remove()
 					Caret.collapseToEndOfNode(textNode)
 					const parentEL = textNode.parentElement
-					log(parentEL.childNodes)
 					textNode.parentElement.normalize()
-					log(parentEL.childNodes)
 				}
 
 				this.hideModal()
 				this.reset()
 			} else {
+				this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex])
 				this.hideModal()
 				this.reset()
 			}

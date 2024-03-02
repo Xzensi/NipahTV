@@ -154,6 +154,24 @@ export class SettingsManager {
 									type: 'checkbox'
 								}
 							]
+						},
+						{
+							label: 'Search',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Add bias to emotes of channels you are subscribed to.',
+									id: 'shared.chat.behavior.search_bias_subscribed_channels',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Add extra bias to emotes of the current channel you are watching the stream of.',
+									id: 'shared.chat.behavior.search_bias_current_channels',
+									default: true,
+									type: 'checkbox'
+								}
+							]
 						}
 					]
 				},

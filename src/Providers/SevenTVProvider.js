@@ -16,7 +16,6 @@ export class SevenTVProvider extends AbstractProvider {
 		if (!user_id) return error('Missing kick channel id for SevenTV provider.')
 
 		const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`)
-		log(data)
 		if (!data.emote_set || !data.emote_set.emotes.length) {
 			log('No emotes found on SevenTV provider')
 			this.status = 'no_emotes_found'
@@ -45,6 +44,7 @@ export class SevenTVProvider extends AbstractProvider {
 				id: '' + emote.id,
 				name: emote.name,
 				provider: PROVIDER_ENUM.SEVENTV,
+				subscribers_only: false,
 				spacing: true,
 				width: file.width,
 				size
@@ -61,6 +61,8 @@ export class SevenTVProvider extends AbstractProvider {
 				order_index: 2,
 				name: data.emote_set.name,
 				emotes: emotesMapped,
+				is_current_channel: false,
+				is_subscribed: false,
 				icon: data.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.ico',
 				id: '' + data.emote_set.id
 			}

@@ -171,7 +171,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldEl.addEventListener('keyup', evt => {
 			$originalTextField[0].innerHTML = textFieldEl.innerHTML
-			$originalTextField[0].dispatchEvent(new Event('input'))
+			// $originalTextField[0].dispatchEvent(new Event('input')) // This breaks kick emotes for some reason
 
 			// Remove <br> tags from $textField injected by Kick, please stop doing that..
 			// const $brTags = $textField.children('br')
@@ -399,7 +399,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			let innerHTML = contentNode.innerHTML
 
 			for (const token of uniqueTokens) {
-				const emoteId = emotesManager.getEmoteIdByProviderName(PROVIDER_ENUM.SEVENTV, token)
+				const emoteId = emotesManager.getEmoteIdByName(token)
 
 				if (emoteId) {
 					const emoteRender = emotesManager.getRenderableEmote(emoteId, 'chat-emote')
@@ -513,7 +513,6 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	insertNodeInChat(embedNode) {
-		log(`Inserting node in chat`)
 		if (embedNode.nodeType !== Node.TEXT_NODE && embedNode.nodeType !== Node.ELEMENT_NODE) {
 			return error('Invalid node type', embedNode)
 		}

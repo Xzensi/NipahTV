@@ -150,7 +150,7 @@ export class EmoteMenu extends AbstractComponent {
 			this.switchPanel('emotes')
 		}
 
-		const emotesResult = this.emotesManager.search(searchVal.substring(0, 10))
+		const emotesResult = this.emotesManager.searchEmotes(searchVal.substring(0, 20))
 		log(`Searching for emotes, found ${emotesResult.length} matches"`)
 
 		// Render the found emotes

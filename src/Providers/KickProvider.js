@@ -43,6 +43,8 @@ export class KickProvider extends AbstractProvider {
 			dataFiltered = dataFiltered.filter(entry => !entry.user_id)
 		}
 
+		log(dataFiltered)
+
 		const emoteSets = []
 		for (const dataSet of dataFiltered) {
 			const { emotes } = dataSet
@@ -56,6 +58,7 @@ export class KickProvider extends AbstractProvider {
 			const emotesMapped = emotesFiltered.map(emote => ({
 				id: '' + emote.id,
 				name: emote.name,
+				subscribers_only: emote.subscribers_only,
 				provider: PROVIDER_ENUM.KICK,
 				width: 32,
 				size: 1
@@ -69,6 +72,8 @@ export class KickProvider extends AbstractProvider {
 				order_index: dataSet.id === 'Global' ? 5 : 1,
 				name: emoteSetName,
 				emotes: emotesMapped,
+				is_current_channel: dataSet.id === channel_id,
+				is_subscribed: dataSet.id === channel_id ? !!me.is_subscribed : true,
 				icon: emoteSetIcon,
 				id: '' + dataSet.id
 			})

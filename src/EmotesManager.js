@@ -1,6 +1,6 @@
 import { AbstractProvider } from './Providers/AbstractProvider'
 import { EmoteDatastore } from './EmoteDatastore'
-import { log, info, error } from './utils'
+import { log, info, error, splitEmoteName } from './utils'
 
 export class EmotesManager {
 	providers = new Map()
@@ -49,6 +49,15 @@ export class EmotesManager {
 
 			for (const emoteSets of providerSets) {
 				for (const emoteSet of emoteSets) {
+					for (const emote of emoteSet.emotes) {
+						const parts = splitEmoteName(emote.name, 2)
+						if (parts.length && parts[0] !== emote.name) {
+							emote.parts = parts
+						} else {
+							emote.parts = []
+						}
+					}
+
 					datastore.registerEmoteSet(emoteSet)
 				}
 			}
@@ -118,9 +127,17 @@ export class EmotesManager {
 		this.datastore.removeEmoteHistory(emoteId)
 	}
 
-	search(searchVal, limit = false) {
-		const results = this.datastore.searchEmotes(searchVal)
+	searchEmotes(search, limit = 0) {
+		const { settingsManager } = this
+		const biasCurrentChannel = settingsManager.getSetting('shared.chat.behavior.search_bias_subscribed_channels')
+		const biasSubscribedChannels = settingsManager.getSetting('shared.chat.behavior.search_bias_current_channels')
+
+		const results = this.datastore.searchEmotes(search, biasCurrentChannel, biasSubscribedChannels)
 		if (limit) return results.slice(0, limit)
 		return results
+	}
+
+	contextfulSearch(search) {
+		this.datastore.contextfulSearch(search)
 	}
 }
