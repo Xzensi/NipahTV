@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-ef77d9f9.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-d7a68574.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -3933,27 +3933,8 @@
         this.loadQuickEmotesHolder();
       });
       waitForElements(["#chatroom-footer button.base-button"]).then(() => {
-        const $submitButton = this.elm.$submitButton = $("#chatroom-footer button.base-button");
-        $submitButton.on("click", this.submitInput.bind(this, true));
+        this.loadShadowProxySubmitButton();
         this.loadEmoteMenuButton();
-        const observer = new MutationObserver((mutations) => {
-          if (!this.elm || !this.elm.$textField)
-            return;
-          observer.disconnect();
-          if (!this.elm.$textField[0].innerHTML) {
-            $submitButton.attr("disabled", true);
-          } else {
-            $submitButton.removeAttr("disabled");
-          }
-          observer.observe($submitButton[0], {
-            attributes: true,
-            attributeFilter: ["disabled"]
-          });
-        });
-        observer.observe($submitButton[0], {
-          attributes: true,
-          attributeFilter: ["disabled"]
-        });
         if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
           $("#chatroom").addClass("nipah__hide-emote-menu-button");
         }
@@ -4009,6 +3990,32 @@
       const { eventBus, emotesManager } = this;
       this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
     }
+    loadShadowProxySubmitButton() {
+      const $originalSubmitButton = this.elm.$originalSubmitButton = $("#chatroom-footer button.base-button");
+      const $submitButton = this.elm.$submitButton = $(
+        `<button class="nipah__submit-button disabled">Chat</button>`
+      );
+      $originalSubmitButton.after($submitButton);
+      $submitButton.on("click", this.submitInput.bind(this));
+      const observer = new MutationObserver((mutations) => {
+        if (!this.elm || !this.elm.$textField)
+          return;
+        observer.disconnect();
+        if (!this.elm.$textField[0].innerHTML) {
+          $submitButton.attr("disabled", true);
+        } else {
+          $submitButton.removeAttr("disabled");
+        }
+        observer.observe($submitButton[0], {
+          attributes: true,
+          attributeFilter: ["disabled"]
+        });
+      });
+      observer.observe($submitButton[0], {
+        attributes: true,
+        attributeFilter: ["disabled"]
+      });
+    }
     loadShadowProxyTextField() {
       const $originalTextField = this.elm.$originalTextField = $("#message-input");
       const placeholder = $originalTextField.data("placeholder");
@@ -4021,6 +4028,16 @@
       $textFieldWrapper.append($textField);
       $originalTextField.parent().parent().append($textFieldWrapper);
       originalTextFieldEl.addEventListener("focus", () => textFieldEl.focus());
+      textFieldEl.addEventListener("input", (evt) => {
+        const $submitButton = this.elm.$submitButton;
+        if (!$submitButton)
+          return;
+        if (textFieldEl.childNodes.length && textFieldEl.childNodes[0]?.tagName !== "BR") {
+          $submitButton.removeClass("disabled");
+        } else if (!$submitButton.hasClass("disabled")) {
+          $submitButton.addClass("disabled");
+        }
+      });
       textFieldEl.addEventListener("keydown", (evt) => {
         if (evt.key === "Enter" && !this.tabCompletor.isShowingModal) {
           evt.preventDefault();
@@ -4184,10 +4201,10 @@
       }
     }
     // Submits input to chat
-    submitInput(isButtonClickEvent = false) {
+    submitInput() {
       const { eventBus, emotesManager } = this;
       const originalTextFieldEl = this.elm.$originalTextField[0];
-      const submitButtonEl = this.elm.$submitButton[0];
+      const originalSubmitButtonEl = this.elm.$originalSubmitButton[0];
       const textFieldEl = this.elm.$textField[0];
       let parsedString = "";
       for (const node of textFieldEl.childNodes) {
@@ -4205,8 +4222,8 @@
       this.messageHistory.addMessage(textFieldEl.innerHTML);
       this.messageHistory.resetCursor();
       textFieldEl.innerHTML = "";
-      if (!isButtonClickEvent)
-        submitButtonEl.dispatchEvent(new Event("click"));
+      originalSubmitButtonEl.dispatchEvent(new Event("click"));
+      textFieldEl.dispatchEvent(new Event("input"));
       eventBus.publish("nipah.ui.submit_input");
     }
     // Sends emote to chat and restores previous message

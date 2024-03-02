@@ -127,6 +127,27 @@
 	}
 }
 
-#chatroom-footer .send-row button {
+#chatroom-footer .send-row button:not(.nipah__submit-button) {
 	display: none;
+}
+
+.nipah__submit-button {
+	transition-timing-function: cubic-bezier(0, 0, 0, 1);
+	transition-property: background, color, fill;
+	transition-duration: 0.3s;
+
+	background-color: #53fc18;
+	padding: 0.5rem 0.625rem;
+	white-space: nowrap;
+	border-radius: 4px;
+	line-height: 1.25;
+	font-weight: 600;
+	color: #070809;
+	font-size: 1rem;
+	height: 2.25rem;
+
+	&.disabled {
+		background-color: #21650a;
+		cursor: default;
+	}
 }

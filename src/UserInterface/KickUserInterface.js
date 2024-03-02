@@ -41,34 +41,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Wait for submit button to load
 		waitForElements(['#chatroom-footer button.base-button']).then(() => {
-			const $submitButton = (this.elm.$submitButton = $('#chatroom-footer button.base-button'))
-			$submitButton.on('click', this.submitInput.bind(this, true))
-
+			this.loadShadowProxySubmitButton()
 			this.loadEmoteMenuButton()
-
-			// TODO quick fix for submit button being disabled when text field is not empty
-			const observer = new MutationObserver(mutations => {
-				if (!this.elm || !this.elm.$textField) return
-
-				// Disconnect the observer temporarily to avoid recursive loops
-				observer.disconnect()
-
-				if (!this.elm.$textField[0].innerHTML) {
-					$submitButton.attr('disabled', true)
-				} else {
-					$submitButton.removeAttr('disabled')
-				}
-
-				observer.observe($submitButton[0], {
-					attributes: true,
-					attributeFilter: ['disabled']
-				})
-			})
-
-			observer.observe($submitButton[0], {
-				attributes: true,
-				attributeFilter: ['disabled']
-			})
 
 			if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
 				$('#chatroom').addClass('nipah__hide-emote-menu-button')
@@ -146,6 +120,40 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
 	}
 
+	loadShadowProxySubmitButton() {
+		const $originalSubmitButton = (this.elm.$originalSubmitButton = $('#chatroom-footer button.base-button'))
+		const $submitButton = (this.elm.$submitButton = $(
+			`<button class="nipah__submit-button disabled">Chat</button>`
+		))
+		$originalSubmitButton.after($submitButton)
+
+		$submitButton.on('click', this.submitInput.bind(this))
+
+		// TODO quick fix for submit button being disabled when text field is not empty
+		const observer = new MutationObserver(mutations => {
+			if (!this.elm || !this.elm.$textField) return
+
+			// Disconnect the observer temporarily to avoid recursive loops
+			observer.disconnect()
+
+			if (!this.elm.$textField[0].innerHTML) {
+				$submitButton.attr('disabled', true)
+			} else {
+				$submitButton.removeAttr('disabled')
+			}
+
+			observer.observe($submitButton[0], {
+				attributes: true,
+				attributeFilter: ['disabled']
+			})
+		})
+
+		observer.observe($submitButton[0], {
+			attributes: true,
+			attributeFilter: ['disabled']
+		})
+	}
+
 	loadShadowProxyTextField() {
 		const $originalTextField = (this.elm.$originalTextField = $('#message-input'))
 		const placeholder = $originalTextField.data('placeholder')
@@ -161,6 +169,18 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Shift focus to shadow text field when original text field is focused
 		originalTextFieldEl.addEventListener('focus', () => textFieldEl.focus())
+
+		textFieldEl.addEventListener('input', evt => {
+			const $submitButton = this.elm.$submitButton
+			if (!$submitButton) return
+
+			// Enable/disable submit button based on text field content
+			if (textFieldEl.childNodes.length && textFieldEl.childNodes[0]?.tagName !== 'BR') {
+				$submitButton.removeClass('disabled')
+			} else if (!$submitButton.hasClass('disabled')) {
+				$submitButton.addClass('disabled')
+			}
+		})
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (evt.key === 'Enter' && !this.tabCompletor.isShowingModal) {
@@ -415,10 +435,10 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	// Submits input to chat
-	submitInput(isButtonClickEvent = false) {
+	submitInput() {
 		const { eventBus, emotesManager } = this
 		const originalTextFieldEl = this.elm.$originalTextField[0]
-		const submitButtonEl = this.elm.$submitButton[0]
+		const originalSubmitButtonEl = this.elm.$originalSubmitButton[0]
 		const textFieldEl = this.elm.$textField[0]
 
 		// TODO implement max message length checks, take into account emotes and pasting
@@ -445,8 +465,11 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldEl.innerHTML = ''
 
-		// Don't submit if this function was called by submit button click to prevent infinite recursion
-		if (!isButtonClickEvent) submitButtonEl.dispatchEvent(new Event('click'))
+		originalSubmitButtonEl.dispatchEvent(new Event('click'))
+
+		// Trigger input event to update submit button disabled state
+		textFieldEl.dispatchEvent(new Event('input'))
+
 		eventBus.publish('nipah.ui.submit_input')
 	}
 
