@@ -181,17 +181,49 @@ export class SettingsManager {
 						{
 							label: 'Appearance',
 							children: [
+								{
+									label: 'Choose the style of the emote menu button.',
+									id: 'shared.chat.emote_menu.appearance.button_style',
+									default: 'nipahtv',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'NipahTV',
+											value: 'nipahtv'
+										},
+										{
+											label: 'NTV',
+											value: 'ntv'
+										},
+										{
+											label: 'NTV 3D',
+											value: 'ntv_3d'
+										},
+										{
+											label: 'NTV 3D RGB',
+											value: 'ntv_3d_rgb'
+										},
+										{
+											label: 'NTV 3D Shadow',
+											value: 'ntv_3d_shadow'
+										},
+										{
+											label: 'NTV 3D Shadow (beveled)',
+											value: 'ntv_3d_shadow_beveled'
+										}
+									]
+								},
 								// Dangerous, impossible to undo because settings button will be hidden
 								// {
-								// 	label: 'Hide the navigation sidebar on the side of the menu',
+								// 	label: 'Show the navigation sidebar on the side of the menu',
 								// 	id: 'shared.chat.emote_menu.appearance.sidebar',
-								// 	default: false,
+								// 	default: true,
 								// 	type: 'checkbox'
 								// },
 								{
-									label: 'Hide the search box',
+									label: 'Show the search box.',
 									id: 'shared.chat.emote_menu.appearance.search_box',
-									default: false,
+									default: true,
 									type: 'checkbox'
 								}
 							]
@@ -240,7 +272,7 @@ export class SettingsManager {
 							label: 'Recent Messages',
 							children: [
 								{
-									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages',
+									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages.',
 									id: 'shared.chat.input.history.enable',
 									default: true,
 									type: 'checkbox'
@@ -251,7 +283,7 @@ export class SettingsManager {
 							label: 'Tab completion',
 							children: [
 								{
-									label: 'Display a tooltip when using tab-completion',
+									label: 'Display a tooltip when using tab-completion.',
 									id: 'shared.chat.input.tab_completion.tooltip',
 									default: true,
 									type: 'checkbox'
@@ -292,7 +324,7 @@ export class SettingsManager {
 							label: 'General',
 							children: [
 								{
-									label: 'Display images in tooltips',
+									label: 'Display images in tooltips.',
 									id: 'shared.chat.tooltips.images',
 									default: true,
 									type: 'checkbox'

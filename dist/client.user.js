@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-d7a68574.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-33b03bb7.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -3074,17 +3074,19 @@
 
   // src/UserInterface/Components/EmoteMenuButton.js
   var EmoteMenuButton = class extends AbstractComponent {
-    constructor({ ENV_VARS, eventBus }) {
+    constructor({ ENV_VARS, eventBus, settingsManager }) {
       super();
       this.ENV_VARS = ENV_VARS;
       this.eventBus = eventBus;
+      this.settingsManager = settingsManager;
     }
     render() {
-      const basePath = this.ENV_VARS.RESOURCE_ROOT + "/dist/img";
+      const basePath = this.ENV_VARS.RESOURCE_ROOT + "/dist/img/btn";
+      const filename = this.getFile();
       this.$element = $(
         cleanupHTML(`
-				<div class="nipah_client_footer">
-					<img class="footer_logo_btn" srcset="${basePath}/logo.png 1x, ${basePath}/logo@2x.png 2x, ${basePath}/logo@3x.png 3x" draggable="false" alt="Nipah">
+				<div class="nipah_client_footer ${filename.toLowerCase()}">
+					<img class="footer_logo_btn" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
 			`)
       );
@@ -3094,6 +3096,35 @@
       $(".footer_logo_btn", this.$element).click(() => {
         this.eventBus.publish("nipah.ui.footer.click");
       });
+      this.eventBus.subscribe("nipah.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
+        const filename = this.getFile();
+        $(".footer_logo_btn", this.$element).attr("src", `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/${filename}.png`);
+      });
+    }
+    getFile() {
+      const buttonStyle = this.settingsManager.getSetting("shared.chat.emote_menu.appearance.button_style");
+      let file = "Nipah";
+      switch (buttonStyle) {
+        case "nipahtv":
+          file = "NipahTV";
+          break;
+        case "ntv":
+          file = "NTV";
+          break;
+        case "ntv_3d":
+          file = "NTV_3D";
+          break;
+        case "ntv_3d_rgb":
+          file = "NTV_3D_RGB";
+          break;
+        case "ntv_3d_shadow":
+          file = "NTV_3D_RGB_Shadow";
+          break;
+        case "ntv_3d_shadow_beveled":
+          file = "NTV_3D_RGB_Shadow_bevel";
+          break;
+      }
+      return file;
     }
     destroy() {
       this.$element.remove();
@@ -3116,13 +3147,13 @@
     }
     render() {
       const { settingsManager } = this;
-      const hideSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
-      const hideSidebar = settingsManager.getSetting("shared.chat.emote_menu.appearance.sidebar");
+      const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
+      const showSidebar = true;
       this.$container = $(
         cleanupHTML(`
 				<div class="nipah__emote-menu" style="display: none">
 					<div class="nipah__emote-menu__header">
-						<div class="nipah__emote-menu__search ${hideSearchBox ? "nipah__hidden" : ""}">
+						<div class="nipah__emote-menu__search ${showSearchBox ? "" : "nipah__hidden"}">
 							<div class="nipah__emote-menu__search__icon">
 								<svg width="15" height="15" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"><path d="M11.3733 5.68667C11.3733 6.94156 10.966 8.10077 10.2797 9.04125L13.741 12.5052C14.0827 12.8469 14.0827 13.4019 13.741 13.7437C13.3992 14.0854 12.8442 14.0854 12.5025 13.7437L9.04125 10.2797C8.10077 10.9687 6.94156 11.3733 5.68667 11.3733C2.54533 11.3733 0 8.828 0 5.68667C0 2.54533 2.54533 0 5.68667 0C8.828 0 11.3733 2.54533 11.3733 5.68667ZM5.68667 9.62359C7.86018 9.62359 9.62359 7.86018 9.62359 5.68667C9.62359 3.51316 7.86018 1.74974 5.68667 1.74974C3.51316 1.74974 1.74974 3.51316 1.74974 5.68667C1.74974 7.86018 3.51316 9.62359 5.68667 9.62359Z"></path></svg>
 							</div>
@@ -3134,7 +3165,7 @@
 							<div class="nipah__emote-menu__panel__emotes"></div>
 							<div class="nipah__emote-menu__panel__search" display="none"></div>
 						</div>
-						<div class="nipah__emote-menu__sidebar ${hideSidebar ? "nipah__hidden" : ""}">
+						<div class="nipah__emote-menu__sidebar ${showSidebar ? "" : "nipah__hidden"}">
 							<div class="nipah__emote-menu__sidebar__sets"></div>
 							<div class="nipah__emote-menu__settings-btn">
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -3983,8 +4014,8 @@
       this.elm.$textField.on("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
     }
     async loadEmoteMenuButton() {
-      const { ENV_VARS, eventBus } = this;
-      this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init();
+      const { ENV_VARS, eventBus, settingsManager } = this;
+      this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus, settingsManager }).init();
     }
     async loadQuickEmotesHolder() {
       const { eventBus, emotesManager } = this;
@@ -4927,17 +4958,49 @@
               {
                 label: "Appearance",
                 children: [
+                  {
+                    label: "Choose the style of the emote menu button.",
+                    id: "shared.chat.emote_menu.appearance.button_style",
+                    default: "nipahtv",
+                    type: "dropdown",
+                    options: [
+                      {
+                        label: "NipahTV",
+                        value: "nipahtv"
+                      },
+                      {
+                        label: "NTV",
+                        value: "ntv"
+                      },
+                      {
+                        label: "NTV 3D",
+                        value: "ntv_3d"
+                      },
+                      {
+                        label: "NTV 3D RGB",
+                        value: "ntv_3d_rgb"
+                      },
+                      {
+                        label: "NTV 3D Shadow",
+                        value: "ntv_3d_shadow"
+                      },
+                      {
+                        label: "NTV 3D Shadow (beveled)",
+                        value: "ntv_3d_shadow_beveled"
+                      }
+                    ]
+                  },
                   // Dangerous, impossible to undo because settings button will be hidden
                   // {
-                  // 	label: 'Hide the navigation sidebar on the side of the menu',
+                  // 	label: 'Show the navigation sidebar on the side of the menu',
                   // 	id: 'shared.chat.emote_menu.appearance.sidebar',
-                  // 	default: false,
+                  // 	default: true,
                   // 	type: 'checkbox'
                   // },
                   {
-                    label: "Hide the search box",
+                    label: "Show the search box.",
                     id: "shared.chat.emote_menu.appearance.search_box",
-                    default: false,
+                    default: true,
                     type: "checkbox"
                   }
                 ]
@@ -4986,7 +5049,7 @@
                 label: "Recent Messages",
                 children: [
                   {
-                    label: "Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages",
+                    label: "Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages.",
                     id: "shared.chat.input.history.enable",
                     default: true,
                     type: "checkbox"
@@ -4997,7 +5060,7 @@
                 label: "Tab completion",
                 children: [
                   {
-                    label: "Display a tooltip when using tab-completion",
+                    label: "Display a tooltip when using tab-completion.",
                     id: "shared.chat.input.tab_completion.tooltip",
                     default: true,
                     type: "checkbox"
@@ -5038,7 +5101,7 @@
                 label: "General",
                 children: [
                   {
-                    label: "Display images in tooltips",
+                    label: "Display images in tooltips.",
                     id: "shared.chat.tooltips.images",
                     default: true,
                     type: "checkbox"

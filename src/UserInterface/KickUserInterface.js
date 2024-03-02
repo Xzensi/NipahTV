@@ -111,8 +111,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadEmoteMenuButton() {
-		const { ENV_VARS, eventBus } = this
-		this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus }).init()
+		const { ENV_VARS, eventBus, settingsManager } = this
+		this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus, settingsManager }).init()
 	}
 
 	async loadQuickEmotesHolder() {

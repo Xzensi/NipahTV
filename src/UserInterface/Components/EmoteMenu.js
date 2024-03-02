@@ -20,14 +20,14 @@ export class EmoteMenu extends AbstractComponent {
 	render() {
 		const { settingsManager } = this
 
-		const hideSearchBox = settingsManager.getSetting('shared.chat.emote_menu.appearance.search_box')
-		const hideSidebar = settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
+		const showSearchBox = settingsManager.getSetting('shared.chat.emote_menu.appearance.search_box')
+		const showSidebar = true //settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
 
 		this.$container = $(
 			cleanupHTML(`
 				<div class="nipah__emote-menu" style="display: none">
 					<div class="nipah__emote-menu__header">
-						<div class="nipah__emote-menu__search ${hideSearchBox ? 'nipah__hidden' : ''}">
+						<div class="nipah__emote-menu__search ${showSearchBox ? '' : 'nipah__hidden'}">
 							<div class="nipah__emote-menu__search__icon">
 								<svg width="15" height="15" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"><path d="M11.3733 5.68667C11.3733 6.94156 10.966 8.10077 10.2797 9.04125L13.741 12.5052C14.0827 12.8469 14.0827 13.4019 13.741 13.7437C13.3992 14.0854 12.8442 14.0854 12.5025 13.7437L9.04125 10.2797C8.10077 10.9687 6.94156 11.3733 5.68667 11.3733C2.54533 11.3733 0 8.828 0 5.68667C0 2.54533 2.54533 0 5.68667 0C8.828 0 11.3733 2.54533 11.3733 5.68667ZM5.68667 9.62359C7.86018 9.62359 9.62359 7.86018 9.62359 5.68667C9.62359 3.51316 7.86018 1.74974 5.68667 1.74974C3.51316 1.74974 1.74974 3.51316 1.74974 5.68667C1.74974 7.86018 3.51316 9.62359 5.68667 9.62359Z"></path></svg>
 							</div>
@@ -39,7 +39,7 @@ export class EmoteMenu extends AbstractComponent {
 							<div class="nipah__emote-menu__panel__emotes"></div>
 							<div class="nipah__emote-menu__panel__search" display="none"></div>
 						</div>
-						<div class="nipah__emote-menu__sidebar ${hideSidebar ? 'nipah__hidden' : ''}">
+						<div class="nipah__emote-menu__sidebar ${showSidebar ? '' : 'nipah__hidden'}">
 							<div class="nipah__emote-menu__sidebar__sets"></div>
 							<div class="nipah__emote-menu__settings-btn">
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
