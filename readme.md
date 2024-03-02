@@ -61,11 +61,11 @@ To install the userscript, click on the following link: [NipahTV client](https:/
 -   [x] Insert emotes at caret position.
 -   [x] Ctrl+click in quick emote holder to send emotes immediately.
 -   [x] Ctrl+spacebar to open emote menu.
-
--   Chat emotes rendering, so that 7TV extension does not need to be enabled.
--   Emote tab completion (incompatible with 7TV extension).
+-   [x] Chat emotes rendering, so that 7TV extension does not need to be enabled.
+-   [x] Emote tab completion (incompatible with 7TV extension).
+-   [x] Show emote sets of other subscribed kick channels other than the current one.
+  
 -   BetterTTV provider support
--   Show emote sets of other subscribed kick channels other than the current one.
 -   Settings option to sort by size or not.
 -   Settings option for quick emote holder height.
 -   Settings option to add settings panel to kick menu to keep UI tidy.
