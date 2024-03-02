@@ -1,9 +1,9 @@
 import { AbstractProvider } from './AbstractProvider'
-import { PLATFORM_ENUM } from '../constants'
+import { PROVIDER_ENUM } from '../constants'
 import { log, info, error, fetchJSON } from '../utils'
 
 export class KickProvider extends AbstractProvider {
-	id = PLATFORM_ENUM.KICK
+	id = PROVIDER_ENUM.KICK
 	status = 'unloaded'
 
 	constructor(datastore, settingsManager) {
@@ -43,6 +43,8 @@ export class KickProvider extends AbstractProvider {
 			dataFiltered = dataFiltered.filter(entry => !entry.user_id)
 		}
 
+		log(dataFiltered)
+
 		const emoteSets = []
 		for (const dataSet of dataFiltered) {
 			const { emotes } = dataSet
@@ -56,7 +58,8 @@ export class KickProvider extends AbstractProvider {
 			const emotesMapped = emotesFiltered.map(emote => ({
 				id: '' + emote.id,
 				name: emote.name,
-				provider: PLATFORM_ENUM.KICK,
+				subscribers_only: emote.subscribers_only,
+				provider: PROVIDER_ENUM.KICK,
 				width: 32,
 				size: 1
 			}))
@@ -69,6 +72,8 @@ export class KickProvider extends AbstractProvider {
 				order_index: dataSet.id === 'Global' ? 5 : 1,
 				name: emoteSetName,
 				emotes: emotesMapped,
+				is_current_channel: dataSet.id === channel_id,
+				is_subscribed: dataSet.id === channel_id ? !!me.is_subscribed : true,
 				icon: emoteSetIcon,
 				id: '' + dataSet.id
 			})
@@ -89,17 +94,14 @@ export class KickProvider extends AbstractProvider {
 		return emoteSets
 	}
 
-	getRenderableEmote(emote) {
+	getRenderableEmote(emote, classes = '') {
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
-		return `
-			<img class="nipah_emote" tabindex="0" size="1" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">
-		`
+		return `<img class="${classes}" tabindex="0" size="1" :data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getEmbeddableEmote(emote) {
-		const src = `https://files.kick.com/emotes/${emote.id}/fullsize`
-		return `<img :data-emote-name="${emote.name}" class="gc-emote-c" data-emote-id="${emote.id}" src="${src}">`
+		return `[emote:${emote.id}:${emote.name}]`
 	}
 
 	getEmoteSrc(emote) {

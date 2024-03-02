@@ -2,9 +2,9 @@
 @use '../mixins' as *;
 
 .nipah__modal {
-	background: $background-transparent-1;
+	background-color: var(--background-color);
 	transform: translate(-50%, -50%);
-	box-shadow: $shadow-elevation-5;
+	box-shadow: shadow_elevation(4);
 	font-size: $root_font_size;
 	flex-direction: column;
 	border-radius: 0.25em;
@@ -32,7 +32,7 @@
 	left: calc(calc(100vw - var(--width)) / 2);
 
 	&__header {
-		border-bottom: 0.1em solid $border-transparent-1;
+		border-bottom: 0.1em solid var(--border-transparent-1);
 		justify-content: flex-end;
 		display: flex;
 		padding: 2px;

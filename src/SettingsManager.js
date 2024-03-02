@@ -7,35 +7,39 @@ export class SettingsManager {
         = Chat
             = Appearance
                 (Appearance)
+				- Hide Kick's emote menu button
                 - Highlight first messages
                 - Highlight Color	
                 - Display lines with alternating background colors
-                - Seperators (dropdown)
+                - Separators (dropdown)
                 (General)
                 - Use Ctrl+E to open the Emote Menu
+                - Use Ctrl+Spacebar for quick emote access
+			= Behavior
+				(General)
+				- Enable chat smooth scrolling
             = Emote Menu
                 (Appearance)
                 - Show a quick navigation bar along the side of the menu
                 - Show the search box
+			= Emote providers
+				(Kick)
+				- Show global emote set
+				- Show current channel emote set
+				- Show other channel emote sets
+				- Show Emoji emote set
             = Input
-                (Recent Messages)
-                - Allow pressing up and down to recall previously sent chat messages
-                (Tab completion)
-                - Display multiple entries in the tab-completion tooltip
-                - Display a tooltip when using tab-completion
-                - Allow tab-completion of emoji
-                - Allow tab-completion of emotes without typing a colon. (:)
-                - Priortize favorite emotes at the top
+				(Recent Messages)
+				- Allow pressing up and down to recall previously sent chat messages
+				(Tab completion)
+				- Display multiple entries in the tab-completion tooltip
+				- Display a tooltip when using tab-completion
+				- Allow tab-completion of emoji
+				- Allow tab-completion of emotes without typing a colon. (:) 
+				- Priortize favorite emotes at the top
             = Tooltips
-                (General)
-                - Display images in tooltips
-    - Platform specific settings, because limited UI specific support
-    - Provider specific settings
-        - 7TV
-            - Specify what emotes to load, channel emotes, global emotes, personal emotes
-            - Show emote update messages
-        - BetterTTV
-            - Specify what emotes to load, channel emotes, global emotes
+				(General)
+				- Display images in tooltips
     */
 
 	sharedSettings = [
@@ -62,6 +66,12 @@ export class SettingsManager {
 						{
 							label: 'Appearance',
 							children: [
+								{
+									label: "Hide Kick's emote menu button",
+									id: 'shared.chat.appearance.hide_emote_menu_button',
+									default: true,
+									type: 'checkbox'
+								},
 								{
 									label: 'Highlight first messages (not yet implemented)',
 									id: 'shared.chat.appearance.highlight',
@@ -115,7 +125,7 @@ export class SettingsManager {
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
-									label: 'Use Ctrl+E to open the Emote Menu (not yet implemented)',
+									label: 'Use Ctrl+E to open the Emote Menu',
 									id: 'shared.chat.appearance.emote_menu_ctrl_e',
 									default: false,
 									type: 'checkbox'
@@ -131,19 +141,91 @@ export class SettingsManager {
 					]
 				},
 				{
+					label: 'Behavior',
+					children: [
+						{
+							label: 'General',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Enable chat smooth scrolling',
+									id: 'shared.chat.behavior.smooth_scrolling',
+									default: false,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Search',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Add bias to emotes of channels you are subscribed to.',
+									id: 'shared.chat.behavior.search_bias_subscribed_channels',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Add extra bias to emotes of the current channel you are watching the stream of.',
+									id: 'shared.chat.behavior.search_bias_current_channels',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
 					label: 'Emote Menu',
 					children: [
 						{
 							label: 'Appearance',
 							children: [
 								{
-									label: 'Show a quick navigation bar along the side of the menu (not yet implemented)',
-									id: 'shared.chat.emote_menu.appearance.quick_nav',
-									default: true,
-									type: 'checkbox'
+									label: 'Choose the style of the emote menu button.',
+									id: 'shared.chat.emote_menu.appearance.button_style',
+									default: 'nipah',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Nipah',
+											value: 'nipah'
+										},
+										{
+											label: 'NipahTV',
+											value: 'nipahtv'
+										},
+										{
+											label: 'NTV',
+											value: 'ntv'
+										},
+										{
+											label: 'NTV 3D',
+											value: 'ntv_3d'
+										},
+										{
+											label: 'NTV 3D RGB',
+											value: 'ntv_3d_rgb'
+										},
+										{
+											label: 'NTV 3D Shadow',
+											value: 'ntv_3d_shadow'
+										},
+										{
+											label: 'NTV 3D Shadow (beveled)',
+											value: 'ntv_3d_shadow_beveled'
+										}
+									]
 								},
+								// Dangerous, impossible to undo because settings button will be hidden
+								// {
+								// 	label: 'Show the navigation sidebar on the side of the menu',
+								// 	id: 'shared.chat.emote_menu.appearance.sidebar',
+								// 	default: true,
+								// 	type: 'checkbox'
+								// },
 								{
-									label: 'Show the search box (not yet implemented)',
+									label: 'Show the search box.',
 									id: 'shared.chat.emote_menu.appearance.search_box',
 									default: true,
 									type: 'checkbox'
@@ -194,8 +276,8 @@ export class SettingsManager {
 							label: 'Recent Messages',
 							children: [
 								{
-									label: 'Allow pressing up and down to recall previously sent chat messages (not yet implemented)',
-									id: 'shared.chat.input.recent_messages.recall',
+									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages.',
+									id: 'shared.chat.input.history.enable',
 									default: true,
 									type: 'checkbox'
 								}
@@ -205,15 +287,22 @@ export class SettingsManager {
 							label: 'Tab completion',
 							children: [
 								{
-									label: 'Display multiple entries in the tab-completion tooltip (not yet implemented)',
-									id: 'shared.chat.input.tab_completion.multiple_entries',
+									label: 'Display a tooltip when using tab-completion.',
+									id: 'shared.chat.input.tab_completion.tooltip',
 									default: true,
 									type: 'checkbox'
 								},
+								// This would be same as above anyway
+								// {
+								// 	label: 'Enable in-place tab-completion in text input (not yet implemented)',
+								// 	id: 'shared.chat.input.tab_completion.multiple_entries',
+								// 	default: true,
+								// 	type: 'checkbox'
+								// },
 								{
-									label: 'Display a tooltip when using tab-completion (not yet implemented)',
-									id: 'shared.chat.input.tab_completion.tooltip',
-									default: true,
+									label: 'Enable automatic in-place tab-completion suggestions in text input while typing (not yet implemented)',
+									id: 'shared.chat.input.tab_completion.multiple_entries',
+									default: false,
 									type: 'checkbox'
 								},
 								{
@@ -221,19 +310,13 @@ export class SettingsManager {
 									id: 'shared.chat.input.tab_completion.emoji',
 									default: false,
 									type: 'checkbox'
-								},
-								{
-									label: 'Allow tab-completion of emotes without typing a colon. (:) (not yet implemented)',
-									id: 'shared.chat.input.tab_completion.no_colon',
-									default: false,
-									type: 'checkbox'
-								},
-								{
-									label: 'Priortize favorite emotes at the top (not yet implemented)',
-									id: 'shared.chat.input.tab_completion.favorite',
-									default: true,
-									type: 'checkbox'
 								}
+								// {
+								// 	label: 'Allow tab-completion of emotes without typing a colon. (:) (not yet implemented)',
+								// 	id: 'shared.chat.input.tab_completion.no_colon',
+								// 	default: false,
+								// 	type: 'checkbox'
+								// },
 							]
 						}
 					]
@@ -245,7 +328,7 @@ export class SettingsManager {
 							label: 'General',
 							children: [
 								{
-									label: 'Display images in tooltips',
+									label: 'Display images in tooltips.',
 									id: 'shared.chat.tooltips.images',
 									default: true,
 									type: 'checkbox'

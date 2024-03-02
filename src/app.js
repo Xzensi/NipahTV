@@ -12,19 +12,21 @@ import { KickProvider } from './Providers/KickProvider'
 import { SevenTVProvider } from './Providers/SevenTVProvider'
 
 // Utils
-import { PLATFORM_ENUM } from './constants'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, fetchJSON } from './utils'
 import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.0.11',
+		VERSION: '1.1.0',
 		PLATFORM: PLATFORM_ENUM.NULL,
+		RESOURCE_ROOT: null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
-		// RESOURCE_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
-		// RESOURCE_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
-		RESOURCE_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV/master',
-		DEBUG: false
+		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
+		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
+		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
+		RELEASE_BRANCH: 'master',
+		DEBUG: GM_getValue('environment')?.debug || false
 	}
 
 	stylesLoaded = false
@@ -35,7 +37,10 @@ class NipahClient {
 		info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`)
 
 		if (ENV_VARS.DEBUG) {
+			info('Running in debug mode enabled..')
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
+		} else {
+			ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH
 		}
 
 		if (window.app_name === 'Kick') {
@@ -55,6 +60,8 @@ class NipahClient {
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
 
+		// TODO settings are not guaranteed to be loaded before the UI is initialized
+		//  (although with current localstorage implementation is synchronous)
 		const settingsManager = new SettingsManager(eventBus)
 		settingsManager.initialize()
 		settingsManager.loadSettings()
@@ -85,7 +92,7 @@ class NipahClient {
 		emotesManager.registerProvider(KickProvider)
 		emotesManager.registerProvider(SevenTVProvider)
 
-		const providerLoadOrder = [PLATFORM_ENUM.KICK, PLATFORM_ENUM.SEVENTV]
+		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
 
 		// Test whether UI works correctly when data loading is delayed

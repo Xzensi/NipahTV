@@ -17,15 +17,15 @@ fs.readFile(headerFilePath, 'utf8', (err, headerContent) => {
 		}
 
 		const version = appContent.match(/VERSION:\s['"]([0-9.]+)['"]/m)[1]
-		console.log(version)
+		const branch = appContent.match(/RELEASE_BRANCH:\s['"](\S+)['"]/m)[1]
 
 		// const newVersion = semver.inc(version, 'patch')
 		// console.log(newVersion)
 
-		// Replace the placeholder with the actual filename
-		const updatedHeader = headerContent.replace(/(@version\s)[0-9.]+$/m, `$1${version}`)
+		let updatedHeader = headerContent
+			.replace(/(@version\s)[0-9.]+$/m, `$1${version}`)
+			.replace(/(Xzensi\/NipahTV\/)\S+(\/dist.+)$/gm, `$1${branch}$2`)
 
-		// Write the updated header back to the file
 		fs.writeFile(headerFilePath, updatedHeader, 'utf8', err => {
 			if (err) {
 				console.error(`Error writing header file: ${err}`)
