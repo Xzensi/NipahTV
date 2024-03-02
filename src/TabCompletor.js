@@ -215,7 +215,6 @@ export class TabCompletor {
 				if (selectedEmoteId) {
 					this.hideModal()
 					this.reset()
-					this.emotesManager.registerEmoteEngagement(selectedEmoteId)
 				}
 
 				this.reset()
@@ -239,7 +238,6 @@ export class TabCompletor {
 			} else if (evt.key === 'Shift') {
 				// Ignore shift key press
 			} else {
-				this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex])
 				this.hideModal()
 				this.reset()
 			}

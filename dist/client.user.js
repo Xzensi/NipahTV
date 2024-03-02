@@ -3918,7 +3918,6 @@
           if (selectedEmoteId) {
             this.hideModal();
             this.reset();
-            this.emotesManager.registerEmoteEngagement(selectedEmoteId);
           }
           this.reset();
         } else if (evt.key === "ArrowLeft" || evt.key === " " || evt.key === "Escape") {
@@ -3937,7 +3936,6 @@
           this.reset();
         } else if (evt.key === "Shift") {
         } else {
-          this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex]);
           this.hideModal();
           this.reset();
         }
@@ -4255,16 +4253,21 @@
       const originalSubmitButtonEl = this.elm.$originalSubmitButton[0];
       const textFieldEl = this.elm.$textField[0];
       let parsedString = "";
+      let emotesInMessage = /* @__PURE__ */ new Set();
       for (const node of textFieldEl.childNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
           parsedString += node.textContent;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const emoteId = node.dataset.emoteId;
           if (emoteId) {
+            emotesInMessage.add(emoteId);
             const spacingBefore = parsedString[parsedString.length - 1] !== " ";
             parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore);
           }
         }
+      }
+      for (const emoteId of emotesInMessage) {
+        emotesManager.registerEmoteEngagement(emoteId);
       }
       originalTextFieldEl.innerHTML = parsedString;
       this.messageHistory.addMessage(textFieldEl.innerHTML);

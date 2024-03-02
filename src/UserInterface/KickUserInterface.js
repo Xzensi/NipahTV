@@ -441,6 +441,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		//  do emotes count as a single token?
 
 		let parsedString = ''
+		let emotesInMessage = new Set()
 		for (const node of textFieldEl.childNodes) {
 			if (node.nodeType === Node.TEXT_NODE) {
 				parsedString += node.textContent
@@ -448,10 +449,15 @@ export class KickUserInterface extends AbstractUserInterface {
 				const emoteId = node.dataset.emoteId
 
 				if (emoteId) {
+					emotesInMessage.add(emoteId)
 					const spacingBefore = parsedString[parsedString.length - 1] !== ' '
 					parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore)
 				}
 			}
+		}
+
+		for (const emoteId of emotesInMessage) {
+			emotesManager.registerEmoteEngagement(emoteId)
 		}
 
 		originalTextFieldEl.innerHTML = parsedString
