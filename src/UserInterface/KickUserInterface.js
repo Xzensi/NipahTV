@@ -243,7 +243,6 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (this.tabCompletor.isShowingModal) return
 
 			if (evt.key === 'ArrowUp' || evt.key === 'ArrowDown') {
-				// TODO there's a bug where caret is at start but requires 2 key presses to traverse history
 				// Check if caret is at the start of the text field
 				if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.key === 'ArrowUp') {
 					evt.preventDefault()
@@ -276,6 +275,8 @@ export class KickUserInterface extends AbstractUserInterface {
 						this.messageHistory.resetCursor()
 						textFieldEl.innerHTML = ''
 					}
+
+					Caret.collapseToEndOfNode(textFieldEl)
 				}
 			}
 		})

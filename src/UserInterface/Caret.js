@@ -134,7 +134,7 @@ export class Caret {
 		}
 		nodeRange.collapse(true)
 
-		return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) === 0
+		return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0
 	}
 
 	static isCaretAtEndOfNode(node) {
@@ -163,7 +163,7 @@ export class Caret {
 		}
 		nodeRange.collapse(false) // Collapse to the end of the node
 
-		return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) === 0
+		return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0
 	}
 
 	static getWordBeforeCaret() {

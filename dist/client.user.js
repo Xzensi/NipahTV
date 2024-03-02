@@ -7,7 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-9289650e.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/css/kick-ef77d9f9.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/release/rendering_history_tabcompletion/dist/client.user.js
@@ -3565,7 +3565,7 @@
         nodeRange.selectNode(firstRelevantNode);
       }
       nodeRange.collapse(true);
-      return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) === 0;
+      return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0;
     }
     static isCaretAtEndOfNode(node) {
       const selection = window.getSelection();
@@ -3589,7 +3589,7 @@
         nodeRange.selectNode(lastRelevantNode);
       }
       nodeRange.collapse(false);
-      return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) === 0;
+      return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0;
     }
     static getWordBeforeCaret() {
       const selection = window.getSelection();
@@ -4071,6 +4071,7 @@
               this.messageHistory.resetCursor();
               textFieldEl.innerHTML = "";
             }
+            Caret.collapseToEndOfNode(textFieldEl);
           }
         }
       });
