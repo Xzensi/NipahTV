@@ -51,6 +51,7 @@ export class TabCompletor {
 
 			// Render first suggestion as inline emote
 			this.renderInlineEmote()
+			this.scrollSelectedIntoView()
 		}
 	}
 
@@ -100,7 +101,6 @@ export class TabCompletor {
 	scrollSelectedIntoView() {
 		// Scroll selected element into middle of the list which has max height set and is scrollable
 		const $selected = this.$list.find('li.selected')
-		if (!$selected.length) return
 		const $list = this.$list
 		const listHeight = $list.height()
 		const selectedTop = $selected.position().top
@@ -186,6 +186,8 @@ export class TabCompletor {
 
 	handleKeydown(evt) {
 		if (evt.key === 'Tab') {
+			evt.preventDefault()
+
 			if (this.isShowingModal) {
 				// Traverse tab completion suggestions up/down depending on whether shift is held with tab
 				if (evt.shiftKey) {
@@ -234,6 +236,8 @@ export class TabCompletor {
 
 				this.hideModal()
 				this.reset()
+			} else if (evt.key === 'Shift') {
+				// Ignore shift key press
 			} else {
 				this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex])
 				this.hideModal()

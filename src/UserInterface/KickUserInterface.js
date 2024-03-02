@@ -312,11 +312,9 @@ export class KickUserInterface extends AbstractUserInterface {
 				// TODO fix @ name tagging
 				// Don't enable tab-completion for @ name tagging
 				const { word } = Caret.getWordBeforeCaret()
-				if (word && word[0] === '@') return
-
-				evt.preventDefault()
-
-				if (textFieldEl.textContent.trim() === '') return
+				if (word && word[0] === '@') {
+					evt.preventDefault()
+				}
 			}
 
 			tabCompletor.handleKeydown(evt)

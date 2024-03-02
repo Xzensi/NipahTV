@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.2
+// @version 1.1.3
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -3789,6 +3789,7 @@
         }
         this.$list.find("li").eq(this.selectedIndex).addClass("selected");
         this.renderInlineEmote();
+        this.scrollSelectedIntoView();
       }
     }
     createModal(containerEl) {
@@ -3822,8 +3823,6 @@
     }
     scrollSelectedIntoView() {
       const $selected = this.$list.find("li.selected");
-      if (!$selected.length)
-        return;
       const $list = this.$list;
       const listHeight = $list.height();
       const selectedTop = $selected.position().top;
@@ -3894,6 +3893,7 @@
     }
     handleKeydown(evt) {
       if (evt.key === "Tab") {
+        evt.preventDefault();
         if (this.isShowingModal) {
           if (evt.shiftKey) {
             this.moveSelectorDown();
@@ -3935,6 +3935,7 @@
           }
           this.hideModal();
           this.reset();
+        } else if (evt.key === "Shift") {
         } else {
           this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex]);
           this.hideModal();
@@ -4150,11 +4151,9 @@
       textFieldEl.addEventListener("keydown", (evt) => {
         if (evt.key === "Tab") {
           const { word } = Caret.getWordBeforeCaret();
-          if (word && word[0] === "@")
-            return;
-          evt.preventDefault();
-          if (textFieldEl.textContent.trim() === "")
-            return;
+          if (word && word[0] === "@") {
+            evt.preventDefault();
+          }
         }
         tabCompletor.handleKeydown(evt);
       });
@@ -5211,7 +5210,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.2",
+      VERSION: "1.1.3",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
