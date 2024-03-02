@@ -304,12 +304,6 @@ export class SettingsManager {
 									id: 'shared.chat.input.tab_completion.multiple_entries',
 									default: false,
 									type: 'checkbox'
-								},
-								{
-									label: 'Allow tab-completion of emoji (not yet implemented)',
-									id: 'shared.chat.input.tab_completion.emoji',
-									default: false,
-									type: 'checkbox'
 								}
 								// {
 								// 	label: 'Allow tab-completion of emotes without typing a colon. (:) (not yet implemented)',

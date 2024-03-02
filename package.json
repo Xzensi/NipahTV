@@ -5,7 +5,7 @@
 	"author": "Xzensi",
 	"license": "AGPL-3.0-only",
 	"scripts": {
-		"build": "rm -f dist/client.user.js && cat compile_header.md >> dist/client.user.js && esbuild src/app.js --bundle >> dist/client.user.js"
+		"build": "rm -f dist/client.user.js && cat compile_header >> dist/client.user.js && esbuild src/app.js --bundle >> dist/client.user.js"
 	},
 	"devDependencies": {
 		"esbuild": "0.20.0",

@@ -295,8 +295,6 @@ export class KickUserInterface extends AbstractUserInterface {
 						this.messageHistory.resetCursor()
 						textFieldEl.innerHTML = ''
 					}
-
-					Caret.collapseToEndOfNode(textFieldEl)
 				}
 			}
 		})
