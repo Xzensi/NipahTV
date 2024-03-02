@@ -2,7 +2,7 @@ const { exec } = require('child_process')
 const semver = require('semver')
 const fs = require('fs')
 
-const headerFilePath = 'compile_header.md'
+const headerFilePath = 'compile_header'
 
 fs.readFile(headerFilePath, 'utf8', (err, headerContent) => {
 	if (err) {
