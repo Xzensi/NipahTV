@@ -172,7 +172,9 @@
 
 .nipah__emote-tooltip {
 	background-color: var(--background-color-shade-2);
+	outline: 0.1em solid var(--border-transparent-1);
 	transform: translate(-50%, -45%);
+	box-shadow: shadow_elevation(2);
 	font-size: $root_font_size;
 	padding: 0.382em 1.382em;
 	border-radius: 0.318em;
@@ -182,7 +184,7 @@
 	overflow: hidden;
 	padding: 0.618em;
 	font-size: 13px;
-	max-width: 8em;
+	// max-width: 8em;
 	z-index: 1002;
 
 	@include user_select;
@@ -192,7 +194,8 @@
 	}
 
 	img {
-		height: 5em;
+		max-width: none;
+		height: 4.5em;
 	}
 
 	span {

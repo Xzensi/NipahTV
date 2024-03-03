@@ -38,10 +38,16 @@
 	// margin-right: 0.125rem;
 	// margin-left: 0.125rem;
 	display: inline-block;
+	position: relative;
 
 	.chat-emote {
 		max-height: 1.75rem;
 		max-width: none;
+	}
+
+	.nipah__emote-tooltip {
+		left: 50%;
+		top: -75%;
 	}
 }
 

@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.6
+// @version 1.1.7
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-a393e8b3.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f61951bf.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -1806,33 +1806,41 @@
       const $textFieldWrapper = $(`<div class="nipah__message-input__wrapper"></div>`);
       $textFieldWrapper.append($textField);
       $originalTextField.parent().parent().append($textFieldWrapper);
-      originalTextFieldEl.addEventListener("focus", () => textFieldEl.focus());
-      textFieldEl.addEventListener("input", (evt) => {
-        const $submitButton = this.elm.$submitButton;
-        if (!$submitButton)
-          return;
-        if (textFieldEl.childNodes.length && textFieldEl.childNodes[0]?.tagName !== "BR") {
-          $submitButton.removeClass("disabled");
-        } else if (!$submitButton.hasClass("disabled")) {
-          $submitButton.addClass("disabled");
-        }
-      });
+      originalTextFieldEl.addEventListener("focus", () => textFieldEl.focus(), { passive: true });
+      textFieldEl.addEventListener(
+        "input",
+        (evt) => {
+          const $submitButton = this.elm.$submitButton;
+          if (!$submitButton)
+            return;
+          if (textFieldEl.childNodes.length && textFieldEl.childNodes[0]?.tagName !== "BR") {
+            $submitButton.removeClass("disabled");
+          } else if (!$submitButton.hasClass("disabled")) {
+            $submitButton.addClass("disabled");
+          }
+        },
+        { passive: true }
+      );
       textFieldEl.addEventListener("keydown", (evt) => {
         if (evt.key === "Enter" && !this.tabCompletor.isShowingModal) {
           evt.preventDefault();
           this.submitInput();
         }
       });
-      textFieldEl.addEventListener("keyup", (evt) => {
-        $originalTextField[0].innerHTML = textFieldEl.innerHTML;
-        if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === "BR") {
-          textFieldEl.children[0].remove();
-          textFieldEl.normalize();
-        }
-        if (evt.keyCode > 47 && evt.keyCode < 112) {
-          this.messageHistory.resetCursor();
-        }
-      });
+      textFieldEl.addEventListener(
+        "keyup",
+        (evt) => {
+          $originalTextField[0].innerHTML = textFieldEl.innerHTML;
+          if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === "BR") {
+            textFieldEl.children[0].remove();
+            textFieldEl.normalize();
+          }
+          if (evt.keyCode > 47 && evt.keyCode < 112) {
+            this.messageHistory.resetCursor();
+          }
+        },
+        { passive: true }
+      );
       const clipboard = new Clipboard2();
       textFieldEl.addEventListener("paste", (evt) => {
         evt.preventDefault();
@@ -1937,7 +1945,8 @@
       );
     }
     observeChatMessages() {
-      const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
+      const $chatMessagesContainer = this.elm.$chatMessagesContainer;
+      const chatMessagesContainerEl = $chatMessagesContainer[0];
       const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
       const observer = this.chatObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
@@ -1952,6 +1961,29 @@
         });
       });
       observer.observe(chatMessagesContainerEl, { childList: true });
+      const showTooltips = this.settingsManager.getSetting("shared.chat.tooltips.images");
+      $chatMessagesContainer.on("mouseover", ".nipah__emote-box img", (evt) => {
+        const emoteName = evt.target.dataset.emoteName;
+        const emoteId = evt.target.dataset.emoteId;
+        if (!emoteName || !emoteId)
+          return;
+        const target = evt.target;
+        const $tooltip = $(
+          cleanupHTML(`
+					<div class="nipah__emote-tooltip ${showTooltips ? "nipah__emote-tooltip--has-image" : ""}">
+						${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}
+						<span>${emoteName}</span>
+					</div>`)
+        );
+        $(target).after($tooltip);
+        evt.target.addEventListener(
+          "mouseleave",
+          () => {
+            $tooltip.remove();
+          },
+          { once: true, passive: true }
+        );
+      });
     }
     renderEmotesInChat() {
       if (!this.elm || !this.elm.$chatMessagesContainer)
@@ -2962,7 +2994,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.6",
+      VERSION: "1.1.7",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
