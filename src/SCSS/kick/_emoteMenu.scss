@@ -171,8 +171,8 @@
 }
 
 .nipah__emote-tooltip {
-	background-color: var(--background-color-shade-2);
 	outline: 0.1em solid var(--border-transparent-1);
+	background-color: var(--background-color);
 	transform: translate(-50%, -45%);
 	box-shadow: shadow_elevation(2);
 	font-size: $root_font_size;

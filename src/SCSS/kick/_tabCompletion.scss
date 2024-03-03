@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../functions' as *;
 
 .nipah__tab-completion {
 	background-color: var(--background-color);
@@ -9,7 +10,7 @@
 	border-radius: 0.25em;
 	position: absolute;
 	z-index: 1000;
-	bottom: 115%;
+	bottom: 112%;
 	width: 100%;
 
 	display: none;
@@ -51,12 +52,12 @@
 				border-bottom: none;
 			}
 
-			&:hover {
+			&.selected {
 				background-color: var(--background-color-tint-2);
 			}
 
-			&.selected {
-				background-color: var(--background-color-tint-2);
+			&:hover {
+				background-color: var(--background-color-tint-3);
 			}
 
 			img {
