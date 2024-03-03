@@ -16,6 +16,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		$textField: null
 	}
 	stickyScroll = true
+	maxMessageLength = 500
 
 	constructor(deps) {
 		super(deps)
@@ -395,6 +396,13 @@ export class KickUserInterface extends AbstractUserInterface {
 					parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore)
 				}
 			}
+		}
+
+		if (parsedString.length > this.maxMessageLength) {
+			error(
+				`Message too long, it is ${parsedString.length} characters but max limit is ${this.maxMessageLength}.`
+			)
+			return
 		}
 
 		for (const emoteId of emotesInMessage) {

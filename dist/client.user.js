@@ -1701,6 +1701,7 @@
       $textField: null
     };
     stickyScroll = true;
+    maxMessageLength = 500;
     constructor(deps) {
       super(deps);
     }
@@ -1883,15 +1884,7 @@
       const textFieldEl = $textField[0];
       const tabCompletor = this.tabCompletor = new TabCompletor({ emotesManager, usersManager });
       tabCompletor.createModal($textField.parent().parent()[0]);
-      textFieldEl.addEventListener("keydown", (evt) => {
-        if (evt.key === "Tab") {
-          const { word } = Caret.getWordBeforeCaret();
-          if (word && word[0] === "@") {
-            evt.preventDefault();
-          }
-        }
-        tabCompletor.handleKeydown(evt);
-      });
+      textFieldEl.addEventListener("keydown", tabCompletor.handleKeydown.bind(tabCompletor));
       textFieldEl.addEventListener("keyup", (evt) => {
         if (this.tabCompletor.isShowingModal) {
           if (textFieldEl.textContent.trim() === "" && !textFieldEl.childNodes.length) {
@@ -1993,6 +1986,12 @@
             parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore);
           }
         }
+      }
+      if (parsedString.length > this.maxMessageLength) {
+        error2(
+          `Message too long, it is ${parsedString.length} characters but max limit is ${this.maxMessageLength}.`
+        );
+        return;
       }
       for (const emoteId of emotesInMessage) {
         emotesManager.registerEmoteEngagement(emoteId);
