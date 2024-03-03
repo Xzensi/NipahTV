@@ -1,6 +1,5 @@
-import { diff } from 'semver'
-import { SlidingTimestampWindow } from './SlidingTimestampWindow'
-import { log, info, error, isEmpty, splitEmoteName } from './utils'
+import { SlidingTimestampWindow } from '../Classes/SlidingTimestampWindow'
+import { log, info, error, isEmpty } from '../utils'
 
 export class EmoteDatastore {
 	emoteSets = []
@@ -22,7 +21,7 @@ export class EmoteDatastore {
 	fuse = new Fuse([], {
 		includeScore: true,
 		shouldSort: false,
-		includeMatches: true,
+		// includeMatches: true,
 		// isCaseSensitive: true,
 		findAllMatches: true,
 		threshold: 0.35,
@@ -208,8 +207,8 @@ export class EmoteDatastore {
 
 			// Contains whether match was found in name or part of emote parts
 			// E.g. { key: ["name"], value: "pepeDance" } or { key: ["parts"], value: "Dance" }
-			const aMatches = a.matches
-			const bMatches = b.matches
+			// const aMatches = a.matches
+			// const bMatches = b.matches
 
 			if (aItem.name.toLowerCase() === search.toLowerCase()) {
 				return -1
@@ -274,25 +273,12 @@ export class EmoteDatastore {
 				const aIsCurrentChannel = aEmoteSet.is_current_channel
 				const bIsCurrentChannel = bEmoteSet.is_current_channel
 
-				if (aIsCurrentChannel || bIsCurrentChannel) log('Current channel', aIsCurrentChannel, bIsCurrentChannel)
-				if (a.item.name === 'nebrideLove') {
-					log('Name', a.item.name, b.item.name)
-					log('Score diff', (a.score - b.score) * scoreWeight)
-					log('Parts diff', (aPartsLength - bPartsLength) * partsWeight)
-				}
-
 				// Add bias for emotes from the current channel
 				if (aIsCurrentChannel && !bIsCurrentChannel) {
 					relevancyDelta += -1 * currentChannelWeight
-					log('Channel diff', -1 * currentChannelWeight)
 				} else if (!aIsCurrentChannel && bIsCurrentChannel) {
 					relevancyDelta += 1 * currentChannelWeight
-					log('Channel diff', 1 * currentChannelWeight)
 				}
-			}
-
-			if (a.item.name === 'nebrideLove') {
-				log('Diff', relevancyDelta)
 			}
 
 			// Return the difference to determine sort order

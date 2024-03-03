@@ -1,4 +1,4 @@
-import { Logger } from './Logger'
+import { Logger } from './Classes/Logger'
 
 const logger = new Logger()
 export const log = logger.log.bind(logger)

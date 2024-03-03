@@ -1,21 +1,24 @@
-import { Caret } from './UserInterface/Caret'
-import { error, log } from './utils'
+import { Caret } from '../UserInterface/Caret'
+import { error, log } from '../utils'
 
 export class TabCompletor {
 	suggestions = []
 	suggestionIds = []
 	selectedIndex = 0
 	isShowingModal = false
+	mode = null
 
 	// Context
 	start = 0
 	end = 0
+	mentionEnd = 0
 	node = null
 	word = null
 	embedNode = null
 
-	constructor(emotesManager) {
+	constructor({ emotesManager, usersManager }) {
 		this.emotesManager = emotesManager
+		this.usersManager = usersManager
 	}
 
 	updateSuggestions() {
@@ -31,27 +34,53 @@ export class TabCompletor {
 		this.end = end
 		this.node = node
 
-		// Get suggestions of emotes
-		const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20)
-		log('Search results:', searchResults)
-		this.suggestions = searchResults.map(result => result.item.name)
-		this.suggestionIds = searchResults.map(result => this.emotesManager.getEmoteIdByName(result.item.name))
+		// @ User mention suggestions
+		if (word[0] === '@') {
+			this.mode = 'mention'
 
-		this.$list.empty()
+			const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20)
+			this.suggestions = searchResults.map(result => result.item.name)
+			this.suggestionIds = searchResults.map(result => result.item.id)
 
-		if (this.suggestions.length) {
-			for (let i = 0; i < this.suggestions.length; i++) {
-				const emoteName = this.suggestions[i]
-				const emoteId = this.suggestionIds[i]
-				const emoteRender = this.emotesManager.getRenderableEmoteById(emoteId, 'nipah__emote')
-				this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`)
+			this.$list.empty()
+
+			if (this.suggestions.length) {
+				for (let i = 0; i < this.suggestions.length; i++) {
+					const userName = this.suggestions[i]
+					const userId = this.suggestionIds[i]
+					this.$list.append(`<li data-user-id="${userId}"><span>@${userName}</span></li>`)
+				}
+
+				this.$list.find('li').eq(this.selectedIndex).addClass('selected')
+				this.renderInlineUserMention()
+				this.scrollSelectedIntoView()
 			}
+		}
 
-			this.$list.find('li').eq(this.selectedIndex).addClass('selected')
+		// Emote suggestions
+		else {
+			this.mode = 'emote'
 
-			// Render first suggestion as inline emote
-			this.renderInlineEmote()
-			this.scrollSelectedIntoView()
+			const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20)
+			this.suggestions = searchResults.map(result => result.item.name)
+			this.suggestionIds = searchResults.map(result => this.emotesManager.getEmoteIdByName(result.item.name))
+
+			this.$list.empty()
+
+			if (this.suggestions.length) {
+				for (let i = 0; i < this.suggestions.length; i++) {
+					const emoteName = this.suggestions[i]
+					const emoteId = this.suggestionIds[i]
+					const emoteRender = this.emotesManager.getRenderableEmoteById(emoteId, 'nipah__emote')
+					this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`)
+				}
+
+				this.$list.find('li').eq(this.selectedIndex).addClass('selected')
+
+				// Render first suggestion as inline emote
+				this.renderInlineEmote()
+				this.scrollSelectedIntoView()
+			}
 		}
 	}
 
@@ -66,7 +95,8 @@ export class TabCompletor {
 		this.$list.on('click', 'li', e => {
 			// Get index of clicked element and update selectedIndex
 			this.selectedIndex = $(e.currentTarget).index()
-			this.renderInlineEmote()
+			if (this.mode === 'emote') this.renderInlineEmote()
+			else if (this.mode === 'mention') this.renderInlineUserMention()
 
 			this.hideModal()
 			this.reset()
@@ -90,6 +120,7 @@ export class TabCompletor {
 		// })
 
 		this.$modal.show()
+		this.$list[0].scrollTop = 9999
 		this.isShowingModal = true
 	}
 
@@ -121,7 +152,12 @@ export class TabCompletor {
 		this.$list.find('li.selected').removeClass('selected')
 		this.$list.find('li').eq(this.selectedIndex).addClass('selected')
 
-		this.renderInlineEmote()
+		if (this.mode === 'emote') this.renderInlineEmote()
+		else if (this.mode === 'mention') {
+			this.restoreOriginalText()
+			this.renderInlineUserMention()
+		}
+
 		this.scrollSelectedIntoView()
 	}
 
@@ -136,8 +172,38 @@ export class TabCompletor {
 
 		this.$list.find('li').eq(this.selectedIndex).addClass('selected')
 
-		this.renderInlineEmote()
+		if (this.mode === 'emote') this.renderInlineEmote()
+		else if (this.mode === 'mention') {
+			this.restoreOriginalText()
+			this.renderInlineUserMention()
+		}
+
 		this.scrollSelectedIntoView()
+	}
+
+	renderInlineUserMention() {
+		const userId = this.suggestionIds[this.selectedIndex]
+		if (!userId) return
+
+		const userName = this.suggestions[this.selectedIndex]
+		const userMention = `@${userName}`
+
+		this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention)
+		Caret.moveCaretTo(this.node, this.mentionEnd)
+	}
+
+	restoreOriginalText() {
+		if (this.mode === 'emote' && this.word) {
+			const textNode = document.createTextNode(this.word)
+			this.embedNode.after(textNode)
+			this.embedNode.remove()
+			Caret.collapseToEndOfNode(textNode)
+			const parentEL = textNode.parentElement
+			textNode.parentElement.normalize()
+		} else if (this.mode === 'mention') {
+			Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word)
+			Caret.moveCaretTo(this.node, this.end)
+		}
 	}
 
 	renderInlineEmote() {
@@ -145,7 +211,7 @@ export class TabCompletor {
 		if (!emoteId) return
 
 		if (this.embedNode) {
-			const emoteEmbedding = this.emotesManager.getRenderableEmote('' + emoteId, 'nipah__inline-emote')
+			const emoteEmbedding = this.emotesManager.getRenderableEmoteById('' + emoteId, 'nipah__inline-emote')
 			if (!emoteEmbedding) return error('Invalid emote embedding')
 
 			const embedNode = jQuery.parseHTML(emoteEmbedding)[0]
@@ -160,14 +226,14 @@ export class TabCompletor {
 	}
 
 	insertEmote(emoteId) {
-		const emoteEmbedding = this.emotesManager.getRenderableEmote('' + emoteId, 'nipah__inline-emote')
+		const emoteEmbedding = this.emotesManager.getRenderableEmoteById('' + emoteId, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embedding')
 
 		const { start, end, node } = this
 		if (!node) return error('Invalid node')
 
 		const embedNode = (this.embedNode = jQuery.parseHTML(emoteEmbedding)[0])
-		Caret.replaceTextInRange(node, start, end, embedNode)
+		Caret.replaceTextWithElementInRange(node, start, end, embedNode)
 
 		// Move the caret to the end of the emote
 		const range = document.createRange()
@@ -198,41 +264,30 @@ export class TabCompletor {
 			} else {
 				// Show tab completion modal
 				this.updateSuggestions()
-				this.showModal()
+
+				if (this.suggestions.length) this.showModal()
+				else this.reset()
 			}
 		} else if (this.isShowingModal) {
 			if (evt.key === 'ArrowUp') {
 				evt.preventDefault()
+
 				this.moveSelectorUp()
 			} else if (evt.key === 'ArrowDown') {
 				evt.preventDefault()
+
 				this.moveSelectorDown()
 			} else if (evt.key === 'ArrowRight' || evt.key === 'Enter') {
 				if (evt.key === 'Enter') evt.preventDefault()
 
-				// Apply selected tab completion
-				const selectedEmoteId = this.suggestionIds[this.selectedIndex]
-				if (selectedEmoteId) {
-					this.hideModal()
-					this.reset()
-				}
-
+				this.hideModal()
 				this.reset()
 			} else if (evt.key === 'ArrowLeft' || evt.key === ' ' || evt.key === 'Escape') {
 				this.reset()
 			} else if (evt.key === 'Backspace') {
 				evt.preventDefault()
 
-				// Restore the original input text
-				if (this.word) {
-					const textNode = document.createTextNode(this.word)
-					this.embedNode.after(textNode)
-					this.embedNode.remove()
-					Caret.collapseToEndOfNode(textNode)
-					const parentEL = textNode.parentElement
-					textNode.parentElement.normalize()
-				}
-
+				this.restoreOriginalText()
 				this.hideModal()
 				this.reset()
 			} else if (evt.key === 'Shift') {
@@ -247,6 +302,7 @@ export class TabCompletor {
 	handleKeyup(evt) {}
 
 	reset() {
+		this.mode = null
 		this.suggestions = []
 		this.selectedIndex = 0
 		this.$list.empty()
@@ -254,6 +310,7 @@ export class TabCompletor {
 		this.isShowingModal = false
 		this.start = 0
 		this.end = 0
+		this.mentionEnd = 0
 		this.node = null
 		this.word = null
 		this.embedNode = null

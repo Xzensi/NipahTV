@@ -1,22 +1,22 @@
-import { EmoteMenuButton } from './Components/EmoteMenuButton'
-import { EmoteMenu } from './Components/EmoteMenu'
-import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
 import { log, info, error, assertArgDefined, waitForElements } from '../utils'
+import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
 import { AbstractUserInterface } from './AbstractUserInterface'
+import { EmoteMenuButton } from './Components/EmoteMenuButton'
+import { TabCompletor } from '../Classes/TabCompletor'
+import { EmoteMenu } from './Components/EmoteMenu'
+import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
-import { MessagesHistory } from '../MessagesHistory'
-import { TabCompletor } from '../TabCompletor'
-import { Clipboard2 } from '../Clipboard'
 
 export class KickUserInterface extends AbstractUserInterface {
+	abortController = new AbortController()
+
 	elm = {
-		$textField: null,
+		$chatMessagesContainer: null,
 		$submitButton: null,
-		$chatMessagesContainer: null
+		$textField: null
 	}
 	stickyScroll = true
-	messageHistory = new MessagesHistory()
-	abortController = new AbortController()
+	maxMessageLength = 500
 
 	constructor(deps) {
 		super(deps)
@@ -139,30 +139,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		$originalSubmitButton.after($submitButton)
 
 		$submitButton.on('click', this.submitInput.bind(this))
-
-		// TODO quick fix for submit button being disabled when text field is not empty
-		const observer = (this.submitObserver = new MutationObserver(mutations => {
-			if (!this.elm || !this.elm.$textField) return
-
-			// Disconnect the observer temporarily to avoid recursive loops
-			observer.disconnect()
-
-			if (!this.elm.$textField[0].innerHTML) {
-				$submitButton.attr('disabled', true)
-			} else {
-				$submitButton.removeAttr('disabled')
-			}
-
-			observer.observe($submitButton[0], {
-				attributes: true,
-				attributeFilter: ['disabled']
-			})
-		}))
-
-		observer.observe($submitButton[0], {
-			attributes: true,
-			attributeFilter: ['disabled']
-		})
 	}
 
 	loadShadowProxyTextField() {
@@ -231,6 +207,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			if (messageParts && messageParts.length) {
 				clipboard.pasteHTML(messageParts.join(''))
+
+				if (textFieldEl.childNodes.length) {
+					this.elm.$submitButton.removeClass('disabled')
+				}
 			}
 		})
 	}
@@ -283,24 +263,14 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadTabCompletionBehaviour() {
+		const { emotesManager, usersManager } = this
 		const $textField = this.elm.$textField
 		const textFieldEl = $textField[0]
 
-		const tabCompletor = (this.tabCompletor = new TabCompletor(this.emotesManager))
+		const tabCompletor = (this.tabCompletor = new TabCompletor({ emotesManager, usersManager }))
 		tabCompletor.createModal($textField.parent().parent()[0])
 
-		textFieldEl.addEventListener('keydown', evt => {
-			if (evt.key === 'Tab') {
-				// TODO fix @ name tagging
-				// Don't enable tab-completion for @ name tagging
-				const { word } = Caret.getWordBeforeCaret()
-				if (word && word[0] === '@') {
-					evt.preventDefault()
-				}
-			}
-
-			tabCompletor.handleKeydown(evt)
-		})
+		textFieldEl.addEventListener('keydown', tabCompletor.handleKeydown.bind(tabCompletor))
 
 		textFieldEl.addEventListener('keyup', evt => {
 			if (this.tabCompletor.isShowingModal) {
@@ -389,8 +359,14 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderEmotesInMessage(messageNode) {
-		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
+		const usernameEl = messageNode.querySelector('.chat-entry-username')
+		if (usernameEl) {
+			const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
+			const chatEntryUserName = usernameEl.textContent
+			this.usersManager.registerUser(chatEntryUserId, chatEntryUserName)
+		}
 
+		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
 		for (const contentNode of messageContentNodes) {
 			contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent)
 		}
@@ -420,6 +396,13 @@ export class KickUserInterface extends AbstractUserInterface {
 					parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore)
 				}
 			}
+		}
+
+		if (parsedString.length > this.maxMessageLength) {
+			error(
+				`Message too long, it is ${parsedString.length} characters but max limit is ${this.maxMessageLength}.`
+			)
+			return
 		}
 
 		for (const emoteId of emotesInMessage) {
@@ -458,16 +441,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		originalTextFieldEl.innerHTML = oldMessage
 		originalTextFieldEl.dispatchEvent(new Event('input'))
 
-		// TODO fix this, need to wait till message is sent before re-enabling submit button or Kick will override it
-
 		if (oldMessage) {
 			this.elm.$submitButton.removeAttr('disabled')
-			// 	window.requestAnimationFrame(() => {
-			// 		this.elm.$submitButton.removeAttr('disabled')
-			// 	})
-			// 	setTimeout(() => {
-			// 		this.elm.$submitButton.removeAttr('disabled')
-			// 	}, 1000)
 		}
 	}
 
@@ -561,10 +536,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	destroy() {
 		if (this.abortController) this.abortController.abort()
+		if (this.chatObserver) this.chatObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
-		if (this.chatObserver) this.chatObserver.disconnect()
-		if (this.submitObserver) this.submitObserver.disconnect()
 	}
 }
