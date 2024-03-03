@@ -26,7 +26,7 @@ export class EmoteMenuButton extends AbstractComponent {
 	}
 
 	attachEventHandlers() {
-		this.eventBus.subscribe('nipah.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
+		this.eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
 			const filename = this.getFile()
 			this.$footerLogoBtn.attr('src', `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/btn/${filename}.png`)
 			this.$footerLogoBtn.removeClass()
@@ -34,7 +34,7 @@ export class EmoteMenuButton extends AbstractComponent {
 		})
 
 		$('.footer_logo_btn', this.$element).click(() => {
-			this.eventBus.publish('nipah.ui.footer.click')
+			this.eventBus.publish('ntv.ui.footer.click')
 		})
 	}
 

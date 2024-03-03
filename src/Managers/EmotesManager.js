@@ -6,10 +6,15 @@ export class EmotesManager {
 	providers = new Map()
 	loaded = false
 
-	constructor({ eventBus, settingsManager }, channelId) {
+	constructor({ database, eventBus, settingsManager }, channelId) {
+		this.database = database
 		this.eventBus = eventBus
 		this.settingsManager = settingsManager
-		this.datastore = new EmoteDatastore(eventBus, channelId)
+		this.datastore = new EmoteDatastore({ database, eventBus }, channelId)
+	}
+
+	initialize() {
+		this.datastore.loadDatabase().catch(err => error('Failed to load emote data from database.', err.message))
 	}
 
 	registerProvider(providerConstructor) {
@@ -63,7 +68,7 @@ export class EmotesManager {
 			}
 
 			this.loaded = true
-			eventBus.publish('nipah.providers.loaded')
+			eventBus.publish('ntv.providers.loaded')
 		})
 	}
 

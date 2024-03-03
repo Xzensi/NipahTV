@@ -12,6 +12,12 @@ export const assertArgument = (arg, type) => {
 	}
 }
 
+export const assertArray = arg => {
+	if (!Array.isArray(arg)) {
+		throw new Error('Invalid argument, expected array')
+	}
+}
+
 export const assertArgDefined = arg => {
 	if (typeof arg === 'undefined') {
 		throw new Error('Invalid argument, expected defined value')

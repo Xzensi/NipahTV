@@ -21,7 +21,7 @@ export class UsersDatastore {
 	constructor({ eventBus }) {
 		this.eventBus = eventBus
 
-		eventBus.subscribe('nipah.session.destroy', () => {
+		eventBus.subscribe('ntv.session.destroy', () => {
 			delete this.users
 			delete this.usersIdMap
 			delete this.usersNameMap

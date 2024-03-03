@@ -43,8 +43,6 @@ export class KickProvider extends AbstractProvider {
 			dataFiltered = dataFiltered.filter(entry => !entry.user_id)
 		}
 
-		log(dataFiltered)
-
 		const emoteSets = []
 		for (const dataSet of dataFiltered) {
 			const { emotes } = dataSet

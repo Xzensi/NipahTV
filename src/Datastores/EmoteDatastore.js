@@ -14,9 +14,8 @@ export class EmoteDatastore {
 	// Map of provider ids containing map of emote names to emote ids
 	emoteProviderNameMap = new Map()
 
-	// Map of pending history changes to be stored in localstorage
+	// Map of pending history changes to be synced to database
 	pendingHistoryChanges = {}
-	pendingNewEmoteHistory = false
 
 	fuse = new Fuse([], {
 		includeScore: true,
@@ -28,20 +27,19 @@ export class EmoteDatastore {
 		keys: [['name'], ['parts']]
 	})
 
-	constructor(eventBus, channelId) {
+	constructor({ database, eventBus }, channelId) {
+		this.database = database
 		this.eventBus = eventBus
 		this.channelId = channelId
-
-		this.loadDatabase()
 
 		// Periodically store the emote data to local storage
 		setInterval(() => {
 			this.storeDatabase()
-		}, 5 * 60 * 1000)
+		}, 10 * 1000) // 5 * 60 * 1000
 
 		setInterval(() => this.storeDatabase(), 3 * 1000)
 
-		eventBus.subscribe('nipah.session.destroy', () => {
+		eventBus.subscribe('ntv.session.destroy', () => {
 			delete this.emoteSets
 			delete this.emoteMap
 			delete this.emoteNameMap
@@ -50,45 +48,46 @@ export class EmoteDatastore {
 		})
 	}
 
-	loadDatabase() {
-		info('Reading out localstorage..')
+	async loadDatabase() {
+		info('Reading out emotes data from database..')
+		const { database, eventBus } = this
+		const emoteHistory = new Map()
 
-		const emoteHistory = localStorage.getItem(`nipah_${this.channelId}_emote_history`)
-		if (!emoteHistory) return
-
-		const emoteIds = emoteHistory.split(',')
-		this.emoteHistory = new Map()
-
-		for (const emoteId of emoteIds) {
-			const history = localStorage.getItem(`nipah_${this.channelId}_emote_history_${emoteId}`)
-			if (!history) continue
-			this.emoteHistory.set(emoteId, new SlidingTimestampWindow(history.split(',')))
-		}
-	}
-
-	storeDatabase() {
-		// info('Syncing localstorage..')
-
-		if (isEmpty(this.pendingHistoryChanges)) return
-
-		for (const emoteId in this.pendingHistoryChanges) {
-			const history = this.emoteHistory.get(emoteId)
-			if (!history) {
-				localStorage.removeItem(`nipah_${this.channelId}_emote_history_${emoteId}`)
-			} else {
-				const entries = history.entries
-				localStorage.setItem(`nipah_${this.channelId}_emote_history_${emoteId}`, entries)
+		const historyRecords = await database.emoteHistory.where('channelId').equals(this.channelId).toArray()
+		if (historyRecords.length) {
+			for (const record of historyRecords) {
+				emoteHistory.set(record.emoteId, new SlidingTimestampWindow(record.timestamps))
 			}
 		}
 
-		this.pendingHistoryChanges = {}
+		this.emoteHistory = emoteHistory
+		eventBus.publish('ntv.datastore.emotes.history.loaded')
+	}
 
-		// TODO deal with localStorage limits
-		if (this.pendingNewEmoteHistory) {
-			const emoteIdsWithHistory = Array.from(this.emoteHistory.keys())
-			localStorage.setItem(`nipah_${this.channelId}_emote_history`, emoteIdsWithHistory)
-			this.pendingNewEmoteHistory = false
+	storeDatabase() {
+		info('Syncing emote data to database..')
+
+		if (isEmpty(this.pendingHistoryChanges)) return
+
+		const { database } = this
+
+		const puts = [],
+			deletes = []
+
+		for (const emoteId in this.pendingHistoryChanges) {
+			const history = this.emoteHistory.get(emoteId)
+
+			if (!history) {
+				deletes.push({ channelId: this.channelId, emoteId })
+			} else {
+				puts.push({ channelId: this.channelId, emoteId, timestamps: history.entries })
+			}
 		}
+
+		if (puts.length) database.emoteHistory.bulkPut(puts)
+		if (deletes.length) database.emoteHistory.bulkDelete(deletes)
+
+		this.pendingHistoryChanges = {}
 	}
 
 	registerEmoteSet(emoteSet) {
@@ -133,7 +132,7 @@ export class EmoteDatastore {
 			this.fuse.add(emote)
 		})
 
-		this.eventBus.publish('nipah.datastore.emotes.changed')
+		this.eventBus.publish('ntv.datastore.emotes.changed')
 	}
 
 	getEmote(emoteId) {
@@ -157,7 +156,6 @@ export class EmoteDatastore {
 
 		if (!this.emoteHistory.has(emoteId) || historyEntries) {
 			this.emoteHistory.set(emoteId, new SlidingTimestampWindow(historyEntries))
-			if (!historyEntries) this.pendingNewEmoteHistory = true
 		}
 
 		// const emote = this.emoteMap.get(emoteId)
@@ -168,7 +166,7 @@ export class EmoteDatastore {
 
 		this.pendingHistoryChanges[emoteId] = true
 		this.emoteHistory.get(emoteId).addEntry()
-		this.eventBus.publish('nipah.datastore.emotes.history.changed', { emoteId })
+		this.eventBus.publish('ntv.datastore.emotes.history.changed', { emoteId })
 	}
 
 	removeEmoteHistory(emoteId) {
@@ -176,7 +174,7 @@ export class EmoteDatastore {
 
 		this.emoteHistory.delete(emoteId)
 		this.pendingHistoryChanges[emoteId] = true
-		this.eventBus.publish('nipah.datastore.emotes.history.changed', { emoteId })
+		this.eventBus.publish('ntv.datastore.emotes.history.changed', { emoteId })
 	}
 
 	searchEmotesWithWeightedHistory(searchVal) {

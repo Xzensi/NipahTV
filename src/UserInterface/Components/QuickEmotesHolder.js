@@ -27,10 +27,13 @@ export class QuickEmotesHolder extends AbstractComponent {
 			this.handleEmoteClick(emoteId, !!evt.ctrlKey)
 		})
 
-		// Wait for all emotes to load before we populate the quick emotes holder
-		this.eventBus.subscribe('nipah.providers.loaded', this.renderQuickEmotes.bind(this), true)
+		// Wait for emotes to be loaded from the database before rendering the quick emotes
+		this.eventBus.subscribeAllOnce(
+			['ntv.providers.loaded', 'ntv.datastore.emotes.history.loaded'],
+			this.renderQuickEmotes.bind(this)
+		)
 
-		this.eventBus.subscribe('nipah.ui.submit_input', this.renderQuickEmotes.bind(this))
+		this.eventBus.subscribe('ntv.ui.submit_input', this.renderQuickEmotes.bind(this))
 	}
 
 	handleEmoteClick(emoteId, sendImmediately = false) {
@@ -40,12 +43,12 @@ export class QuickEmotesHolder extends AbstractComponent {
 		const emote = emotesManager.getEmote(emoteId)
 		if (!emote) return error('Invalid emote')
 
-		this.eventBus.publish('nipah.ui.emote.click', { emoteId, sendImmediately })
+		this.eventBus.publish('ntv.ui.emote.click', { emoteId, sendImmediately })
 	}
 
 	renderQuickEmotes() {
 		const { emotesManager } = this
-		// TODO instead of looking through all emotes for history changes, use "nipah.datastore.emotes.history.changed" event to cache the emotes that are changed on "nipah.ui.submit_input"
+		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.history.changed" event to cache the emotes that are changed on "ntv.ui.submit_input"
 		const emoteHistory = emotesManager.getEmoteHistory()
 
 		if (emoteHistory.size) {

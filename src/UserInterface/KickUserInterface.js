@@ -81,7 +81,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 
 				// Render emotes in chat when providers are loaded
-				eventBus.subscribe('nipah.providers.loaded', this.renderEmotesInChat.bind(this), true)
+				eventBus.subscribe('ntv.providers.loaded', this.renderEmotesInChat.bind(this), true)
 
 				this.observeChatMessages()
 				this.loadScrollingBehaviour()
@@ -89,7 +89,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 
 		// Inject or send emote to chat on emote click
-		eventBus.subscribe('nipah.ui.emote.click', ({ emoteId, sendImmediately }) => {
+		eventBus.subscribe('ntv.ui.emote.click', ({ emoteId, sendImmediately }) => {
 			if (sendImmediately) {
 				this.sendEmoteToChat(emoteId)
 			} else {
@@ -98,19 +98,19 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 
 		// Add alternating background color to chat messages
-		eventBus.subscribe('nipah.settings.change.shared.chat.appearance.alternating_background', value => {
+		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.alternating_background', value => {
 			$('#chatroom').toggleClass('nipah__alternating-background', value)
 		})
 
 		// Add seperator lines to chat messages
-		eventBus.subscribe('nipah.settings.change.shared.chat.appearance.seperators', ({ value, prevValue }) => {
+		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.seperators', ({ value, prevValue }) => {
 			if (prevValue !== 'none') $('#chatroom').removeClass(`nipah__seperators-${prevValue}`)
 			if (!value || value === 'none') return
 			$('#chatroom').addClass(`nipah__seperators-${value}`)
 		})
 
 		// On sigterm signal, cleanup user interface
-		eventBus.subscribe('nipah.session.destroy', this.destroy.bind(this))
+		eventBus.subscribe('ntv.session.destroy', this.destroy.bind(this))
 	}
 
 	async loadEmoteMenu() {
@@ -465,7 +465,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Trigger input event to update submit button disabled state
 		textFieldEl.dispatchEvent(new Event('input'))
 
-		eventBus.publish('nipah.ui.submit_input')
+		eventBus.publish('ntv.ui.submit_input')
 	}
 
 	// Sends emote to chat and restores previous message
@@ -496,9 +496,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		this.messageHistory.resetCursor()
-
-		// Update emotes history when emotes are used
-		emotesManager.registerEmoteEngagement(emoteId)
 
 		const emoteEmbedding = emotesManager.getRenderableEmoteById(emoteId, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embed')

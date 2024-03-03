@@ -26,6 +26,7 @@ class NipahClient {
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
 		RELEASE_BRANCH: 'master',
+		DATABASE_NAME: 'NipahTV',
 		DEBUG: GM_getValue('environment')?.debug || false
 	}
 
@@ -50,34 +51,59 @@ class NipahClient {
 			return error('Unsupported platform', window.app_name)
 		}
 
+		this.setupDatabase()
 		this.attachPageNavigationListener()
-		this.setupClientEnvironment()
+		this.setupClientEnvironment().catch(err => error('Failed to setup client environment.', err.message))
+	}
+
+	setupDatabase() {
+		const { ENV_VARS } = this
+
+		// Open the database
+		const database = (this.database = new Dexie(ENV_VARS.DATABASE_NAME))
+		database.version(1).stores({
+			settings: '&id',
+			emoteHistory: '&[channelId+emoteId]'
+		})
 	}
 
 	async setupClientEnvironment() {
-		const { ENV_VARS } = this
+		const { ENV_VARS, database } = this
 
 		log('Setting up client environment..')
 
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
 
-		// TODO settings are not guaranteed to be loaded before the UI is initialized
-		//  (although with current localstorage implementation is synchronous)
-		const settingsManager = new SettingsManager(eventBus)
+		const settingsManager = new SettingsManager({ database, eventBus })
 		settingsManager.initialize()
-		settingsManager.loadSettings()
 
-		const channelData = await this.loadChannelData().catch(err => error(err.message))
-		if (!channelData) return error('Failed to load channel data, aborting..')
+		let channelData
+		let promises = []
+		promises.push(
+			settingsManager.loadSettings().catch(err => {
+				throw new Error(`Couldn't load settings. ${err}`)
+			})
+		)
+		promises.push(
+			this.loadChannelData().catch(err => {
+				throw new Error(`Couldn't load channel data. ${err}`)
+			})
+		)
+		await Promise.all(promises).then(values => {
+			channelData = values[1]
+		})
 
-		const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.channel_id)
+		if (!channelData) throw new Error('No channel data was found.')
+
+		const emotesManager = new EmotesManager({ database, eventBus, settingsManager }, channelData.channel_id)
+		emotesManager.initialize()
 
 		let userInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager })
 		} else {
-			return error('Platform has no user interface imlemented..', ENV_VARS.PLATFORM)
+			return error('Platform has no user interface implemented..', ENV_VARS.PLATFORM)
 		}
 
 		if (!this.stylesLoaded) {
@@ -216,7 +242,7 @@ class NipahClient {
 		log('Cleaning up old session..')
 
 		if (this.eventBus) {
-			this.eventBus.publish('nipah.session.destroy')
+			this.eventBus.publish('ntv.session.destroy')
 			this.eventBus.destroy()
 			this.eventBus = null
 		}

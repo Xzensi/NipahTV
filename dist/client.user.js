@@ -7,6 +7,7 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
+// @require https://unpkg.com/dexie/dist/dexie.js
 // @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f61951bf.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
@@ -88,6 +89,11 @@
   var assertArgument = (arg, type) => {
     if (typeof arg !== type) {
       throw new Error(`Invalid argument, expected ${type} but got ${typeof arg}`);
+    }
+  };
+  var assertArray = (arg) => {
+    if (!Array.isArray(arg)) {
+      throw new Error("Invalid argument, expected array");
     }
   };
   var assertArgDefined = (arg) => {
@@ -181,17 +187,69 @@
   // src/Classes/Publisher.js
   var Publisher = class {
     listeners = /* @__PURE__ */ new Map();
+    onceListeners = /* @__PURE__ */ new Map();
     firedEvents = /* @__PURE__ */ new Map();
-    subscribe(event, callback, triggerOnExistingEvent = false) {
+    subscribe(event, callback, triggerOnExistingEvent = false, once = false) {
+      assertArgument(event, "string");
+      assertArgument(callback, "function");
+      if (once) {
+        if (once && triggerOnExistingEvent && this.firedEvents.has(event)) {
+          callback(this.firedEvents.get(event).data);
+          return;
+        }
+        if (!this.onceListeners.has(event)) {
+          this.onceListeners.set(event, []);
+        }
+        this.onceListeners.get(event).push(callback);
+      } else {
+        if (!this.listeners.has(event)) {
+          this.listeners.set(event, []);
+        }
+        this.listeners.get(event).push(callback);
+        if (triggerOnExistingEvent && this.firedEvents.has(event)) {
+          callback(this.firedEvents.get(event).data);
+        }
+      }
+    }
+    // Fires callback immediately and only when all passed events have been fired
+    subscribeAllOnce(events, callback) {
+      assertArray(events, "array");
+      assertArgument(callback, "function");
+      const eventsFired = [];
+      for (const event of events) {
+        if (this.firedEvents.has(event)) {
+          eventsFired.push(event);
+        }
+      }
+      if (eventsFired.length === events.length) {
+        const data = events.map((event) => this.firedEvents.get(event).data);
+        callback(data);
+        return;
+      }
+      const eventListener = (data) => {
+        eventsFired.push(null);
+        if (eventsFired.length === events.length) {
+          const firedEventsData = events.map((event) => this.firedEvents.get(event).data);
+          callback(firedEventsData);
+        }
+      };
+      const remainingEvents = events.filter((event) => !eventsFired.includes(event));
+      for (const event of remainingEvents) {
+        this.subscribe(event, eventListener, true, true);
+      }
+    }
+    unsubscribe(event, callback) {
       assertArgument(event, "string");
       assertArgument(callback, "function");
       if (!this.listeners.has(event)) {
-        this.listeners.set(event, []);
+        return;
       }
-      this.listeners.get(event).push(callback);
-      if (triggerOnExistingEvent && this.firedEvents.has(event)) {
-        callback(this.firedEvents.get(event).data);
+      const listeners = this.listeners.get(event);
+      const index = listeners.indexOf(callback);
+      if (index === -1) {
+        return;
       }
+      listeners.splice(index, 1);
     }
     publish(topic, data) {
       if (!topic)
@@ -199,12 +257,20 @@
       const dto = new DTO(topic, data);
       this.firedEvents.set(dto.topic, dto);
       logEvent(dto.topic);
-      if (!this.listeners.has(dto.topic)) {
-        return;
+      if (this.onceListeners.has(dto.topic)) {
+        const listeners = this.onceListeners.get(dto.topic);
+        for (let i = 0; i < listeners.length; i++) {
+          const listener = listeners[i];
+          listener(dto.data);
+          listeners.splice(i, 1);
+          i--;
+        }
       }
-      const listeners = this.listeners.get(dto.topic);
-      for (const listener of listeners) {
-        listener(dto.data);
+      if (this.listeners.has(dto.topic)) {
+        const listeners = this.listeners.get(dto.topic);
+        for (const listener of listeners) {
+          listener(dto.data);
+        }
       }
     }
     destroy() {
@@ -244,7 +310,7 @@
     constructor(historyEntries) {
       this.timestampWindow = 14 * 24 * 60 * 60 * 1e3;
       this.entries = historyEntries || [];
-      this.maxEntries = 384;
+      this.maxEntries = 400;
       setInterval(this.update.bind(this), Math.random() * 40 * 1e3 + 30 * 60 * 1e3);
       setTimeout(this.update.bind(this), (Math.random() * 40 + 30) * 1e3);
     }
@@ -282,9 +348,8 @@
     splittedNamesMap = /* @__PURE__ */ new Map();
     // Map of provider ids containing map of emote names to emote ids
     emoteProviderNameMap = /* @__PURE__ */ new Map();
-    // Map of pending history changes to be stored in localstorage
+    // Map of pending history changes to be synced to database
     pendingHistoryChanges = {};
-    pendingNewEmoteHistory = false;
     fuse = new Fuse([], {
       includeScore: true,
       shouldSort: false,
@@ -294,15 +359,15 @@
       threshold: 0.35,
       keys: [["name"], ["parts"]]
     });
-    constructor(eventBus, channelId) {
+    constructor({ database, eventBus }, channelId) {
+      this.database = database;
       this.eventBus = eventBus;
       this.channelId = channelId;
-      this.loadDatabase();
       setInterval(() => {
         this.storeDatabase();
-      }, 5 * 60 * 1e3);
+      }, 10 * 1e3);
       setInterval(() => this.storeDatabase(), 3 * 1e3);
-      eventBus.subscribe("nipah.session.destroy", () => {
+      eventBus.subscribe("ntv.session.destroy", () => {
         delete this.emoteSets;
         delete this.emoteMap;
         delete this.emoteNameMap;
@@ -310,38 +375,38 @@
         delete this.pendingHistoryChanges;
       });
     }
-    loadDatabase() {
-      info("Reading out localstorage..");
-      const emoteHistory = localStorage.getItem(`nipah_${this.channelId}_emote_history`);
-      if (!emoteHistory)
-        return;
-      const emoteIds = emoteHistory.split(",");
-      this.emoteHistory = /* @__PURE__ */ new Map();
-      for (const emoteId of emoteIds) {
-        const history = localStorage.getItem(`nipah_${this.channelId}_emote_history_${emoteId}`);
-        if (!history)
-          continue;
-        this.emoteHistory.set(emoteId, new SlidingTimestampWindow(history.split(",")));
+    async loadDatabase() {
+      info("Reading out emotes data from database..");
+      const { database, eventBus } = this;
+      const emoteHistory = /* @__PURE__ */ new Map();
+      const historyRecords = await database.emoteHistory.where("channelId").equals(this.channelId).toArray();
+      if (historyRecords.length) {
+        for (const record of historyRecords) {
+          emoteHistory.set(record.emoteId, new SlidingTimestampWindow(record.timestamps));
+        }
       }
+      this.emoteHistory = emoteHistory;
+      eventBus.publish("ntv.datastore.emotes.history.loaded");
     }
     storeDatabase() {
+      info("Syncing emote data to database..");
       if (isEmpty(this.pendingHistoryChanges))
         return;
+      const { database } = this;
+      const puts = [], deletes = [];
       for (const emoteId in this.pendingHistoryChanges) {
         const history = this.emoteHistory.get(emoteId);
         if (!history) {
-          localStorage.removeItem(`nipah_${this.channelId}_emote_history_${emoteId}`);
+          deletes.push({ channelId: this.channelId, emoteId });
         } else {
-          const entries = history.entries;
-          localStorage.setItem(`nipah_${this.channelId}_emote_history_${emoteId}`, entries);
+          puts.push({ channelId: this.channelId, emoteId, timestamps: history.entries });
         }
       }
+      if (puts.length)
+        database.emoteHistory.bulkPut(puts);
+      if (deletes.length)
+        database.emoteHistory.bulkDelete(deletes);
       this.pendingHistoryChanges = {};
-      if (this.pendingNewEmoteHistory) {
-        const emoteIdsWithHistory = Array.from(this.emoteHistory.keys());
-        localStorage.setItem(`nipah_${this.channelId}_emote_history`, emoteIdsWithHistory);
-        this.pendingNewEmoteHistory = false;
-      }
     }
     registerEmoteSet(emoteSet) {
       for (const set of this.emoteSets) {
@@ -368,7 +433,7 @@
         providerEmoteNameMap.set(emote.name, emote.id);
         this.fuse.add(emote);
       });
-      this.eventBus.publish("nipah.datastore.emotes.changed");
+      this.eventBus.publish("ntv.datastore.emotes.changed");
     }
     getEmote(emoteId) {
       return this.emoteMap.get(emoteId);
@@ -387,19 +452,17 @@
         return error2("Undefined required emoteId argument");
       if (!this.emoteHistory.has(emoteId) || historyEntries) {
         this.emoteHistory.set(emoteId, new SlidingTimestampWindow(historyEntries));
-        if (!historyEntries)
-          this.pendingNewEmoteHistory = true;
       }
       this.pendingHistoryChanges[emoteId] = true;
       this.emoteHistory.get(emoteId).addEntry();
-      this.eventBus.publish("nipah.datastore.emotes.history.changed", { emoteId });
+      this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteId });
     }
     removeEmoteHistory(emoteId) {
       if (!emoteId)
         return error2("Undefined required emoteId argument");
       this.emoteHistory.delete(emoteId);
       this.pendingHistoryChanges[emoteId] = true;
-      this.eventBus.publish("nipah.datastore.emotes.history.changed", { emoteId });
+      this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteId });
     }
     searchEmotesWithWeightedHistory(searchVal) {
       return this.fuse.search(searchVal).sort((a, b) => {
@@ -469,10 +532,14 @@
   var EmotesManager = class {
     providers = /* @__PURE__ */ new Map();
     loaded = false;
-    constructor({ eventBus, settingsManager }, channelId) {
+    constructor({ database, eventBus, settingsManager }, channelId) {
+      this.database = database;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
-      this.datastore = new EmoteDatastore(eventBus, channelId);
+      this.datastore = new EmoteDatastore({ database, eventBus }, channelId);
+    }
+    initialize() {
+      this.datastore.loadDatabase().catch((err) => error2("Failed to load emote data from database.", err.message));
     }
     registerProvider(providerConstructor) {
       if (!(providerConstructor.prototype instanceof AbstractProvider)) {
@@ -516,7 +583,7 @@
           }
         }
         this.loaded = true;
-        eventBus.publish("nipah.providers.loaded");
+        eventBus.publish("ntv.providers.loaded");
       });
     }
     getEmote(emoteId) {
@@ -627,8 +694,11 @@
           return error2("Invalid emote id");
         this.handleEmoteClick(emoteId, !!evt.ctrlKey);
       });
-      this.eventBus.subscribe("nipah.providers.loaded", this.renderQuickEmotes.bind(this), true);
-      this.eventBus.subscribe("nipah.ui.submit_input", this.renderQuickEmotes.bind(this));
+      this.eventBus.subscribeAllOnce(
+        ["ntv.providers.loaded", "ntv.datastore.emotes.history.loaded"],
+        this.renderQuickEmotes.bind(this)
+      );
+      this.eventBus.subscribe("ntv.ui.submit_input", this.renderQuickEmotes.bind(this));
     }
     handleEmoteClick(emoteId, sendImmediately = false) {
       assertArgDefined(emoteId);
@@ -636,7 +706,7 @@
       const emote = emotesManager.getEmote(emoteId);
       if (!emote)
         return error2("Invalid emote");
-      this.eventBus.publish("nipah.ui.emote.click", { emoteId, sendImmediately });
+      this.eventBus.publish("ntv.ui.emote.click", { emoteId, sendImmediately });
     }
     renderQuickEmotes() {
       const { emotesManager } = this;
@@ -764,7 +834,7 @@
     });
     constructor({ eventBus }) {
       this.eventBus = eventBus;
-      eventBus.subscribe("nipah.session.destroy", () => {
+      eventBus.subscribe("ntv.session.destroy", () => {
         delete this.users;
         delete this.usersIdMap;
         delete this.usersNameMap;
@@ -864,14 +934,14 @@
       $("#chatroom-footer .send-row").prepend(this.$element);
     }
     attachEventHandlers() {
-      this.eventBus.subscribe("nipah.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
+      this.eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
         const filename = this.getFile();
         this.$footerLogoBtn.attr("src", `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/btn/${filename}.png`);
         this.$footerLogoBtn.removeClass();
         this.$footerLogoBtn.addClass(`footer_logo_btn ${filename.toLowerCase()}`);
       });
       $(".footer_logo_btn", this.$element).click(() => {
-        this.eventBus.publish("nipah.ui.footer.click");
+        this.eventBus.publish("ntv.ui.footer.click");
       });
     }
     getFile() {
@@ -1421,7 +1491,7 @@
         const emoteId = evt.target.getAttribute("data-emote-id");
         if (!emoteId)
           return error2("Invalid emote id");
-        eventBus.publish("nipah.ui.emote.click", { emoteId });
+        eventBus.publish("ntv.ui.emote.click", { emoteId });
         this.toggleShow();
       });
       this.$scrollable.on("mouseenter", "img", (evt) => {
@@ -1453,10 +1523,10 @@
       });
       this.$searchInput.on("input", this.handleSearchInput.bind(this));
       this.$settingsBtn.on("click", () => {
-        eventBus.publish("nipah.ui.settings.toggle_show");
+        eventBus.publish("ntv.ui.settings.toggle_show");
       });
-      eventBus.subscribe("nipah.providers.loaded", this.renderEmotes.bind(this), true);
-      eventBus.subscribe("nipah.ui.footer.click", this.toggleShow.bind(this));
+      eventBus.subscribe("ntv.providers.loaded", this.renderEmotes.bind(this), true);
+      eventBus.subscribe("ntv.ui.footer.click", this.toggleShow.bind(this));
       $(document).on("keydown", (evt) => {
         if (evt.which === 27)
           this.toggleShow(false);
@@ -1749,29 +1819,29 @@
         if (seperatorSettingVal && seperatorSettingVal !== "none") {
           $("#chatroom").addClass(`nipah__seperators-${seperatorSettingVal}`);
         }
-        eventBus.subscribe("nipah.providers.loaded", this.renderEmotesInChat.bind(this), true);
+        eventBus.subscribe("ntv.providers.loaded", this.renderEmotesInChat.bind(this), true);
         this.observeChatMessages();
         this.loadScrollingBehaviour();
       }).catch(() => {
       });
-      eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
+      eventBus.subscribe("ntv.ui.emote.click", ({ emoteId, sendImmediately }) => {
         if (sendImmediately) {
           this.sendEmoteToChat(emoteId);
         } else {
           this.insertEmoteInChat(emoteId);
         }
       });
-      eventBus.subscribe("nipah.settings.change.shared.chat.appearance.alternating_background", (value) => {
+      eventBus.subscribe("ntv.settings.change.shared.chat.appearance.alternating_background", (value) => {
         $("#chatroom").toggleClass("nipah__alternating-background", value);
       });
-      eventBus.subscribe("nipah.settings.change.shared.chat.appearance.seperators", ({ value, prevValue }) => {
+      eventBus.subscribe("ntv.settings.change.shared.chat.appearance.seperators", ({ value, prevValue }) => {
         if (prevValue !== "none")
           $("#chatroom").removeClass(`nipah__seperators-${prevValue}`);
         if (!value || value === "none")
           return;
         $("#chatroom").addClass(`nipah__seperators-${value}`);
       });
-      eventBus.subscribe("nipah.session.destroy", this.destroy.bind(this));
+      eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
     }
     async loadEmoteMenu() {
       const { eventBus, settingsManager, emotesManager } = this;
@@ -2047,7 +2117,7 @@
       textFieldEl.innerHTML = "";
       originalSubmitButtonEl.dispatchEvent(new Event("click"));
       textFieldEl.dispatchEvent(new Event("input"));
-      eventBus.publish("nipah.ui.submit_input");
+      eventBus.publish("ntv.ui.submit_input");
     }
     // Sends emote to chat and restores previous message
     sendEmoteToChat(emoteId) {
@@ -2069,7 +2139,6 @@
       assertArgDefined(emoteId);
       const { emotesManager } = this;
       this.messageHistory.resetCursor();
-      emotesManager.registerEmoteEngagement(emoteId);
       const emoteEmbedding = emotesManager.getRenderableEmoteById(emoteId, "nipah__inline-emote");
       if (!emoteEmbedding)
         return error2("Invalid emote embed");
@@ -2176,7 +2245,6 @@
       if (!includeOtherChannelEmoteSets) {
         dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
       }
-      log(dataFiltered);
       const emoteSets = [];
       for (const dataSet of dataFiltered) {
         const { emotes } = dataSet;
@@ -2922,7 +2990,8 @@
     isShowingModal = false;
     modal = null;
     isLoaded = false;
-    constructor(eventBus) {
+    constructor({ database, eventBus }) {
+      this.database = database;
       this.eventBus = eventBus;
     }
     initialize() {
@@ -2936,24 +3005,23 @@
           }
         }
       }
-      this.loadSettings();
-      eventBus.subscribe("nipah.ui.settings.toggle_show", this.handleShowModal.bind(this));
+      eventBus.subscribe("ntv.ui.settings.toggle_show", this.handleShowModal.bind(this));
     }
-    loadSettings() {
-      for (const [key, value] of this.settingsMap) {
-        const storedValue = localStorage.getItem("nipah.settings." + key);
-        if (typeof storedValue !== "undefined" && storedValue !== null) {
-          const parsedValue = storedValue === "true" ? true : storedValue === "false" ? false : storedValue;
-          this.settingsMap.set(key, parsedValue);
-        }
+    async loadSettings() {
+      const { database } = this;
+      const settingsRecords = await database.settings.toArray();
+      for (const setting of settingsRecords) {
+        const { id, value } = setting;
+        this.settingsMap.set(id, value);
       }
       this.isLoaded = true;
     }
     setSetting(key, value) {
       if (!key || typeof value === "undefined")
         return error2("Invalid setting key or value", key, value);
+      const { database } = this;
+      database.settings.put({ id: key, value }).catch((err) => error2("Failed to save setting to database.", err.message));
       this.settingsMap.set(key, value);
-      localStorage.setItem("nipah.settings." + key, value);
     }
     getSetting(key) {
       return this.settingsMap.get(key);
@@ -2990,7 +3058,7 @@
           const { id, value } = evt.detail;
           const prevValue = this.settingsMap.get(id);
           this.setSetting(id, value);
-          this.eventBus.publish("nipah.settings.change." + id, { value, prevValue });
+          this.eventBus.publish("ntv.settings.change." + id, { value, prevValue });
         });
       }
     }
@@ -3008,6 +3076,7 @@
       // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
       GITHUB_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV",
       RELEASE_BRANCH: "master",
+      DATABASE_NAME: "NipahTV",
       DEBUG: GM_getValue("environment")?.debug || false
     };
     stylesLoaded = false;
@@ -3026,26 +3095,49 @@
       } else {
         return error2("Unsupported platform", window2.app_name);
       }
+      this.setupDatabase();
       this.attachPageNavigationListener();
-      this.setupClientEnvironment();
+      this.setupClientEnvironment().catch((err) => error2("Failed to setup client environment.", err.message));
+    }
+    setupDatabase() {
+      const { ENV_VARS } = this;
+      const database = this.database = new Dexie(ENV_VARS.DATABASE_NAME);
+      database.version(1).stores({
+        settings: "&id",
+        emoteHistory: "&[channelId+emoteId]"
+      });
     }
     async setupClientEnvironment() {
-      const { ENV_VARS } = this;
+      const { ENV_VARS, database } = this;
       log("Setting up client environment..");
       const eventBus = new Publisher();
       this.eventBus = eventBus;
-      const settingsManager = new SettingsManager(eventBus);
+      const settingsManager = new SettingsManager({ database, eventBus });
       settingsManager.initialize();
-      settingsManager.loadSettings();
-      const channelData = await this.loadChannelData().catch((err) => error2(err.message));
+      let channelData;
+      let promises = [];
+      promises.push(
+        settingsManager.loadSettings().catch((err) => {
+          throw new Error(`Couldn't load settings. ${err}`);
+        })
+      );
+      promises.push(
+        this.loadChannelData().catch((err) => {
+          throw new Error(`Couldn't load channel data. ${err}`);
+        })
+      );
+      await Promise.all(promises).then((values) => {
+        channelData = values[1];
+      });
       if (!channelData)
-        return error2("Failed to load channel data, aborting..");
-      const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.channel_id);
+        throw new Error("No channel data was found.");
+      const emotesManager = new EmotesManager({ database, eventBus, settingsManager }, channelData.channel_id);
+      emotesManager.initialize();
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
       } else {
-        return error2("Platform has no user interface imlemented..", ENV_VARS.PLATFORM);
+        return error2("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
       }
       if (!this.stylesLoaded) {
         this.loadStyles().then(() => {
@@ -3155,7 +3247,7 @@
     cleanupOldClientEnvironment() {
       log("Cleaning up old session..");
       if (this.eventBus) {
-        this.eventBus.publish("nipah.session.destroy");
+        this.eventBus.publish("ntv.session.destroy");
         this.eventBus.destroy();
         this.eventBus = null;
       }
