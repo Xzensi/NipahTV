@@ -71,6 +71,8 @@ export class QuickEmotesHolder extends AbstractComponent {
 			return error('History encountered emote missing from provider emote sets..', emoteHid)
 		}
 
+		// TODO limit the amount of emotes that can be rendered in the quick emote holder
+
 		const emoteInSortingListIndex = this.sortingList.findIndex(entry => entry.hid === emoteHid)
 
 		if (emoteInSortingListIndex !== -1) {
@@ -92,10 +94,10 @@ export class QuickEmotesHolder extends AbstractComponent {
 			const insertIndex = this.getSortedEmoteIndex(emoteHid)
 
 			if (insertIndex !== -1) {
-				this.sortingList.splice(insertIndex, 0, { id: emoteHid, $emote: $emotePartial })
+				this.sortingList.splice(insertIndex, 0, { hid: emoteHid, $emote: $emotePartial })
 				this.$element.children().eq(insertIndex).before($emotePartial)
 			} else {
-				this.sortingList.push({ emoteHid, $emote: $emotePartial })
+				this.sortingList.push({ hid: emoteHid, $emote: $emotePartial })
 				this.$element.append($emotePartial)
 			}
 		}

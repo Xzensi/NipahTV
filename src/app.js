@@ -183,7 +183,6 @@ class NipahClient {
 			if (!responseChannelData.id || !responseChannelData.user_id) {
 				throw new Error('Invalid channel data')
 			}
-
 			const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`)
 			if (!responseChannelMeData) {
 				throw new Error('Failed to fetch channel me data')

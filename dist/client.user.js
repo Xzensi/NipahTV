@@ -863,10 +863,10 @@
         const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__emote"));
         const insertIndex = this.getSortedEmoteIndex(emoteHid);
         if (insertIndex !== -1) {
-          this.sortingList.splice(insertIndex, 0, { id: emoteHid, $emote: $emotePartial });
+          this.sortingList.splice(insertIndex, 0, { hid: emoteHid, $emote: $emotePartial });
           this.$element.children().eq(insertIndex).before($emotePartial);
         } else {
-          this.sortingList.push({ emoteHid, $emote: $emotePartial });
+          this.sortingList.push({ hid: emoteHid, $emote: $emotePartial });
           this.$element.append($emotePartial);
         }
       }
