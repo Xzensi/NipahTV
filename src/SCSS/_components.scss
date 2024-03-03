@@ -52,6 +52,19 @@ $spacing: 1em;
 	}
 }
 
+.nipah__number {
+	label {
+		margin-right: 1em;
+	}
+
+	input {
+		background-color: var(--background-color-shade-2);
+		padding: 0.618em 1.333em;
+		appearance: auto;
+		width: 7em;
+	}
+}
+
 .nipah__dropdown {
 	margin: $spacing 0;
 

@@ -3,6 +3,7 @@ import { CheckboxComponent } from '../CheckboxComponent'
 import { ColorComponent } from '../ColorComponent'
 import { log, error } from '../../../utils'
 import { DropdownComponent } from '../DropdownComponent'
+import { NumberComponent } from '../NumberComponent'
 
 export class SettingsModal extends AbstractModal {
 	constructor(eventBus, settingsOpts) {
@@ -102,6 +103,16 @@ export class SettingsModal extends AbstractModal {
 									setting.label,
 									setting.options,
 									settingValue
+								)
+								break
+							case 'number':
+								settingComponent = new NumberComponent(
+									setting.id,
+									setting.label,
+									settingValue,
+									setting.min,
+									setting.max,
+									setting.step
 								)
 								break
 							default:

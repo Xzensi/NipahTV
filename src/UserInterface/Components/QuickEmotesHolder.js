@@ -5,15 +5,17 @@ export class QuickEmotesHolder extends AbstractComponent {
 	// The sorting list shadow reflects the order of emotes in this.$element
 	sortingList = []
 
-	constructor({ eventBus, emotesManager }) {
+	constructor({ eventBus, settingsManager, emotesManager }) {
 		super()
 
 		this.eventBus = eventBus
+		this.settingsManager = settingsManager
 		this.emotesManager = emotesManager
 	}
 
 	render() {
-		this.$element = $(`<div class="nipah_client_quick_emotes_holder"></div>`)
+		const rows = this.settingsManager.getSetting('shared.chat.quick_emote_holder.appearance.rows') || 2
+		this.$element = $(`<div class="nipah_client_quick_emotes_holder" data-rows="${rows}"></div>`)
 
 		const $oldEmotesHolder = $('#chatroom-footer .quick-emotes-holder')
 		$oldEmotesHolder.after(this.$element)

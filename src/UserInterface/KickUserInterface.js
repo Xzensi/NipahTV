@@ -127,8 +127,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadQuickEmotesHolder() {
-		const { eventBus, emotesManager } = this
-		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
+		const { eventBus, settingsManager, emotesManager } = this
+		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, settingsManager, emotesManager }).init()
 	}
 
 	loadShadowProxySubmitButton() {

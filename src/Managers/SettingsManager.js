@@ -235,6 +235,24 @@ export class SettingsManager {
 					]
 				},
 				{
+					label: 'Quick emote holder',
+					children: [
+						{
+							label: 'Appearance',
+							children: [
+								{
+									label: 'Rows of emotes to display.',
+									id: 'shared.chat.quick_emote_holder.appearance.rows',
+									type: 'number',
+									default: 4,
+									min: 1,
+									max: 10
+								}
+							]
+						}
+					]
+				},
+				{
 					label: 'Emote providers',
 					children: [
 						{

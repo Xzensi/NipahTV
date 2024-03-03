@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.10
+// @version 1.1.11
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -796,13 +796,15 @@
   var QuickEmotesHolder = class extends AbstractComponent {
     // The sorting list shadow reflects the order of emotes in this.$element
     sortingList = [];
-    constructor({ eventBus, emotesManager }) {
+    constructor({ eventBus, settingsManager, emotesManager }) {
       super();
       this.eventBus = eventBus;
+      this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
     }
     render() {
-      this.$element = $(`<div class="nipah_client_quick_emotes_holder"></div>`);
+      const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
+      this.$element = $(`<div class="nipah_client_quick_emotes_holder" data-rows="${rows}"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
       $oldEmotesHolder.after(this.$element);
       $oldEmotesHolder.remove();
@@ -1974,8 +1976,8 @@
       this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus, settingsManager }).init();
     }
     async loadQuickEmotesHolder() {
-      const { eventBus, emotesManager } = this;
-      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
+      const { eventBus, settingsManager, emotesManager } = this;
+      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, settingsManager, emotesManager }).init();
     }
     loadShadowProxySubmitButton() {
       const $originalSubmitButton = this.elm.$originalSubmitButton = $("#chatroom-footer button.base-button");
@@ -2365,6 +2367,7 @@
       if (!includeOtherChannelEmoteSets) {
         dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
       }
+      log(dataFiltered);
       const emoteSets = [];
       for (const dataSet of dataFiltered) {
         const { emotes } = dataSet;
@@ -2383,9 +2386,15 @@
         }));
         const emoteSetIcon = dataSet?.user?.profile_pic || "https://kick.com/favicon.ico";
         const emoteSetName = dataSet.user ? `${dataSet.user.username}'s Emotes` : `${dataSet.name} Emotes`;
+        let orderIndex = 1;
+        if (dataSet.id === "Global") {
+          orderIndex = 5;
+        } else if (dataSet.id === "Emoji") {
+          orderIndex = 10;
+        }
         emoteSets.push({
           provider: this.id,
-          order_index: dataSet.id === "Global" ? 5 : 1,
+          order_index: orderIndex,
           name: emoteSetName,
           emotes: emotesMapped,
           is_current_channel: dataSet.id === channel_id,
@@ -2661,6 +2670,37 @@
     }
   };
 
+  // src/UserInterface/Components/NumberComponent.js
+  var NumberComponent = class extends AbstractComponent {
+    event = new EventTarget();
+    constructor(id, label, value = 0, min = 0, max = 10, step = 1) {
+      super();
+      this.id = id;
+      this.label = label;
+      this.value = value;
+      this.min = min;
+      this.max = max;
+      this.step = step;
+    }
+    render() {
+      this.$element = $(`
+            <div class="nipah__number">
+				<label for="${this.id}">${this.label}</label>
+                <input type="number" id="${this.id}" name="${this.id}" value="${this.value}" min="${this.min}" max="${this.max}" step="${this.step}">
+            </div>
+        `);
+    }
+    attachEventHandlers() {
+      this.$element.find("input").on("input", (e) => {
+        this.value = e.target.value;
+        this.event.dispatchEvent(new Event("change"));
+      });
+    }
+    getValue() {
+      return this.value;
+    }
+  };
+
   // src/UserInterface/Components/Modals/SettingsModal.js
   var SettingsModal = class extends AbstractModal {
     constructor(eventBus, settingsOpts) {
@@ -2741,6 +2781,16 @@
                     setting.label,
                     setting.options,
                     settingValue
+                  );
+                  break;
+                case "number":
+                  settingComponent = new NumberComponent(
+                    setting.id,
+                    setting.label,
+                    settingValue,
+                    setting.min,
+                    setting.max,
+                    setting.step
                   );
                   break;
                 default:
@@ -3009,6 +3059,24 @@
             ]
           },
           {
+            label: "Quick emote holder",
+            children: [
+              {
+                label: "Appearance",
+                children: [
+                  {
+                    label: "Rows of emotes to display.",
+                    id: "shared.chat.quick_emote_holder.appearance.rows",
+                    type: "number",
+                    default: 4,
+                    min: 1,
+                    max: 10
+                  }
+                ]
+              }
+            ]
+          },
+          {
             label: "Emote providers",
             children: [
               {
@@ -3190,7 +3258,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.10",
+      VERSION: "1.1.11",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
