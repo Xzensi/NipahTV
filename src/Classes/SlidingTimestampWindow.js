@@ -8,7 +8,7 @@ export class SlidingTimestampWindow {
 		this.entries = historyEntries || []
 
 		// UTF-16 character limit for localStorage (10MB)
-		this.maxEntries = 384 // 384 * (string) timestamp * 2 = 9984 bytes
+		this.maxEntries = 400 // 384 * (string) timestamp * 2 = 9984 bytes
 
 		setInterval(this.update.bind(this), Math.random() * 40 * 1000 + 30 * 60 * 1000)
 		setTimeout(this.update.bind(this), (Math.random() * 40 + 30) * 1000)

@@ -340,7 +340,8 @@ export class SettingsManager {
 	modal = null
 	isLoaded = false
 
-	constructor(eventBus) {
+	constructor({ database, eventBus }) {
+		this.database = database
 		this.eventBus = eventBus
 	}
 
@@ -357,31 +358,34 @@ export class SettingsManager {
 			}
 		}
 
-		this.loadSettings()
-
-		eventBus.subscribe('nipah.ui.settings.toggle_show', this.handleShowModal.bind(this))
+		eventBus.subscribe('ntv.ui.settings.toggle_show', this.handleShowModal.bind(this))
 
 		// setTimeout(() => {
 		// 	this.showModal()
 		// }, 10)
 	}
 
-	loadSettings() {
-		for (const [key, value] of this.settingsMap) {
-			const storedValue = localStorage.getItem('nipah.settings.' + key)
-			if (typeof storedValue !== 'undefined' && storedValue !== null) {
-				const parsedValue = storedValue === 'true' ? true : storedValue === 'false' ? false : storedValue
-				this.settingsMap.set(key, parsedValue)
-			}
+	async loadSettings() {
+		const { database } = this
+		const settingsRecords = await database.settings.toArray()
+
+		for (const setting of settingsRecords) {
+			const { id, value } = setting
+			this.settingsMap.set(id, value)
 		}
+
 		this.isLoaded = true
 	}
 
 	setSetting(key, value) {
 		if (!key || typeof value === 'undefined') return error('Invalid setting key or value', key, value)
+		const { database } = this
+
+		database.settings
+			.put({ id: key, value })
+			.catch(err => error('Failed to save setting to database.', err.message))
 
 		this.settingsMap.set(key, value)
-		localStorage.setItem('nipah.settings.' + key, value)
 	}
 
 	getSetting(key) {
@@ -424,8 +428,8 @@ export class SettingsManager {
 				const prevValue = this.settingsMap.get(id)
 
 				this.setSetting(id, value)
-				// this.eventBus.publish('nipah.settings.change', { id, value })
-				this.eventBus.publish('nipah.settings.change.' + id, { value, prevValue })
+				// this.eventBus.publish('ntv.settings.change', { id, value })
+				this.eventBus.publish('ntv.settings.change.' + id, { value, prevValue })
 			})
 		}
 	}

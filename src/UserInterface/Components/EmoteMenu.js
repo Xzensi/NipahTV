@@ -67,9 +67,9 @@ export class EmoteMenu extends AbstractComponent {
 
 		// Emote click event
 		this.$scrollable.on('click', 'img', evt => {
-			const emoteId = evt.target.getAttribute('data-emote-id')
-			if (!emoteId) return error('Invalid emote id')
-			eventBus.publish('nipah.ui.emote.click', { emoteId })
+			const emoteHid = evt.target.getAttribute('data-emote-hid')
+			if (!emoteHid) return error('Invalid emote hid')
+			eventBus.publish('ntv.ui.emote.click', { emoteHid })
 			this.toggleShow()
 		})
 
@@ -78,10 +78,10 @@ export class EmoteMenu extends AbstractComponent {
 			.on('mouseenter', 'img', evt => {
 				if (this.$tooltip) this.$tooltip.remove()
 
-				const emoteId = evt.target.getAttribute('data-emote-id')
-				if (!emoteId) return
+				const emoteHid = evt.target.getAttribute('data-emote-hid')
+				if (!emoteHid) return
 
-				const emote = this.emotesManager.getEmote(emoteId)
+				const emote = this.emotesManager.getEmote(emoteHid)
 				if (!emote) return
 
 				const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
@@ -109,11 +109,11 @@ export class EmoteMenu extends AbstractComponent {
 
 		// Settings button click event
 		this.$settingsBtn.on('click', () => {
-			eventBus.publish('nipah.ui.settings.toggle_show')
+			eventBus.publish('ntv.ui.settings.toggle_show')
 		})
 
-		eventBus.subscribe('nipah.providers.loaded', this.renderEmotes.bind(this), true)
-		eventBus.subscribe('nipah.ui.footer.click', this.toggleShow.bind(this))
+		eventBus.subscribe('ntv.providers.loaded', this.renderEmotes.bind(this), true)
+		eventBus.subscribe('ntv.ui.footer.click', this.toggleShow.bind(this))
 
 		// On escape key, close the modal
 		$(document).on('keydown', evt => {

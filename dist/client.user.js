@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.9
+// @version 1.1.10
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @require https://code.jquery.com/jquery-3.7.1.min.js
+// @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
+// @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f61951bf.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
@@ -90,6 +91,11 @@
       throw new Error(`Invalid argument, expected ${type} but got ${typeof arg}`);
     }
   };
+  var assertArray = (arg) => {
+    if (!Array.isArray(arg)) {
+      throw new Error("Invalid argument, expected array");
+    }
+  };
   var assertArgDefined = (arg) => {
     if (typeof arg === "undefined") {
       throw new Error("Invalid argument, expected defined value");
@@ -166,6 +172,126 @@
     }
     return parts;
   }
+  function md5(inputString) {
+    var hc = "0123456789abcdef";
+    function rh(n) {
+      var j, s = "";
+      for (j = 0; j <= 3; j++)
+        s += hc.charAt(n >> j * 8 + 4 & 15) + hc.charAt(n >> j * 8 & 15);
+      return s;
+    }
+    function ad(x2, y) {
+      var l = (x2 & 65535) + (y & 65535);
+      var m = (x2 >> 16) + (y >> 16) + (l >> 16);
+      return m << 16 | l & 65535;
+    }
+    function rl(n, c2) {
+      return n << c2 | n >>> 32 - c2;
+    }
+    function cm(q, a2, b2, x2, s, t) {
+      return ad(rl(ad(ad(a2, q), ad(x2, t)), s), b2);
+    }
+    function ff(a2, b2, c2, d2, x2, s, t) {
+      return cm(b2 & c2 | ~b2 & d2, a2, b2, x2, s, t);
+    }
+    function gg(a2, b2, c2, d2, x2, s, t) {
+      return cm(b2 & d2 | c2 & ~d2, a2, b2, x2, s, t);
+    }
+    function hh(a2, b2, c2, d2, x2, s, t) {
+      return cm(b2 ^ c2 ^ d2, a2, b2, x2, s, t);
+    }
+    function ii(a2, b2, c2, d2, x2, s, t) {
+      return cm(c2 ^ (b2 | ~d2), a2, b2, x2, s, t);
+    }
+    function sb(x2) {
+      var i2;
+      var nblk = (x2.length + 8 >> 6) + 1;
+      var blks = new Array(nblk * 16);
+      for (i2 = 0; i2 < nblk * 16; i2++)
+        blks[i2] = 0;
+      for (i2 = 0; i2 < x2.length; i2++)
+        blks[i2 >> 2] |= x2.charCodeAt(i2) << i2 % 4 * 8;
+      blks[i2 >> 2] |= 128 << i2 % 4 * 8;
+      blks[nblk * 16 - 2] = x2.length * 8;
+      return blks;
+    }
+    var i, x = sb("" + inputString), a = 1732584193, b = -271733879, c = -1732584194, d = 271733878, olda, oldb, oldc, oldd;
+    for (i = 0; i < x.length; i += 16) {
+      olda = a;
+      oldb = b;
+      oldc = c;
+      oldd = d;
+      a = ff(a, b, c, d, x[i + 0], 7, -680876936);
+      d = ff(d, a, b, c, x[i + 1], 12, -389564586);
+      c = ff(c, d, a, b, x[i + 2], 17, 606105819);
+      b = ff(b, c, d, a, x[i + 3], 22, -1044525330);
+      a = ff(a, b, c, d, x[i + 4], 7, -176418897);
+      d = ff(d, a, b, c, x[i + 5], 12, 1200080426);
+      c = ff(c, d, a, b, x[i + 6], 17, -1473231341);
+      b = ff(b, c, d, a, x[i + 7], 22, -45705983);
+      a = ff(a, b, c, d, x[i + 8], 7, 1770035416);
+      d = ff(d, a, b, c, x[i + 9], 12, -1958414417);
+      c = ff(c, d, a, b, x[i + 10], 17, -42063);
+      b = ff(b, c, d, a, x[i + 11], 22, -1990404162);
+      a = ff(a, b, c, d, x[i + 12], 7, 1804603682);
+      d = ff(d, a, b, c, x[i + 13], 12, -40341101);
+      c = ff(c, d, a, b, x[i + 14], 17, -1502002290);
+      b = ff(b, c, d, a, x[i + 15], 22, 1236535329);
+      a = gg(a, b, c, d, x[i + 1], 5, -165796510);
+      d = gg(d, a, b, c, x[i + 6], 9, -1069501632);
+      c = gg(c, d, a, b, x[i + 11], 14, 643717713);
+      b = gg(b, c, d, a, x[i + 0], 20, -373897302);
+      a = gg(a, b, c, d, x[i + 5], 5, -701558691);
+      d = gg(d, a, b, c, x[i + 10], 9, 38016083);
+      c = gg(c, d, a, b, x[i + 15], 14, -660478335);
+      b = gg(b, c, d, a, x[i + 4], 20, -405537848);
+      a = gg(a, b, c, d, x[i + 9], 5, 568446438);
+      d = gg(d, a, b, c, x[i + 14], 9, -1019803690);
+      c = gg(c, d, a, b, x[i + 3], 14, -187363961);
+      b = gg(b, c, d, a, x[i + 8], 20, 1163531501);
+      a = gg(a, b, c, d, x[i + 13], 5, -1444681467);
+      d = gg(d, a, b, c, x[i + 2], 9, -51403784);
+      c = gg(c, d, a, b, x[i + 7], 14, 1735328473);
+      b = gg(b, c, d, a, x[i + 12], 20, -1926607734);
+      a = hh(a, b, c, d, x[i + 5], 4, -378558);
+      d = hh(d, a, b, c, x[i + 8], 11, -2022574463);
+      c = hh(c, d, a, b, x[i + 11], 16, 1839030562);
+      b = hh(b, c, d, a, x[i + 14], 23, -35309556);
+      a = hh(a, b, c, d, x[i + 1], 4, -1530992060);
+      d = hh(d, a, b, c, x[i + 4], 11, 1272893353);
+      c = hh(c, d, a, b, x[i + 7], 16, -155497632);
+      b = hh(b, c, d, a, x[i + 10], 23, -1094730640);
+      a = hh(a, b, c, d, x[i + 13], 4, 681279174);
+      d = hh(d, a, b, c, x[i + 0], 11, -358537222);
+      c = hh(c, d, a, b, x[i + 3], 16, -722521979);
+      b = hh(b, c, d, a, x[i + 6], 23, 76029189);
+      a = hh(a, b, c, d, x[i + 9], 4, -640364487);
+      d = hh(d, a, b, c, x[i + 12], 11, -421815835);
+      c = hh(c, d, a, b, x[i + 15], 16, 530742520);
+      b = hh(b, c, d, a, x[i + 2], 23, -995338651);
+      a = ii(a, b, c, d, x[i + 0], 6, -198630844);
+      d = ii(d, a, b, c, x[i + 7], 10, 1126891415);
+      c = ii(c, d, a, b, x[i + 14], 15, -1416354905);
+      b = ii(b, c, d, a, x[i + 5], 21, -57434055);
+      a = ii(a, b, c, d, x[i + 12], 6, 1700485571);
+      d = ii(d, a, b, c, x[i + 3], 10, -1894986606);
+      c = ii(c, d, a, b, x[i + 10], 15, -1051523);
+      b = ii(b, c, d, a, x[i + 1], 21, -2054922799);
+      a = ii(a, b, c, d, x[i + 8], 6, 1873313359);
+      d = ii(d, a, b, c, x[i + 15], 10, -30611744);
+      c = ii(c, d, a, b, x[i + 6], 15, -1560198380);
+      b = ii(b, c, d, a, x[i + 13], 21, 1309151649);
+      a = ii(a, b, c, d, x[i + 4], 6, -145523070);
+      d = ii(d, a, b, c, x[i + 11], 10, -1120210379);
+      c = ii(c, d, a, b, x[i + 2], 15, 718787259);
+      b = ii(b, c, d, a, x[i + 9], 21, -343485551);
+      a = ad(a, olda);
+      b = ad(b, oldb);
+      c = ad(c, oldc);
+      d = ad(d, oldd);
+    }
+    return rh(a) + rh(b) + rh(c) + rh(d);
+  }
 
   // src/Classes/DTO.js
   var DTO = class {
@@ -181,17 +307,69 @@
   // src/Classes/Publisher.js
   var Publisher = class {
     listeners = /* @__PURE__ */ new Map();
+    onceListeners = /* @__PURE__ */ new Map();
     firedEvents = /* @__PURE__ */ new Map();
-    subscribe(event, callback, triggerOnExistingEvent = false) {
+    subscribe(event, callback, triggerOnExistingEvent = false, once = false) {
+      assertArgument(event, "string");
+      assertArgument(callback, "function");
+      if (once) {
+        if (once && triggerOnExistingEvent && this.firedEvents.has(event)) {
+          callback(this.firedEvents.get(event).data);
+          return;
+        }
+        if (!this.onceListeners.has(event)) {
+          this.onceListeners.set(event, []);
+        }
+        this.onceListeners.get(event).push(callback);
+      } else {
+        if (!this.listeners.has(event)) {
+          this.listeners.set(event, []);
+        }
+        this.listeners.get(event).push(callback);
+        if (triggerOnExistingEvent && this.firedEvents.has(event)) {
+          callback(this.firedEvents.get(event).data);
+        }
+      }
+    }
+    // Fires callback immediately and only when all passed events have been fired
+    subscribeAllOnce(events, callback) {
+      assertArray(events, "array");
+      assertArgument(callback, "function");
+      const eventsFired = [];
+      for (const event of events) {
+        if (this.firedEvents.has(event)) {
+          eventsFired.push(event);
+        }
+      }
+      if (eventsFired.length === events.length) {
+        const data = events.map((event) => this.firedEvents.get(event).data);
+        callback(data);
+        return;
+      }
+      const eventListener = (data) => {
+        eventsFired.push(null);
+        if (eventsFired.length === events.length) {
+          const firedEventsData = events.map((event) => this.firedEvents.get(event).data);
+          callback(firedEventsData);
+        }
+      };
+      const remainingEvents = events.filter((event) => !eventsFired.includes(event));
+      for (const event of remainingEvents) {
+        this.subscribe(event, eventListener, true, true);
+      }
+    }
+    unsubscribe(event, callback) {
       assertArgument(event, "string");
       assertArgument(callback, "function");
       if (!this.listeners.has(event)) {
-        this.listeners.set(event, []);
+        return;
       }
-      this.listeners.get(event).push(callback);
-      if (triggerOnExistingEvent && this.firedEvents.has(event)) {
-        callback(this.firedEvents.get(event).data);
+      const listeners = this.listeners.get(event);
+      const index = listeners.indexOf(callback);
+      if (index === -1) {
+        return;
       }
+      listeners.splice(index, 1);
     }
     publish(topic, data) {
       if (!topic)
@@ -199,12 +377,20 @@
       const dto = new DTO(topic, data);
       this.firedEvents.set(dto.topic, dto);
       logEvent(dto.topic);
-      if (!this.listeners.has(dto.topic)) {
-        return;
+      if (this.onceListeners.has(dto.topic)) {
+        const listeners = this.onceListeners.get(dto.topic);
+        for (let i = 0; i < listeners.length; i++) {
+          const listener = listeners[i];
+          listener(dto.data);
+          listeners.splice(i, 1);
+          i--;
+        }
       }
-      const listeners = this.listeners.get(dto.topic);
-      for (const listener of listeners) {
-        listener(dto.data);
+      if (this.listeners.has(dto.topic)) {
+        const listeners = this.listeners.get(dto.topic);
+        for (const listener of listeners) {
+          listener(dto.data);
+        }
       }
     }
     destroy() {
@@ -244,7 +430,7 @@
     constructor(historyEntries) {
       this.timestampWindow = 14 * 24 * 60 * 60 * 1e3;
       this.entries = historyEntries || [];
-      this.maxEntries = 384;
+      this.maxEntries = 400;
       setInterval(this.update.bind(this), Math.random() * 40 * 1e3 + 30 * 60 * 1e3);
       setTimeout(this.update.bind(this), (Math.random() * 40 + 30) * 1e3);
     }
@@ -280,11 +466,10 @@
     emoteEmoteSetMap = /* @__PURE__ */ new Map();
     // Map of emote names splitted into parts for more relevant search results
     splittedNamesMap = /* @__PURE__ */ new Map();
-    // Map of provider ids containing map of emote names to emote ids
+    // Map of provider ids containing map of emote names to emote hids
     emoteProviderNameMap = /* @__PURE__ */ new Map();
-    // Map of pending history changes to be stored in localstorage
+    // Map of pending history changes to be synced to database
     pendingHistoryChanges = {};
-    pendingNewEmoteHistory = false;
     fuse = new Fuse([], {
       includeScore: true,
       shouldSort: false,
@@ -294,15 +479,15 @@
       threshold: 0.35,
       keys: [["name"], ["parts"]]
     });
-    constructor(eventBus, channelId) {
+    constructor({ database, eventBus }, channelId) {
+      this.database = database;
       this.eventBus = eventBus;
       this.channelId = channelId;
-      this.loadDatabase();
       setInterval(() => {
         this.storeDatabase();
-      }, 5 * 60 * 1e3);
+      }, 10 * 1e3);
       setInterval(() => this.storeDatabase(), 3 * 1e3);
-      eventBus.subscribe("nipah.session.destroy", () => {
+      eventBus.subscribe("ntv.session.destroy", () => {
         delete this.emoteSets;
         delete this.emoteMap;
         delete this.emoteNameMap;
@@ -310,38 +495,38 @@
         delete this.pendingHistoryChanges;
       });
     }
-    loadDatabase() {
-      info("Reading out localstorage..");
-      const emoteHistory = localStorage.getItem(`nipah_${this.channelId}_emote_history`);
-      if (!emoteHistory)
-        return;
-      const emoteIds = emoteHistory.split(",");
-      this.emoteHistory = /* @__PURE__ */ new Map();
-      for (const emoteId of emoteIds) {
-        const history = localStorage.getItem(`nipah_${this.channelId}_emote_history_${emoteId}`);
-        if (!history)
-          continue;
-        this.emoteHistory.set(emoteId, new SlidingTimestampWindow(history.split(",")));
-      }
-    }
-    storeDatabase() {
-      if (isEmpty(this.pendingHistoryChanges))
-        return;
-      for (const emoteId in this.pendingHistoryChanges) {
-        const history = this.emoteHistory.get(emoteId);
-        if (!history) {
-          localStorage.removeItem(`nipah_${this.channelId}_emote_history_${emoteId}`);
-        } else {
-          const entries = history.entries;
-          localStorage.setItem(`nipah_${this.channelId}_emote_history_${emoteId}`, entries);
+    async loadDatabase() {
+      info("Reading out emotes data from database..");
+      const { database, eventBus } = this;
+      const emoteHistory = /* @__PURE__ */ new Map();
+      const historyRecords = await database.emoteHistory.where("channelId").equals(this.channelId).toArray();
+      if (historyRecords.length) {
+        for (const record of historyRecords) {
+          emoteHistory.set(record.emoteHid, new SlidingTimestampWindow(record.timestamps));
         }
       }
-      this.pendingHistoryChanges = {};
-      if (this.pendingNewEmoteHistory) {
-        const emoteIdsWithHistory = Array.from(this.emoteHistory.keys());
-        localStorage.setItem(`nipah_${this.channelId}_emote_history`, emoteIdsWithHistory);
-        this.pendingNewEmoteHistory = false;
+      this.emoteHistory = emoteHistory;
+      eventBus.publish("ntv.datastore.emotes.history.loaded");
+    }
+    storeDatabase() {
+      info("Syncing emote data to database..");
+      if (isEmpty(this.pendingHistoryChanges))
+        return;
+      const { database } = this;
+      const puts = [], deletes = [];
+      for (const emoteHid in this.pendingHistoryChanges) {
+        const history = this.emoteHistory.get(emoteHid);
+        if (!history) {
+          deletes.push({ channelId: this.channelId, emoteHid });
+        } else {
+          puts.push({ channelId: this.channelId, emoteHid, timestamps: history.entries });
+        }
       }
+      if (puts.length)
+        database.emoteHistory.bulkPut(puts);
+      if (deletes.length)
+        database.emoteHistory.bulkDelete(deletes);
+      this.pendingHistoryChanges = {};
     }
     registerEmoteSet(emoteSet) {
       for (const set of this.emoteSets) {
@@ -351,60 +536,58 @@
       }
       this.emoteSets.push(emoteSet);
       emoteSet.emotes.forEach((emote) => {
-        if (!emote.id || typeof emote.id !== "string" || !emote.name || typeof emote.provider === "undefined") {
+        if (!emote.hid || !emote.id || typeof emote.id !== "string" || !emote.name || typeof emote.provider === "undefined") {
           return error2("Invalid emote data", emote);
         }
         if (this.emoteNameMap.has(emote.name)) {
           return log(`Skipping duplicate emote ${emote.name}.`);
         }
-        this.emoteMap.set("" + emote.id, emote);
+        this.emoteMap.set("" + emote.hid, emote);
         this.emoteNameMap.set(emote.name, emote);
-        this.emoteEmoteSetMap.set(emote.id, emoteSet);
+        this.emoteEmoteSetMap.set(emote.hid, emoteSet);
         let providerEmoteNameMap = this.emoteProviderNameMap.get(emote.provider);
         if (!providerEmoteNameMap) {
           providerEmoteNameMap = /* @__PURE__ */ new Map();
           this.emoteProviderNameMap.set(emote.provider, providerEmoteNameMap);
         }
-        providerEmoteNameMap.set(emote.name, emote.id);
+        providerEmoteNameMap.set(emote.name, emote.hid);
         this.fuse.add(emote);
       });
-      this.eventBus.publish("nipah.datastore.emotes.changed");
+      this.eventBus.publish("ntv.datastore.emotes.changed");
     }
-    getEmote(emoteId) {
-      return this.emoteMap.get(emoteId);
+    getEmote(emoteHid) {
+      return this.emoteMap.get(emoteHid);
     }
-    getEmoteIdByName(emoteName) {
-      return this.emoteNameMap.get(emoteName)?.id;
+    getEmoteHidByName(emoteName) {
+      return this.emoteNameMap.get(emoteName)?.hid;
     }
-    getEmoteIdByProviderName(providerId, emoteName) {
+    getEmoteHidByProviderName(providerId, emoteName) {
       return this.emoteProviderNameMap.get(providerId)?.get(emoteName);
     }
-    getEmoteHistoryCount(emoteId) {
-      return this.emoteHistory.get(emoteId)?.getTotal() || 0;
+    getEmoteHistoryCount(emoteHid) {
+      return this.emoteHistory.get(emoteHid)?.getTotal() || 0;
     }
-    registerEmoteEngagement(emoteId, historyEntries = null) {
-      if (!emoteId)
-        return error2("Undefined required emoteId argument");
-      if (!this.emoteHistory.has(emoteId) || historyEntries) {
-        this.emoteHistory.set(emoteId, new SlidingTimestampWindow(historyEntries));
-        if (!historyEntries)
-          this.pendingNewEmoteHistory = true;
+    registerEmoteEngagement(emoteHid, historyEntries = null) {
+      if (!emoteHid)
+        return error2("Undefined required emoteHid argument");
+      if (!this.emoteHistory.has(emoteHid) || historyEntries) {
+        this.emoteHistory.set(emoteHid, new SlidingTimestampWindow(historyEntries));
       }
-      this.pendingHistoryChanges[emoteId] = true;
-      this.emoteHistory.get(emoteId).addEntry();
-      this.eventBus.publish("nipah.datastore.emotes.history.changed", { emoteId });
+      this.pendingHistoryChanges[emoteHid] = true;
+      this.emoteHistory.get(emoteHid).addEntry();
+      this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteHid });
     }
-    removeEmoteHistory(emoteId) {
-      if (!emoteId)
-        return error2("Undefined required emoteId argument");
-      this.emoteHistory.delete(emoteId);
-      this.pendingHistoryChanges[emoteId] = true;
-      this.eventBus.publish("nipah.datastore.emotes.history.changed", { emoteId });
+    removeEmoteHistory(emoteHid) {
+      if (!emoteHid)
+        return error2("Undefined required emoteHid argument");
+      this.emoteHistory.delete(emoteHid);
+      this.pendingHistoryChanges[emoteHid] = true;
+      this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteHid });
     }
     searchEmotesWithWeightedHistory(searchVal) {
       return this.fuse.search(searchVal).sort((a, b) => {
-        const aHistory = (this.emoteHistory.get(a.item.id)?.getTotal() || 0) + 1;
-        const bHistory = (this.emoteHistory.get(b.item.id)?.getTotal() || 0) + 1;
+        const aHistory = (this.emoteHistory.get(a.item.hid)?.getTotal() || 0) + 1;
+        const bHistory = (this.emoteHistory.get(b.item.hid)?.getTotal() || 0) + 1;
         const aTotalScore = a.score - 1 - 1 / bHistory;
         const bTotalScore = b.score - 1 - 1 / aHistory;
         if (aTotalScore < bTotalScore)
@@ -438,8 +621,8 @@
         let relevancyDelta = (a.score - b.score) * scoreWeight;
         relevancyDelta += (aPartsLength - bPartsLength) * partsWeight;
         relevancyDelta += (aItem.name.length - bItem.name.length) * nameLengthWeight;
-        const aEmoteSet = this.emoteEmoteSetMap.get(aItem.id);
-        const bEmoteSet = this.emoteEmoteSetMap.get(bItem.id);
+        const aEmoteSet = this.emoteEmoteSetMap.get(aItem.hid);
+        const bEmoteSet = this.emoteEmoteSetMap.get(bItem.hid);
         if (biasSubscribedChannels) {
           const aIsSubscribedChannelEmote = aEmoteSet.is_subscribed;
           const bIsSubscribedChannelEmote = bEmoteSet.is_subscribed;
@@ -469,10 +652,14 @@
   var EmotesManager = class {
     providers = /* @__PURE__ */ new Map();
     loaded = false;
-    constructor({ eventBus, settingsManager }, channelId) {
+    constructor({ database, eventBus, settingsManager }, channelId) {
+      this.database = database;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
-      this.datastore = new EmoteDatastore(eventBus, channelId);
+      this.datastore = new EmoteDatastore({ database, eventBus }, channelId);
+    }
+    initialize() {
+      this.datastore.loadDatabase().catch((err) => error2("Failed to load emote data from database.", err.message));
     }
     registerProvider(providerConstructor) {
       if (!(providerConstructor.prototype instanceof AbstractProvider)) {
@@ -516,20 +703,20 @@
           }
         }
         this.loaded = true;
-        eventBus.publish("nipah.providers.loaded");
+        eventBus.publish("ntv.providers.loaded");
       });
     }
-    getEmote(emoteId) {
-      return this.datastore.getEmote("" + emoteId);
+    getEmote(emoteHid) {
+      return this.datastore.getEmote("" + emoteHid);
     }
-    getEmoteIdByName(emoteName) {
-      return this.datastore.getEmoteIdByName(emoteName);
+    getEmoteHidByName(emoteName) {
+      return this.datastore.getEmoteHidByName(emoteName);
     }
-    getEmoteIdByProviderName(providerId, emoteName) {
-      return this.datastore.getEmoteIdByProviderName(providerId, emoteName);
+    getEmoteHidByProviderName(providerId, emoteName) {
+      return this.datastore.getEmoteHidByProviderName(providerId, emoteName);
     }
-    getEmoteSrc(emoteId) {
-      const emote = this.getEmote(emoteId);
+    getEmoteSrc(emoteHid) {
+      const emote = this.getEmote(emoteHid);
       if (!emote)
         return error2("Emote not found");
       return this.providers.get(emote.provider).getEmoteSrc(emote);
@@ -540,8 +727,8 @@
     getEmoteHistory() {
       return this.datastore.emoteHistory;
     }
-    getEmoteHistoryCount(emoteId) {
-      return this.datastore.getEmoteHistoryCount(emoteId);
+    getEmoteHistoryCount(emoteHid) {
+      return this.datastore.getEmoteHistoryCount(emoteHid);
     }
     getRenderableEmote(emote, classes = "") {
       if (!emote)
@@ -549,15 +736,15 @@
       const provider = this.providers.get(emote.provider);
       return provider.getRenderableEmote(emote, classes);
     }
-    getRenderableEmoteById(emoteId, classes = "") {
-      const emote = this.getEmote(emoteId);
+    getRenderableEmoteByHid(emoteHid, classes = "") {
+      const emote = this.getEmote(emoteHid);
       if (!emote)
         return error2("Emote not found");
       const provider = this.providers.get(emote.provider);
       return provider.getRenderableEmote(emote, classes);
     }
-    getEmoteEmbeddable(emoteId, spacingBefore = false) {
-      const emote = this.getEmote(emoteId);
+    getEmoteEmbeddable(emoteHid, spacingBefore = false) {
+      const emote = this.getEmote(emoteHid);
       if (!emote)
         return error2("Emote not found");
       const provider = this.providers.get(emote.provider);
@@ -567,11 +754,11 @@
         return provider.getEmbeddableEmote(emote);
       }
     }
-    registerEmoteEngagement(emoteId) {
-      this.datastore.registerEmoteEngagement(emoteId);
+    registerEmoteEngagement(emoteHid) {
+      this.datastore.registerEmoteEngagement(emoteHid);
     }
-    removeEmoteHistory(emoteId) {
-      this.datastore.removeEmoteHistory(emoteId);
+    removeEmoteHistory(emoteHid) {
+      this.datastore.removeEmoteHistory(emoteHid);
     }
     searchEmotes(search, limit = 0) {
       const { settingsManager } = this;
@@ -622,46 +809,49 @@
     }
     attachEventHandlers() {
       this.$element.on("click", "img", (evt) => {
-        const emoteId = evt.target.getAttribute("data-emote-id");
-        if (!emoteId)
-          return error2("Invalid emote id");
-        this.handleEmoteClick(emoteId, !!evt.ctrlKey);
+        const emoteHid = evt.target.getAttribute("data-emote-hid");
+        if (!emoteHid)
+          return error2("Invalid emote hid");
+        this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
       });
-      this.eventBus.subscribe("nipah.providers.loaded", this.renderQuickEmotes.bind(this), true);
-      this.eventBus.subscribe("nipah.ui.submit_input", this.renderQuickEmotes.bind(this));
+      this.eventBus.subscribeAllOnce(
+        ["ntv.providers.loaded", "ntv.datastore.emotes.history.loaded"],
+        this.renderQuickEmotes.bind(this)
+      );
+      this.eventBus.subscribe("ntv.ui.submit_input", this.renderQuickEmotes.bind(this));
     }
-    handleEmoteClick(emoteId, sendImmediately = false) {
-      assertArgDefined(emoteId);
+    handleEmoteClick(emoteHid, sendImmediately = false) {
+      assertArgDefined(emoteHid);
       const { emotesManager } = this;
-      const emote = emotesManager.getEmote(emoteId);
+      const emote = emotesManager.getEmote(emoteHid);
       if (!emote)
         return error2("Invalid emote");
-      this.eventBus.publish("nipah.ui.emote.click", { emoteId, sendImmediately });
+      this.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
     }
     renderQuickEmotes() {
       const { emotesManager } = this;
       const emoteHistory = emotesManager.getEmoteHistory();
       if (emoteHistory.size) {
-        for (const [emoteId, history] of emoteHistory) {
-          this.renderQuickEmote(emoteId);
+        for (const [emoteHid, history] of emoteHistory) {
+          this.renderQuickEmote(emoteHid);
         }
       }
     }
     /**
      * Move the emote to the correct position in the emote holder, append if new emote.
      */
-    renderQuickEmote(emoteId) {
+    renderQuickEmote(emoteHid) {
       const { emotesManager } = this;
-      const emote = emotesManager.getEmote(emoteId);
+      const emote = emotesManager.getEmote(emoteHid);
       if (!emote) {
-        return error2("History encountered emote missing from provider emote sets..", emoteId);
+        return error2("History encountered emote missing from provider emote sets..", emoteHid);
       }
-      const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.id === emoteId);
+      const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.hid === emoteHid);
       if (emoteInSortingListIndex !== -1) {
         const emoteToSort = this.sortingList[emoteInSortingListIndex];
         emoteToSort.$emote.remove();
         this.sortingList.splice(emoteInSortingListIndex, 1);
-        const insertIndex = this.getSortedEmoteIndex(emoteId);
+        const insertIndex = this.getSortedEmoteIndex(emoteHid);
         if (insertIndex !== -1) {
           this.sortingList.splice(insertIndex, 0, emoteToSort);
           this.$element.children().eq(insertIndex).before(emoteToSort.$emote);
@@ -670,22 +860,22 @@
           this.$element.append(emoteToSort.$emote);
         }
       } else {
-        const $emotePartial = $(emotesManager.getRenderableEmoteById(emoteId, "nipah__emote"));
-        const insertIndex = this.getSortedEmoteIndex(emoteId);
+        const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__emote"));
+        const insertIndex = this.getSortedEmoteIndex(emoteHid);
         if (insertIndex !== -1) {
-          this.sortingList.splice(insertIndex, 0, { id: emoteId, $emote: $emotePartial });
+          this.sortingList.splice(insertIndex, 0, { hid: emoteHid, $emote: $emotePartial });
           this.$element.children().eq(insertIndex).before($emotePartial);
         } else {
-          this.sortingList.push({ id: emoteId, $emote: $emotePartial });
+          this.sortingList.push({ hid: emoteHid, $emote: $emotePartial });
           this.$element.append($emotePartial);
         }
       }
     }
-    getSortedEmoteIndex(emoteId) {
+    getSortedEmoteIndex(emoteHid) {
       const { emotesManager } = this;
-      const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteId);
+      const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteHid);
       return this.sortingList.findIndex((entry) => {
-        return emotesManager.getEmoteHistoryCount(entry.id) < emoteHistoryCount;
+        return emotesManager.getEmoteHistoryCount(entry.hid) < emoteHistoryCount;
       });
     }
     destroy() {
@@ -764,7 +954,7 @@
     });
     constructor({ eventBus }) {
       this.eventBus = eventBus;
-      eventBus.subscribe("nipah.session.destroy", () => {
+      eventBus.subscribe("ntv.session.destroy", () => {
         delete this.users;
         delete this.usersIdMap;
         delete this.usersNameMap;
@@ -832,10 +1022,10 @@
       const tokens = text.split(" ");
       for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i];
-        const emoteId = emotesManager.getEmoteIdByName(token);
-        if (emoteId) {
-          const emoteRender = emotesManager.getRenderableEmoteById(emoteId, "chat-emote");
-          tokens[i] = `<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`;
+        const emoteHid = emotesManager.getEmoteHidByName(token);
+        if (emoteHid) {
+          const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "chat-emote");
+          tokens[i] = `<div class="nipah__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`;
         }
       }
       return tokens.join(" ");
@@ -864,14 +1054,14 @@
       $("#chatroom-footer .send-row").prepend(this.$element);
     }
     attachEventHandlers() {
-      this.eventBus.subscribe("nipah.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
+      this.eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
         const filename = this.getFile();
         this.$footerLogoBtn.attr("src", `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/btn/${filename}.png`);
         this.$footerLogoBtn.removeClass();
         this.$footerLogoBtn.addClass(`footer_logo_btn ${filename.toLowerCase()}`);
       });
       $(".footer_logo_btn", this.$element).click(() => {
-        this.eventBus.publish("nipah.ui.footer.click");
+        this.eventBus.publish("ntv.ui.footer.click");
       });
     }
     getFile() {
@@ -1108,7 +1298,7 @@
   // src/Classes/TabCompletor.js
   var TabCompletor = class {
     suggestions = [];
-    suggestionIds = [];
+    suggestionHids = [];
     selectedIndex = 0;
     isShowingModal = false;
     mode = null;
@@ -1135,12 +1325,12 @@
         this.mode = "mention";
         const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20);
         this.suggestions = searchResults.map((result) => result.item.name);
-        this.suggestionIds = searchResults.map((result) => result.item.id);
+        this.suggestionHids = searchResults.map((result) => result.item.id);
         this.$list.empty();
         if (this.suggestions.length) {
           for (let i = 0; i < this.suggestions.length; i++) {
             const userName = this.suggestions[i];
-            const userId = this.suggestionIds[i];
+            const userId = this.suggestionHids[i];
             this.$list.append(`<li data-user-id="${userId}"><span>@${userName}</span></li>`);
           }
           this.$list.find("li").eq(this.selectedIndex).addClass("selected");
@@ -1151,14 +1341,14 @@
         this.mode = "emote";
         const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20);
         this.suggestions = searchResults.map((result) => result.item.name);
-        this.suggestionIds = searchResults.map((result) => this.emotesManager.getEmoteIdByName(result.item.name));
+        this.suggestionHids = searchResults.map((result) => this.emotesManager.getEmoteHidByName(result.item.name));
         this.$list.empty();
         if (this.suggestions.length) {
           for (let i = 0; i < this.suggestions.length; i++) {
             const emoteName = this.suggestions[i];
-            const emoteId = this.suggestionIds[i];
-            const emoteRender = this.emotesManager.getRenderableEmoteById(emoteId, "nipah__emote");
-            this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`);
+            const emoteHid = this.suggestionHids[i];
+            const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__emote");
+            this.$list.append(`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`);
           }
           this.$list.find("li").eq(this.selectedIndex).addClass("selected");
           this.renderInlineEmote();
@@ -1243,7 +1433,7 @@
       this.scrollSelectedIntoView();
     }
     renderInlineUserMention() {
-      const userId = this.suggestionIds[this.selectedIndex];
+      const userId = this.suggestionHids[this.selectedIndex];
       if (!userId)
         return;
       const userName = this.suggestions[this.selectedIndex];
@@ -1265,11 +1455,11 @@
       }
     }
     renderInlineEmote() {
-      const emoteId = this.suggestionIds[this.selectedIndex];
-      if (!emoteId)
+      const emoteHid = this.suggestionHids[this.selectedIndex];
+      if (!emoteHid)
         return;
       if (this.embedNode) {
-        const emoteEmbedding = this.emotesManager.getRenderableEmoteById("" + emoteId, "nipah__inline-emote");
+        const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "nipah__inline-emote");
         if (!emoteEmbedding)
           return error2("Invalid emote embedding");
         const embedNode = jQuery.parseHTML(emoteEmbedding)[0];
@@ -1278,11 +1468,11 @@
         this.embedNode = embedNode;
         Caret.collapseToEndOfNode(embedNode);
       } else {
-        this.insertEmote(emoteId);
+        this.insertEmote(emoteHid);
       }
     }
-    insertEmote(emoteId) {
-      const emoteEmbedding = this.emotesManager.getRenderableEmoteById("" + emoteId, "nipah__inline-emote");
+    insertEmote(emoteHid) {
+      const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "nipah__inline-emote");
       if (!emoteEmbedding)
         return error2("Invalid emote embedding");
       const { start, end, node } = this;
@@ -1418,19 +1608,19 @@
     attachEventHandlers() {
       const { eventBus, settingsManager } = this;
       this.$scrollable.on("click", "img", (evt) => {
-        const emoteId = evt.target.getAttribute("data-emote-id");
-        if (!emoteId)
-          return error2("Invalid emote id");
-        eventBus.publish("nipah.ui.emote.click", { emoteId });
+        const emoteHid = evt.target.getAttribute("data-emote-hid");
+        if (!emoteHid)
+          return error2("Invalid emote hid");
+        eventBus.publish("ntv.ui.emote.click", { emoteHid });
         this.toggleShow();
       });
       this.$scrollable.on("mouseenter", "img", (evt) => {
         if (this.$tooltip)
           this.$tooltip.remove();
-        const emoteId = evt.target.getAttribute("data-emote-id");
-        if (!emoteId)
+        const emoteHid = evt.target.getAttribute("data-emote-hid");
+        if (!emoteHid)
           return;
-        const emote = this.emotesManager.getEmote(emoteId);
+        const emote = this.emotesManager.getEmote(emoteHid);
         if (!emote)
           return;
         const imageInTooltop = settingsManager.getSetting("shared.chat.tooltips.images");
@@ -1453,10 +1643,10 @@
       });
       this.$searchInput.on("input", this.handleSearchInput.bind(this));
       this.$settingsBtn.on("click", () => {
-        eventBus.publish("nipah.ui.settings.toggle_show");
+        eventBus.publish("ntv.ui.settings.toggle_show");
       });
-      eventBus.subscribe("nipah.providers.loaded", this.renderEmotes.bind(this), true);
-      eventBus.subscribe("nipah.ui.footer.click", this.toggleShow.bind(this));
+      eventBus.subscribe("ntv.providers.loaded", this.renderEmotes.bind(this), true);
+      eventBus.subscribe("ntv.ui.footer.click", this.toggleShow.bind(this));
       $(document).on("keydown", (evt) => {
         if (evt.which === 27)
           this.toggleShow(false);
@@ -1749,29 +1939,29 @@
         if (seperatorSettingVal && seperatorSettingVal !== "none") {
           $("#chatroom").addClass(`nipah__seperators-${seperatorSettingVal}`);
         }
-        eventBus.subscribe("nipah.providers.loaded", this.renderEmotesInChat.bind(this), true);
+        eventBus.subscribe("ntv.providers.loaded", this.renderEmotesInChat.bind(this), true);
         this.observeChatMessages();
         this.loadScrollingBehaviour();
       }).catch(() => {
       });
-      eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
+      eventBus.subscribe("ntv.ui.emote.click", ({ emoteHid, sendImmediately }) => {
         if (sendImmediately) {
-          this.sendEmoteToChat(emoteId);
+          this.sendEmoteToChat(emoteHid);
         } else {
-          this.insertEmoteInChat(emoteId);
+          this.insertEmoteInChat(emoteHid);
         }
       });
-      eventBus.subscribe("nipah.settings.change.shared.chat.appearance.alternating_background", (value) => {
+      eventBus.subscribe("ntv.settings.change.shared.chat.appearance.alternating_background", (value) => {
         $("#chatroom").toggleClass("nipah__alternating-background", value);
       });
-      eventBus.subscribe("nipah.settings.change.shared.chat.appearance.seperators", ({ value, prevValue }) => {
+      eventBus.subscribe("ntv.settings.change.shared.chat.appearance.seperators", ({ value, prevValue }) => {
         if (prevValue !== "none")
           $("#chatroom").removeClass(`nipah__seperators-${prevValue}`);
         if (!value || value === "none")
           return;
         $("#chatroom").addClass(`nipah__seperators-${value}`);
       });
-      eventBus.subscribe("nipah.session.destroy", this.destroy.bind(this));
+      eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
     }
     async loadEmoteMenu() {
       const { eventBus, settingsManager, emotesManager } = this;
@@ -1964,8 +2154,8 @@
       const showTooltips = this.settingsManager.getSetting("shared.chat.tooltips.images");
       $chatMessagesContainer.on("mouseover", ".nipah__emote-box img", (evt) => {
         const emoteName = evt.target.dataset.emoteName;
-        const emoteId = evt.target.dataset.emoteId;
-        if (!emoteName || !emoteId)
+        const emoteHid = evt.target.dataset.emoteHid;
+        if (!emoteName || !emoteHid)
           return;
         const target = evt.target;
         const $tooltip = $(
@@ -1985,10 +2175,10 @@
         );
       });
       $chatMessagesContainer.on("click", ".nipah__emote-box img", (evt) => {
-        const emoteId = evt.target.dataset.emoteId;
-        if (!emoteId)
+        const emoteHid = evt.target.dataset.emoteHid;
+        if (!emoteHid)
           return;
-        this.insertEmoteInChat(emoteId);
+        this.insertEmoteInChat(emoteHid);
       });
     }
     renderEmotesInChat() {
@@ -2024,11 +2214,11 @@
         if (node.nodeType === Node.TEXT_NODE) {
           parsedString += node.textContent;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const emoteId = node.dataset.emoteId;
-          if (emoteId) {
-            emotesInMessage.add(emoteId);
+          const emoteHid = node.dataset.emoteHid;
+          if (emoteHid) {
+            emotesInMessage.add(emoteHid);
             const spacingBefore = parsedString[parsedString.length - 1] !== " ";
-            parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore);
+            parsedString += emotesManager.getEmoteEmbeddable(emoteHid, spacingBefore);
           }
         }
       }
@@ -2038,8 +2228,8 @@
         );
         return;
       }
-      for (const emoteId of emotesInMessage) {
-        emotesManager.registerEmoteEngagement(emoteId);
+      for (const emoteHid of emotesInMessage) {
+        emotesManager.registerEmoteEngagement(emoteHid);
       }
       originalTextFieldEl.innerHTML = parsedString;
       this.messageHistory.addMessage(textFieldEl.innerHTML);
@@ -2047,16 +2237,16 @@
       textFieldEl.innerHTML = "";
       originalSubmitButtonEl.dispatchEvent(new Event("click"));
       textFieldEl.dispatchEvent(new Event("input"));
-      eventBus.publish("nipah.ui.submit_input");
+      eventBus.publish("ntv.ui.submit_input");
     }
     // Sends emote to chat and restores previous message
-    sendEmoteToChat(emoteId) {
-      assertArgDefined(emoteId);
+    sendEmoteToChat(emoteHid) {
+      assertArgDefined(emoteHid);
       const originalTextFieldEl = this.elm.$originalTextField[0];
       const textFieldEl = this.elm.$textField[0];
       const oldMessage = textFieldEl.innerHTML;
       textFieldEl.innerHTML = "";
-      this.insertEmoteInChat(emoteId);
+      this.insertEmoteInChat(emoteHid);
       this.submitInput();
       textFieldEl.innerHTML = oldMessage;
       originalTextFieldEl.innerHTML = oldMessage;
@@ -2065,12 +2255,11 @@
         this.elm.$submitButton.removeAttr("disabled");
       }
     }
-    insertEmoteInChat(emoteId) {
-      assertArgDefined(emoteId);
+    insertEmoteInChat(emoteHid) {
+      assertArgDefined(emoteHid);
       const { emotesManager } = this;
       this.messageHistory.resetCursor();
-      emotesManager.registerEmoteEngagement(emoteId);
-      const emoteEmbedding = emotesManager.getRenderableEmoteById(emoteId, "nipah__inline-emote");
+      const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__inline-emote");
       if (!emoteEmbedding)
         return error2("Invalid emote embed");
       let embedNode;
@@ -2176,7 +2365,6 @@
       if (!includeOtherChannelEmoteSets) {
         dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
       }
-      log(dataFiltered);
       const emoteSets = [];
       for (const dataSet of dataFiltered) {
         const { emotes } = dataSet;
@@ -2186,6 +2374,7 @@
         }
         const emotesMapped = emotesFiltered.map((emote) => ({
           id: "" + emote.id,
+          hid: md5(emote.name),
           name: emote.name,
           subscribers_only: emote.subscribers_only,
           provider: PROVIDER_ENUM.KICK,
@@ -2220,7 +2409,7 @@
     }
     getRenderableEmote(emote, classes = "") {
       const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`;
-      return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+      return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
     }
     getEmbeddableEmote(emote) {
       return `[emote:${emote.id}:${emote.name}]`;
@@ -2266,6 +2455,7 @@
         }
         return {
           id: "" + emote.id,
+          hid: md5(emote.name),
           name: emote.name,
           provider: PROVIDER_ENUM.SEVENTV,
           subscribers_only: false,
@@ -2291,7 +2481,7 @@
     }
     getRenderableEmote(emote, classes = "") {
       const srcset = `https://cdn.7tv.app/emote/${emote.id}/1x.avif 1x, https://cdn.7tv.app/emote/${emote.id}/2x.avif 2x, https://cdn.7tv.app/emote/${emote.id}/3x.avif 3x, https://cdn.7tv.app/emote/${emote.id}/4x.avif 4x`;
-      return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+      return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
     }
     getEmbeddableEmote(emote) {
       return emote.name;
@@ -2922,7 +3112,8 @@
     isShowingModal = false;
     modal = null;
     isLoaded = false;
-    constructor(eventBus) {
+    constructor({ database, eventBus }) {
+      this.database = database;
       this.eventBus = eventBus;
     }
     initialize() {
@@ -2936,24 +3127,23 @@
           }
         }
       }
-      this.loadSettings();
-      eventBus.subscribe("nipah.ui.settings.toggle_show", this.handleShowModal.bind(this));
+      eventBus.subscribe("ntv.ui.settings.toggle_show", this.handleShowModal.bind(this));
     }
-    loadSettings() {
-      for (const [key, value] of this.settingsMap) {
-        const storedValue = localStorage.getItem("nipah.settings." + key);
-        if (typeof storedValue !== "undefined" && storedValue !== null) {
-          const parsedValue = storedValue === "true" ? true : storedValue === "false" ? false : storedValue;
-          this.settingsMap.set(key, parsedValue);
-        }
+    async loadSettings() {
+      const { database } = this;
+      const settingsRecords = await database.settings.toArray();
+      for (const setting of settingsRecords) {
+        const { id, value } = setting;
+        this.settingsMap.set(id, value);
       }
       this.isLoaded = true;
     }
     setSetting(key, value) {
       if (!key || typeof value === "undefined")
         return error2("Invalid setting key or value", key, value);
+      const { database } = this;
+      database.settings.put({ id: key, value }).catch((err) => error2("Failed to save setting to database.", err.message));
       this.settingsMap.set(key, value);
-      localStorage.setItem("nipah.settings." + key, value);
     }
     getSetting(key) {
       return this.settingsMap.get(key);
@@ -2990,7 +3180,7 @@
           const { id, value } = evt.detail;
           const prevValue = this.settingsMap.get(id);
           this.setSetting(id, value);
-          this.eventBus.publish("nipah.settings.change." + id, { value, prevValue });
+          this.eventBus.publish("ntv.settings.change." + id, { value, prevValue });
         });
       }
     }
@@ -3000,7 +3190,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.9",
+      VERSION: "1.1.10",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
@@ -3008,6 +3198,7 @@
       // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
       GITHUB_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV",
       RELEASE_BRANCH: "master",
+      DATABASE_NAME: "NipahTV",
       DEBUG: GM_getValue("environment")?.debug || false
     };
     stylesLoaded = false;
@@ -3026,26 +3217,49 @@
       } else {
         return error2("Unsupported platform", window2.app_name);
       }
+      this.setupDatabase();
       this.attachPageNavigationListener();
-      this.setupClientEnvironment();
+      this.setupClientEnvironment().catch((err) => error2("Failed to setup client environment.", err.message));
+    }
+    setupDatabase() {
+      const { ENV_VARS } = this;
+      const database = this.database = new Dexie(ENV_VARS.DATABASE_NAME);
+      database.version(1).stores({
+        settings: "&id",
+        emoteHistory: "&[channelId+emoteHid]"
+      });
     }
     async setupClientEnvironment() {
-      const { ENV_VARS } = this;
+      const { ENV_VARS, database } = this;
       log("Setting up client environment..");
       const eventBus = new Publisher();
       this.eventBus = eventBus;
-      const settingsManager = new SettingsManager(eventBus);
+      const settingsManager = new SettingsManager({ database, eventBus });
       settingsManager.initialize();
-      settingsManager.loadSettings();
-      const channelData = await this.loadChannelData().catch((err) => error2(err.message));
+      let channelData;
+      let promises = [];
+      promises.push(
+        settingsManager.loadSettings().catch((err) => {
+          throw new Error(`Couldn't load settings. ${err}`);
+        })
+      );
+      promises.push(
+        this.loadChannelData().catch((err) => {
+          throw new Error(`Couldn't load channel data. ${err}`);
+        })
+      );
+      await Promise.all(promises).then((values) => {
+        channelData = values[1];
+      });
       if (!channelData)
-        return error2("Failed to load channel data, aborting..");
-      const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.channel_id);
+        throw new Error("No channel data was found.");
+      const emotesManager = new EmotesManager({ database, eventBus, settingsManager }, channelData.channel_id);
+      emotesManager.initialize();
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
       } else {
-        return error2("Platform has no user interface imlemented..", ENV_VARS.PLATFORM);
+        return error2("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
       }
       if (!this.stylesLoaded) {
         this.loadStyles().then(() => {
@@ -3155,7 +3369,7 @@
     cleanupOldClientEnvironment() {
       log("Cleaning up old session..");
       if (this.eventBus) {
-        this.eventBus.publish("nipah.session.destroy");
+        this.eventBus.publish("ntv.session.destroy");
         this.eventBus.destroy();
         this.eventBus = null;
       }

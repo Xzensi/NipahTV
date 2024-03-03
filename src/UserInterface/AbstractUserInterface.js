@@ -46,10 +46,10 @@ export class AbstractUserInterface {
 
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i]
-			const emoteId = emotesManager.getEmoteIdByName(token)
-			if (emoteId) {
-				const emoteRender = emotesManager.getRenderableEmoteById(emoteId, 'chat-emote')
-				tokens[i] = `<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
+			const emoteHid = emotesManager.getEmoteHidByName(token)
+			if (emoteHid) {
+				const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, 'chat-emote')
+				tokens[i] = `<div class="nipah__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`
 			}
 		}
 

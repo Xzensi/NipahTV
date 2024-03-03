@@ -1,6 +1,6 @@
 import { AbstractProvider } from './AbstractProvider'
 import { PROVIDER_ENUM } from '../constants'
-import { log, info, error, fetchJSON } from '../utils'
+import { log, info, error, fetchJSON, md5 } from '../utils'
 
 export class SevenTVProvider extends AbstractProvider {
 	id = PROVIDER_ENUM.SEVENTV
@@ -42,6 +42,7 @@ export class SevenTVProvider extends AbstractProvider {
 			}
 			return {
 				id: '' + emote.id,
+				hid: md5(emote.name),
 				name: emote.name,
 				provider: PROVIDER_ENUM.SEVENTV,
 				subscribers_only: false,
@@ -72,7 +73,7 @@ export class SevenTVProvider extends AbstractProvider {
 	getRenderableEmote(emote, classes = '') {
 		const srcset = `https://cdn.7tv.app/emote/${emote.id}/1x.avif 1x, https://cdn.7tv.app/emote/${emote.id}/2x.avif 2x, https://cdn.7tv.app/emote/${emote.id}/3x.avif 3x, https://cdn.7tv.app/emote/${emote.id}/4x.avif 4x`
 
-		return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
+		return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getEmbeddableEmote(emote) {

@@ -3,7 +3,7 @@ import { error, log } from '../utils'
 
 export class TabCompletor {
 	suggestions = []
-	suggestionIds = []
+	suggestionHids = []
 	selectedIndex = 0
 	isShowingModal = false
 	mode = null
@@ -40,14 +40,14 @@ export class TabCompletor {
 
 			const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20)
 			this.suggestions = searchResults.map(result => result.item.name)
-			this.suggestionIds = searchResults.map(result => result.item.id)
+			this.suggestionHids = searchResults.map(result => result.item.id)
 
 			this.$list.empty()
 
 			if (this.suggestions.length) {
 				for (let i = 0; i < this.suggestions.length; i++) {
 					const userName = this.suggestions[i]
-					const userId = this.suggestionIds[i]
+					const userId = this.suggestionHids[i]
 					this.$list.append(`<li data-user-id="${userId}"><span>@${userName}</span></li>`)
 				}
 
@@ -63,16 +63,16 @@ export class TabCompletor {
 
 			const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20)
 			this.suggestions = searchResults.map(result => result.item.name)
-			this.suggestionIds = searchResults.map(result => this.emotesManager.getEmoteIdByName(result.item.name))
+			this.suggestionHids = searchResults.map(result => this.emotesManager.getEmoteHidByName(result.item.name))
 
 			this.$list.empty()
 
 			if (this.suggestions.length) {
 				for (let i = 0; i < this.suggestions.length; i++) {
 					const emoteName = this.suggestions[i]
-					const emoteId = this.suggestionIds[i]
-					const emoteRender = this.emotesManager.getRenderableEmoteById(emoteId, 'nipah__emote')
-					this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`)
+					const emoteHid = this.suggestionHids[i]
+					const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, 'nipah__emote')
+					this.$list.append(`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`)
 				}
 
 				this.$list.find('li').eq(this.selectedIndex).addClass('selected')
@@ -182,7 +182,7 @@ export class TabCompletor {
 	}
 
 	renderInlineUserMention() {
-		const userId = this.suggestionIds[this.selectedIndex]
+		const userId = this.suggestionHids[this.selectedIndex]
 		if (!userId) return
 
 		const userName = this.suggestions[this.selectedIndex]
@@ -207,11 +207,11 @@ export class TabCompletor {
 	}
 
 	renderInlineEmote() {
-		const emoteId = this.suggestionIds[this.selectedIndex]
-		if (!emoteId) return
+		const emoteHid = this.suggestionHids[this.selectedIndex]
+		if (!emoteHid) return
 
 		if (this.embedNode) {
-			const emoteEmbedding = this.emotesManager.getRenderableEmoteById('' + emoteId, 'nipah__inline-emote')
+			const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'nipah__inline-emote')
 			if (!emoteEmbedding) return error('Invalid emote embedding')
 
 			const embedNode = jQuery.parseHTML(emoteEmbedding)[0]
@@ -221,12 +221,12 @@ export class TabCompletor {
 
 			Caret.collapseToEndOfNode(embedNode)
 		} else {
-			this.insertEmote(emoteId)
+			this.insertEmote(emoteHid)
 		}
 	}
 
-	insertEmote(emoteId) {
-		const emoteEmbedding = this.emotesManager.getRenderableEmoteById('' + emoteId, 'nipah__inline-emote')
+	insertEmote(emoteHid) {
+		const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embedding')
 
 		const { start, end, node } = this
