@@ -3,8 +3,6 @@
 
 #chatroom {
 	[data-chat-entry] {
-		// TODO don't alter default style, add settings option
-		// margin-top: 0;
 	}
 
 	&.nipah__alternating-background {
@@ -40,6 +38,16 @@
 				border-top: 2px solid var(--border-transparent-1);
 				padding: 0.1em;
 			}
+		}
+	}
+
+	.chat-entry {
+		&.bg-secondary-lighter {
+			background-color: transparent;
+		}
+
+		&:hover {
+			background-color: hsla(128, 128, 128, 0.09);
 		}
 	}
 

@@ -22,13 +22,13 @@ $color-warning: #df4545;
 $color-muted: #999;
 
 // Background Color Palette
-$dark-theme-background-color: #171718;
+$dark-theme-background-color: #1b1b1d;
 
 :root {
 	--background-color: #{$dark-theme-background-color};
 	--background-color-tint-1: #{tint($dark-theme-background-color, 3%)};
-	--background-color-tint-2: #{tint($dark-theme-background-color, 5%)};
-	--background-color-tint-3: #{tint($dark-theme-background-color, 7%)};
+	--background-color-tint-2: #{tint($dark-theme-background-color, 7%)};
+	--background-color-tint-3: #{tint($dark-theme-background-color, 10%)};
 	--background-color-shade-1: #{shade($dark-theme-background-color, 20%)};
 	--background-color-shade-2: #{shade($dark-theme-background-color, 40%)};
 

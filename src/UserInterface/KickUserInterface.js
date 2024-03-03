@@ -1,4 +1,4 @@
-import { log, info, error, assertArgDefined, waitForElements } from '../utils'
+import { log, info, error, assertArgDefined, waitForElements, cleanupHTML } from '../utils'
 import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
 import { AbstractUserInterface } from './AbstractUserInterface'
 import { EmoteMenuButton } from './Components/EmoteMenuButton'
@@ -155,19 +155,23 @@ export class KickUserInterface extends AbstractUserInterface {
 		$originalTextField.parent().parent().append($textFieldWrapper)
 
 		// Shift focus to shadow text field when original text field is focused
-		originalTextFieldEl.addEventListener('focus', () => textFieldEl.focus())
+		originalTextFieldEl.addEventListener('focus', () => textFieldEl.focus(), { passive: true })
 
-		textFieldEl.addEventListener('input', evt => {
-			const $submitButton = this.elm.$submitButton
-			if (!$submitButton) return
+		textFieldEl.addEventListener(
+			'input',
+			evt => {
+				const $submitButton = this.elm.$submitButton
+				if (!$submitButton) return
 
-			// Enable/disable submit button based on text field content
-			if (textFieldEl.childNodes.length && textFieldEl.childNodes[0]?.tagName !== 'BR') {
-				$submitButton.removeClass('disabled')
-			} else if (!$submitButton.hasClass('disabled')) {
-				$submitButton.addClass('disabled')
-			}
-		})
+				// Enable/disable submit button based on text field content
+				if (textFieldEl.childNodes.length && textFieldEl.childNodes[0]?.tagName !== 'BR') {
+					$submitButton.removeClass('disabled')
+				} else if (!$submitButton.hasClass('disabled')) {
+					$submitButton.addClass('disabled')
+				}
+			},
+			{ passive: true }
+		)
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (evt.key === 'Enter' && !this.tabCompletor.isShowingModal) {
@@ -176,24 +180,28 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		})
 
-		textFieldEl.addEventListener('keyup', evt => {
-			$originalTextField[0].innerHTML = textFieldEl.innerHTML
-			// $originalTextField[0].dispatchEvent(new Event('input')) // This breaks kick emotes for some reason
+		textFieldEl.addEventListener(
+			'keyup',
+			evt => {
+				$originalTextField[0].innerHTML = textFieldEl.innerHTML
+				// $originalTextField[0].dispatchEvent(new Event('input')) // This breaks kick emotes for some reason
 
-			// Contenteditable is a nightmare in Firefox, keeps injecting <br> tags
-			//  best solution I found yet, is to use :before to prevent collapse
-			//  but now the caret gets placed after the :before pseudo element..
-			//  Also bugs in Firefox keep causing the caret to shift outside the text field.
-			if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === 'BR') {
-				textFieldEl.children[0].remove()
-				textFieldEl.normalize()
-			}
+				// Contenteditable is a nightmare in Firefox, keeps injecting <br> tags
+				//  best solution I found yet, is to use :before to prevent collapse
+				//  but now the caret gets placed after the :before pseudo element..
+				//  Also bugs in Firefox keep causing the caret to shift outside the text field.
+				if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === 'BR') {
+					textFieldEl.children[0].remove()
+					textFieldEl.normalize()
+				}
 
-			if (evt.keyCode > 47 && evt.keyCode < 112) {
-				// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
-				this.messageHistory.resetCursor()
-			}
-		})
+				if (evt.keyCode > 47 && evt.keyCode < 112) {
+					// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
+					this.messageHistory.resetCursor()
+				}
+			},
+			{ passive: true }
+		)
 
 		const clipboard = new Clipboard2()
 		textFieldEl.addEventListener('paste', evt => {
@@ -327,10 +335,12 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	observeChatMessages() {
-		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
+		const $chatMessagesContainer = this.elm.$chatMessagesContainer
+		const chatMessagesContainerEl = $chatMessagesContainer[0]
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
+		// Render emotes in chat when new messages are added
 		const observer = (this.chatObserver = new MutationObserver(mutations => {
 			mutations.forEach(mutation => {
 				if (mutation.addedNodes.length) {
@@ -346,6 +356,40 @@ export class KickUserInterface extends AbstractUserInterface {
 		}))
 
 		observer.observe(chatMessagesContainerEl, { childList: true })
+
+		// Show emote tooltip with emote name, remove when mouse leaves
+		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')
+		$chatMessagesContainer.on('mouseover', '.nipah__emote-box img', evt => {
+			const emoteName = evt.target.dataset.emoteName
+			const emoteId = evt.target.dataset.emoteId
+			if (!emoteName || !emoteId) return
+
+			const target = evt.target
+			const $tooltip = $(
+				cleanupHTML(`
+					<div class="nipah__emote-tooltip ${showTooltips ? 'nipah__emote-tooltip--has-image' : ''}">
+						${showTooltips ? target.outerHTML.replace('chat-emote', '') : ''}
+						<span>${emoteName}</span>
+					</div>`)
+			)
+
+			$(target).after($tooltip)
+
+			evt.target.addEventListener(
+				'mouseleave',
+				() => {
+					$tooltip.remove()
+				},
+				{ once: true, passive: true }
+			)
+		})
+
+		// Insert emote in chat input when clicked
+		$chatMessagesContainer.on('click', '.nipah__emote-box img', evt => {
+			const emoteId = evt.target.dataset.emoteId
+			if (!emoteId) return
+			this.insertEmoteInChat(emoteId)
+		})
 	}
 
 	renderEmotesInChat() {
