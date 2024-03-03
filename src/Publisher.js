@@ -36,4 +36,9 @@ export class Publisher {
 			listener(dto.data)
 		}
 	}
+
+	destroy() {
+		this.listeners.clear()
+		this.firedEvents.clear()
+	}
 }

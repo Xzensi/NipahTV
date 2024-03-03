@@ -2574,17 +2574,27 @@
     }
     return true;
   }
-  function waitForElements(selectors) {
-    return new Promise((resolve) => {
+  function waitForElements(selectors, timeout = 1e4, signal) {
+    return new Promise((resolve, reject) => {
       let interval;
+      let timeoutTimestamp = Date.now() + timeout;
       const checkElements = function() {
         if (selectors.every((selector) => document.querySelector(selector))) {
           clearInterval(interval);
           resolve();
+        } else if (Date.now() > timeoutTimestamp) {
+          clearInterval(interval);
+          reject(new Error("Timeout"));
         }
       };
       interval = setInterval(checkElements, 100);
       checkElements();
+      if (signal) {
+        signal.addEventListener("abort", () => {
+          clearInterval(interval);
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      }
     });
   }
   function cleanupHTML(html) {
@@ -2664,6 +2674,10 @@
       for (const listener of listeners) {
         listener(dto.data);
       }
+    }
+    destroy() {
+      this.listeners.clear();
+      this.firedEvents.clear();
     }
   };
 
@@ -3686,19 +3700,6 @@
     }
   };
 
-  // src/constants.js
-  var PLATFORM_ENUM = {
-    NULL: 0,
-    KICK: 1,
-    TWITCH: 2,
-    YOUTUBE: 3
-  };
-  var PROVIDER_ENUM = {
-    NULL: 0,
-    KICK: 1,
-    SEVENTV: 2
-  };
-
   // src/MessagesHistory.js
   var MessagesHistory = class {
     constructor() {
@@ -3966,22 +3967,26 @@
     };
     stickyScroll = true;
     messageHistory = new MessagesHistory();
+    abortController = new AbortController();
     constructor(deps) {
       super(deps);
     }
     async loadInterface() {
       info("Creating user interface..");
-      const { eventBus, settingsManager } = this;
-      waitForElements(["#message-input"]).then(() => {
+      const { eventBus, settingsManager, abortController } = this;
+      const abortSignal = abortController.signal;
+      waitForElements(["#message-input"], 5e3, abortSignal).then(() => {
         this.loadShadowProxyTextField();
         this.loadEmoteMenu();
         this.loadChatHistoryBehaviour();
         this.loadTabCompletionBehaviour();
+      }).catch(() => {
       });
-      waitForElements(["#chatroom-footer .quick-emotes-holder"]).then(() => {
+      waitForElements(["#chatroom-footer .quick-emotes-holder"], 5e3, abortSignal).then(() => {
         this.loadQuickEmotesHolder();
+      }).catch(() => {
       });
-      waitForElements(["#chatroom-footer button.base-button"]).then(() => {
+      waitForElements(["#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
         this.loadShadowProxySubmitButton();
         this.loadEmoteMenuButton();
         if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
@@ -3990,8 +3995,9 @@
         if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
           $("#chatroom").addClass("nipah__smooth-scrolling");
         }
+      }).catch(() => {
       });
-      waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"]).then(() => {
+      waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"], 5e3, abortSignal).then(() => {
         const $chatMessagesContainer = this.elm.$chatMessagesContainer = $(
           "#chatroom > div:nth-child(2) > .overflow-y-scroll"
         );
@@ -4004,6 +4010,7 @@
         }
         this.observeChatMessages();
         this.loadScrollingBehaviour();
+      }).catch(() => {
       });
       eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
         if (sendImmediately) {
@@ -4046,7 +4053,7 @@
       );
       $originalSubmitButton.after($submitButton);
       $submitButton.on("click", this.submitInput.bind(this));
-      const observer = new MutationObserver((mutations) => {
+      const observer = this.submitObserver = new MutationObserver((mutations) => {
         if (!this.elm || !this.elm.$textField)
           return;
         observer.disconnect();
@@ -4341,6 +4348,8 @@
       textFieldEl.focus();
     }
     destroy() {
+      if (this.abortController)
+        this.abortController.abort();
       if (this.emoteMenu)
         this.emoteMenu.destroy();
       if (this.emoteMenuButton)
@@ -4349,7 +4358,22 @@
         this.quickEmotesHolder.destroy();
       if (this.chatObserver)
         this.chatObserver.disconnect();
+      if (this.submitObserver)
+        this.submitObserver.disconnect();
     }
+  };
+
+  // src/constants.js
+  var PLATFORM_ENUM = {
+    NULL: 0,
+    KICK: 1,
+    TWITCH: 2,
+    YOUTUBE: 3
+  };
+  var PROVIDER_ENUM = {
+    NULL: 0,
+    KICK: 1,
+    SEVENTV: 2
   };
 
   // src/Providers/KickProvider.js
@@ -5244,6 +5268,7 @@
     }
     async setupClientEnvironment() {
       const { ENV_VARS } = this;
+      log("Setting up client environment..");
       const eventBus = new Publisher();
       this.eventBus = eventBus;
       const settingsManager = new SettingsManager(eventBus);
@@ -5368,6 +5393,7 @@
       log("Cleaning up old session..");
       if (this.eventBus) {
         this.eventBus.publish("nipah.session.destroy");
+        this.eventBus.destroy();
         this.eventBus = null;
       }
     }

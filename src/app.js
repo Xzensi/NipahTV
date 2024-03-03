@@ -57,6 +57,8 @@ class NipahClient {
 	async setupClientEnvironment() {
 		const { ENV_VARS } = this
 
+		log('Setting up client environment..')
+
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
 
@@ -215,6 +217,7 @@ class NipahClient {
 
 		if (this.eventBus) {
 			this.eventBus.publish('nipah.session.destroy')
+			this.eventBus.destroy()
 			this.eventBus = null
 		}
 	}
