@@ -98,10 +98,15 @@ export class EmotesManager {
 	}
 
 	getRenderableEmote(emote, classes = '') {
-		if (typeof emote !== 'object') {
-			emote = this.getEmote(emote)
-			if (!emote) return error('Emote not found')
-		}
+		if (!emote) return error('No emote provided')
+
+		const provider = this.providers.get(emote.provider)
+		return provider.getRenderableEmote(emote, classes)
+	}
+
+	getRenderableEmoteById(emoteId, classes = '') {
+		const emote = this.getEmote(emoteId)
+		if (!emote) return error('Emote not found')
 
 		const provider = this.providers.get(emote.provider)
 		return provider.getRenderableEmote(emote, classes)

@@ -6,6 +6,7 @@ import { AbstractUserInterface } from './AbstractUserInterface'
 import { Caret } from './Caret'
 import { MessagesHistory } from '../MessagesHistory'
 import { TabCompletor } from '../TabCompletor'
+import { Clipboard2 } from '../Clipboard'
 
 export class KickUserInterface extends AbstractUserInterface {
 	elm = {
@@ -79,6 +80,9 @@ export class KickUserInterface extends AbstractUserInterface {
 					$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
 				}
 
+				// Render emotes in chat when providers are loaded
+				eventBus.subscribe('nipah.providers.loaded', this.renderEmotesInChat.bind(this), true)
+
 				this.observeChatMessages()
 				this.loadScrollingBehaviour()
 			})
@@ -107,9 +111,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// On sigterm signal, cleanup user interface
 		eventBus.subscribe('nipah.session.destroy', this.destroy.bind(this))
-
-		// Render emotes in chat when providers are loaded
-		eventBus.subscribe('nipah.providers.loaded', this.renderEmotesInChat.bind(this), true)
 	}
 
 	async loadEmoteMenu() {
@@ -203,62 +204,33 @@ export class KickUserInterface extends AbstractUserInterface {
 			$originalTextField[0].innerHTML = textFieldEl.innerHTML
 			// $originalTextField[0].dispatchEvent(new Event('input')) // This breaks kick emotes for some reason
 
-			// Remove <br> tags from $textField injected by Kick, please stop doing that..
-			// const $brTags = $textField.children('br')
-
-			// TODO contenteditable is a nightmare in Firefox, keeps injecting <br> tags
-			//  best solution I found yet, is to use ::before to prevent collapse
+			// Contenteditable is a nightmare in Firefox, keeps injecting <br> tags
+			//  best solution I found yet, is to use :before to prevent collapse
 			//  but now the caret gets placed after the :before pseudo element..
 			//  Also bugs in Firefox keep causing the caret to shift outside the text field.
 			if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === 'BR') {
 				textFieldEl.children[0].remove()
-				// log('Removed <br> tag from shadow text field')
-				// Set caret to before :before pseudo element
-				// const range = document.createRange()
-				// const selection = window.getSelection()
-				// range.setStart(textFieldEl, 0)
-				// range.collapse(true)
-				// selection.removeAllRanges()
-				// selection.addRange(range)
-
-				// document.activeElement.blur()
-				// // textFieldEl.focus()
-				// setTimeout(() => {
-				// 	log('Focusing shadow text field')
-				// 	textFieldEl.focus()
-				// }, 2000)
 				textFieldEl.normalize()
-				// document.activeElement.blur()
-				// textFieldEl.focus()
 			}
-
-			// log('ADASDSDSD', textFieldEl.childNodes, textFieldEl.childNodes.length)
-			// if (textFieldEl.childNodes.length === 0) {
-			// 	document.activeElement.blur()
-			// 	// textFieldEl.focus()
-			// 	setTimeout(() => {
-			// 		log('Focusing shadow text field')
-			// 		textFieldEl.focus()
-			// 	}, 2000)
-			// }
-
-			// const brTags = textFieldEl.querySelectorAll('br')
-			// if (textFieldEl.children.length > 1) {
-			// 	log('Removing <br> tags from shadow text field', brTags)
-			// 	// $brTags.remove()
-			// 	// setTimeout(() => ($brTags[0].innerHTML = $brTags[0].innerHTML.replaceAll('<br>', '')), 1)
-			// 	// $brTags[0].innerHTML = ''
-			// 	for (const brTag of brTags) {
-			// 		brTag.remove()
-			// 	}
-			// 	// const textNode = document.createTextNode('')
-			// 	// log('Appending text node to shadow text field', textNode)
-			// 	// textFieldEl.appendChild(textNode)
-			// }
 
 			if (evt.keyCode > 47 && evt.keyCode < 112) {
 				// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
 				this.messageHistory.resetCursor()
+			}
+		})
+
+		const clipboard = new Clipboard2()
+		textFieldEl.addEventListener('paste', evt => {
+			evt.preventDefault()
+
+			const messageParts = clipboard.parsePastedMessage(evt)
+
+			for (let i = 0; i < messageParts.length; i++) {
+				messageParts[i] = this.renderEmotesInText(messageParts[i])
+			}
+
+			if (messageParts && messageParts.length) {
+				clipboard.pasteHTML(messageParts.join(''))
 			}
 		})
 	}
@@ -410,33 +382,17 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (!this.elm || !this.elm.$chatMessagesContainer) return
 		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
 		const chatMessagesContainerNode = chatMessagesContainerEl
+
 		for (const messageNode of chatMessagesContainerNode.children) {
 			this.renderEmotesInMessage(messageNode)
 		}
 	}
 
 	renderEmotesInMessage(messageNode) {
-		const { emotesManager } = this
 		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
 
 		for (const contentNode of messageContentNodes) {
-			const contentNodeText = contentNode.textContent
-			const tokens = contentNodeText.split(' ')
-			const uniqueTokens = [...new Set(tokens)]
-			let innerHTML = contentNode.innerHTML
-
-			for (const token of uniqueTokens) {
-				const emoteId = emotesManager.getEmoteIdByName(token)
-
-				if (emoteId) {
-					const emoteRender = emotesManager.getRenderableEmote(emoteId, 'chat-emote')
-					innerHTML = innerHTML.replaceAll(
-						token,
-						`<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
-					)
-				}
-			}
-			contentNode.innerHTML = innerHTML
+			contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent)
 		}
 	}
 
@@ -525,7 +481,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Update emotes history when emotes are used
 		emotesManager.registerEmoteEngagement(emoteId)
 
-		const emoteEmbedding = emotesManager.getRenderableEmote(emoteId, 'nipah__inline-emote')
+		const emoteEmbedding = emotesManager.getRenderableEmoteById(emoteId, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embed')
 
 		let embedNode
