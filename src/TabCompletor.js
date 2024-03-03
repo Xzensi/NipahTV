@@ -43,7 +43,7 @@ export class TabCompletor {
 			for (let i = 0; i < this.suggestions.length; i++) {
 				const emoteName = this.suggestions[i]
 				const emoteId = this.suggestionIds[i]
-				const emoteRender = this.emotesManager.getRenderableEmote(emoteId, 'nipah__emote')
+				const emoteRender = this.emotesManager.getRenderableEmoteById(emoteId, 'nipah__emote')
 				this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`)
 			}
 

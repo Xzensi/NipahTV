@@ -67,47 +67,6 @@ export class Caret {
 		return trailingChar && trailingChar !== ' '
 	}
 
-	static insertNodeAtCaret(range, node) {
-		// log('Embedding node', node)
-
-		if (!node.nodeType || (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE)) {
-			return error('Invalid node type', node)
-		}
-
-		// log('Caret is in element', range.startContainer)
-		// log('At position', range.startOffset)
-
-		// Caret is inside text node, we insert at startOffset position
-		if (range.startContainer.nodeType === Node.TEXT_NODE) {
-			// log('Inserting in text node')
-			range.insertNode(node)
-		}
-
-		// Caret is inbetween text nodes, we insert after the childNode at index startOffset
-		else {
-			// log('Inserting after text node')
-
-			// When caret is at start of container, prepend node
-			if (range.startOffset - 1 === -1) {
-				// log('Prepending node at start of container')
-				range.startContainer.prepend(node)
-				return
-			}
-
-			const childNode = range.startContainer.childNodes[range.startOffset - 1]
-
-			// Should never happen, but just in case
-			// If theres no childnode, thus startOffset 0, the rule above should have caught it
-			if (!childNode) {
-				// log('Child node is null, appending node at end of container')
-				range.startContainer.appendChild(node)
-				return
-			}
-
-			childNode.after(node)
-		}
-	}
-
 	// Checks if the caret is at the start of a node
 	static isCaretAtStartOfNode(node) {
 		const selection = window.getSelection()
@@ -218,8 +177,51 @@ export class Caret {
 		}
 	}
 
+	static insertNodeAtCaret(range, node) {
+		// log('Embedding node', node)
+
+		if (!node.nodeType || (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE)) {
+			return error('Invalid node type', node)
+		}
+
+		// log('Caret is in element', range.startContainer)
+		// log('At position', range.startOffset)
+
+		// Caret is inside text node, we insert at startOffset position
+		if (range.startContainer.nodeType === Node.TEXT_NODE) {
+			// log('Inserting in text node')
+			range.insertNode(node)
+		}
+
+		// Caret is inbetween text nodes, we insert after the childNode at index startOffset
+		else {
+			// log('Inserting after text node')
+
+			// When caret is at start of container, prepend node
+			if (range.startOffset - 1 === -1) {
+				// log('Prepending node at start of container')
+				range.startContainer.prepend(node)
+				return
+			}
+
+			const childNode = range.startContainer.childNodes[range.startOffset - 1]
+
+			// Should never happen, but just in case
+			// If theres no childnode, thus startOffset 0, the rule above should have caught it
+			if (!childNode) {
+				// log('Child node is null, appending node at end of container')
+				range.startContainer.appendChild(node)
+				return
+			}
+
+			// log('Inserting after child node', childNode)
+
+			childNode.after(node)
+		}
+	}
+
 	// Replace text at start to end with replacement.
-	// Container is guaranteed to be a text node
+	// Container must be guaranteed to be a text node
 	// Start and end are the indices of the text node
 	// Replacement can be a string or an element node.
 	static replaceTextInRange(container, start, end, replacement) {

@@ -7,16 +7,15 @@
 // @match https://kick.com/*
 // @require https://code.jquery.com/jquery-3.7.1.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-9f2b8764.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-a24b3e74.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
-// @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
+// @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/client.user.js
 // @grant unsafeWindow
 // @grant GM_getValue
 // @grant GM_xmlhttpRequest
 // @grant GM_addStyle
 // @grant GM_getResourceText
-// @grant GM.setClipboard
 // ==/UserScript==
 "use strict";
 (() => {
@@ -3029,11 +3028,15 @@
       return this.datastore.getEmoteHistoryCount(emoteId);
     }
     getRenderableEmote(emote, classes = "") {
-      if (typeof emote !== "object") {
-        emote = this.getEmote(emote);
-        if (!emote)
-          return error2("Emote not found");
-      }
+      if (!emote)
+        return error2("No emote provided");
+      const provider = this.providers.get(emote.provider);
+      return provider.getRenderableEmote(emote, classes);
+    }
+    getRenderableEmoteById(emoteId, classes = "") {
+      const emote = this.getEmote(emoteId);
+      if (!emote)
+        return error2("Emote not found");
       const provider = this.providers.get(emote.provider);
       return provider.getRenderableEmote(emote, classes);
     }
@@ -3461,7 +3464,7 @@
           this.$element.append(emoteToSort.$emote);
         }
       } else {
-        const $emotePartial = $(emotesManager.getRenderableEmote(emoteId, "nipah__emote"));
+        const $emotePartial = $(emotesManager.getRenderableEmoteById(emoteId, "nipah__emote"));
         const insertIndex = this.getSortedEmoteIndex(emoteId);
         if (insertIndex !== -1) {
           this.sortingList.splice(insertIndex, 0, { id: emoteId, $emote: $emotePartial });
@@ -3506,6 +3509,19 @@
     }
     loadInterface() {
       throw new Error("loadInterface() not implemented");
+    }
+    renderEmotesInText(text) {
+      const { emotesManager } = this;
+      const tokens = text.split(" ");
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        const emoteId = emotesManager.getEmoteIdByName(token);
+        if (emoteId) {
+          const emoteRender = emotesManager.getRenderableEmoteById(emoteId, "chat-emote");
+          tokens[i] = `<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`;
+        }
+      }
+      return tokens.join(" ");
     }
   };
 
@@ -3571,25 +3587,6 @@
         return false;
       const trailingChar = textContent[offset];
       return trailingChar && trailingChar !== " ";
-    }
-    static insertNodeAtCaret(range, node) {
-      if (!node.nodeType || node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) {
-        return error("Invalid node type", node);
-      }
-      if (range.startContainer.nodeType === Node.TEXT_NODE) {
-        range.insertNode(node);
-      } else {
-        if (range.startOffset - 1 === -1) {
-          range.startContainer.prepend(node);
-          return;
-        }
-        const childNode = range.startContainer.childNodes[range.startOffset - 1];
-        if (!childNode) {
-          range.startContainer.appendChild(node);
-          return;
-        }
-        childNode.after(node);
-      }
     }
     // Checks if the caret is at the start of a node
     static isCaretAtStartOfNode(node) {
@@ -3682,8 +3679,27 @@
         node: range.startContainer
       };
     }
+    static insertNodeAtCaret(range, node) {
+      if (!node.nodeType || node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) {
+        return error("Invalid node type", node);
+      }
+      if (range.startContainer.nodeType === Node.TEXT_NODE) {
+        range.insertNode(node);
+      } else {
+        if (range.startOffset - 1 === -1) {
+          range.startContainer.prepend(node);
+          return;
+        }
+        const childNode = range.startContainer.childNodes[range.startOffset - 1];
+        if (!childNode) {
+          range.startContainer.appendChild(node);
+          return;
+        }
+        childNode.after(node);
+      }
+    }
     // Replace text at start to end with replacement.
-    // Container is guaranteed to be a text node
+    // Container must be guaranteed to be a text node
     // Start and end are the indices of the text node
     // Replacement can be a string or an element node.
     static replaceTextInRange(container, start, end, replacement) {
@@ -3785,7 +3801,7 @@
         for (let i = 0; i < this.suggestions.length; i++) {
           const emoteName = this.suggestions[i];
           const emoteId = this.suggestionIds[i];
-          const emoteRender = this.emotesManager.getRenderableEmote(emoteId, "nipah__emote");
+          const emoteRender = this.emotesManager.getRenderableEmoteById(emoteId, "nipah__emote");
           this.$list.append(`<li data-emote-id="${emoteId}">${emoteRender}<span>${emoteName}</span></li>`);
         }
         this.$list.find("li").eq(this.selectedIndex).addClass("selected");
@@ -3958,6 +3974,96 @@
     }
   };
 
+  // src/Clipboard.js
+  function flattenNestedElement(node) {
+    var result = [];
+    function traverse(node2) {
+      if (node2.nodeType === Node.TEXT_NODE) {
+        result.push(node2);
+      } else if (node2.nodeType === Node.ELEMENT_NODE && node2.nodeName === "IMG") {
+        result.push(node2);
+      } else {
+        for (var i = 0; i < node2.childNodes.length; i++) {
+          traverse(node2.childNodes[i]);
+        }
+      }
+    }
+    traverse(node);
+    return result;
+  }
+  var Clipboard2 = class {
+    domParser = new DOMParser();
+    paste(text) {
+      const selection = window.getSelection();
+      if (!selection.rangeCount)
+        return;
+      selection.deleteFromDocument();
+      selection.getRangeAt(0).insertNode(document.createTextNode(text));
+      selection.collapseToEnd();
+    }
+    pasteHTML(html) {
+      const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
+      const selection = window.getSelection();
+      if (!selection.rangeCount)
+        return;
+      selection.deleteFromDocument();
+      const range = selection.getRangeAt(0);
+      for (const node of nodes) {
+        Caret.insertNodeAtCaret(range, node);
+      }
+      selection.collapseToEnd();
+    }
+    parsePastedMessage(evt) {
+      const clipboardData = evt.clipboardData || window.clipboardData;
+      const html = clipboardData.getData("text/html");
+      if (html) {
+        const doc = this.domParser.parseFromString(html, "text/html");
+        const childNodes = doc.body.childNodes;
+        if (childNodes.length === 0) {
+          return;
+        }
+        let startFragmentComment = null, endFragmentComment = null;
+        for (let i = 0; i < childNodes.length; i++) {
+          const node = childNodes[i];
+          if (node.nodeType === Node.COMMENT_NODE) {
+            if (node.textContent === "StartFragment") {
+              startFragmentComment = i;
+            } else if (node.textContent === "EndFragment") {
+              endFragmentComment = i;
+            }
+            if (startFragmentComment && endFragmentComment) {
+              break;
+            }
+          }
+        }
+        if (startFragmentComment === null || !endFragmentComment === null) {
+          error2("Failed to find fragment markers, clipboard data seems to be corrupted.");
+          return;
+        }
+        const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
+        const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
+        const parsedNodes = [];
+        for (const node of flattenedNodes) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            parsedNodes.push(node.textContent);
+          } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
+            const emoteName = node.dataset.emoteName;
+            if (emoteName) {
+              parsedNodes.push(emoteName);
+            }
+          }
+        }
+        if (parsedNodes.length)
+          return parsedNodes;
+      } else {
+        const text = clipboardData.getData("text/plain");
+        if (!text)
+          return;
+        return [text];
+      }
+    }
+  };
+
   // src/UserInterface/KickUserInterface.js
   var KickUserInterface = class extends AbstractUserInterface {
     elm = {
@@ -4008,6 +4114,7 @@
         if (seperatorSettingVal && seperatorSettingVal !== "none") {
           $("#chatroom").addClass(`nipah__seperators-${seperatorSettingVal}`);
         }
+        eventBus.subscribe("nipah.providers.loaded", this.renderEmotesInChat.bind(this), true);
         this.observeChatMessages();
         this.loadScrollingBehaviour();
       }).catch(() => {
@@ -4030,7 +4137,6 @@
         $("#chatroom").addClass(`nipah__seperators-${value}`);
       });
       eventBus.subscribe("nipah.session.destroy", this.destroy.bind(this));
-      eventBus.subscribe("nipah.providers.loaded", this.renderEmotesInChat.bind(this), true);
     }
     async loadEmoteMenu() {
       const { eventBus, settingsManager, emotesManager } = this;
@@ -4108,6 +4214,17 @@
         }
         if (evt.keyCode > 47 && evt.keyCode < 112) {
           this.messageHistory.resetCursor();
+        }
+      });
+      const clipboard = new Clipboard2();
+      textFieldEl.addEventListener("paste", (evt) => {
+        evt.preventDefault();
+        const messageParts = clipboard.parsePastedMessage(evt);
+        for (let i = 0; i < messageParts.length; i++) {
+          messageParts[i] = this.renderEmotesInText(messageParts[i]);
+        }
+        if (messageParts && messageParts.length) {
+          clipboard.pasteHTML(messageParts.join(""));
         }
       });
     }
@@ -4233,24 +4350,9 @@
       }
     }
     renderEmotesInMessage(messageNode) {
-      const { emotesManager } = this;
       const messageContentNodes = messageNode.querySelectorAll(".chat-entry-content");
       for (const contentNode of messageContentNodes) {
-        const contentNodeText = contentNode.textContent;
-        const tokens = contentNodeText.split(" ");
-        const uniqueTokens = [...new Set(tokens)];
-        let innerHTML = contentNode.innerHTML;
-        for (const token of uniqueTokens) {
-          const emoteId = emotesManager.getEmoteIdByName(token);
-          if (emoteId) {
-            const emoteRender = emotesManager.getRenderableEmote(emoteId, "chat-emote");
-            innerHTML = innerHTML.replaceAll(
-              token,
-              `<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
-            );
-          }
-        }
-        contentNode.innerHTML = innerHTML;
+        contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent);
       }
     }
     // Submits input to chat
@@ -4305,7 +4407,7 @@
       const { emotesManager } = this;
       this.messageHistory.resetCursor();
       emotesManager.registerEmoteEngagement(emoteId);
-      const emoteEmbedding = emotesManager.getRenderableEmote(emoteId, "nipah__inline-emote");
+      const emoteEmbedding = emotesManager.getRenderableEmoteById(emoteId, "nipah__inline-emote");
       if (!emoteEmbedding)
         return error2("Invalid emote embed");
       let embedNode;
@@ -4457,7 +4559,7 @@
     }
     getRenderableEmote(emote, classes = "") {
       const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`;
-      return `<img class="${classes}" tabindex="0" size="1" :data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+      return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
     }
     getEmbeddableEmote(emote) {
       return `[emote:${emote.id}:${emote.name}]`;
@@ -4528,7 +4630,7 @@
     }
     getRenderableEmote(emote, classes = "") {
       const srcset = `https://cdn.7tv.app/emote/${emote.id}/1x.avif 1x, https://cdn.7tv.app/emote/${emote.id}/2x.avif 2x, https://cdn.7tv.app/emote/${emote.id}/3x.avif 3x, https://cdn.7tv.app/emote/${emote.id}/4x.avif 4x`;
-      return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+      return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
     }
     getEmbeddableEmote(emote) {
       return emote.name;
@@ -5244,7 +5346,7 @@
       // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
       // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
       GITHUB_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV",
-      RELEASE_BRANCH: "master",
+      RELEASE_BRANCH: "dev",
       DEBUG: GM_getValue("environment")?.debug || false
     };
     stylesLoaded = false;

@@ -25,7 +25,7 @@ class NipahClient {
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
-		RELEASE_BRANCH: 'master',
+		RELEASE_BRANCH: 'dev',
 		DEBUG: GM_getValue('environment')?.debug || false
 	}
 

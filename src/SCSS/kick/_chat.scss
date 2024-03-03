@@ -56,6 +56,10 @@
 	}
 }
 
+img.chat-emote {
+	display: inline-block;
+}
+
 .nipah__sticky-scroll {
 	// Hide "chat paused for scrolling" when scroll is sticky
 	> div.absolute:nth-child(2) {
