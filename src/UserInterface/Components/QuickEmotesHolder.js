@@ -22,9 +22,9 @@ export class QuickEmotesHolder extends AbstractComponent {
 
 	attachEventHandlers() {
 		this.$element.on('click', 'img', evt => {
-			const emoteId = evt.target.getAttribute('data-emote-id')
-			if (!emoteId) return error('Invalid emote id')
-			this.handleEmoteClick(emoteId, !!evt.ctrlKey)
+			const emoteHid = evt.target.getAttribute('data-emote-hid')
+			if (!emoteHid) return error('Invalid emote hid')
+			this.handleEmoteClick(emoteHid, !!evt.ctrlKey)
 		})
 
 		// Wait for emotes to be loaded from the database before rendering the quick emotes
@@ -36,14 +36,14 @@ export class QuickEmotesHolder extends AbstractComponent {
 		this.eventBus.subscribe('ntv.ui.submit_input', this.renderQuickEmotes.bind(this))
 	}
 
-	handleEmoteClick(emoteId, sendImmediately = false) {
-		assertArgDefined(emoteId)
+	handleEmoteClick(emoteHid, sendImmediately = false) {
+		assertArgDefined(emoteHid)
 
 		const { emotesManager } = this
-		const emote = emotesManager.getEmote(emoteId)
+		const emote = emotesManager.getEmote(emoteHid)
 		if (!emote) return error('Invalid emote')
 
-		this.eventBus.publish('ntv.ui.emote.click', { emoteId, sendImmediately })
+		this.eventBus.publish('ntv.ui.emote.click', { emoteHid, sendImmediately })
 	}
 
 	renderQuickEmotes() {
@@ -52,8 +52,8 @@ export class QuickEmotesHolder extends AbstractComponent {
 		const emoteHistory = emotesManager.getEmoteHistory()
 
 		if (emoteHistory.size) {
-			for (const [emoteId, history] of emoteHistory) {
-				this.renderQuickEmote(emoteId)
+			for (const [emoteHid, history] of emoteHistory) {
+				this.renderQuickEmote(emoteHid)
 			}
 		}
 	}
@@ -61,17 +61,17 @@ export class QuickEmotesHolder extends AbstractComponent {
 	/**
 	 * Move the emote to the correct position in the emote holder, append if new emote.
 	 */
-	renderQuickEmote(emoteId) {
+	renderQuickEmote(emoteHid) {
 		const { emotesManager } = this
-		const emote = emotesManager.getEmote(emoteId)
+		const emote = emotesManager.getEmote(emoteHid)
 		if (!emote) {
 			// TODO rethink this, doesn't seem like a good idea. If ever connection to the provider is lost, the emote will be removed from the history.
 			// Remove emote from history since it's not in the provider emote sets
 			// emotesManager.removeEmoteHistory(emoteId)
-			return error('History encountered emote missing from provider emote sets..', emoteId)
+			return error('History encountered emote missing from provider emote sets..', emoteHid)
 		}
 
-		const emoteInSortingListIndex = this.sortingList.findIndex(entry => entry.id === emoteId)
+		const emoteInSortingListIndex = this.sortingList.findIndex(entry => entry.hid === emoteHid)
 
 		if (emoteInSortingListIndex !== -1) {
 			const emoteToSort = this.sortingList[emoteInSortingListIndex]
@@ -79,7 +79,7 @@ export class QuickEmotesHolder extends AbstractComponent {
 
 			this.sortingList.splice(emoteInSortingListIndex, 1)
 
-			const insertIndex = this.getSortedEmoteIndex(emoteId)
+			const insertIndex = this.getSortedEmoteIndex(emoteHid)
 			if (insertIndex !== -1) {
 				this.sortingList.splice(insertIndex, 0, emoteToSort)
 				this.$element.children().eq(insertIndex).before(emoteToSort.$emote)
@@ -88,26 +88,26 @@ export class QuickEmotesHolder extends AbstractComponent {
 				this.$element.append(emoteToSort.$emote)
 			}
 		} else {
-			const $emotePartial = $(emotesManager.getRenderableEmoteById(emoteId, 'nipah__emote'))
-			const insertIndex = this.getSortedEmoteIndex(emoteId)
+			const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, 'nipah__emote'))
+			const insertIndex = this.getSortedEmoteIndex(emoteHid)
 
 			if (insertIndex !== -1) {
-				this.sortingList.splice(insertIndex, 0, { id: emoteId, $emote: $emotePartial })
+				this.sortingList.splice(insertIndex, 0, { id: emoteHid, $emote: $emotePartial })
 				this.$element.children().eq(insertIndex).before($emotePartial)
 			} else {
-				this.sortingList.push({ id: emoteId, $emote: $emotePartial })
+				this.sortingList.push({ emoteHid, $emote: $emotePartial })
 				this.$element.append($emotePartial)
 			}
 		}
 	}
 
-	getSortedEmoteIndex(emoteId) {
+	getSortedEmoteIndex(emoteHid) {
 		// Find the correct position in sortingList to insert the emote
 		//  according to the emote history count.
 		const { emotesManager } = this
-		const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteId)
+		const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteHid)
 		return this.sortingList.findIndex(entry => {
-			return emotesManager.getEmoteHistoryCount(entry.id) < emoteHistoryCount
+			return emotesManager.getEmoteHistoryCount(entry.hid) < emoteHistoryCount
 		})
 	}
 

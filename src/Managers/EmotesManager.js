@@ -72,20 +72,20 @@ export class EmotesManager {
 		})
 	}
 
-	getEmote(emoteId) {
-		return this.datastore.getEmote('' + emoteId)
+	getEmote(emoteHid) {
+		return this.datastore.getEmote('' + emoteHid)
 	}
 
-	getEmoteIdByName(emoteName) {
-		return this.datastore.getEmoteIdByName(emoteName)
+	getEmoteHidByName(emoteName) {
+		return this.datastore.getEmoteHidByName(emoteName)
 	}
 
-	getEmoteIdByProviderName(providerId, emoteName) {
-		return this.datastore.getEmoteIdByProviderName(providerId, emoteName)
+	getEmoteHidByProviderName(providerId, emoteName) {
+		return this.datastore.getEmoteHidByProviderName(providerId, emoteName)
 	}
 
-	getEmoteSrc(emoteId) {
-		const emote = this.getEmote(emoteId)
+	getEmoteSrc(emoteHid) {
+		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
 		return this.providers.get(emote.provider).getEmoteSrc(emote)
 	}
@@ -98,8 +98,8 @@ export class EmotesManager {
 		return this.datastore.emoteHistory
 	}
 
-	getEmoteHistoryCount(emoteId) {
-		return this.datastore.getEmoteHistoryCount(emoteId)
+	getEmoteHistoryCount(emoteHid) {
+		return this.datastore.getEmoteHistoryCount(emoteHid)
 	}
 
 	getRenderableEmote(emote, classes = '') {
@@ -109,16 +109,16 @@ export class EmotesManager {
 		return provider.getRenderableEmote(emote, classes)
 	}
 
-	getRenderableEmoteById(emoteId, classes = '') {
-		const emote = this.getEmote(emoteId)
+	getRenderableEmoteByHid(emoteHid, classes = '') {
+		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
 
 		const provider = this.providers.get(emote.provider)
 		return provider.getRenderableEmote(emote, classes)
 	}
 
-	getEmoteEmbeddable(emoteId, spacingBefore = false) {
-		const emote = this.getEmote(emoteId)
+	getEmoteEmbeddable(emoteHid, spacingBefore = false) {
+		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
 
 		const provider = this.providers.get(emote.provider)
@@ -129,12 +129,12 @@ export class EmotesManager {
 		}
 	}
 
-	registerEmoteEngagement(emoteId) {
-		this.datastore.registerEmoteEngagement(emoteId)
+	registerEmoteEngagement(emoteHid) {
+		this.datastore.registerEmoteEngagement(emoteHid)
 	}
 
-	removeEmoteHistory(emoteId) {
-		this.datastore.removeEmoteHistory(emoteId)
+	removeEmoteHistory(emoteHid) {
+		this.datastore.removeEmoteHistory(emoteHid)
 	}
 
 	searchEmotes(search, limit = 0) {

@@ -89,11 +89,11 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 
 		// Inject or send emote to chat on emote click
-		eventBus.subscribe('ntv.ui.emote.click', ({ emoteId, sendImmediately }) => {
+		eventBus.subscribe('ntv.ui.emote.click', ({ emoteHid, sendImmediately }) => {
 			if (sendImmediately) {
-				this.sendEmoteToChat(emoteId)
+				this.sendEmoteToChat(emoteHid)
 			} else {
-				this.insertEmoteInChat(emoteId)
+				this.insertEmoteInChat(emoteHid)
 			}
 		})
 
@@ -361,8 +361,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')
 		$chatMessagesContainer.on('mouseover', '.nipah__emote-box img', evt => {
 			const emoteName = evt.target.dataset.emoteName
-			const emoteId = evt.target.dataset.emoteId
-			if (!emoteName || !emoteId) return
+			const emoteHid = evt.target.dataset.emoteHid
+			if (!emoteName || !emoteHid) return
 
 			const target = evt.target
 			const $tooltip = $(
@@ -385,10 +385,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 
 		// Insert emote in chat input when clicked
+		// Can't track click events on kick emotes, because they kill the even with stopPropagation()
 		$chatMessagesContainer.on('click', '.nipah__emote-box img', evt => {
-			const emoteId = evt.target.dataset.emoteId
-			if (!emoteId) return
-			this.insertEmoteInChat(emoteId)
+			const emoteHid = evt.target.dataset.emoteHid
+			if (!emoteHid) return
+			this.insertEmoteInChat(emoteHid)
 		})
 	}
 
@@ -432,12 +433,12 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (node.nodeType === Node.TEXT_NODE) {
 				parsedString += node.textContent
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				const emoteId = node.dataset.emoteId
+				const emoteHid = node.dataset.emoteHid
 
-				if (emoteId) {
-					emotesInMessage.add(emoteId)
+				if (emoteHid) {
+					emotesInMessage.add(emoteHid)
 					const spacingBefore = parsedString[parsedString.length - 1] !== ' '
-					parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore)
+					parsedString += emotesManager.getEmoteEmbeddable(emoteHid, spacingBefore)
 				}
 			}
 		}
@@ -449,8 +450,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
-		for (const emoteId of emotesInMessage) {
-			emotesManager.registerEmoteEngagement(emoteId)
+		for (const emoteHid of emotesInMessage) {
+			emotesManager.registerEmoteEngagement(emoteHid)
 		}
 
 		originalTextFieldEl.innerHTML = parsedString
@@ -469,8 +470,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	// Sends emote to chat and restores previous message
-	sendEmoteToChat(emoteId) {
-		assertArgDefined(emoteId)
+	sendEmoteToChat(emoteHid) {
+		assertArgDefined(emoteHid)
 
 		const originalTextFieldEl = this.elm.$originalTextField[0]
 		const textFieldEl = this.elm.$textField[0]
@@ -478,7 +479,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const oldMessage = textFieldEl.innerHTML
 		textFieldEl.innerHTML = ''
 
-		this.insertEmoteInChat(emoteId)
+		this.insertEmoteInChat(emoteHid)
 		this.submitInput()
 
 		textFieldEl.innerHTML = oldMessage
@@ -490,14 +491,14 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 	}
 
-	insertEmoteInChat(emoteId) {
-		assertArgDefined(emoteId)
+	insertEmoteInChat(emoteHid) {
+		assertArgDefined(emoteHid)
 		const { emotesManager } = this
 
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		this.messageHistory.resetCursor()
 
-		const emoteEmbedding = emotesManager.getRenderableEmoteById(emoteId, 'nipah__inline-emote')
+		const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embed')
 
 		let embedNode

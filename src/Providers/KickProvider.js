@@ -1,6 +1,6 @@
 import { AbstractProvider } from './AbstractProvider'
 import { PROVIDER_ENUM } from '../constants'
-import { log, info, error, fetchJSON } from '../utils'
+import { log, info, error, fetchJSON, md5 } from '../utils'
 
 export class KickProvider extends AbstractProvider {
 	id = PROVIDER_ENUM.KICK
@@ -55,6 +55,7 @@ export class KickProvider extends AbstractProvider {
 			}
 			const emotesMapped = emotesFiltered.map(emote => ({
 				id: '' + emote.id,
+				hid: md5(emote.name),
 				name: emote.name,
 				subscribers_only: emote.subscribers_only,
 				provider: PROVIDER_ENUM.KICK,
@@ -95,7 +96,7 @@ export class KickProvider extends AbstractProvider {
 	getRenderableEmote(emote, classes = '') {
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
-		return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-id="${emote.id}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
+		return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getEmbeddableEmote(emote) {

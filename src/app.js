@@ -63,7 +63,7 @@ class NipahClient {
 		const database = (this.database = new Dexie(ENV_VARS.DATABASE_NAME))
 		database.version(1).stores({
 			settings: '&id',
-			emoteHistory: '&[channelId+emoteId]'
+			emoteHistory: '&[channelId+emoteHid]'
 		})
 	}
 
