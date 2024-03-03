@@ -62,6 +62,7 @@ export class TabCompletor {
 			this.mode = 'emote'
 
 			const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20)
+			// log('Search results:', searchResults)
 			this.suggestions = searchResults.map(result => result.item.name)
 			this.suggestionHids = searchResults.map(result => this.emotesManager.getEmoteHidByName(result.item.name))
 
