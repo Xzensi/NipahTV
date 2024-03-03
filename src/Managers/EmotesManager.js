@@ -1,6 +1,6 @@
-import { AbstractProvider } from './Providers/AbstractProvider'
-import { EmoteDatastore } from './EmoteDatastore'
-import { log, info, error, splitEmoteName } from './utils'
+import { AbstractProvider } from '../Providers/AbstractProvider'
+import { EmoteDatastore } from '../Datastores/EmoteDatastore'
+import { log, info, error, splitEmoteName } from '../utils'
 
 export class EmotesManager {
 	providers = new Map()

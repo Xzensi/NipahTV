@@ -1,6 +1,15 @@
 import { log } from '../utils'
 
 export class Caret {
+	static moveCaretTo(container, offset) {
+		const selection = window.getSelection()
+		const range = document.createRange()
+		range.setStart(container, offset)
+		range.collapse(true)
+		selection.removeAllRanges()
+		selection.addRange(range)
+	}
+
 	static collapseToEndOfNode(node) {
 		const selection = window.getSelection()
 		const range = document.createRange()
@@ -221,21 +230,22 @@ export class Caret {
 	}
 
 	// Replace text at start to end with replacement.
-	// Container must be guaranteed to be a text node
 	// Start and end are the indices of the text node
 	// Replacement can be a string or an element node.
 	static replaceTextInRange(container, start, end, replacement) {
+		if (container.nodeType !== Node.TEXT_NODE) return error('Invalid container node type', container)
+
 		const text = container.textContent
-		if (replacement.nodeType === Node.TEXT_NODE) {
-			// Splice the text
-			const newText = text.slice(0, start) + replacement.textContent + text.slice(end)
-			container.textContent = newText
-		} else {
-			// We cannot insert an element node into a text node, so we need to split the text node
-			const before = text.slice(0, start)
-			const after = text.slice(end)
-			container.textContent = before
-			container.after(replacement, document.createTextNode(after))
-		}
+		const halfText = text.slice(0, start) + replacement
+		container.textContent = halfText + text.slice(end)
+		return halfText.length
+	}
+
+	static replaceTextWithElementInRange(container, start, end, replacement) {
+		const text = container.textContent
+		const before = text.slice(0, start)
+		const after = text.slice(end)
+		container.textContent = before
+		container.after(replacement, document.createTextNode(after))
 	}
 }

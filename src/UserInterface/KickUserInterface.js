@@ -1,22 +1,21 @@
-import { EmoteMenuButton } from './Components/EmoteMenuButton'
-import { EmoteMenu } from './Components/EmoteMenu'
-import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
 import { log, info, error, assertArgDefined, waitForElements } from '../utils'
+import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
 import { AbstractUserInterface } from './AbstractUserInterface'
+import { EmoteMenuButton } from './Components/EmoteMenuButton'
+import { TabCompletor } from '../Classes/TabCompletor'
+import { EmoteMenu } from './Components/EmoteMenu'
+import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
-import { MessagesHistory } from '../MessagesHistory'
-import { TabCompletor } from '../TabCompletor'
-import { Clipboard2 } from '../Clipboard'
 
 export class KickUserInterface extends AbstractUserInterface {
+	abortController = new AbortController()
+
 	elm = {
-		$textField: null,
+		$chatMessagesContainer: null,
 		$submitButton: null,
-		$chatMessagesContainer: null
+		$textField: null
 	}
 	stickyScroll = true
-	messageHistory = new MessagesHistory()
-	abortController = new AbortController()
 
 	constructor(deps) {
 		super(deps)
@@ -283,10 +282,11 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadTabCompletionBehaviour() {
+		const { emotesManager, usersManager } = this
 		const $textField = this.elm.$textField
 		const textFieldEl = $textField[0]
 
-		const tabCompletor = (this.tabCompletor = new TabCompletor(this.emotesManager))
+		const tabCompletor = (this.tabCompletor = new TabCompletor({ emotesManager, usersManager }))
 		tabCompletor.createModal($textField.parent().parent()[0])
 
 		textFieldEl.addEventListener('keydown', evt => {
@@ -389,8 +389,14 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderEmotesInMessage(messageNode) {
-		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
+		const usernameEl = messageNode.querySelector('.chat-entry-username')
+		if (usernameEl) {
+			const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
+			const chatEntryUserName = usernameEl.textContent
+			this.usersManager.registerUser(chatEntryUserId, chatEntryUserName)
+		}
 
+		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
 		for (const contentNode of messageContentNodes) {
 			contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent)
 		}
@@ -561,10 +567,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	destroy() {
 		if (this.abortController) this.abortController.abort()
+		if (this.chatObserver) this.chatObserver.disconnect()
+		if (this.submitObserver) this.submitObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
-		if (this.chatObserver) this.chatObserver.disconnect()
-		if (this.submitObserver) this.submitObserver.disconnect()
 	}
 }

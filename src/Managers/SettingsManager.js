@@ -1,5 +1,5 @@
-import { SettingsModal } from './UserInterface/Components/Modals/SettingsModal'
-import { error, log } from './utils'
+import { SettingsModal } from '../UserInterface/Components/Modals/SettingsModal'
+import { error, log } from '../utils'
 
 export class SettingsManager {
 	/*

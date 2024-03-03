@@ -3,8 +3,8 @@
 const window = unsafeWindow || window
 
 // Classes
-import { Publisher } from './Publisher'
-import { EmotesManager } from './EmotesManager'
+import { Publisher } from './Classes/Publisher'
+import { EmotesManager } from './Managers/EmotesManager'
 import { KickUserInterface } from './UserInterface/KickUserInterface'
 
 // Providers
@@ -14,7 +14,7 @@ import { SevenTVProvider } from './Providers/SevenTVProvider'
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, fetchJSON } from './utils'
-import { SettingsManager } from './SettingsManager'
+import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
@@ -25,7 +25,7 @@ class NipahClient {
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
-		RELEASE_BRANCH: 'master',
+		RELEASE_BRANCH: 'dev',
 		DEBUG: GM_getValue('environment')?.debug || false
 	}
 
@@ -68,8 +68,8 @@ class NipahClient {
 		settingsManager.initialize()
 		settingsManager.loadSettings()
 
-		const channelData = await this.loadChannelData()
-		if (!channelData) return error('Failed to load channel data')
+		const channelData = await this.loadChannelData().catch(err => error(err.message))
+		if (!channelData) return error('Failed to load channel data, aborting..')
 
 		const emotesManager = new EmotesManager({ eventBus, settingsManager }, channelData.channel_id)
 

@@ -18,20 +18,34 @@
 		flex-direction: column-reverse;
 		scrollbar-width: thin;
 		max-height: 23.4em;
-		overflow-y: scroll;
+		overflow-x: hidden;
+		overflow-y: auto;
 		list-style: none;
 		display: flex;
 
 		li {
 			border-bottom: 1px solid var(--border-transparent-1);
-			grid-template-columns: 4rem 1fr;
+			padding: 0.333em 0.618em;
 			line-height: 1.618em;
 			white-space: nowrap;
 			align-items: center;
-			column-gap: 0.5em;
-			padding: 0.333em;
 			cursor: pointer;
-			display: grid;
+
+			&[data-emote-id] {
+				grid-template-columns: 4rem 1fr;
+				column-gap: 0.5em;
+				display: grid;
+			}
+
+			&[data-user-id] {
+				padding: 0.333em 1.333em;
+
+				span {
+					line-height: 2.618em;
+					display: block;
+					width: 100%;
+				}
+			}
 
 			&:first-child {
 				border-bottom: none;

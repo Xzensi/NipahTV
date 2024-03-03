@@ -1,5 +1,5 @@
-import { Caret } from './UserInterface/Caret'
-import { log, error } from './utils'
+import { Caret } from '../UserInterface/Caret'
+import { log, error } from '../utils'
 
 function flattenNestedElement(node) {
 	var result = []

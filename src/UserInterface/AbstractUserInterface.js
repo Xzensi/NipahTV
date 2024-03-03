@@ -1,4 +1,9 @@
+import { MessagesHistory } from '../Classes/MessagesHistory'
+import { UsersManager } from '../Managers/UsersManager'
+
 export class AbstractUserInterface {
+	messageHistory = new MessagesHistory()
+
 	/**
 	 * @param {EventBus} eventBus
 	 * @param {object} deps
@@ -13,6 +18,7 @@ export class AbstractUserInterface {
 		this.eventBus = eventBus
 		this.settingsManager = settingsManager
 		this.emotesManager = emotesManager
+		this.usersManager = new UsersManager({ eventBus, settingsManager })
 	}
 
 	loadInterface() {

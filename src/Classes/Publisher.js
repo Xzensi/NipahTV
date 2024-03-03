@@ -1,4 +1,4 @@
-import { log, logEvent, error, assertArgument, assertArgDefined, fetchJSON } from './utils'
+import { log, logEvent, error, assertArgument, assertArgDefined, fetchJSON } from '../utils'
 import { DTO } from './DTO'
 
 export class Publisher {
