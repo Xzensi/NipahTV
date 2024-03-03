@@ -4,7 +4,6 @@ import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
 import { log, info, error, assertArgDefined, waitForElements } from '../utils'
 import { AbstractUserInterface } from './AbstractUserInterface'
 import { Caret } from './Caret'
-import { PROVIDER_ENUM } from '../constants'
 import { MessagesHistory } from '../MessagesHistory'
 import { TabCompletor } from '../TabCompletor'
 
@@ -16,6 +15,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 	stickyScroll = true
 	messageHistory = new MessagesHistory()
+	abortController = new AbortController()
 
 	constructor(deps) {
 		super(deps)
@@ -23,56 +23,66 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async loadInterface() {
 		info('Creating user interface..')
-		const { eventBus, settingsManager } = this
+
+		const { eventBus, settingsManager, abortController } = this
+		const abortSignal = abortController.signal
 
 		// Wait for text input to load
-		waitForElements(['#message-input']).then(() => {
-			this.loadShadowProxyTextField()
+		waitForElements(['#message-input'], 5_000, abortSignal)
+			.then(() => {
+				this.loadShadowProxyTextField()
 
-			this.loadEmoteMenu()
-			this.loadChatHistoryBehaviour()
-			this.loadTabCompletionBehaviour()
-		})
+				this.loadEmoteMenu()
+				this.loadChatHistoryBehaviour()
+				this.loadTabCompletionBehaviour()
+			})
+			.catch(() => {})
 
 		// Wait for quick emotes holder to load
-		waitForElements(['#chatroom-footer .quick-emotes-holder']).then(() => {
-			this.loadQuickEmotesHolder()
-		})
+		waitForElements(['#chatroom-footer .quick-emotes-holder'], 5_000, abortSignal)
+			.then(() => {
+				this.loadQuickEmotesHolder()
+			})
+			.catch(() => {})
 
 		// Wait for submit button to load
-		waitForElements(['#chatroom-footer button.base-button']).then(() => {
-			this.loadShadowProxySubmitButton()
-			this.loadEmoteMenuButton()
+		waitForElements(['#chatroom-footer button.base-button'], 5_000, abortSignal)
+			.then(() => {
+				this.loadShadowProxySubmitButton()
+				this.loadEmoteMenuButton()
 
-			if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
-				$('#chatroom').addClass('nipah__hide-emote-menu-button')
-			}
+				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
+					$('#chatroom').addClass('nipah__hide-emote-menu-button')
+				}
 
-			if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
-				$('#chatroom').addClass('nipah__smooth-scrolling')
-			}
-		})
+				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
+					$('#chatroom').addClass('nipah__smooth-scrolling')
+				}
+			})
+			.catch(() => {})
 
 		// Wait for chat messages container to load
-		waitForElements(['#chatroom > div:nth-child(2) > .overflow-y-scroll']).then(() => {
-			const $chatMessagesContainer = (this.elm.$chatMessagesContainer = $(
-				'#chatroom > div:nth-child(2) > .overflow-y-scroll'
-			))
+		waitForElements(['#chatroom > div:nth-child(2) > .overflow-y-scroll'], 5_000, abortSignal)
+			.then(() => {
+				const $chatMessagesContainer = (this.elm.$chatMessagesContainer = $(
+					'#chatroom > div:nth-child(2) > .overflow-y-scroll'
+				))
 
-			// Add alternating background color to chat messages
-			if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
-				$('#chatroom').addClass('nipah__alternating-background')
-			}
+				// Add alternating background color to chat messages
+				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
+					$('#chatroom').addClass('nipah__alternating-background')
+				}
 
-			// Add seperator lines to chat messages
-			const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
-			if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-				$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
-			}
+				// Add seperator lines to chat messages
+				const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
+				if (seperatorSettingVal && seperatorSettingVal !== 'none') {
+					$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
+				}
 
-			this.observeChatMessages()
-			this.loadScrollingBehaviour()
-		})
+				this.observeChatMessages()
+				this.loadScrollingBehaviour()
+			})
+			.catch(() => {})
 
 		// Inject or send emote to chat on emote click
 		eventBus.subscribe('nipah.ui.emote.click', ({ emoteId, sendImmediately }) => {
@@ -130,7 +140,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		$submitButton.on('click', this.submitInput.bind(this))
 
 		// TODO quick fix for submit button being disabled when text field is not empty
-		const observer = new MutationObserver(mutations => {
+		const observer = (this.submitObserver = new MutationObserver(mutations => {
 			if (!this.elm || !this.elm.$textField) return
 
 			// Disconnect the observer temporarily to avoid recursive loops
@@ -146,7 +156,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				attributes: true,
 				attributeFilter: ['disabled']
 			})
-		})
+		}))
 
 		observer.observe($submitButton[0], {
 			attributes: true,
@@ -441,6 +451,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		//  do emotes count as a single token?
 
 		let parsedString = ''
+		let emotesInMessage = new Set()
 		for (const node of textFieldEl.childNodes) {
 			if (node.nodeType === Node.TEXT_NODE) {
 				parsedString += node.textContent
@@ -448,10 +459,15 @@ export class KickUserInterface extends AbstractUserInterface {
 				const emoteId = node.dataset.emoteId
 
 				if (emoteId) {
+					emotesInMessage.add(emoteId)
 					const spacingBefore = parsedString[parsedString.length - 1] !== ' '
 					parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore)
 				}
 			}
+		}
+
+		for (const emoteId of emotesInMessage) {
+			emotesManager.registerEmoteEngagement(emoteId)
 		}
 
 		originalTextFieldEl.innerHTML = parsedString
@@ -588,9 +604,11 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	destroy() {
+		if (this.abortController) this.abortController.abort()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
 		if (this.chatObserver) this.chatObserver.disconnect()
+		if (this.submitObserver) this.submitObserver.disconnect()
 	}
 }

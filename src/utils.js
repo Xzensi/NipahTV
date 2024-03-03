@@ -34,17 +34,34 @@ export function isEmpty(obj) {
 	return true
 }
 
-export function waitForElements(selectors) {
-	return new Promise(resolve => {
+/**
+ * Wait for a set of elements to be present in the DOM.
+ * Pass an AbortSignal to abort the promise.
+ */
+export function waitForElements(selectors, timeout = 10000, signal) {
+	return new Promise((resolve, reject) => {
 		let interval
+		let timeoutTimestamp = Date.now() + timeout
+
 		const checkElements = function () {
 			if (selectors.every(selector => document.querySelector(selector))) {
 				clearInterval(interval)
 				resolve()
+			} else if (Date.now() > timeoutTimestamp) {
+				clearInterval(interval)
+				reject(new Error('Timeout'))
 			}
 		}
+
 		interval = setInterval(checkElements, 100)
 		checkElements()
+
+		if (signal) {
+			signal.addEventListener('abort', () => {
+				clearInterval(interval)
+				reject(new DOMException('Aborted', 'AbortError'))
+			})
+		}
 	})
 }
 

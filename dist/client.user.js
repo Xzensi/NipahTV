@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.3
+// @version 1.1.4
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2574,17 +2574,27 @@
     }
     return true;
   }
-  function waitForElements(selectors) {
-    return new Promise((resolve) => {
+  function waitForElements(selectors, timeout = 1e4, signal) {
+    return new Promise((resolve, reject) => {
       let interval;
+      let timeoutTimestamp = Date.now() + timeout;
       const checkElements = function() {
         if (selectors.every((selector) => document.querySelector(selector))) {
           clearInterval(interval);
           resolve();
+        } else if (Date.now() > timeoutTimestamp) {
+          clearInterval(interval);
+          reject(new Error("Timeout"));
         }
       };
       interval = setInterval(checkElements, 100);
       checkElements();
+      if (signal) {
+        signal.addEventListener("abort", () => {
+          clearInterval(interval);
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      }
     });
   }
   function cleanupHTML(html) {
@@ -2664,6 +2674,10 @@
       for (const listener of listeners) {
         listener(dto.data);
       }
+    }
+    destroy() {
+      this.listeners.clear();
+      this.firedEvents.clear();
     }
   };
 
@@ -3686,19 +3700,6 @@
     }
   };
 
-  // src/constants.js
-  var PLATFORM_ENUM = {
-    NULL: 0,
-    KICK: 1,
-    TWITCH: 2,
-    YOUTUBE: 3
-  };
-  var PROVIDER_ENUM = {
-    NULL: 0,
-    KICK: 1,
-    SEVENTV: 2
-  };
-
   // src/MessagesHistory.js
   var MessagesHistory = class {
     constructor() {
@@ -3918,7 +3919,6 @@
           if (selectedEmoteId) {
             this.hideModal();
             this.reset();
-            this.emotesManager.registerEmoteEngagement(selectedEmoteId);
           }
           this.reset();
         } else if (evt.key === "ArrowLeft" || evt.key === " " || evt.key === "Escape") {
@@ -3937,7 +3937,6 @@
           this.reset();
         } else if (evt.key === "Shift") {
         } else {
-          this.emotesManager.registerEmoteEngagement(this.suggestionIds[this.selectedIndex]);
           this.hideModal();
           this.reset();
         }
@@ -3968,22 +3967,26 @@
     };
     stickyScroll = true;
     messageHistory = new MessagesHistory();
+    abortController = new AbortController();
     constructor(deps) {
       super(deps);
     }
     async loadInterface() {
       info("Creating user interface..");
-      const { eventBus, settingsManager } = this;
-      waitForElements(["#message-input"]).then(() => {
+      const { eventBus, settingsManager, abortController } = this;
+      const abortSignal = abortController.signal;
+      waitForElements(["#message-input"], 5e3, abortSignal).then(() => {
         this.loadShadowProxyTextField();
         this.loadEmoteMenu();
         this.loadChatHistoryBehaviour();
         this.loadTabCompletionBehaviour();
+      }).catch(() => {
       });
-      waitForElements(["#chatroom-footer .quick-emotes-holder"]).then(() => {
+      waitForElements(["#chatroom-footer .quick-emotes-holder"], 5e3, abortSignal).then(() => {
         this.loadQuickEmotesHolder();
+      }).catch(() => {
       });
-      waitForElements(["#chatroom-footer button.base-button"]).then(() => {
+      waitForElements(["#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
         this.loadShadowProxySubmitButton();
         this.loadEmoteMenuButton();
         if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
@@ -3992,8 +3995,9 @@
         if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
           $("#chatroom").addClass("nipah__smooth-scrolling");
         }
+      }).catch(() => {
       });
-      waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"]).then(() => {
+      waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"], 5e3, abortSignal).then(() => {
         const $chatMessagesContainer = this.elm.$chatMessagesContainer = $(
           "#chatroom > div:nth-child(2) > .overflow-y-scroll"
         );
@@ -4006,6 +4010,7 @@
         }
         this.observeChatMessages();
         this.loadScrollingBehaviour();
+      }).catch(() => {
       });
       eventBus.subscribe("nipah.ui.emote.click", ({ emoteId, sendImmediately }) => {
         if (sendImmediately) {
@@ -4048,7 +4053,7 @@
       );
       $originalSubmitButton.after($submitButton);
       $submitButton.on("click", this.submitInput.bind(this));
-      const observer = new MutationObserver((mutations) => {
+      const observer = this.submitObserver = new MutationObserver((mutations) => {
         if (!this.elm || !this.elm.$textField)
           return;
         observer.disconnect();
@@ -4255,16 +4260,21 @@
       const originalSubmitButtonEl = this.elm.$originalSubmitButton[0];
       const textFieldEl = this.elm.$textField[0];
       let parsedString = "";
+      let emotesInMessage = /* @__PURE__ */ new Set();
       for (const node of textFieldEl.childNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
           parsedString += node.textContent;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const emoteId = node.dataset.emoteId;
           if (emoteId) {
+            emotesInMessage.add(emoteId);
             const spacingBefore = parsedString[parsedString.length - 1] !== " ";
             parsedString += emotesManager.getEmoteEmbeddable(emoteId, spacingBefore);
           }
         }
+      }
+      for (const emoteId of emotesInMessage) {
+        emotesManager.registerEmoteEngagement(emoteId);
       }
       originalTextFieldEl.innerHTML = parsedString;
       this.messageHistory.addMessage(textFieldEl.innerHTML);
@@ -4338,6 +4348,8 @@
       textFieldEl.focus();
     }
     destroy() {
+      if (this.abortController)
+        this.abortController.abort();
       if (this.emoteMenu)
         this.emoteMenu.destroy();
       if (this.emoteMenuButton)
@@ -4346,7 +4358,22 @@
         this.quickEmotesHolder.destroy();
       if (this.chatObserver)
         this.chatObserver.disconnect();
+      if (this.submitObserver)
+        this.submitObserver.disconnect();
     }
+  };
+
+  // src/constants.js
+  var PLATFORM_ENUM = {
+    NULL: 0,
+    KICK: 1,
+    TWITCH: 2,
+    YOUTUBE: 3
+  };
+  var PROVIDER_ENUM = {
+    NULL: 0,
+    KICK: 1,
+    SEVENTV: 2
   };
 
   // src/Providers/KickProvider.js
@@ -5210,7 +5237,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.3",
+      VERSION: "1.1.4",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
@@ -5241,6 +5268,7 @@
     }
     async setupClientEnvironment() {
       const { ENV_VARS } = this;
+      log("Setting up client environment..");
       const eventBus = new Publisher();
       this.eventBus = eventBus;
       const settingsManager = new SettingsManager(eventBus);
@@ -5365,6 +5393,7 @@
       log("Cleaning up old session..");
       if (this.eventBus) {
         this.eventBus.publish("nipah.session.destroy");
+        this.eventBus.destroy();
         this.eventBus = null;
       }
     }

@@ -18,7 +18,7 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.1.3',
+		VERSION: '1.1.4',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -56,6 +56,8 @@ class NipahClient {
 
 	async setupClientEnvironment() {
 		const { ENV_VARS } = this
+
+		log('Setting up client environment..')
 
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
@@ -215,6 +217,7 @@ class NipahClient {
 
 		if (this.eventBus) {
 			this.eventBus.publish('nipah.session.destroy')
+			this.eventBus.destroy()
 			this.eventBus = null
 		}
 	}
