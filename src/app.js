@@ -18,14 +18,14 @@ import { SettingsManager } from './SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.1.4',
+		VERSION: '1.1.5',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
-		RELEASE_BRANCH: 'dev',
+		RELEASE_BRANCH: 'master',
 		DEBUG: GM_getValue('environment')?.debug || false
 	}
 
