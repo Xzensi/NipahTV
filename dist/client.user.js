@@ -751,6 +751,8 @@
     users = [];
     usersIdMap = /* @__PURE__ */ new Map();
     usersNameMap = /* @__PURE__ */ new Map();
+    usersCount = 0;
+    maxUsers = 5e4;
     fuse = new Fuse([], {
       includeScore: true,
       shouldSort: true,
@@ -771,11 +773,16 @@
     registerUser(id, name) {
       if (this.usersIdMap.has(id))
         return;
+      if (this.usersCount >= this.maxUsers) {
+        error2(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`);
+        return;
+      }
       const user = { id, name };
       this.usersNameMap.set(name, user);
       this.usersIdMap.set(id, user);
       this.users.push(user);
       this.fuse.add(user);
+      this.usersCount++;
     }
     searchUsers(searchVal) {
       return this.fuse.search(searchVal);
