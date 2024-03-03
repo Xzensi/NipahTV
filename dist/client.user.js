@@ -1786,24 +1786,6 @@
       );
       $originalSubmitButton.after($submitButton);
       $submitButton.on("click", this.submitInput.bind(this));
-      const observer = this.submitObserver = new MutationObserver((mutations) => {
-        if (!this.elm || !this.elm.$textField)
-          return;
-        observer.disconnect();
-        if (!this.elm.$textField[0].innerHTML) {
-          $submitButton.attr("disabled", true);
-        } else {
-          $submitButton.removeAttr("disabled");
-        }
-        observer.observe($submitButton[0], {
-          attributes: true,
-          attributeFilter: ["disabled"]
-        });
-      });
-      observer.observe($submitButton[0], {
-        attributes: true,
-        attributeFilter: ["disabled"]
-      });
     }
     loadShadowProxyTextField() {
       const $originalTextField = this.elm.$originalTextField = $("#message-input");
@@ -1852,6 +1834,9 @@
         }
         if (messageParts && messageParts.length) {
           clipboard.pasteHTML(messageParts.join(""));
+          if (textFieldEl.childNodes.length) {
+            this.elm.$submitButton.removeClass("disabled");
+          }
         }
       });
     }
@@ -2088,8 +2073,6 @@
         this.abortController.abort();
       if (this.chatObserver)
         this.chatObserver.disconnect();
-      if (this.submitObserver)
-        this.submitObserver.disconnect();
       if (this.emoteMenu)
         this.emoteMenu.destroy();
       if (this.emoteMenuButton)

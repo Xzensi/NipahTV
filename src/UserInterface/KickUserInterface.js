@@ -138,30 +138,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		$originalSubmitButton.after($submitButton)
 
 		$submitButton.on('click', this.submitInput.bind(this))
-
-		// TODO quick fix for submit button being disabled when text field is not empty
-		const observer = (this.submitObserver = new MutationObserver(mutations => {
-			if (!this.elm || !this.elm.$textField) return
-
-			// Disconnect the observer temporarily to avoid recursive loops
-			observer.disconnect()
-
-			if (!this.elm.$textField[0].innerHTML) {
-				$submitButton.attr('disabled', true)
-			} else {
-				$submitButton.removeAttr('disabled')
-			}
-
-			observer.observe($submitButton[0], {
-				attributes: true,
-				attributeFilter: ['disabled']
-			})
-		}))
-
-		observer.observe($submitButton[0], {
-			attributes: true,
-			attributeFilter: ['disabled']
-		})
 	}
 
 	loadShadowProxyTextField() {
@@ -230,6 +206,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			if (messageParts && messageParts.length) {
 				clipboard.pasteHTML(messageParts.join(''))
+
+				if (textFieldEl.childNodes.length) {
+					this.elm.$submitButton.removeClass('disabled')
+				}
 			}
 		})
 	}
@@ -464,16 +444,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		originalTextFieldEl.innerHTML = oldMessage
 		originalTextFieldEl.dispatchEvent(new Event('input'))
 
-		// TODO fix this, need to wait till message is sent before re-enabling submit button or Kick will override it
-
 		if (oldMessage) {
 			this.elm.$submitButton.removeAttr('disabled')
-			// 	window.requestAnimationFrame(() => {
-			// 		this.elm.$submitButton.removeAttr('disabled')
-			// 	})
-			// 	setTimeout(() => {
-			// 		this.elm.$submitButton.removeAttr('disabled')
-			// 	}, 1000)
 		}
 	}
 
@@ -568,7 +540,6 @@ export class KickUserInterface extends AbstractUserInterface {
 	destroy() {
 		if (this.abortController) this.abortController.abort()
 		if (this.chatObserver) this.chatObserver.disconnect()
-		if (this.submitObserver) this.submitObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
