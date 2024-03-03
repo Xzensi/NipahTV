@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.11
+// @version 1.1.12
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1991,7 +1991,7 @@
       const $originalTextField = this.elm.$originalTextField = $("#message-input");
       const placeholder = $originalTextField.data("placeholder");
       const $textField = this.elm.$textField = $(
-        `<div id="nipah__message-input" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
+        `<div id="nipah__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
       );
       const originalTextFieldEl = $originalTextField[0];
       const textFieldEl = $textField[0];
@@ -2045,6 +2045,11 @@
           if (textFieldEl.childNodes.length) {
             this.elm.$submitButton.removeClass("disabled");
           }
+        }
+      });
+      $(document.body).on("keydown", (evt) => {
+        if (!this.tabCompletor.isShowingModal && document.activeElement !== textFieldEl && document.activeElement.tagName !== "INPUT" && !document.activeElement.getAttribute("contenteditable")) {
+          textFieldEl.focus();
         }
       });
     }
@@ -3258,7 +3263,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.11",
+      VERSION: "1.1.12",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

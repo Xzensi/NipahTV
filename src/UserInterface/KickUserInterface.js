@@ -145,7 +145,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $originalTextField = (this.elm.$originalTextField = $('#message-input'))
 		const placeholder = $originalTextField.data('placeholder')
 		const $textField = (this.elm.$textField = $(
-			`<div id="nipah__message-input" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
+			`<div id="nipah__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
 		))
 		const originalTextFieldEl = $originalTextField[0]
 		const textFieldEl = $textField[0]
@@ -219,6 +219,18 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (textFieldEl.childNodes.length) {
 					this.elm.$submitButton.removeClass('disabled')
 				}
+			}
+		})
+
+		// If started typing with focus not on chat input, focus on chat input
+		$(document.body).on('keydown', evt => {
+			if (
+				!this.tabCompletor.isShowingModal &&
+				document.activeElement !== textFieldEl &&
+				document.activeElement.tagName !== 'INPUT' &&
+				!document.activeElement.getAttribute('contenteditable')
+			) {
+				textFieldEl.focus()
 			}
 		})
 	}
