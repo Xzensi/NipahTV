@@ -269,18 +269,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const tabCompletor = (this.tabCompletor = new TabCompletor({ emotesManager, usersManager }))
 		tabCompletor.createModal($textField.parent().parent()[0])
 
-		textFieldEl.addEventListener('keydown', evt => {
-			if (evt.key === 'Tab') {
-				// TODO fix @ name tagging
-				// Don't enable tab-completion for @ name tagging
-				const { word } = Caret.getWordBeforeCaret()
-				if (word && word[0] === '@') {
-					evt.preventDefault()
-				}
-			}
-
-			tabCompletor.handleKeydown(evt)
-		})
+		textFieldEl.addEventListener('keydown', tabCompletor.handleKeydown.bind(tabCompletor))
 
 		textFieldEl.addEventListener('keyup', evt => {
 			if (this.tabCompletor.isShowingModal) {
