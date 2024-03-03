@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.7
+// @version 1.1.8
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1984,6 +1984,12 @@
           { once: true, passive: true }
         );
       });
+      $chatMessagesContainer.on("click", ".nipah__emote-box img", (evt) => {
+        const emoteId = evt.target.dataset.emoteId;
+        if (!emoteId)
+          return;
+        this.insertEmoteInChat(emoteId);
+      });
     }
     renderEmotesInChat() {
       if (!this.elm || !this.elm.$chatMessagesContainer)
@@ -2994,7 +3000,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.7",
+      VERSION: "1.1.8",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

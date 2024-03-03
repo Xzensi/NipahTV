@@ -383,6 +383,13 @@ export class KickUserInterface extends AbstractUserInterface {
 				{ once: true, passive: true }
 			)
 		})
+
+		// Insert emote in chat input when clicked
+		$chatMessagesContainer.on('click', '.nipah__emote-box img', evt => {
+			const emoteId = evt.target.dataset.emoteId
+			if (!emoteId) return
+			this.insertEmoteInChat(emoteId)
+		})
 	}
 
 	renderEmotesInChat() {
