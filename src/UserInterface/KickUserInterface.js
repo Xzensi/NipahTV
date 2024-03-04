@@ -114,9 +114,9 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadEmoteMenu() {
-		const { eventBus, settingsManager, emotesManager } = this
+		const { channelData, eventBus, settingsManager, emotesManager } = this
 		const container = this.elm.$textField.parent().parent()[0]
-		this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }, container).init()
+		this.emoteMenu = new EmoteMenu({ channelData, eventBus, emotesManager, settingsManager }, container).init()
 
 		this.elm.$textField.on('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
 	}

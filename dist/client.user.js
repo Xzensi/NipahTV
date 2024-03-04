@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.13
+// @version 1.1.14
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1001,16 +1001,14 @@
      * @param {EventBus} eventBus
      * @param {object} deps
      */
-    constructor({ ENV_VARS, eventBus, settingsManager, emotesManager }) {
-      if (ENV_VARS === void 0)
-        throw new Error("ENV_VARS is required");
-      if (eventBus === void 0)
-        throw new Error("eventBus is required");
-      if (emotesManager === void 0)
-        throw new Error("emotesManager is required");
-      if (settingsManager === void 0)
-        throw new Error("settingsManager is required");
+    constructor({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager }) {
+      assertArgDefined(ENV_VARS);
+      assertArgDefined(channelData);
+      assertArgDefined(eventBus);
+      assertArgDefined(settingsManager);
+      assertArgDefined(emotesManager);
       this.ENV_VARS = ENV_VARS;
+      this.channelData = channelData;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
@@ -1560,8 +1558,9 @@
     activePanel = "emotes";
     panels = {};
     sidebarMap = /* @__PURE__ */ new Map();
-    constructor({ eventBus, settingsManager, emotesManager }, container) {
+    constructor({ channelData, eventBus, settingsManager, emotesManager }, container) {
       super();
+      this.channelData = channelData;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
@@ -1589,19 +1588,29 @@
 						</div>
 						<div class="nipah__emote-menu__sidebar ${showSidebar ? "" : "nipah__hidden"}">
 							<div class="nipah__emote-menu__sidebar__sets"></div>
-							<div class="nipah__emote-menu__settings-btn">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-									<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
-								</svg>
+							<div class="nipah__emote-menu__sidebar__extra">
+								<div class="nipah__emote-menu__sidebar-btn">
+									<a href="#" class="nipah__chatroom-link" target="_blank" alt="Pop-out chatroom">
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+											<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M22 3h7v7m-1.5-5.5L20 12m-3-7H8a3 3 0 0 0-3 3v16a3 3 0 0 0 3 3h16a3 3 0 0 0 3-3v-9" />
+										</svg>
+									</a>
+								</div>
+								<div class="nipah__emote-menu__sidebar-btn nipah__emote-menu__sidebar-btn--settings">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+										<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
+									</svg>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
 			`)
       );
+      $(".nipah__chatroom-link", this.$container).attr("href", `/${this.channelData.channel_name}/chatroom`);
       this.$searchInput = $(".nipah__emote-menu__search input", this.$container);
       this.$scrollable = $(".nipah__emote-menu__scrollable", this.$container);
-      this.$settingsBtn = $(".nipah__emote-menu__settings-btn", this.$container);
+      this.$settingsBtn = $(".nipah__emote-menu__sidebar-btn--settings", this.$container);
       this.$sidebarSets = $(".nipah__emote-menu__sidebar__sets", this.$container);
       this.panels.$emotes = $(".nipah__emote-menu__panel__emotes", this.$container);
       this.panels.$search = $(".nipah__emote-menu__panel__search", this.$container);
@@ -1713,7 +1722,9 @@
       const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index);
       for (const emoteSet of orderedEmoteSets) {
         const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
-        const sidebarIcon = $(`<img data-id="${emoteSet.id}" src="${emoteSet.icon}">`).appendTo($sidebarSets);
+        const sidebarIcon = $(
+          `<div class="nipah__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`
+        ).appendTo($sidebarSets);
         this.sidebarMap.set(emoteSet.id, sidebarIcon[0]);
         const $newEmoteSet = $(
           cleanupHTML(`
@@ -1966,9 +1977,9 @@
       eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
     }
     async loadEmoteMenu() {
-      const { eventBus, settingsManager, emotesManager } = this;
+      const { channelData, eventBus, settingsManager, emotesManager } = this;
       const container = this.elm.$textField.parent().parent()[0];
-      this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }, container).init();
+      this.emoteMenu = new EmoteMenu({ channelData, eventBus, emotesManager, settingsManager }, container).init();
       this.elm.$textField.on("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
     }
     async loadEmoteMenuButton() {
@@ -3263,7 +3274,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.13",
+      VERSION: "1.1.14",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
@@ -3330,7 +3341,7 @@
       emotesManager.initialize();
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-        userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
+        userInterface = new KickUserInterface({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager });
       } else {
         return error2("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
       }
