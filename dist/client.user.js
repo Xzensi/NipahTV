@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.19
+// @version 1.1.20
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2067,10 +2067,48 @@
           }
         }
       });
+      const ignoredKeys = {
+        ArrowUp: true,
+        ArrowDown: true,
+        ArrowLeft: true,
+        ArrowRight: true,
+        Control: true,
+        Shift: true,
+        Alt: true,
+        Meta: true,
+        Home: true,
+        End: true,
+        PageUp: true,
+        PageDown: true,
+        Insert: true,
+        Delete: true,
+        Tab: true,
+        Escape: true,
+        Enter: true,
+        Backspace: true,
+        CapsLock: true,
+        ContextMenu: true,
+        F1: true,
+        F2: true,
+        F3: true,
+        F4: true,
+        F5: true,
+        F6: true,
+        F7: true,
+        F8: true,
+        F9: true,
+        F10: true,
+        F11: true,
+        F12: true,
+        PrintScreen: true,
+        ScrollLock: true,
+        Pause: true,
+        NumLock: true
+      };
       $(document.body).on("keydown", (evt) => {
-        if (!this.tabCompletor.isShowingModal && document.activeElement !== textFieldEl && document.activeElement.tagName !== "INPUT" && !document.activeElement.getAttribute("contenteditable")) {
-          textFieldEl.focus();
-        }
+        if (this.tabCompletor.isShowingModal || ignoredKeys[evt.key] || document.activeElement.tagName === "INPUT" || document.activeElement.getAttribute("contenteditable"))
+          return;
+        textFieldEl.focus();
       });
     }
     loadChatHistoryBehaviour() {
@@ -3283,7 +3321,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.19",
+      VERSION: "1.1.20",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
