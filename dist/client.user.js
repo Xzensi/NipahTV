@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.20
+// @version 1.1.21
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-fcb6d6c8.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e1d690ae.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -1621,7 +1621,9 @@
         if (!emoteHid)
           return error2("Invalid emote hid");
         eventBus.publish("ntv.ui.emote.click", { emoteHid });
-        this.toggleShow();
+        const closeOnClick = settingsManager.getSetting("shared.chat.emote_menu.behavior.close_on_click");
+        if (closeOnClick)
+          this.toggleShow(false);
       });
       this.$scrollable.on("mouseenter", "img", (evt) => {
         if (this.$tooltip)
@@ -3118,6 +3120,17 @@
                     type: "checkbox"
                   }
                 ]
+              },
+              {
+                label: "Appearance",
+                children: [
+                  {
+                    label: "Close the emote menu when clicking an emote.",
+                    id: "shared.chat.emote_menu.behavior.close_on_click",
+                    default: false,
+                    type: "checkbox"
+                  }
+                ]
               }
             ]
           },
@@ -3321,7 +3334,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.20",
+      VERSION: "1.1.21",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

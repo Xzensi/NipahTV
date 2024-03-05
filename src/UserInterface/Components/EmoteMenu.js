@@ -81,7 +81,9 @@ export class EmoteMenu extends AbstractComponent {
 			const emoteHid = evt.target.getAttribute('data-emote-hid')
 			if (!emoteHid) return error('Invalid emote hid')
 			eventBus.publish('ntv.ui.emote.click', { emoteHid })
-			this.toggleShow()
+
+			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.behavior.close_on_click')
+			if (closeOnClick) this.toggleShow(false)
 		})
 
 		// Tooltip for emotes

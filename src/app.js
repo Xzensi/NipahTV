@@ -18,7 +18,7 @@ import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.1.20',
+		VERSION: '1.1.21',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',

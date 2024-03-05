@@ -231,6 +231,17 @@ export class SettingsManager {
 									type: 'checkbox'
 								}
 							]
+						},
+						{
+							label: 'Appearance',
+							children: [
+								{
+									label: 'Close the emote menu when clicking an emote.',
+									id: 'shared.chat.emote_menu.behavior.close_on_click',
+									default: false,
+									type: 'checkbox'
+								}
+							]
 						}
 					]
 				},
