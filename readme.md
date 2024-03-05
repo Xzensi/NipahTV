@@ -40,7 +40,7 @@ NipahTV aims to enhance the emote integration experience within Kick chat by pro
 
 ## Getting NipahTV
 
-Refer to this [wiki page](/Xzensi/NipahTV/wiki/Installation-instructions) for installation instructions (it'll be simple, I promise).
+Refer to this [wiki page](https://github.com/Xzensi/NipahTV/wiki/Installation-instructions) for installation instructions (it'll be simple, I promise).
 
 ## Roadmap
 
