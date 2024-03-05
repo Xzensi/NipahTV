@@ -98,6 +98,9 @@
 		display: flex;
 
 		&__sets {
+			scrollbar-width: none;
+			flex: 1 1 fit-content;
+			overflow-y: auto;
 			width: 100%;
 
 			> div {
@@ -110,6 +113,7 @@
 		}
 
 		&__extra {
+			flex: 0 0 fit-content;
 			width: 100%;
 		}
 
