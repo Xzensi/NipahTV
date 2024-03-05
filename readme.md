@@ -38,19 +38,9 @@ NipahTV aims to enhance the emote integration experience within Kick chat by pro
 </div>
 <br />
 
-## Getting Started
+## Getting NipahTV
 
-To use NipahTV, you'll need to install a userscript manager like Violentmonkey. Follow the links below to install the manager for your browser: [Chrome](https://chrome.google.com/webstore/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), [Edge](https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao).
-
-### Installation
-
-NipahTV has fully implemented all 7TV features. It is not recommended to enable the 7TV extension alongside NipahTV.
-
-To install the userscript, click on the following link: [NipahTV client](https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
-
-1. Open your userscript manager (Violentmonkey) dashboard and click on the "New" button in the top left corner.
-2. Click "Install from URL" and paste the following URL: `https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js`
-3. Click "Install" and you're all set!
+Refer to this [wiki page](/Xzensi/NipahTV/wiki/Installation-instructions) for installation instructions (it'll be simple, I promise).
 
 ## Roadmap
 
