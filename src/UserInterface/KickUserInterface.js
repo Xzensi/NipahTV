@@ -1,9 +1,9 @@
 import { log, info, error, assertArgDefined, waitForElements, cleanupHTML } from '../utils'
-import { QuickEmotesHolder } from './Components/QuickEmotesHolder'
+import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
 import { AbstractUserInterface } from './AbstractUserInterface'
-import { EmoteMenuButton } from './Components/EmoteMenuButton'
+import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { TabCompletor } from '../Classes/TabCompletor'
-import { EmoteMenu } from './Components/EmoteMenu'
+import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
 
@@ -116,19 +116,22 @@ export class KickUserInterface extends AbstractUserInterface {
 	async loadEmoteMenu() {
 		const { channelData, eventBus, settingsManager, emotesManager } = this
 		const container = this.elm.$textField.parent().parent()[0]
-		this.emoteMenu = new EmoteMenu({ channelData, eventBus, emotesManager, settingsManager }, container).init()
+		this.emoteMenu = new EmoteMenuComponent(
+			{ channelData, eventBus, emotesManager, settingsManager },
+			container
+		).init()
 
 		this.elm.$textField.on('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
 	}
 
 	async loadEmoteMenuButton() {
 		const { ENV_VARS, eventBus, settingsManager } = this
-		this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus, settingsManager }).init()
+		this.emoteMenuButton = new EmoteMenuButtonComponent({ ENV_VARS, eventBus, settingsManager }).init()
 	}
 
 	async loadQuickEmotesHolder() {
 		const { eventBus, settingsManager, emotesManager } = this
-		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, settingsManager, emotesManager }).init()
+		this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init()
 	}
 
 	loadShadowProxySubmitButton() {

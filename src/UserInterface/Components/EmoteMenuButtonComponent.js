@@ -1,7 +1,7 @@
 import { cleanupHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
-export class EmoteMenuButton extends AbstractComponent {
+export class EmoteMenuButtonComponent extends AbstractComponent {
 	constructor({ ENV_VARS, eventBus, settingsManager }) {
 		super()
 

@@ -1,7 +1,7 @@
 import { log, info, error, assertArgDefined } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
-export class QuickEmotesHolder extends AbstractComponent {
+export class QuickEmotesHolderComponent extends AbstractComponent {
 	// The sorting list shadow reflects the order of emotes in this.$element
 	sortingList = []
 

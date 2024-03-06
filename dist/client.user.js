@@ -792,8 +792,8 @@
     }
   };
 
-  // src/UserInterface/Components/QuickEmotesHolder.js
-  var QuickEmotesHolder = class extends AbstractComponent {
+  // src/UserInterface/Components/QuickEmotesHolderComponent.js
+  var QuickEmotesHolderComponent = class extends AbstractComponent {
     // The sorting list shadow reflects the order of emotes in this.$element
     sortingList = [];
     constructor({ eventBus, settingsManager, emotesManager }) {
@@ -1032,8 +1032,8 @@
     }
   };
 
-  // src/UserInterface/Components/EmoteMenuButton.js
-  var EmoteMenuButton = class extends AbstractComponent {
+  // src/UserInterface/Components/EmoteMenuButtonComponent.js
+  var EmoteMenuButtonComponent = class extends AbstractComponent {
     constructor({ ENV_VARS, eventBus, settingsManager }) {
       super();
       this.ENV_VARS = ENV_VARS;
@@ -1551,8 +1551,8 @@
     }
   };
 
-  // src/UserInterface/Components/EmoteMenu.js
-  var EmoteMenu = class extends AbstractComponent {
+  // src/UserInterface/Components/EmoteMenuComponent.js
+  var EmoteMenuComponent = class extends AbstractComponent {
     toggleStates = {};
     isShowing = false;
     activePanel = "emotes";
@@ -1990,16 +1990,19 @@
     async loadEmoteMenu() {
       const { channelData, eventBus, settingsManager, emotesManager } = this;
       const container = this.elm.$textField.parent().parent()[0];
-      this.emoteMenu = new EmoteMenu({ channelData, eventBus, emotesManager, settingsManager }, container).init();
+      this.emoteMenu = new EmoteMenuComponent(
+        { channelData, eventBus, emotesManager, settingsManager },
+        container
+      ).init();
       this.elm.$textField.on("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
     }
     async loadEmoteMenuButton() {
       const { ENV_VARS, eventBus, settingsManager } = this;
-      this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus, settingsManager }).init();
+      this.emoteMenuButton = new EmoteMenuButtonComponent({ ENV_VARS, eventBus, settingsManager }).init();
     }
     async loadQuickEmotesHolder() {
       const { eventBus, settingsManager, emotesManager } = this;
-      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, settingsManager, emotesManager }).init();
+      this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init();
     }
     loadShadowProxySubmitButton() {
       const $originalSubmitButton = this.elm.$originalSubmitButton = $("#chatroom-footer button.base-button");
@@ -2565,7 +2568,7 @@
     }
   };
 
-  // src/UserInterface/Components/Modals/AbstractModal.js
+  // src/UserInterface/Modals/AbstractModal.js
   var AbstractModal = class extends AbstractComponent {
     event = new EventTarget();
     constructor(className) {
@@ -2674,34 +2677,6 @@
     }
   };
 
-  // src/UserInterface/Components/ColorComponent.js
-  var ColorComponent = class extends AbstractComponent {
-    event = new EventTarget();
-    constructor(id, label, value = "#000000") {
-      super();
-      this.id = id;
-      this.label = label;
-      this.value = value;
-    }
-    render() {
-      this.$element = $(`
-            <div class="nipah__color">
-                <label for="${this.id}">${this.label}</label>
-                <input type="color" id="${this.id}" value="${this.value}">
-            </div>
-        `);
-    }
-    attachEventHandlers() {
-      this.$element.find("input").on("change", (e) => {
-        this.value = e.target.value;
-        this.event.dispatchEvent(new Event("change"));
-      });
-    }
-    getValue() {
-      return this.value;
-    }
-  };
-
   // src/UserInterface/Components/DropdownComponent.js
   var DropdownComponent = class extends AbstractComponent {
     event = new EventTarget();
@@ -2766,7 +2741,35 @@
     }
   };
 
-  // src/UserInterface/Components/Modals/SettingsModal.js
+  // src/UserInterface/Components/ColorComponent.js
+  var ColorComponent = class extends AbstractComponent {
+    event = new EventTarget();
+    constructor(id, label, value = "#000000") {
+      super();
+      this.id = id;
+      this.label = label;
+      this.value = value;
+    }
+    render() {
+      this.$element = $(`
+            <div class="nipah__color">
+                <label for="${this.id}">${this.label}</label>
+                <input type="color" id="${this.id}" value="${this.value}">
+            </div>
+        `);
+    }
+    attachEventHandlers() {
+      this.$element.find("input").on("change", (e) => {
+        this.value = e.target.value;
+        this.event.dispatchEvent(new Event("change"));
+      });
+    }
+    getValue() {
+      return this.value;
+    }
+  };
+
+  // src/UserInterface/Modals/SettingsModal.js
   var SettingsModal = class extends AbstractModal {
     constructor(eventBus, settingsOpts) {
       super("settings");

@@ -1,5 +1,4 @@
-import { AbstractComponent } from '../AbstractComponent'
-import { log } from '../../../utils'
+import { AbstractComponent } from '../Components/AbstractComponent'
 
 /*
     This abstract class meant for inheritance deals with the creation of the modal container element, it's header and body.

@@ -1,7 +1,7 @@
 import { log, info, error, cleanupHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
-export class EmoteMenu extends AbstractComponent {
+export class EmoteMenuComponent extends AbstractComponent {
 	toggleStates = {}
 	isShowing = false
 	activePanel = 'emotes'

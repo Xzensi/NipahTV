@@ -1,9 +1,9 @@
 import { AbstractModal } from './AbstractModal'
-import { CheckboxComponent } from '../CheckboxComponent'
-import { ColorComponent } from '../ColorComponent'
-import { log, error } from '../../../utils'
-import { DropdownComponent } from '../DropdownComponent'
-import { NumberComponent } from '../NumberComponent'
+import { CheckboxComponent } from '../Components/CheckboxComponent'
+import { DropdownComponent } from '../Components/DropdownComponent'
+import { NumberComponent } from '../Components/NumberComponent'
+import { ColorComponent } from '../Components/ColorComponent'
+import { log, error } from '../../utils'
 
 export class SettingsModal extends AbstractModal {
 	constructor(eventBus, settingsOpts) {
