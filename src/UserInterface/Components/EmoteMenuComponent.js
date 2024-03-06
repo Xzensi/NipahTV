@@ -24,6 +24,9 @@ export class EmoteMenuComponent extends AbstractComponent {
 		const showSearchBox = settingsManager.getSetting('shared.chat.emote_menu.appearance.search_box')
 		const showSidebar = true //settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
 
+		// Delete any existing emote menus, in case cached page got loaded somehow
+		$('.nipah__emote-menu').remove()
+
 		this.$container = $(
 			cleanupHTML(`
 				<div class="nipah__emote-menu" style="display: none">

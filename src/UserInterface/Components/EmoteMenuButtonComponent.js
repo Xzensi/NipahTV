@@ -11,6 +11,9 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 	}
 
 	render() {
+		// Delete any existing footer logo button, in case cached page got loaded somehow
+		$('.nipah_client_footer').remove()
+
 		const basePath = this.ENV_VARS.RESOURCE_ROOT + '/dist/img/btn'
 		const filename = this.getFile()
 

@@ -803,6 +803,7 @@
       this.emotesManager = emotesManager;
     }
     render() {
+      $(".nipah_client_quick_emotes_holder").remove();
       const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
       this.$element = $(`<div class="nipah_client_quick_emotes_holder" data-rows="${rows}"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
@@ -1041,6 +1042,7 @@
       this.settingsManager = settingsManager;
     }
     render() {
+      $(".nipah_client_footer").remove();
       const basePath = this.ENV_VARS.RESOURCE_ROOT + "/dist/img/btn";
       const filename = this.getFile();
       this.$element = $(
@@ -1570,6 +1572,7 @@
       const { settingsManager } = this;
       const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
       const showSidebar = true;
+      $(".nipah__emote-menu").remove();
       this.$container = $(
         cleanupHTML(`
 				<div class="nipah__emote-menu" style="display: none">
