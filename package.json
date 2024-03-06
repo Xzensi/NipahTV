@@ -5,10 +5,25 @@
 	"author": "Xzensi",
 	"license": "AGPL-3.0-only",
 	"scripts": {
-		"build": "rm -f dist/client.user.js && cat compile_header >> dist/client.user.js && esbuild src/app.js --bundle >> dist/client.user.js"
+		"update-build-header": "node build-tasks/task-update-build-header.js",
+		"sass": "node build-tasks/task-compile-sass.js",
+		"watch:dev-esbuild": "nodemon --watch src/**/*.js --exec npm run dev-esbuild",
+		"watch:dart-sass": "sass --watch assets/scss:dist/css --style=compressed",
+		"serve-files": "node build-tasks/task-serve-files.js",
+		"preesbuild": "npm run update-build-header && rm -f dist/client.user.js && cat build-tasks/compile_header >> dist/client.user.js",
+		"esbuild": "esbuild src/app.js --bundle >> dist/client.user.js",
+		"predev-esbuild": "rm -f dist/debug.user.js && cat build-tasks/debug_compile_header >> dist/debug.user.js",
+		"dev-esbuild": "esbuild --define:IS_LOCAL_ENV=true src/app.js --bundle >> dist/debug.user.js",
+		"build": "npm run sass && npm run esbuild",
+		"dev": "concurrently --kill-others \"npm run watch:dev-esbuild\" \"npm run watch:dart-sass\" \"npm run serve-files\""
 	},
 	"devDependencies": {
+		"concurrently": "^8.2.2",
 		"esbuild": "0.20.0",
-		"semver": "^7.6.0"
+		"nodemon": "^3.1.0",
+		"sass": "^1.71.1",
+		"semver": "^7.6.0",
+		"express": "^4.18.3",
+		"serve-static": "^1.15.0"
 	}
 }

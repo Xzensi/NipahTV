@@ -14,7 +14,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 		// Delete any existing footer logo button, in case cached page got loaded somehow
 		$('.nipah_client_footer').remove()
 
-		const basePath = this.ENV_VARS.RESOURCE_ROOT + '/dist/img/btn'
+		const basePath = this.ENV_VARS.RESOURCE_ROOT + '/assets/img/btn'
 		const filename = this.getFile()
 
 		this.$element = $(
@@ -31,7 +31,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 	attachEventHandlers() {
 		this.eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
 			const filename = this.getFile()
-			this.$footerLogoBtn.attr('src', `${this.ENV_VARS.RESOURCE_ROOT}/dist/img/btn/${filename}.png`)
+			this.$footerLogoBtn.attr('src', `${this.ENV_VARS.RESOURCE_ROOT}/assets/img/btn/${filename}.png`)
 			this.$footerLogoBtn.removeClass()
 			this.$footerLogoBtn.addClass(`footer_logo_btn ${filename.toLowerCase()}`)
 		})

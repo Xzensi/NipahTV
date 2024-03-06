@@ -3,8 +3,8 @@ const crypto = require('crypto')
 const fs = require('fs')
 
 // Input and output file paths
-const headerFilePath = 'compile_header'
-const inputFilePath = 'src/scss/kick.scss'
+const headerFilePath = 'build-tasks/compile_header'
+const inputFilePath = 'assets/scss/kick.scss'
 const outputFilePath = 'dist/css/kick-temp.min.css'
 
 // Compile Sass

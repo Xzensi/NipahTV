@@ -27,7 +27,7 @@ class NipahClient {
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
 		RELEASE_BRANCH: 'master',
 		DATABASE_NAME: 'NipahTV',
-		DEBUG: GM_getValue('environment')?.debug || false
+		DEBUG: IS_LOCAL_ENV || false
 	}
 
 	stylesLoaded = false
@@ -137,9 +137,10 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/css/kick.min.css',
-					onerror: reject,
+					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/css/kick.css',
+					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response) {
+						log('Loaded styles from local resource..')
 						GM_addStyle(response.responseText)
 						resolve()
 					}

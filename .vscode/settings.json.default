@@ -1,19 +1,5 @@
 {
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
 	"editor.formatOnSave": true,
-	"prettier.useEditorConfig": false,
-	"triggerTaskOnSave.tasks": {
-		"SCSS Compile (Node)": ["src/**/*.scss"],
-		"Update Version (Node)": ["src/app.js"],
-		"Build": ["src/**/*.js"]
-	},
-	"liveSassCompile.settings.generateMap": false,
-	"liveSassCompile.settings.formats": [
-		{
-			"format": "compressed",
-			"extensionName": ".min.css",
-			"savePath": "/dist/css",
-			"savePathReplacementPairs": null
-		}
-	]
+	"prettier.useEditorConfig": false
 }

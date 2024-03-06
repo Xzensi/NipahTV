@@ -21,26 +21,9 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "Update Version (Node)",
-			"type": "shell",
-			"command": "node task-build.js",
-			"group": {
-				"kind": "build"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "silent",
-				"revealProblems": "onProblem",
-				"panel": "shared",
-				"showReuseMessage": false,
-				"clear": true,
-				"close": false
-			}
-		},
-		{
-			"label": "SCSS Compile (Node)",
-			"type": "shell",
-			"command": "node task-compile-sass.js",
+			"label": "Watch Files",
+			"type": "npm",
+			"script": "watch",
 			"group": {
 				"kind": "build"
 			},
