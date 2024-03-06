@@ -8,9 +8,10 @@ export class EmoteMenu extends AbstractComponent {
 	panels = {}
 	sidebarMap = new Map()
 
-	constructor({ eventBus, settingsManager, emotesManager }, container) {
+	constructor({ channelData, eventBus, settingsManager, emotesManager }, container) {
 		super()
 
+		this.channelData = channelData
 		this.eventBus = eventBus
 		this.settingsManager = settingsManager
 		this.emotesManager = emotesManager
@@ -41,10 +42,17 @@ export class EmoteMenu extends AbstractComponent {
 						</div>
 						<div class="nipah__emote-menu__sidebar ${showSidebar ? '' : 'nipah__hidden'}">
 							<div class="nipah__emote-menu__sidebar__sets"></div>
-							<div class="nipah__emote-menu__settings-btn">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-									<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
-								</svg>
+							<div class="nipah__emote-menu__sidebar__extra">
+								<a href="#" class="nipah__emote-menu__sidebar-btn nipah__chatroom-link" target="_blank" alt="Pop-out chatroom">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+										<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M22 3h7v7m-1.5-5.5L20 12m-3-7H8a3 3 0 0 0-3 3v16a3 3 0 0 0 3 3h16a3 3 0 0 0 3-3v-9" />
+									</svg>
+								</a>
+								<div class="nipah__emote-menu__sidebar-btn nipah__emote-menu__sidebar-btn--settings">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+										<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
+									</svg>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -52,9 +60,12 @@ export class EmoteMenu extends AbstractComponent {
 			`)
 		)
 
+		// Set href for chatroom link which is at current channel
+		$('.nipah__chatroom-link', this.$container).attr('href', `/${this.channelData.channel_name}/chatroom`)
+
 		this.$searchInput = $('.nipah__emote-menu__search input', this.$container)
 		this.$scrollable = $('.nipah__emote-menu__scrollable', this.$container)
-		this.$settingsBtn = $('.nipah__emote-menu__settings-btn', this.$container)
+		this.$settingsBtn = $('.nipah__emote-menu__sidebar-btn--settings', this.$container)
 		this.$sidebarSets = $('.nipah__emote-menu__sidebar__sets', this.$container)
 		this.panels.$emotes = $('.nipah__emote-menu__panel__emotes', this.$container)
 		this.panels.$search = $('.nipah__emote-menu__panel__search', this.$container)
@@ -70,7 +81,9 @@ export class EmoteMenu extends AbstractComponent {
 			const emoteHid = evt.target.getAttribute('data-emote-hid')
 			if (!emoteHid) return error('Invalid emote hid')
 			eventBus.publish('ntv.ui.emote.click', { emoteHid })
-			this.toggleShow()
+
+			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.behavior.close_on_click')
+			if (closeOnClick) this.toggleShow(false)
 		})
 
 		// Tooltip for emotes
@@ -106,6 +119,16 @@ export class EmoteMenu extends AbstractComponent {
 
 		// Search input event
 		this.$searchInput.on('input', this.handleSearchInput.bind(this))
+
+		this.panels.$emotes.on('click', '.nipah__chevron', evt => {
+			log('Emote set header chevron click')
+			const $emoteSet = $(evt.target).closest('.nipah__emote-set')
+			const $emoteSetBody = $emoteSet.children('.nipah__emote-set__emotes')
+			log($(evt.target).parent('.nipah__emote-set'), $emoteSetBody)
+			if (!$emoteSetBody.length) return error('Invalid emote set body')
+
+			$emoteSet.toggleClass('nipah__emote-set--collapsed')
+		})
 
 		// Settings button click event
 		this.$settingsBtn.on('click', () => {
@@ -196,22 +219,24 @@ export class EmoteMenu extends AbstractComponent {
 		for (const emoteSet of orderedEmoteSets) {
 			const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width)
 
-			const sidebarIcon = $(`<img data-id="${emoteSet.id}" src="${emoteSet.icon}">`).appendTo($sidebarSets)
+			const sidebarIcon = $(
+				`<div class="nipah__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`
+			).appendTo($sidebarSets)
 			this.sidebarMap.set(emoteSet.id, sidebarIcon[0])
 
 			const $newEmoteSet = $(
-				cleanupHTML(`
-					<div class="nipah__emote-set" data-id="${emoteSet.id}">
+				cleanupHTML(
+					`<div class="nipah__emote-set" data-id="${emoteSet.id}">
 						<div class="nipah__emote-set__header">
 							<img src="${emoteSet.icon}">
 							<span>${emoteSet.name}</span>
-							<div class="nipah_chevron">
+							<div class="nipah__chevron">
 								<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
 							</div>
 						</div>
 						<div class="nipah__emote-set__emotes"></div>
-					</div>
-				`)
+					</div>`
+				)
 			)
 			$emotesPanel.append($newEmoteSet)
 
@@ -223,10 +248,12 @@ export class EmoteMenu extends AbstractComponent {
 			}
 		}
 
-		const sidebarIcons = $('img', this.$sidebarSets)
-		sidebarIcons.on('click', evt => {
+		this.$sidebarSets.on('click', evt => {
+			const $img = $('img', evt.target)
+			if (!$img.length) return error('Invalid sidebar icon click')
+
 			const scrollableEl = this.$scrollable[0]
-			const emoteSetId = evt.target.getAttribute('data-id')
+			const emoteSetId = $img.attr('data-id')
 			const emoteSetEl = $(`.nipah__emote-set[data-id="${emoteSetId}"]`, this.$container)[0]
 			// const headerHeight = $('.nipah__emote-set__header', emoteSetEl).height()
 

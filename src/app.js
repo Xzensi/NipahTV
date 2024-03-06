@@ -18,7 +18,7 @@ import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.1.10',
+		VERSION: '1.1.22',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -101,7 +101,7 @@ class NipahClient {
 
 		let userInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-			userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager })
+			userInterface = new KickUserInterface({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager })
 		} else {
 			return error('Platform has no user interface implemented..', ENV_VARS.PLATFORM)
 		}

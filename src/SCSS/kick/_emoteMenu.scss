@@ -3,7 +3,7 @@
 @use '../mixins' as *;
 
 .nipah__emote-menu {
-	outline: 0.1em solid var(--border-transparent-1);
+	outline: 0.1em solid var(--border-transparent-2);
 	background-color: var(--background-color);
 	box-shadow: shadow_elevation(4);
 	transform: translateY(-100%);
@@ -22,7 +22,7 @@
 	top: -1.618em;
 
 	&__header {
-		border-bottom: 0.1em solid var(--border-transparent-1);
+		border-bottom: 0.1em solid var(--border-transparent-2);
 		justify-content: flex-end;
 		display: flex;
 		padding: 2px;
@@ -39,7 +39,7 @@
 		width: 100%;
 
 		&__icon {
-			color: var(--border-transparent-1);
+			color: var(--border-transparent-2);
 			-webkit-user-select: none;
 			pointer-events: none;
 			place-items: center;
@@ -88,7 +88,7 @@
 
 	&__sidebar {
 		background-color: var(--background-color-tint-1);
-		border-left: 1px solid var(--border-transparent-1);
+		border-left: 1px solid var(--border-transparent-2);
 		// background: hsla(0, 0%, 50%, 0.06);
 		justify-content: space-between;
 		flex: 0 0 $sidebar_width;
@@ -97,46 +97,60 @@
 		overflow: hidden;
 		display: flex;
 
+		&__sets {
+			scrollbar-width: none;
+			flex: 1 1 fit-content;
+			overflow-y: auto;
+			width: 100%;
+
+			> div {
+				padding: 0.618em 0;
+
+				&:hover {
+					background-color: var(--background-highlight-2) !important;
+				}
+			}
+		}
+
+		&__extra {
+			flex: 0 0 fit-content;
+			width: 100%;
+		}
+
+		&-btn {
+			justify-content: center;
+			border-radius: 0.25em;
+			cursor: pointer;
+			padding: 1em 0;
+			display: flex;
+			width: 100%;
+
+			&:hover {
+				background-color: var(--background-highlight-2);
+			}
+
+			&--settings {
+				width: 100%;
+			}
+		}
+
 		img {
 			border-bottom: solid 2px #94949491;
 			border-top: solid 2px #0f0f0f91;
 			box-sizing: content-box;
-			border-radius: 0.25em;
-			padding: 0.5em 0.3em;
-			cursor: pointer;
+			pointer-events: none;
+			// padding: 0.5em 0.3em;
 			height: 1.618em;
 			width: 1.618em;
-
-			&:hover {
-				background-color: var(--background-highlight-2) !important;
-			}
 		}
-	}
-
-	&__settings-btn {
-		// padding: 0.382em 0.618em;
-		// border-radius: 0.382em;
-		border-radius: 0.25em;
-		padding: 0.6em 0;
-		cursor: pointer;
-		width: 100%;
 
 		svg {
-			@include user_select;
-
 			vertical-align: middle;
-			cursor: pointer;
+			@include user_select;
+			pointer-events: none;
 			margin: 0 auto;
 			height: 1.1em;
 			width: 1.1em;
-
-			path {
-				// fill: #808080
-			}
-		}
-
-		&:hover {
-			background-color: var(--background-highlight-2);
 		}
 	}
 
@@ -165,75 +179,62 @@
 	&__panel {
 		&__emotes,
 		&__search {
-			width: $emote_size * $emote_row_size;
+			width: $emote_size * $emote_row_size + 0.5em;
 		}
-	}
-}
-
-.nipah__emote-tooltip {
-	outline: 0.1em solid var(--border-transparent-1);
-	background-color: var(--background-color);
-	transform: translate(-50%, -45%);
-	box-shadow: shadow_elevation(2);
-	font-size: $root_font_size;
-	padding: 0.382em 1.382em;
-	border-radius: 0.318em;
-	pointer-events: none;
-	text-align: center;
-	position: absolute;
-	overflow: hidden;
-	padding: 0.618em;
-	font-size: 13px;
-	// max-width: 8em;
-	z-index: 1002;
-
-	@include user_select;
-
-	&--has-image {
-		transform: translate(-50%, -80%);
-	}
-
-	img {
-		max-width: none;
-		height: 4.5em;
-	}
-
-	span {
-		font-size: 1.2em;
-		display: block;
 	}
 }
 
 .nipah__emote-set {
 	&__header {
-		background-color: var(--background-color-shade-1);
-		grid-template-columns: auto 1fr 1.5em;
-		padding: 0.5em 1.25em;
+		background-color: var(--background-color-tint-1);
+		outline: 0.1em solid var(--border-transparent-1);
+		grid-template-columns: auto 1fr 2.5em;
+		box-shadow: shadow_elevation(1);
+		align-items: center;
+		padding: 0 0.618em;
 		column-gap: 0.5em;
 		position: sticky;
 		display: grid;
-		height: 3em;
 		z-index: 1;
 		top: 0px;
 
 		img {
 			margin-right: 0.209em;
-			height: 1.618em;
-			width: 1.618em;
+			object-fit: cover;
 			overflow: clip;
+			height: 2em;
+			width: 2em;
 		}
 
 		span {
 			text-overflow: ellipsis;
-			line-height: 1.618em;
 			white-space: nowrap;
+			line-height: 2.5em;
 			font-weight: 500;
 			overflow: hidden;
 			display: block;
 		}
 	}
 
+	&--collapsed {
+		.nipah__emote-set__emotes {
+			padding-bottom: 0;
+			padding-top: 0;
+			max-height: 0;
+		}
+
+		.nipah__chevron {
+			svg {
+				transform: rotate(0deg);
+			}
+		}
+	}
+
 	&__emotes {
+		// transition: max-height 0.1s ease-in-out;
+		// max-height: 99999px;
+		padding: 0.5em 0.25em;
+		overflow: hidden;
 		flex-wrap: wrap;
 		display: flex;
 
@@ -248,14 +249,14 @@
 	}
 }
 
-.nipah_chevron {
+.nipah__chevron {
 	justify-content: center;
 	border-radius: 0.2em;
 	align-items: center;
 	cursor: pointer;
-	height: 1.618em;
-	width: 1.618em;
 	display: flex;
+	height: 2.5em;
+	width: 2.5em;
 
 	&:hover {
 		background-color: var(--background-highlight-1);
@@ -263,6 +264,49 @@
 
 	svg {
 		transition: transform 0.25s ease;
-		transform: rotate(180deg);
+		transform: rotate(-180deg);
+	}
+}
+
+.nipah__emote-tooltip {
+	outline: 0.1em solid var(--border-transparent-2);
+	background-color: var(--background-color-tint-1);
+	padding: 0.618em 0.618em 0.333em 0.618em;
+	transform: translate(-50%, -45%);
+	box-shadow: shadow_elevation(2);
+	font-size: $root_font_size;
+	padding: 0.382em 1.382em;
+	text-overflow: ellipsis;
+	border-radius: 0.318em;
+	pointer-events: none;
+	text-align: center;
+	position: absolute;
+	padding: 0.618em;
+	overflow: hidden;
+	font-size: 13px;
+	max-width: 15em;
+	min-width: 4em;
+	// max-width: 8em;
+	z-index: 1002;
+
+	@include user_select;
+
+	&--has-image {
+		transform: translate(-50%, -80%);
+	}
+
+	img {
+		margin: 0 auto 0.333em auto;
+		max-width: none;
+		height: 4.5em;
+	}
+
+	span {
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 1.2em;
+		overflow: hidden;
+		display: block;
+		width: 100%;
 	}
 }

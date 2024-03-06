@@ -1,7 +1,7 @@
 @use '../variables' as *;
 
 .nipah__settings-modal {
-	outline: 0.1em solid var(--border-transparent-1);
+	outline: 0.1em solid var(--border-transparent-2);
 
 	&__sidebar {
 		margin-right: 1.618em;
@@ -12,7 +12,7 @@
 		}
 
 		span {
-			// border-bottom: 0.1em solid var(--border-transparent-1);
+			// border-bottom: 0.1em solid var(--border-transparent-2);
 			display: inline-block;
 			padding: 0.618em 1.618em;
 			cursor: pointer;

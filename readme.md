@@ -28,29 +28,20 @@
 
 NipahTV aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. NipahTV addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
 
-<b>Please note:</b> This project is under active development and may contain bugs. Your patience and feedback are appreciated as we continue to refine and improve NipahTV.
+<b>Please note:</b> This project is under active development and may contain bugs. Feedback is appreciated as we continue to refine and improve NipahTV.
 
 <a name="demo-video"></a>
 <br />
 
 <div align="center">
   <video src="https://github.com/Xzensi/NipahTV/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
+  (outdated demo, 7TV emotes now render as emotes in chat input)
 </div>
 <br />
 
-## Getting Started
+## Getting NipahTV
 
-To use NipahTV, you'll need to install a userscript manager like Violentmonkey. Follow the links below to install the manager for your browser: [Chrome](https://chrome.google.com/webstore/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), [Edge](https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao).
-
-### Installation
-
-NipahTV has fully implemented all 7TV features. It is not recommended to enable the 7TV extension alongside NipahTV.
-
-To install the userscript, click on the following link: [NipahTV client](https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js). If you are not prompted to install the userscript, you can install it manually by following the instructions below.
-
-1. Open your userscript manager (Violentmonkey) dashboard and click on the "New" button in the top left corner.
-2. Click "Install from URL" and paste the following URL: `https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js`
-3. Click "Install" and you're all set!
+Refer to this [wiki page](https://github.com/Xzensi/NipahTV/wiki/Installation-instructions) for installation instructions (it'll be simple, I promise).
 
 ## Roadmap
 
@@ -64,10 +55,10 @@ To install the userscript, click on the following link: [NipahTV client](https:/
 -   [x] Chat emotes rendering, so that 7TV extension does not need to be enabled.
 -   [x] Emote tab completion (incompatible with 7TV extension).
 -   [x] Show emote sets of other subscribed kick channels other than the current one.
-  
+-   [x] Settings option for quick emote holder height.
+
 -   BetterTTV provider support
 -   Settings option to sort by size or not.
--   Settings option for quick emote holder height.
 -   Settings option to add settings panel to kick menu to keep UI tidy.
 -   Settings option for most used emotes tracking to be global instead of per channel.
 -   Settings option to automatically expand quick emote holder on hover.

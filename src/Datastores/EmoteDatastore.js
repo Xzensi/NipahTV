@@ -225,7 +225,7 @@ export class EmoteDatastore {
 			const perfectMatchWeight = 1
 			const scoreWeight = 1
 			const partsWeight = 0.1
-			const nameLengthWeight = 0.025
+			const nameLengthWeight = 0.04
 			const subscribedChannelWeight = 0.15
 			const currentChannelWeight = 0.1 // Cascades with subscribedChannelWeight
 

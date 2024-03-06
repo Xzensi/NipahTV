@@ -72,7 +72,7 @@ export function waitForElements(selectors, timeout = 10000, signal) {
 }
 
 export function cleanupHTML(html) {
-	return html.replaceAll(/\s\s|\r\n|\r|\n/g, '')
+	return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
 }
 
 // Split emote name into parts for more relevant search results

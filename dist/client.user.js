@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.10
+// @version 1.1.22
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f61951bf.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-c3e725a9.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -136,7 +136,7 @@
     });
   }
   function cleanupHTML(html) {
-    return html.replaceAll(/\s\s|\r\n|\r|\n/g, "");
+    return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, "");
   }
   function splitEmoteName(name, minPartLength) {
     if (name.length < minPartLength || name === name.toLowerCase() || name === name.toUpperCase()) {
@@ -609,7 +609,7 @@
         const perfectMatchWeight = 1;
         const scoreWeight = 1;
         const partsWeight = 0.1;
-        const nameLengthWeight = 0.025;
+        const nameLengthWeight = 0.04;
         const subscribedChannelWeight = 0.15;
         const currentChannelWeight = 0.1;
         let aPartsLength = aItem.parts.length;
@@ -796,13 +796,15 @@
   var QuickEmotesHolder = class extends AbstractComponent {
     // The sorting list shadow reflects the order of emotes in this.$element
     sortingList = [];
-    constructor({ eventBus, emotesManager }) {
+    constructor({ eventBus, settingsManager, emotesManager }) {
       super();
       this.eventBus = eventBus;
+      this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
     }
     render() {
-      this.$element = $(`<div class="nipah_client_quick_emotes_holder"></div>`);
+      const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
+      this.$element = $(`<div class="nipah_client_quick_emotes_holder" data-rows="${rows}"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
       $oldEmotesHolder.after(this.$element);
       $oldEmotesHolder.remove();
@@ -999,16 +1001,14 @@
      * @param {EventBus} eventBus
      * @param {object} deps
      */
-    constructor({ ENV_VARS, eventBus, settingsManager, emotesManager }) {
-      if (ENV_VARS === void 0)
-        throw new Error("ENV_VARS is required");
-      if (eventBus === void 0)
-        throw new Error("eventBus is required");
-      if (emotesManager === void 0)
-        throw new Error("emotesManager is required");
-      if (settingsManager === void 0)
-        throw new Error("settingsManager is required");
+    constructor({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager }) {
+      assertArgDefined(ENV_VARS);
+      assertArgDefined(channelData);
+      assertArgDefined(eventBus);
+      assertArgDefined(settingsManager);
+      assertArgDefined(emotesManager);
       this.ENV_VARS = ENV_VARS;
+      this.channelData = channelData;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
@@ -1558,8 +1558,9 @@
     activePanel = "emotes";
     panels = {};
     sidebarMap = /* @__PURE__ */ new Map();
-    constructor({ eventBus, settingsManager, emotesManager }, container) {
+    constructor({ channelData, eventBus, settingsManager, emotesManager }, container) {
       super();
+      this.channelData = channelData;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
       this.emotesManager = emotesManager;
@@ -1587,19 +1588,27 @@
 						</div>
 						<div class="nipah__emote-menu__sidebar ${showSidebar ? "" : "nipah__hidden"}">
 							<div class="nipah__emote-menu__sidebar__sets"></div>
-							<div class="nipah__emote-menu__settings-btn">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-									<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
-								</svg>
+							<div class="nipah__emote-menu__sidebar__extra">
+								<a href="#" class="nipah__emote-menu__sidebar-btn nipah__chatroom-link" target="_blank" alt="Pop-out chatroom">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+										<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M22 3h7v7m-1.5-5.5L20 12m-3-7H8a3 3 0 0 0-3 3v16a3 3 0 0 0 3 3h16a3 3 0 0 0 3-3v-9" />
+									</svg>
+								</a>
+								<div class="nipah__emote-menu__sidebar-btn nipah__emote-menu__sidebar-btn--settings">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+										<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
+									</svg>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
 			`)
       );
+      $(".nipah__chatroom-link", this.$container).attr("href", `/${this.channelData.channel_name}/chatroom`);
       this.$searchInput = $(".nipah__emote-menu__search input", this.$container);
       this.$scrollable = $(".nipah__emote-menu__scrollable", this.$container);
-      this.$settingsBtn = $(".nipah__emote-menu__settings-btn", this.$container);
+      this.$settingsBtn = $(".nipah__emote-menu__sidebar-btn--settings", this.$container);
       this.$sidebarSets = $(".nipah__emote-menu__sidebar__sets", this.$container);
       this.panels.$emotes = $(".nipah__emote-menu__panel__emotes", this.$container);
       this.panels.$search = $(".nipah__emote-menu__panel__search", this.$container);
@@ -1612,7 +1621,9 @@
         if (!emoteHid)
           return error2("Invalid emote hid");
         eventBus.publish("ntv.ui.emote.click", { emoteHid });
-        this.toggleShow();
+        const closeOnClick = settingsManager.getSetting("shared.chat.emote_menu.behavior.close_on_click");
+        if (closeOnClick)
+          this.toggleShow(false);
       });
       this.$scrollable.on("mouseenter", "img", (evt) => {
         if (this.$tooltip)
@@ -1642,6 +1653,15 @@
           this.$tooltip.remove();
       });
       this.$searchInput.on("input", this.handleSearchInput.bind(this));
+      this.panels.$emotes.on("click", ".nipah__chevron", (evt) => {
+        log("Emote set header chevron click");
+        const $emoteSet = $(evt.target).closest(".nipah__emote-set");
+        const $emoteSetBody = $emoteSet.children(".nipah__emote-set__emotes");
+        log($(evt.target).parent(".nipah__emote-set"), $emoteSetBody);
+        if (!$emoteSetBody.length)
+          return error2("Invalid emote set body");
+        $emoteSet.toggleClass("nipah__emote-set--collapsed");
+      });
       this.$settingsBtn.on("click", () => {
         eventBus.publish("ntv.ui.settings.toggle_show");
       });
@@ -1711,21 +1731,23 @@
       const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index);
       for (const emoteSet of orderedEmoteSets) {
         const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
-        const sidebarIcon = $(`<img data-id="${emoteSet.id}" src="${emoteSet.icon}">`).appendTo($sidebarSets);
+        const sidebarIcon = $(
+          `<div class="nipah__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`
+        ).appendTo($sidebarSets);
         this.sidebarMap.set(emoteSet.id, sidebarIcon[0]);
         const $newEmoteSet = $(
-          cleanupHTML(`
-					<div class="nipah__emote-set" data-id="${emoteSet.id}">
+          cleanupHTML(
+            `<div class="nipah__emote-set" data-id="${emoteSet.id}">
 						<div class="nipah__emote-set__header">
 							<img src="${emoteSet.icon}">
 							<span>${emoteSet.name}</span>
-							<div class="nipah_chevron">
+							<div class="nipah__chevron">
 								<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
 							</div>
 						</div>
 						<div class="nipah__emote-set__emotes"></div>
-					</div>
-				`)
+					</div>`
+          )
         );
         $emotesPanel.append($newEmoteSet);
         const $newEmoteSetEmotes = $(".nipah__emote-set__emotes", $newEmoteSet);
@@ -1735,10 +1757,12 @@
           );
         }
       }
-      const sidebarIcons = $("img", this.$sidebarSets);
-      sidebarIcons.on("click", (evt) => {
+      this.$sidebarSets.on("click", (evt) => {
+        const $img = $("img", evt.target);
+        if (!$img.length)
+          return error2("Invalid sidebar icon click");
         const scrollableEl = this.$scrollable[0];
-        const emoteSetId = evt.target.getAttribute("data-id");
+        const emoteSetId = $img.attr("data-id");
         const emoteSetEl = $(`.nipah__emote-set[data-id="${emoteSetId}"]`, this.$container)[0];
         scrollableEl.scrollTo({
           top: emoteSetEl.offsetTop - 55,
@@ -1964,9 +1988,9 @@
       eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
     }
     async loadEmoteMenu() {
-      const { eventBus, settingsManager, emotesManager } = this;
+      const { channelData, eventBus, settingsManager, emotesManager } = this;
       const container = this.elm.$textField.parent().parent()[0];
-      this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }, container).init();
+      this.emoteMenu = new EmoteMenu({ channelData, eventBus, emotesManager, settingsManager }, container).init();
       this.elm.$textField.on("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
     }
     async loadEmoteMenuButton() {
@@ -1974,8 +1998,8 @@
       this.emoteMenuButton = new EmoteMenuButton({ ENV_VARS, eventBus, settingsManager }).init();
     }
     async loadQuickEmotesHolder() {
-      const { eventBus, emotesManager } = this;
-      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init();
+      const { eventBus, settingsManager, emotesManager } = this;
+      this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, settingsManager, emotesManager }).init();
     }
     loadShadowProxySubmitButton() {
       const $originalSubmitButton = this.elm.$originalSubmitButton = $("#chatroom-footer button.base-button");
@@ -1989,7 +2013,7 @@
       const $originalTextField = this.elm.$originalTextField = $("#message-input");
       const placeholder = $originalTextField.data("placeholder");
       const $textField = this.elm.$textField = $(
-        `<div id="nipah__message-input" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
+        `<div id="nipah__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
       );
       const originalTextFieldEl = $originalTextField[0];
       const textFieldEl = $textField[0];
@@ -2044,6 +2068,49 @@
             this.elm.$submitButton.removeClass("disabled");
           }
         }
+      });
+      const ignoredKeys = {
+        ArrowUp: true,
+        ArrowDown: true,
+        ArrowLeft: true,
+        ArrowRight: true,
+        Control: true,
+        Shift: true,
+        Alt: true,
+        Meta: true,
+        Home: true,
+        End: true,
+        PageUp: true,
+        PageDown: true,
+        Insert: true,
+        Delete: true,
+        Tab: true,
+        Escape: true,
+        Enter: true,
+        Backspace: true,
+        CapsLock: true,
+        ContextMenu: true,
+        F1: true,
+        F2: true,
+        F3: true,
+        F4: true,
+        F5: true,
+        F6: true,
+        F7: true,
+        F8: true,
+        F9: true,
+        F10: true,
+        F11: true,
+        F12: true,
+        PrintScreen: true,
+        ScrollLock: true,
+        Pause: true,
+        NumLock: true
+      };
+      $(document.body).on("keydown", (evt) => {
+        if (this.tabCompletor.isShowingModal || ignoredKeys[evt.key] || document.activeElement.tagName === "INPUT" || document.activeElement.getAttribute("contenteditable"))
+          return;
+        textFieldEl.focus();
       });
     }
     loadChatHistoryBehaviour() {
@@ -2365,6 +2432,7 @@
       if (!includeOtherChannelEmoteSets) {
         dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
       }
+      log(dataFiltered);
       const emoteSets = [];
       for (const dataSet of dataFiltered) {
         const { emotes } = dataSet;
@@ -2383,9 +2451,15 @@
         }));
         const emoteSetIcon = dataSet?.user?.profile_pic || "https://kick.com/favicon.ico";
         const emoteSetName = dataSet.user ? `${dataSet.user.username}'s Emotes` : `${dataSet.name} Emotes`;
+        let orderIndex = 1;
+        if (dataSet.id === "Global") {
+          orderIndex = 5;
+        } else if (dataSet.id === "Emoji") {
+          orderIndex = 10;
+        }
         emoteSets.push({
           provider: this.id,
-          order_index: dataSet.id === "Global" ? 5 : 1,
+          order_index: orderIndex,
           name: emoteSetName,
           emotes: emotesMapped,
           is_current_channel: dataSet.id === channel_id,
@@ -2661,6 +2735,37 @@
     }
   };
 
+  // src/UserInterface/Components/NumberComponent.js
+  var NumberComponent = class extends AbstractComponent {
+    event = new EventTarget();
+    constructor(id, label, value = 0, min = 0, max = 10, step = 1) {
+      super();
+      this.id = id;
+      this.label = label;
+      this.value = value;
+      this.min = min;
+      this.max = max;
+      this.step = step;
+    }
+    render() {
+      this.$element = $(`
+            <div class="nipah__number">
+				<label for="${this.id}">${this.label}</label>
+                <input type="number" id="${this.id}" name="${this.id}" value="${this.value}" min="${this.min}" max="${this.max}" step="${this.step}">
+            </div>
+        `);
+    }
+    attachEventHandlers() {
+      this.$element.find("input").on("input", (e) => {
+        this.value = e.target.value;
+        this.event.dispatchEvent(new Event("change"));
+      });
+    }
+    getValue() {
+      return this.value;
+    }
+  };
+
   // src/UserInterface/Components/Modals/SettingsModal.js
   var SettingsModal = class extends AbstractModal {
     constructor(eventBus, settingsOpts) {
@@ -2741,6 +2846,16 @@
                     setting.label,
                     setting.options,
                     settingValue
+                  );
+                  break;
+                case "number":
+                  settingComponent = new NumberComponent(
+                    setting.id,
+                    setting.label,
+                    settingValue,
+                    setting.min,
+                    setting.max,
+                    setting.step
                   );
                   break;
                 default:
@@ -3005,6 +3120,35 @@
                     type: "checkbox"
                   }
                 ]
+              },
+              {
+                label: "Appearance",
+                children: [
+                  {
+                    label: "Close the emote menu when clicking an emote.",
+                    id: "shared.chat.emote_menu.behavior.close_on_click",
+                    default: false,
+                    type: "checkbox"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            label: "Quick emote holder",
+            children: [
+              {
+                label: "Appearance",
+                children: [
+                  {
+                    label: "Rows of emotes to display.",
+                    id: "shared.chat.quick_emote_holder.appearance.rows",
+                    type: "number",
+                    default: 4,
+                    min: 1,
+                    max: 10
+                  }
+                ]
               }
             ]
           },
@@ -3190,7 +3334,7 @@
   var window2 = unsafeWindow || window2;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.10",
+      VERSION: "1.1.22",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
@@ -3257,7 +3401,7 @@
       emotesManager.initialize();
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-        userInterface = new KickUserInterface({ ENV_VARS, eventBus, settingsManager, emotesManager });
+        userInterface = new KickUserInterface({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager });
       } else {
         return error2("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
       }

@@ -43,6 +43,7 @@ export class KickProvider extends AbstractProvider {
 			dataFiltered = dataFiltered.filter(entry => !entry.user_id)
 		}
 
+		log(dataFiltered)
 		const emoteSets = []
 		for (const dataSet of dataFiltered) {
 			const { emotes } = dataSet
@@ -66,9 +67,16 @@ export class KickProvider extends AbstractProvider {
 			const emoteSetIcon = dataSet?.user?.profile_pic || 'https://kick.com/favicon.ico'
 			const emoteSetName = dataSet.user ? `${dataSet.user.username}'s Emotes` : `${dataSet.name} Emotes`
 
+			let orderIndex = 1
+			if (dataSet.id === 'Global') {
+				orderIndex = 5
+			} else if (dataSet.id === 'Emoji') {
+				orderIndex = 10
+			}
+
 			emoteSets.push({
 				provider: this.id,
-				order_index: dataSet.id === 'Global' ? 5 : 1,
+				order_index: orderIndex,
 				name: emoteSetName,
 				emotes: emotesMapped,
 				is_current_channel: dataSet.id === channel_id,

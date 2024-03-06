@@ -14,9 +14,9 @@
 	z-index: 1003;
 
 	// min-width: 64rem;
-	// min-height: 30rem;
-	max-width: 75vw;
-	max-height: 75vh;
+	min-height: 33rem;
+	max-width: 900px;
+	max-height: 650px;
 
 	--width: min(75vw, 128rem);
 	--height: min(75vh, calc(0.75 * var(--width)));
@@ -32,7 +32,7 @@
 	left: calc(calc(100vw - var(--width)) / 2);
 
 	&__header {
-		border-bottom: 0.1em solid var(--border-transparent-1);
+		border-bottom: 0.1em solid var(--border-transparent-2);
 		justify-content: flex-end;
 		display: flex;
 		padding: 2px;
@@ -56,5 +56,17 @@
 		overflow: auto;
 		flex: 1 1 100%;
 		display: flex;
+	}
+
+	@media (max-width: 768px) {
+		left: 0 !important;
+		top: 0 !important;
+		max-height: none;
+		max-width: none;
+		transform: none;
+		position: fixed;
+		height: 100vh;
+		width: 100vw;
+		margin: 0;
 	}
 }

@@ -114,9 +114,9 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadEmoteMenu() {
-		const { eventBus, settingsManager, emotesManager } = this
+		const { channelData, eventBus, settingsManager, emotesManager } = this
 		const container = this.elm.$textField.parent().parent()[0]
-		this.emoteMenu = new EmoteMenu({ eventBus, emotesManager, settingsManager }, container).init()
+		this.emoteMenu = new EmoteMenu({ channelData, eventBus, emotesManager, settingsManager }, container).init()
 
 		this.elm.$textField.on('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
 	}
@@ -127,8 +127,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadQuickEmotesHolder() {
-		const { eventBus, emotesManager } = this
-		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, emotesManager }).init()
+		const { eventBus, settingsManager, emotesManager } = this
+		this.quickEmotesHolder = new QuickEmotesHolder({ eventBus, settingsManager, emotesManager }).init()
 	}
 
 	loadShadowProxySubmitButton() {
@@ -145,7 +145,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $originalTextField = (this.elm.$originalTextField = $('#message-input'))
 		const placeholder = $originalTextField.data('placeholder')
 		const $textField = (this.elm.$textField = $(
-			`<div id="nipah__message-input" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
+			`<div id="nipah__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
 		))
 		const originalTextFieldEl = $originalTextField[0]
 		const textFieldEl = $textField[0]
@@ -220,6 +220,59 @@ export class KickUserInterface extends AbstractUserInterface {
 					this.elm.$submitButton.removeClass('disabled')
 				}
 			}
+		})
+
+		// Ignore control keys that are not used for typing
+		const ignoredKeys = {
+			ArrowUp: true,
+			ArrowDown: true,
+			ArrowLeft: true,
+			ArrowRight: true,
+			Control: true,
+			Shift: true,
+			Alt: true,
+			Meta: true,
+			Home: true,
+			End: true,
+			PageUp: true,
+			PageDown: true,
+			Insert: true,
+			Delete: true,
+			Tab: true,
+			Escape: true,
+			Enter: true,
+			Backspace: true,
+			CapsLock: true,
+			ContextMenu: true,
+			F1: true,
+			F2: true,
+			F3: true,
+			F4: true,
+			F5: true,
+			F6: true,
+			F7: true,
+			F8: true,
+			F9: true,
+			F10: true,
+			F11: true,
+			F12: true,
+			PrintScreen: true,
+			ScrollLock: true,
+			Pause: true,
+			NumLock: true
+		}
+
+		// If started typing with focus not on chat input, focus on chat input
+		$(document.body).on('keydown', evt => {
+			if (
+				this.tabCompletor.isShowingModal ||
+				ignoredKeys[evt.key] ||
+				document.activeElement.tagName === 'INPUT' ||
+				document.activeElement.getAttribute('contenteditable')
+			)
+				return
+
+			textFieldEl.focus()
 		})
 	}
 

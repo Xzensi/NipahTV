@@ -1,5 +1,6 @@
 import { MessagesHistory } from '../Classes/MessagesHistory'
 import { UsersManager } from '../Managers/UsersManager'
+import { assertArgDefined } from '../utils'
 
 export class AbstractUserInterface {
 	messageHistory = new MessagesHistory()
@@ -8,13 +9,15 @@ export class AbstractUserInterface {
 	 * @param {EventBus} eventBus
 	 * @param {object} deps
 	 */
-	constructor({ ENV_VARS, eventBus, settingsManager, emotesManager }) {
-		if (ENV_VARS === undefined) throw new Error('ENV_VARS is required')
-		if (eventBus === undefined) throw new Error('eventBus is required')
-		if (emotesManager === undefined) throw new Error('emotesManager is required')
-		if (settingsManager === undefined) throw new Error('settingsManager is required')
+	constructor({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager }) {
+		assertArgDefined(ENV_VARS)
+		assertArgDefined(channelData)
+		assertArgDefined(eventBus)
+		assertArgDefined(settingsManager)
+		assertArgDefined(emotesManager)
 
 		this.ENV_VARS = ENV_VARS
+		this.channelData = channelData
 		this.eventBus = eventBus
 		this.settingsManager = settingsManager
 		this.emotesManager = emotesManager

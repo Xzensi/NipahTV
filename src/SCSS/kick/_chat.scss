@@ -14,7 +14,7 @@
 	&.nipah__seperators {
 		&-basic {
 			[data-chat-entry] {
-				border-bottom: 1px solid var(--border-transparent-1);
+				border-bottom: 1px solid var(--border-transparent-2);
 			}
 		}
 
@@ -34,8 +34,8 @@
 
 		&-wide {
 			[data-chat-entry] {
-				border-bottom: 2px solid var(--border-transparent-1);
-				border-top: 2px solid var(--border-transparent-1);
+				border-bottom: 2px solid var(--border-transparent-2);
+				border-top: 2px solid var(--border-transparent-2);
 				padding: 0.1em;
 			}
 		}
@@ -47,7 +47,7 @@
 		}
 
 		&:hover {
-			background-color: hsla(128, 128, 128, 0.09);
+			background-color: rgba(128, 128, 128, 0.09);
 		}
 	}
 
@@ -99,7 +99,7 @@ img.chat-emote {
 	width: 100%;
 
 	&:hover {
-		border-color: var(--border-transparent-1);
+		border-color: var(--border-transparent-2);
 	}
 }
 
@@ -139,7 +139,7 @@ img.chat-emote {
 	}
 }
 
-#chatroom-footer .send-row button:not(.nipah__submit-button) {
+#chatroom-footer .send-row > button:not(.nipah__submit-button) {
 	display: none;
 }
 
