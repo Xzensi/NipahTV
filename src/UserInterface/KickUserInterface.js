@@ -1,9 +1,9 @@
 import { log, info, error, assertArgDefined, waitForElements, cleanupHTML } from '../utils'
 import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
-import { AbstractUserInterface } from './AbstractUserInterface'
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
-import { TabCompletor } from '../Classes/TabCompletor'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
+import { AbstractUserInterface } from './AbstractUserInterface'
+import { TabCompletor } from '../Classes/TabCompletor'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
 
