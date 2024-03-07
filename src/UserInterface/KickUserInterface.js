@@ -268,12 +268,16 @@ export class KickUserInterface extends AbstractUserInterface {
 		// If started typing with focus not on chat input, focus on chat input
 		$(document.body).on('keydown', evt => {
 			if (
+				evt.ctrlKey ||
+				evt.altKey ||
+				evt.metaKey ||
 				this.tabCompletor.isShowingModal ||
 				ignoredKeys[evt.key] ||
 				document.activeElement.tagName === 'INPUT' ||
 				document.activeElement.getAttribute('contenteditable')
-			)
+			) {
 				return
+			}
 
 			textFieldEl.focus()
 		})
