@@ -163,7 +163,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		))
 		$originalSubmitButton.after($submitButton)
 
-		$submitButton.on('click', this.submitInput.bind(this))
+		$submitButton.on('click' as any, this.submitInput.bind(this))
 	}
 
 	loadShadowProxyTextField() {
@@ -513,7 +513,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	// Submits input to chat
-	submitInput() {
+	submitInput(suppressEngagementEvent = false) {
 		const { eventBus, emotesManager } = this
 
 		if (!this.elm.$textField || !this.elm.$originalTextField || !this.elm.$originalSubmitButton) {
@@ -547,8 +547,10 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
-		for (const emoteHid of emotesInMessage) {
-			emotesManager.registerEmoteEngagement(emoteHid as string)
+		if (!suppressEngagementEvent) {
+			for (const emoteHid of emotesInMessage) {
+				emotesManager.registerEmoteEngagement(emoteHid as string)
+			}
 		}
 
 		originalTextFieldEl.innerHTML = parsedString
@@ -581,7 +583,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		textFieldEl.innerHTML = ''
 
 		this.insertEmoteInChat(emoteHid)
-		this.submitInput()
+		this.submitInput(true)
 
 		textFieldEl.innerHTML = oldMessage
 		originalTextFieldEl.innerHTML = oldMessage

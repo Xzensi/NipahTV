@@ -82,19 +82,24 @@ First install all dependencies `npm install`. There are three different ways to 
 
     ```json
     [
-      {
-        "key": "ctrl+s",
-        "command": "workbench.action.tasks.build"
-      }
+    	{
+    		"key": "ctrl+s",
+    		"command": "runCommands",
+    		"when": "editorTextFocus",
+    		"args": {
+    			"commands": ["editor.action.formatDocument", "workbench.action.tasks.build"]
+    		}
+    	}
     ]
     ```
+
     Run `npm run start` to start the development server and automatically build the project on file changes.
 
 2. Run `npm run startWithTsc` to have all outputs in one shared terminal.
 
 3. Seperately run `npm run watch:tsc`, `npm run watch:dev-esbuild`, `npm run watch:sass`, `npm run serve-files`.
 
-The project will be built to the `dist` folder as `debug.user.js`. I recommend using Firefox for development, as it is capable of tracking for local file changes of `debug.user.js`. 
+The project will be built to the `dist` folder as `debug.user.js`. I recommend using Firefox for development, as it is capable of tracking for local file changes of `debug.user.js`.
 
 Finally `npm run build` will build the project for production when merging to master branch.
 
