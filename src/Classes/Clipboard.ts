@@ -52,7 +52,30 @@ export class Clipboard2 {
 			Caret.insertNodeAtCaret(range, node)
 		}
 
-		selection.collapseToEnd()
+		// Collapse selection to the end of inserted node.
+		const lastNode = nodes[nodes.length - 1]
+		if (lastNode) {
+			if (lastNode.nodeType === Node.TEXT_NODE) {
+				selection.collapse(lastNode, (lastNode as Text).length)
+				selection.collapseToEnd() //? Not sure why it needs to collapse twice
+			} else if (lastNode.nodeType === Node.ELEMENT_NODE) {
+				selection.collapse(lastNode, lastNode.childNodes.length)
+			}
+		}
+
+		// Doesn't work correctly
+		// if (lastNode) {
+		// 	const range = document.createRange()
+		// 	if (lastNode.nodeType === Node.TEXT_NODE) {
+		// 		range.setStart(lastNode, (lastNode as Text).length)
+		// 		range.setEnd(lastNode, (lastNode as Text).length)
+		// 	} else if (lastNode.nodeType === Node.ELEMENT_NODE) {
+		// 		range.setStart(lastNode, lastNode.childNodes.length)
+		// 		range.setEnd(lastNode, lastNode.childNodes.length)
+		// 	}
+		// 	selection.removeAllRanges()
+		// 	selection.addRange(range)
+		// }
 	}
 
 	parsePastedMessage(evt: ClipboardEvent) {

@@ -16,8 +16,11 @@ export class Caret {
 		const selection = window.getSelection()
 		if (!selection) return
 
+		let targetNode = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
+		if (!targetNode) return error('Invalid node type', node)
+
 		const range = document.createRange()
-		range.setStartAfter(node)
+		range.setStartAfter(targetNode)
 		range.collapse(true)
 		selection.removeAllRanges()
 		selection.addRange(range)
@@ -224,6 +227,7 @@ export class Caret {
 		if (range.startContainer.nodeType === Node.TEXT_NODE) {
 			// log('Inserting in text node')
 			range.insertNode(node)
+			range.startContainer?.parentElement?.normalize()
 		}
 
 		// Caret is inbetween text nodes, we insert after the childNode at index startOffset
