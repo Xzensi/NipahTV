@@ -87,7 +87,11 @@ First install all dependencies `npm install`. There are three different ways to 
     		"command": "runCommands",
     		"when": "editorTextFocus",
     		"args": {
-    			"commands": ["editor.action.formatDocument", "workbench.action.tasks.build"]
+    			"commands": [
+    				"editor.action.formatDocument",
+    				"workbench.action.files.save",
+    				"workbench.action.tasks.build"
+    			]
     		}
     	}
     ]
