@@ -16,8 +16,16 @@
 // ==/UserScript==
 "use strict";
 (() => {
-  // src/Classes/Logger.js
+  // src/Classes/Logger.ts
   var Logger = class {
+    prefix;
+    brandStyle;
+    okStyle;
+    infoStyle;
+    errorStyle;
+    eventStyle;
+    extraMargin;
+    tagStyle;
     constructor() {
       this.prefix = "NIPAH";
       this.brandStyle = `background-color: #91152e; border-left-color: #660002;`;
@@ -76,12 +84,12 @@
     }
   };
 
-  // src/utils.js
+  // src/utils.ts
   var logger = new Logger();
   var log = logger.log.bind(logger);
   var logEvent = logger.logEvent.bind(logger);
   var info = logger.info.bind(logger);
-  var error2 = logger.error.bind(logger);
+  var error = logger.error.bind(logger);
   var assertArgument = (arg, type) => {
     if (typeof arg !== type) {
       throw new Error(`Invalid argument, expected ${type} but got ${typeof arg}`);
@@ -108,14 +116,14 @@
     }
     return true;
   }
-  function waitForElements(selectors, timeout = 1e4, signal) {
+  function waitForElements(selectors, timeout = 1e4, signal = null) {
     return new Promise((resolve, reject) => {
       let interval;
       let timeoutTimestamp = Date.now() + timeout;
       const checkElements = function() {
         if (selectors.every((selector) => document.querySelector(selector))) {
           clearInterval(interval);
-          resolve();
+          resolve(void 0);
         } else if (Date.now() > timeoutTimestamp) {
           clearInterval(interval);
           reject(new Error("Timeout"));
@@ -289,8 +297,10 @@
     return rh(a) + rh(b) + rh(c) + rh(d);
   }
 
-  // src/Classes/DTO.js
+  // src/Classes/DTO.ts
   var DTO = class {
+    topic;
+    data;
     constructor(topic, data) {
       this.topic = topic;
       this.data = data;
@@ -300,7 +310,7 @@
     }
   };
 
-  // src/Classes/Publisher.js
+  // src/Classes/Publisher.ts
   var Publisher = class {
     listeners = /* @__PURE__ */ new Map();
     onceListeners = /* @__PURE__ */ new Map();
@@ -329,7 +339,7 @@
     }
     // Fires callback immediately and only when all passed events have been fired
     subscribeAllOnce(events, callback) {
-      assertArray(events, "array");
+      assertArray(events);
       assertArgument(callback, "function");
       const eventsFired = [];
       for (const event of events) {
@@ -369,7 +379,7 @@
     }
     publish(topic, data) {
       if (!topic)
-        return error2("Invalid event topic, discarding event..");
+        return error("Invalid event topic, discarding event..");
       const dto = new DTO(topic, data);
       this.firedEvents.set(dto.topic, dto);
       logEvent(dto.topic);
@@ -395,34 +405,11 @@
     }
   };
 
-  // src/Providers/AbstractProvider.js
-  var AbstractProvider = class _AbstractProvider {
-    id = 0;
-    constructor(datastore) {
-      if (this.constructor == _AbstractProvider) {
-        throw new Error("Class is of abstract type and can't be instantiated");
-      }
-      if (this.fetchEmotes === void 0) {
-        throw new Error("Class is missing required method fetchEmotes");
-      }
-      if (this.id === void 0) {
-        throw new Error("Class is missing required property id");
-      }
-      this.datastore = datastore;
-    }
-    async fetchEmotes() {
-      throw new Error("Not yet implemented");
-    }
-    getRenderableEmote() {
-      throw new Error("Not yet implemented");
-    }
-    getEmbeddableEmote() {
-      throw new Error("Not yet implemented");
-    }
-  };
-
-  // src/Classes/SlidingTimestampWindow.js
+  // src/Classes/SlidingTimestampWindow.ts
   var SlidingTimestampWindow = class {
+    timestampWindow;
+    entries;
+    maxEntries;
     constructor(historyEntries) {
       this.timestampWindow = 14 * 24 * 60 * 60 * 1e3;
       this.entries = historyEntries || [];
@@ -453,7 +440,7 @@
     }
   };
 
-  // src/Datastores/EmoteDatastore.js
+  // src/Datastores/EmoteDatastore.ts
   var EmoteDatastore = class {
     emoteSets = [];
     emoteMap = /* @__PURE__ */ new Map();
@@ -475,6 +462,9 @@
       threshold: 0.35,
       keys: [["name"], ["parts"]]
     });
+    database;
+    eventBus;
+    channelId;
     constructor({ database, eventBus }, channelId) {
       this.database = database;
       this.eventBus = eventBus;
@@ -488,6 +478,7 @@
         delete this.emoteMap;
         delete this.emoteNameMap;
         delete this.emoteHistory;
+        delete this.emoteProviderNameMap;
         delete this.pendingHistoryChanges;
       });
     }
@@ -533,7 +524,7 @@
       this.emoteSets.push(emoteSet);
       emoteSet.emotes.forEach((emote) => {
         if (!emote.hid || !emote.id || typeof emote.id !== "string" || !emote.name || typeof emote.provider === "undefined") {
-          return error2("Invalid emote data", emote);
+          return error("Invalid emote data", emote);
         }
         if (this.emoteNameMap.has(emote.name)) {
           return log(`Skipping duplicate emote ${emote.name}.`);
@@ -563,9 +554,9 @@
     getEmoteHistoryCount(emoteHid) {
       return this.emoteHistory.get(emoteHid)?.getTotal() || 0;
     }
-    registerEmoteEngagement(emoteHid, historyEntries = null) {
+    registerEmoteEngagement(emoteHid, historyEntries) {
       if (!emoteHid)
-        return error2("Undefined required emoteHid argument");
+        return error("Undefined required emoteHid argument");
       if (!this.emoteHistory.has(emoteHid) || historyEntries) {
         this.emoteHistory.set(emoteHid, new SlidingTimestampWindow(historyEntries));
       }
@@ -575,7 +566,7 @@
     }
     removeEmoteHistory(emoteHid) {
       if (!emoteHid)
-        return error2("Undefined required emoteHid argument");
+        return error("Undefined required emoteHid argument");
       this.emoteHistory.delete(emoteHid);
       this.pendingHistoryChanges[emoteHid] = true;
       this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteHid });
@@ -644,24 +635,29 @@
     }
   };
 
-  // src/Managers/EmotesManager.js
+  // src/Managers/EmotesManager.ts
   var EmotesManager = class {
     providers = /* @__PURE__ */ new Map();
     loaded = false;
-    constructor({ database, eventBus, settingsManager }, channelId) {
+    database;
+    eventBus;
+    settingsManager;
+    datastore;
+    constructor({
+      database,
+      eventBus,
+      settingsManager
+    }, channelId) {
       this.database = database;
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
       this.datastore = new EmoteDatastore({ database, eventBus }, channelId);
     }
     initialize() {
-      this.datastore.loadDatabase().catch((err) => error2("Failed to load emote data from database.", err.message));
+      this.datastore.loadDatabase().catch((err) => error("Failed to load emote data from database.", err.message));
     }
     registerProvider(providerConstructor) {
-      if (!(providerConstructor.prototype instanceof AbstractProvider)) {
-        return error2("Invalid provider constructor", providerConstructor);
-      }
-      const provider = new providerConstructor(this.datastore, this.settingsManager);
+      const provider = new providerConstructor({ settingsManager: this.settingsManager, datastore: this.datastore });
       this.providers.set(provider.id, provider);
     }
     async loadProviderEmotes(channelData, providerLoadOrder) {
@@ -675,7 +671,7 @@
         const providerSets = [];
         for (const promis of results) {
           if (promis.status === "rejected") {
-            error2("Failed to fetch emotes from provider", promis.reason);
+            error("Failed to fetch emotes from provider", promis.reason);
           } else if (promis.value && promis.value.length) {
             providerSets.push(promis.value);
           }
@@ -714,7 +710,7 @@
     getEmoteSrc(emoteHid) {
       const emote = this.getEmote(emoteHid);
       if (!emote)
-        return error2("Emote not found");
+        return error("Emote not found");
       return this.providers.get(emote.provider).getEmoteSrc(emote);
     }
     getEmoteSets() {
@@ -728,21 +724,21 @@
     }
     getRenderableEmote(emote, classes = "") {
       if (!emote)
-        return error2("No emote provided");
+        return error("No emote provided");
       const provider = this.providers.get(emote.provider);
       return provider.getRenderableEmote(emote, classes);
     }
     getRenderableEmoteByHid(emoteHid, classes = "") {
       const emote = this.getEmote(emoteHid);
       if (!emote)
-        return error2("Emote not found");
+        return error("Emote not found");
       const provider = this.providers.get(emote.provider);
       return provider.getRenderableEmote(emote, classes);
     }
     getEmoteEmbeddable(emoteHid, spacingBefore = false) {
       const emote = this.getEmote(emoteHid);
       if (!emote)
-        return error2("Emote not found");
+        return error("Emote not found");
       const provider = this.providers.get(emote.provider);
       if (spacingBefore && emote.spacing) {
         return " " + provider.getEmbeddableEmote(emote);
@@ -770,7 +766,7 @@
     }
   };
 
-  // src/UserInterface/Components/AbstractComponent.js
+  // src/UserInterface/Components/AbstractComponent.ts
   var AbstractComponent = class {
     // Method to render the component
     render() {
@@ -788,11 +784,20 @@
     }
   };
 
-  // src/UserInterface/Components/QuickEmotesHolderComponent.js
+  // src/UserInterface/Components/QuickEmotesHolderComponent.ts
   var QuickEmotesHolderComponent = class extends AbstractComponent {
     // The sorting list shadow reflects the order of emotes in this.$element
     sortingList = [];
-    constructor({ eventBus, settingsManager, emotesManager }) {
+    eventBus;
+    settingsManager;
+    emotesManager;
+    $element;
+    $emote;
+    constructor({
+      eventBus,
+      settingsManager,
+      emotesManager
+    }) {
       super();
       this.eventBus = eventBus;
       this.settingsManager = settingsManager;
@@ -807,10 +812,10 @@
       $oldEmotesHolder.remove();
     }
     attachEventHandlers() {
-      this.$element.on("click", "img", (evt) => {
+      this.$element?.on("click", "img", (evt) => {
         const emoteHid = evt.target.getAttribute("data-emote-hid");
         if (!emoteHid)
-          return error2("Invalid emote hid");
+          return error("Invalid emote hid");
         this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
       });
       this.eventBus.subscribeAllOnce(
@@ -824,7 +829,7 @@
       const { emotesManager } = this;
       const emote = emotesManager.getEmote(emoteHid);
       if (!emote)
-        return error2("Invalid emote");
+        return error("Invalid emote");
       this.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
     }
     renderQuickEmotes() {
@@ -843,30 +848,31 @@
       const { emotesManager } = this;
       const emote = emotesManager.getEmote(emoteHid);
       if (!emote) {
-        return error2("History encountered emote missing from provider emote sets..", emoteHid);
+        return error("History encountered emote missing from provider emote sets..", emoteHid);
       }
       const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.hid === emoteHid);
       if (emoteInSortingListIndex !== -1) {
         const emoteToSort = this.sortingList[emoteInSortingListIndex];
-        emoteToSort.$emote.remove();
+        const $emote = emoteToSort.$emote;
+        $emote.remove();
         this.sortingList.splice(emoteInSortingListIndex, 1);
         const insertIndex = this.getSortedEmoteIndex(emoteHid);
         if (insertIndex !== -1) {
           this.sortingList.splice(insertIndex, 0, emoteToSort);
-          this.$element.children().eq(insertIndex).before(emoteToSort.$emote);
+          this.$element?.children().eq(insertIndex).before($emote);
         } else {
           this.sortingList.push(emoteToSort);
-          this.$element.append(emoteToSort.$emote);
+          this.$element?.append($emote);
         }
       } else {
         const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__emote"));
         const insertIndex = this.getSortedEmoteIndex(emoteHid);
         if (insertIndex !== -1) {
           this.sortingList.splice(insertIndex, 0, { hid: emoteHid, $emote: $emotePartial });
-          this.$element.children().eq(insertIndex).before($emotePartial);
+          this.$element?.children().eq(insertIndex).before($emotePartial);
         } else {
           this.sortingList.push({ hid: emoteHid, $emote: $emotePartial });
-          this.$element.append($emotePartial);
+          this.$element?.append($emotePartial);
         }
       }
     }
@@ -878,13 +884,22 @@
       });
     }
     destroy() {
-      this.$element.remove();
+      this.$element?.remove();
     }
   };
 
-  // src/UserInterface/Components/EmoteMenuButtonComponent.js
+  // src/UserInterface/Components/EmoteMenuButtonComponent.ts
   var EmoteMenuButtonComponent = class extends AbstractComponent {
-    constructor({ ENV_VARS, eventBus, settingsManager }) {
+    ENV_VARS;
+    eventBus;
+    settingsManager;
+    $element;
+    $footerLogoBtn;
+    constructor({
+      ENV_VARS,
+      eventBus,
+      settingsManager
+    }) {
       super();
       this.ENV_VARS = ENV_VARS;
       this.eventBus = eventBus;
@@ -906,6 +921,8 @@
     }
     attachEventHandlers() {
       this.eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
+        if (!this.$footerLogoBtn)
+          return error("Footer logo button not found, unable to set logo src");
         const filename = this.getFile();
         this.$footerLogoBtn.attr("src", `${this.ENV_VARS.RESOURCE_ROOT}/assets/img/btn/${filename}.png`);
         this.$footerLogoBtn.removeClass();
@@ -941,18 +958,36 @@
       return file;
     }
     destroy() {
-      this.$element.remove();
+      this.$element?.remove();
     }
   };
 
-  // src/UserInterface/Components/EmoteMenuComponent.js
+  // src/UserInterface/Components/EmoteMenuComponent.ts
   var EmoteMenuComponent = class extends AbstractComponent {
     toggleStates = {};
     isShowing = false;
     activePanel = "emotes";
-    panels = {};
     sidebarMap = /* @__PURE__ */ new Map();
-    constructor({ channelData, eventBus, settingsManager, emotesManager }, container) {
+    channelData;
+    eventBus;
+    settingsManager;
+    emotesManager;
+    parentContainer;
+    panels = {};
+    $container;
+    $searchInput;
+    $scrollable;
+    $settingsBtn;
+    $sidebarSets;
+    $tooltip;
+    closeModalClickListenerHandle;
+    scrollableHeight = 0;
+    constructor({
+      channelData,
+      eventBus,
+      settingsManager,
+      emotesManager
+    }, container) {
       super();
       this.channelData = channelData;
       this.eventBus = eventBus;
@@ -1011,16 +1046,16 @@
     }
     attachEventHandlers() {
       const { eventBus, settingsManager } = this;
-      this.$scrollable.on("click", "img", (evt) => {
+      this.$scrollable?.on("click", "img", (evt) => {
         const emoteHid = evt.target.getAttribute("data-emote-hid");
         if (!emoteHid)
-          return error2("Invalid emote hid");
+          return error("Invalid emote hid");
         eventBus.publish("ntv.ui.emote.click", { emoteHid });
         const closeOnClick = settingsManager.getSetting("shared.chat.emote_menu.behavior.close_on_click");
         if (closeOnClick)
           this.toggleShow(false);
       });
-      this.$scrollable.on("mouseenter", "img", (evt) => {
+      this.$scrollable?.on("mouseenter", "img", (evt) => {
         if (this.$tooltip)
           this.$tooltip.remove();
         const emoteHid = evt.target.getAttribute("data-emote-hid");
@@ -1047,17 +1082,17 @@
         if (this.$tooltip)
           this.$tooltip.remove();
       });
-      this.$searchInput.on("input", this.handleSearchInput.bind(this));
-      this.panels.$emotes.on("click", ".nipah__chevron", (evt) => {
+      this.$searchInput?.on("input", this.handleSearchInput.bind(this));
+      this.panels.$emotes?.on("click", ".nipah__chevron", (evt) => {
         log("Emote set header chevron click");
         const $emoteSet = $(evt.target).closest(".nipah__emote-set");
         const $emoteSetBody = $emoteSet.children(".nipah__emote-set__emotes");
         log($(evt.target).parent(".nipah__emote-set"), $emoteSetBody);
         if (!$emoteSetBody.length)
-          return error2("Invalid emote set body");
+          return error("Invalid emote set body");
         $emoteSet.toggleClass("nipah__emote-set--collapsed");
       });
-      this.$settingsBtn.on("click", () => {
+      this.$settingsBtn?.on("click", () => {
         eventBus.publish("ntv.ui.settings.toggle_show");
       });
       eventBus.subscribe("ntv.providers.loaded", this.renderEmotes.bind(this), true);
@@ -1084,6 +1119,8 @@
       }
     }
     handleSearchInput(evt) {
+      if (!(evt.target instanceof HTMLInputElement))
+        return;
       const searchVal = evt.target.value;
       if (searchVal.length) {
         this.switchPanel("search");
@@ -1092,34 +1129,35 @@
       }
       const emotesResult = this.emotesManager.searchEmotes(searchVal.substring(0, 20));
       log(`Searching for emotes, found ${emotesResult.length} matches"`);
-      this.panels.$search.empty();
+      this.panels.$search?.empty();
       let maxResults = 75;
       for (const emoteResult of emotesResult) {
         if (maxResults-- <= 0)
           break;
-        this.panels.$search.append(this.emotesManager.getRenderableEmote(emoteResult.item, "nipah__emote"));
+        this.panels.$search?.append(this.emotesManager.getRenderableEmote(emoteResult.item, "nipah__emote"));
       }
     }
     switchPanel(panel) {
       if (this.activePanel === panel)
         return;
       if (this.activePanel === "search") {
-        this.panels.$search.hide();
+        this.panels.$search?.hide();
       } else if (this.activePanel === "emotes") {
-        this.panels.$emotes.hide();
+        this.panels.$emotes?.hide();
       }
       if (panel === "search") {
-        this.panels.$search.show();
+        this.panels.$search?.show();
       } else if (panel === "emotes") {
-        this.panels.$emotes.show();
+        this.panels.$emotes?.show();
       }
       this.activePanel = panel;
     }
     renderEmotes() {
       log("Rendering emotes in modal");
-      const { emotesManager } = this;
+      const { emotesManager, $sidebarSets, $scrollable } = this;
       const $emotesPanel = this.panels.$emotes;
-      const $sidebarSets = this.$sidebarSets;
+      if (!$emotesPanel || !$sidebarSets || !$scrollable)
+        return error("Invalid emote menu elements");
       $sidebarSets.empty();
       $emotesPanel.empty();
       const emoteSets = this.emotesManager.getEmoteSets();
@@ -1152,11 +1190,11 @@
           );
         }
       }
-      this.$sidebarSets.on("click", (evt) => {
+      $sidebarSets.on("click", (evt) => {
         const $img = $("img", evt.target);
         if (!$img.length)
-          return error2("Invalid sidebar icon click");
-        const scrollableEl = this.$scrollable[0];
+          return error("Invalid sidebar icon click");
+        const scrollableEl = $scrollable[0];
         const emoteSetId = $img.attr("data-id");
         const emoteSetEl = $(`.nipah__emote-set[data-id="${emoteSetId}"]`, this.$container)[0];
         scrollableEl.scrollTo({
@@ -1173,7 +1211,7 @@
           });
         },
         {
-          root: this.$scrollable[0],
+          root: $scrollable[0],
           rootMargin: "0px",
           threshold: (() => {
             let thresholds = [];
@@ -1192,6 +1230,8 @@
         observer.observe(emoteSetEl);
     }
     handleOutsideModalClick(evt) {
+      if (!this.$container)
+        return;
       const containerEl = this.$container[0];
       const withinComposedPath = evt.composedPath().includes(containerEl);
       if (!withinComposedPath)
@@ -1201,25 +1241,30 @@
       if (bool === this.isShowing)
         return;
       this.isShowing = !this.isShowing;
+      const { $searchInput } = this;
       if (this.isShowing) {
         setTimeout(() => {
-          this.$searchInput[0].focus();
+          if ($searchInput)
+            $searchInput[0].focus();
           this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this);
           window.addEventListener("click", this.closeModalClickListenerHandle);
         });
       } else {
         window.removeEventListener("click", this.closeModalClickListenerHandle);
       }
-      this.$container.toggle(this.isShowing);
-      this.scrollableHeight = this.$scrollable.height();
+      this.$container?.toggle(this.isShowing);
+      this.scrollableHeight = this.$scrollable?.height() || 0;
     }
     destroy() {
-      this.$container.remove();
+      this.$container?.remove();
     }
   };
 
-  // src/Classes/MessagesHistory.js
+  // src/Classes/MessagesHistory.ts
   var MessagesHistory = class {
+    messages;
+    cursorIndex;
+    maxMessages;
     constructor() {
       this.messages = [];
       this.cursorIndex = -1;
@@ -1271,11 +1316,11 @@
     }
   };
 
-  // src/Datastores/UsersDatastore.js
+  // src/Datastores/UsersDatastore.ts
   var UsersDatastore = class {
-    users = [];
-    usersIdMap = /* @__PURE__ */ new Map();
     usersNameMap = /* @__PURE__ */ new Map();
+    usersIdMap = /* @__PURE__ */ new Map();
+    users = [];
     usersCount = 0;
     maxUsers = 5e4;
     fuse = new Fuse([], {
@@ -1287,6 +1332,7 @@
       threshold: 0.4,
       keys: [["name"]]
     });
+    eventBus;
     constructor({ eventBus }) {
       this.eventBus = eventBus;
       eventBus.subscribe("ntv.session.destroy", () => {
@@ -1299,7 +1345,7 @@
       if (this.usersIdMap.has(id))
         return;
       if (this.usersCount >= this.maxUsers) {
-        error2(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`);
+        error(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`);
         return;
       }
       const user = { id, name };
@@ -1314,8 +1360,9 @@
     }
   };
 
-  // src/Managers/UsersManager.js
+  // src/Managers/UsersManager.ts
   var UsersManager = class {
+    datastore;
     constructor({ eventBus, settingsManager }) {
       this.datastore = new UsersDatastore({ eventBus });
     }
@@ -1327,14 +1374,26 @@
     }
   };
 
-  // src/UserInterface/AbstractUserInterface.js
+  // src/UserInterface/AbstractUserInterface.ts
   var AbstractUserInterface = class {
     messageHistory = new MessagesHistory();
+    ENV_VARS;
+    channelData;
+    eventBus;
+    settingsManager;
+    emotesManager;
+    usersManager;
     /**
      * @param {EventBus} eventBus
      * @param {object} deps
      */
-    constructor({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager }) {
+    constructor({
+      ENV_VARS,
+      channelData,
+      eventBus,
+      settingsManager,
+      emotesManager
+    }) {
       assertArgDefined(ENV_VARS);
       assertArgDefined(channelData);
       assertArgDefined(eventBus);
@@ -1365,10 +1424,12 @@
     }
   };
 
-  // src/UserInterface/Caret.js
+  // src/UserInterface/Caret.ts
   var Caret = class {
     static moveCaretTo(container, offset) {
       const selection = window.getSelection();
+      if (!selection)
+        return;
       const range = document.createRange();
       range.setStart(container, offset);
       range.collapse(true);
@@ -1377,6 +1438,8 @@
     }
     static collapseToEndOfNode(node) {
       const selection = window.getSelection();
+      if (!selection)
+        return;
       const range = document.createRange();
       range.setStartAfter(node);
       range.collapse(true);
@@ -1386,6 +1449,8 @@
     }
     static hasNonWhitespaceCharacterBeforeCaret() {
       const selection = window.getSelection();
+      if (!selection)
+        return;
       const range = selection.anchorNode ? selection.getRangeAt(0) : null;
       if (!range)
         return false;
@@ -1399,7 +1464,7 @@
         if (!childNode)
           return false;
         if (childNode.nodeType === Node.TEXT_NODE) {
-          textContent = childNode.textContent;
+          textContent = childNode.textContent || "";
           offset = textContent.length - 1;
         } else {
           return false;
@@ -1412,6 +1477,8 @@
     }
     static hasNonWhitespaceCharacterAfterCaret() {
       const selection = window.getSelection();
+      if (!selection)
+        return;
       const range = selection.anchorNode ? selection.getRangeAt(0) : null;
       if (!range)
         return false;
@@ -1425,7 +1492,7 @@
         if (!childNode)
           return false;
         if (childNode.nodeType === Node.TEXT_NODE) {
-          textContent = childNode.textContent;
+          textContent = childNode.textContent || "";
           offset = textContent.length - 1;
         } else {
           return false;
@@ -1439,6 +1506,8 @@
     // Checks if the caret is at the start of a node
     static isCaretAtStartOfNode(node) {
       const selection = window.getSelection();
+      if (!selection)
+        return;
       if (!selection.rangeCount)
         return false;
       const range = selection.getRangeAt(0);
@@ -1462,7 +1531,7 @@
     }
     static isCaretAtEndOfNode(node) {
       const selection = window.getSelection();
-      if (!selection.rangeCount)
+      if (!selection || !selection.rangeCount)
         return false;
       const range = selection.getRangeAt(0);
       let lastRelevantNode = null;
@@ -1486,11 +1555,18 @@
     }
     static getWordBeforeCaret() {
       const selection = window.getSelection();
+      if (!selection)
+        return {
+          word: null,
+          start: 0,
+          end: 0,
+          node: null
+        };
       const range = selection.getRangeAt(0);
       if (range.startContainer.nodeType !== Node.TEXT_NODE) {
         const textNode = range.startContainer.childNodes[range.startOffset - 1];
         if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-          const text2 = textNode.textContent;
+          const text2 = textNode.textContent || "";
           const startOffset = text2.lastIndexOf(" ") + 1;
           const word2 = text2.slice(startOffset);
           if (word2) {
@@ -1509,7 +1585,7 @@
           node: textNode
         };
       }
-      const text = range.startContainer.textContent;
+      const text = range.startContainer.textContent || "";
       const offset = range.startOffset;
       let start = offset;
       while (start > 0 && text[start - 1] !== " ")
@@ -1519,7 +1595,12 @@
         end++;
       const word = text.slice(start, end);
       if (word === "")
-        return false;
+        return {
+          word: null,
+          start: 0,
+          end: 0,
+          node: null
+        };
       return {
         word,
         start,
@@ -1535,6 +1616,7 @@
         range.insertNode(node);
       } else {
         if (range.startOffset - 1 === -1) {
+          ;
           range.startContainer.prepend(node);
           return;
         }
@@ -1550,15 +1632,17 @@
     // Start and end are the indices of the text node
     // Replacement can be a string or an element node.
     static replaceTextInRange(container, start, end, replacement) {
-      if (container.nodeType !== Node.TEXT_NODE)
-        return error("Invalid container node type", container);
-      const text = container.textContent;
+      if (container.nodeType !== Node.TEXT_NODE) {
+        error("Invalid container node type", container);
+        return 0;
+      }
+      const text = container.textContent || "";
       const halfText = text.slice(0, start) + replacement;
       container.textContent = halfText + text.slice(end);
       return halfText.length;
     }
     static replaceTextWithElementInRange(container, start, end, replacement) {
-      const text = container.textContent;
+      const text = container.textContent || "";
       const before = text.slice(0, start);
       const after = text.slice(end);
       container.textContent = before;
@@ -1566,13 +1650,15 @@
     }
   };
 
-  // src/Classes/TabCompletor.js
+  // src/Classes/TabCompletor.ts
   var TabCompletor = class {
     suggestions = [];
     suggestionHids = [];
     selectedIndex = 0;
     isShowingModal = false;
-    mode = null;
+    mode = "";
+    $list;
+    $modal;
     // Context
     start = 0;
     end = 0;
@@ -1580,6 +1666,8 @@
     node = null;
     word = null;
     embedNode = null;
+    emotesManager;
+    usersManager;
     constructor({ emotesManager, usersManager }) {
       this.emotesManager = emotesManager;
       this.usersManager = usersManager;
@@ -1597,6 +1685,8 @@
         const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20);
         this.suggestions = searchResults.map((result) => result.item.name);
         this.suggestionHids = searchResults.map((result) => result.item.id);
+        if (!this.$list)
+          return error("Tab completion list not created");
         this.$list.empty();
         if (this.suggestions.length) {
           for (let i = 0; i < this.suggestions.length; i++) {
@@ -1612,7 +1702,11 @@
         this.mode = "emote";
         const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20);
         this.suggestions = searchResults.map((result) => result.item.name);
-        this.suggestionHids = searchResults.map((result) => this.emotesManager.getEmoteHidByName(result.item.name));
+        this.suggestionHids = searchResults.map(
+          (result) => this.emotesManager.getEmoteHidByName(result.item.name)
+        );
+        if (!this.$list)
+          return error("Tab completion list not created");
         this.$list.empty();
         if (this.suggestions.length) {
           for (let i = 0; i < this.suggestions.length; i++) {
@@ -1646,26 +1740,34 @@
     showModal() {
       if (this.isShowingModal || !this.suggestions.length)
         return;
+      if (!this.$modal || !this.$list)
+        return error("Tab completion modal not created");
       const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
-      let startContainer = range.startContainer;
-      if (startContainer.nodeType === Node.TEXT_NODE) {
-        startContainer = startContainer.parentElement;
+      if (selection) {
+        const range = selection.getRangeAt(0);
+        let startContainer = range.startContainer;
+        if (startContainer && startContainer.nodeType === Node.TEXT_NODE) {
+          startContainer = startContainer.parentElement;
+        }
       }
       this.$modal.show();
       this.$list[0].scrollTop = 9999;
       this.isShowingModal = true;
     }
     hideModal() {
+      if (!this.$modal)
+        return error("Tab completion modal not created");
       this.$modal.hide();
       this.isShowingModal = false;
     }
     scrollSelectedIntoView() {
+      if (!this.$list)
+        return error("Tab completion list not created");
       const $selected = this.$list.find("li.selected");
       const $list = this.$list;
-      const listHeight = $list.height();
+      const listHeight = $list.height() || 0;
       const selectedTop = $selected.position().top;
-      const selectedHeight = $selected.height();
+      const selectedHeight = $selected.height() || 0;
       const selectedCenter = selectedTop + selectedHeight / 2;
       const middleOfList = listHeight / 2;
       const scroll = selectedCenter - middleOfList + ($list.scrollTop() || 0);
@@ -1677,8 +1779,8 @@
       } else if (this.selectedIndex === this.suggestions.length - 1) {
         this.selectedIndex = 0;
       }
-      this.$list.find("li.selected").removeClass("selected");
-      this.$list.find("li").eq(this.selectedIndex).addClass("selected");
+      this.$list?.find("li.selected").removeClass("selected");
+      this.$list?.find("li").eq(this.selectedIndex).addClass("selected");
       if (this.mode === "emote")
         this.renderInlineEmote();
       else if (this.mode === "mention") {
@@ -1688,13 +1790,13 @@
       this.scrollSelectedIntoView();
     }
     moveSelectorDown() {
-      this.$list.find("li.selected").removeClass("selected");
+      this.$list?.find("li.selected").removeClass("selected");
       if (this.selectedIndex > 0) {
         this.selectedIndex--;
       } else {
         this.selectedIndex = this.suggestions.length - 1;
       }
-      this.$list.find("li").eq(this.selectedIndex).addClass("selected");
+      this.$list?.find("li").eq(this.selectedIndex).addClass("selected");
       if (this.mode === "emote")
         this.renderInlineEmote();
       else if (this.mode === "mention") {
@@ -1709,19 +1811,24 @@
         return;
       const userName = this.suggestions[this.selectedIndex];
       const userMention = `@${userName}`;
+      if (!this.node)
+        return error("Invalid node to render inline user mention");
       this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
       Caret.moveCaretTo(this.node, this.mentionEnd);
     }
     restoreOriginalText() {
       if (this.mode === "emote" && this.word) {
+        if (!this.embedNode)
+          return error("Invalid embed node to restore original text");
         const textNode = document.createTextNode(this.word);
         this.embedNode.after(textNode);
         this.embedNode.remove();
         Caret.collapseToEndOfNode(textNode);
-        const parentEL = textNode.parentElement;
-        textNode.parentElement.normalize();
+        textNode.parentElement?.normalize();
       } else if (this.mode === "mention") {
-        Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word);
+        if (!this.node)
+          return error("Invalid node to restore original text");
+        Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || "");
         Caret.moveCaretTo(this.node, this.end);
       }
     }
@@ -1732,7 +1839,7 @@
       if (this.embedNode) {
         const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "nipah__inline-emote");
         if (!emoteEmbedding)
-          return error2("Invalid emote embedding");
+          return error("Invalid emote embedding");
         const embedNode = jQuery.parseHTML(emoteEmbedding)[0];
         this.embedNode.after(embedNode);
         this.embedNode.remove();
@@ -1745,21 +1852,25 @@
     insertEmote(emoteHid) {
       const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "nipah__inline-emote");
       if (!emoteEmbedding)
-        return error2("Invalid emote embedding");
+        return error("Invalid emote embedding");
       const { start, end, node } = this;
       if (!node)
-        return error2("Invalid node");
+        return error("Invalid node");
       const embedNode = this.embedNode = jQuery.parseHTML(emoteEmbedding)[0];
       Caret.replaceTextWithElementInRange(node, start, end, embedNode);
       const range = document.createRange();
       range.setStartAfter(embedNode);
       range.collapse(true);
       const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      selection.collapseToEnd();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+        selection.collapseToEnd();
+      }
     }
     isClickInsideModal(target) {
+      if (!this.$modal)
+        return false;
       return this.$modal[0]?.contains(target);
     }
     handleKeydown(evt) {
@@ -1807,11 +1918,11 @@
     handleKeyup(evt) {
     }
     reset() {
-      this.mode = null;
+      this.mode = "";
       this.suggestions = [];
       this.selectedIndex = 0;
-      this.$list.empty();
-      this.$modal.hide();
+      this.$list?.empty();
+      this.$modal?.hide();
       this.isShowingModal = false;
       this.start = 0;
       this.end = 0;
@@ -1822,9 +1933,9 @@
     }
   };
 
-  // src/Classes/Clipboard.js
+  // src/Classes/Clipboard.ts
   function flattenNestedElement(node) {
-    var result = [];
+    const result = [];
     function traverse(node2) {
       if (node2.nodeType === Node.TEXT_NODE) {
         result.push(node2);
@@ -1843,7 +1954,7 @@
     domParser = new DOMParser();
     paste(text) {
       const selection = window.getSelection();
-      if (!selection.rangeCount)
+      if (!selection || !selection.rangeCount)
         return;
       selection.deleteFromDocument();
       selection.getRangeAt(0).insertNode(document.createTextNode(text));
@@ -1852,7 +1963,7 @@
     pasteHTML(html) {
       const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
       const selection = window.getSelection();
-      if (!selection.rangeCount)
+      if (!selection || !selection.rangeCount)
         return;
       selection.deleteFromDocument();
       const range = selection.getRangeAt(0);
@@ -1863,6 +1974,8 @@
     }
     parsePastedMessage(evt) {
       const clipboardData = evt.clipboardData || window.clipboardData;
+      if (!clipboardData)
+        return;
       const html = clipboardData.getData("text/html");
       if (html) {
         const doc = this.domParser.parseFromString(html, "text/html");
@@ -1884,15 +1997,15 @@
             }
           }
         }
-        if (startFragmentComment === null || !endFragmentComment === null) {
-          error2("Failed to find fragment markers, clipboard data seems to be corrupted.");
+        if (startFragmentComment === null || endFragmentComment === null) {
+          error("Failed to find fragment markers, clipboard data seems to be corrupted.");
           return;
         }
         const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
         const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
         const parsedNodes = [];
         for (const node of flattenedNodes) {
-          if (node.nodeType === Node.TEXT_NODE) {
+          if (node.nodeType === Node.TEXT_NODE && node.textContent) {
             parsedNodes.push(node.textContent);
           } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
             const emoteName = node.dataset.emoteName;
@@ -1912,16 +2025,23 @@
     }
   };
 
-  // src/UserInterface/KickUserInterface.js
+  // src/UserInterface/KickUserInterface.ts
   var KickUserInterface = class extends AbstractUserInterface {
     abortController = new AbortController();
     elm = {
+      $originalTextField: null,
+      $originalSubmitButton: null,
       $chatMessagesContainer: null,
       $submitButton: null,
       $textField: null
     };
     stickyScroll = true;
     maxMessageLength = 500;
+    chatObserver = null;
+    emoteMenu = null;
+    emoteMenuButton = null;
+    quickEmotesHolder = null;
+    tabCompletor = null;
     constructor(deps) {
       super(deps);
     }
@@ -1967,27 +2087,35 @@
         this.loadScrollingBehaviour();
       }).catch(() => {
       });
-      eventBus.subscribe("ntv.ui.emote.click", ({ emoteHid, sendImmediately }) => {
-        if (sendImmediately) {
-          this.sendEmoteToChat(emoteHid);
-        } else {
-          this.insertEmoteInChat(emoteHid);
+      eventBus.subscribe(
+        "ntv.ui.emote.click",
+        ({ emoteHid, sendImmediately }) => {
+          if (sendImmediately) {
+            this.sendEmoteToChat(emoteHid);
+          } else {
+            this.insertEmoteInChat(emoteHid);
+          }
         }
-      });
+      );
       eventBus.subscribe("ntv.settings.change.shared.chat.appearance.alternating_background", (value) => {
         $("#chatroom").toggleClass("nipah__alternating-background", value);
       });
-      eventBus.subscribe("ntv.settings.change.shared.chat.appearance.seperators", ({ value, prevValue }) => {
-        if (prevValue !== "none")
-          $("#chatroom").removeClass(`nipah__seperators-${prevValue}`);
-        if (!value || value === "none")
-          return;
-        $("#chatroom").addClass(`nipah__seperators-${value}`);
-      });
+      eventBus.subscribe(
+        "ntv.settings.change.shared.chat.appearance.seperators",
+        ({ value, prevValue }) => {
+          if (prevValue !== "none")
+            $("#chatroom").removeClass(`nipah__seperators-${prevValue}`);
+          if (!value || value === "none")
+            return;
+          $("#chatroom").addClass(`nipah__seperators-${value}`);
+        }
+      );
       eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
     }
     async loadEmoteMenu() {
       const { channelData, eventBus, settingsManager, emotesManager } = this;
+      if (!this.elm.$textField)
+        return error("Text field not loaded for emote menu");
       const container = this.elm.$textField.parent().parent()[0];
       this.emoteMenu = new EmoteMenuComponent(
         { channelData, eventBus, emotesManager, settingsManager },
@@ -2029,7 +2157,7 @@
           const $submitButton = this.elm.$submitButton;
           if (!$submitButton)
             return;
-          if (textFieldEl.childNodes.length && textFieldEl.childNodes[0]?.tagName !== "BR") {
+          if (textFieldEl.children.length && textFieldEl.children[0]?.tagName !== "BR") {
             $submitButton.removeClass("disabled");
           } else if (!$submitButton.hasClass("disabled")) {
             $submitButton.addClass("disabled");
@@ -2038,7 +2166,7 @@
         { passive: true }
       );
       textFieldEl.addEventListener("keydown", (evt) => {
-        if (evt.key === "Enter" && !this.tabCompletor.isShowingModal) {
+        if (evt.key === "Enter" && !this.tabCompletor?.isShowingModal) {
           evt.preventDefault();
           this.submitInput();
         }
@@ -2061,14 +2189,14 @@
       textFieldEl.addEventListener("paste", (evt) => {
         evt.preventDefault();
         const messageParts = clipboard.parsePastedMessage(evt);
+        if (!messageParts || !messageParts.length)
+          return;
         for (let i = 0; i < messageParts.length; i++) {
           messageParts[i] = this.renderEmotesInText(messageParts[i]);
         }
-        if (messageParts && messageParts.length) {
-          clipboard.pasteHTML(messageParts.join(""));
-          if (textFieldEl.childNodes.length) {
-            this.elm.$submitButton.removeClass("disabled");
-          }
+        clipboard.pasteHTML(messageParts.join(""));
+        if (textFieldEl.childNodes.length) {
+          this.elm.$submitButton?.removeClass("disabled");
         }
       });
       const ignoredKeys = {
@@ -2110,8 +2238,9 @@
         NumLock: true
       };
       $(document.body).on("keydown", (evt) => {
-        if (this.tabCompletor.isShowingModal || ignoredKeys[evt.key] || document.activeElement.tagName === "INPUT" || document.activeElement.getAttribute("contenteditable"))
+        if (evt.ctrlKey || evt.altKey || evt.metaKey || this.tabCompletor?.isShowingModal || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable")) {
           return;
+        }
         textFieldEl.focus();
       });
     }
@@ -2119,9 +2248,12 @@
       const { settingsManager } = this;
       if (!settingsManager.getSetting("shared.chat.input.history.enable"))
         return;
-      const textFieldEl = this.elm.$textField[0];
+      const $textField = this.elm.$textField;
+      if (!$textField)
+        return error("Text field not loaded for chat history");
+      const textFieldEl = $textField[0];
       textFieldEl.addEventListener("keydown", (evt) => {
-        if (this.tabCompletor.isShowingModal)
+        if (this.tabCompletor?.isShowingModal)
           return;
         if (evt.key === "ArrowUp" || evt.key === "ArrowDown") {
           if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.key === "ArrowUp") {
@@ -2155,26 +2287,31 @@
     loadTabCompletionBehaviour() {
       const { emotesManager, usersManager } = this;
       const $textField = this.elm.$textField;
+      if (!$textField)
+        return error("Text field not loaded for chat history");
       const textFieldEl = $textField[0];
       const tabCompletor = this.tabCompletor = new TabCompletor({ emotesManager, usersManager });
       tabCompletor.createModal($textField.parent().parent()[0]);
       textFieldEl.addEventListener("keydown", tabCompletor.handleKeydown.bind(tabCompletor));
       textFieldEl.addEventListener("keyup", (evt) => {
-        if (this.tabCompletor.isShowingModal) {
-          if (textFieldEl.textContent.trim() === "" && !textFieldEl.childNodes.length) {
+        if (this.tabCompletor?.isShowingModal) {
+          if ((!textFieldEl.textContent || textFieldEl.textContent.trim() === "") && !textFieldEl.childNodes.length) {
             tabCompletor.reset();
           }
         }
       });
       document.addEventListener("click", (evt) => {
+        if (!evt.target)
+          return;
         const isClickInsideModal = tabCompletor.isClickInsideModal(evt.target);
-        if (!isClickInsideModal) {
+        if (!isClickInsideModal)
           tabCompletor.reset();
-        }
       });
     }
     loadScrollingBehaviour() {
       const $chatMessagesContainer = this.elm.$chatMessagesContainer;
+      if (!$chatMessagesContainer)
+        return error("Chat messages container not loaded for scrolling behaviour");
       if (this.stickyScroll)
         $chatMessagesContainer.parent().addClass("nipah__sticky-scroll");
       $chatMessagesContainer[0].addEventListener(
@@ -2182,7 +2319,7 @@
         (evt) => {
           if (!this.stickyScroll) {
             const target = evt.target;
-            const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 15;
+            const isAtBottom = (target.scrollHeight || 0) - target.scrollTop <= target.clientHeight + 15;
             if (isAtBottom) {
               $chatMessagesContainer.parent().addClass("nipah__sticky-scroll");
               target.scrollTop = 99999;
@@ -2205,12 +2342,16 @@
     }
     observeChatMessages() {
       const $chatMessagesContainer = this.elm.$chatMessagesContainer;
+      if (!$chatMessagesContainer)
+        return error("Chat messages container not loaded for observing");
       const chatMessagesContainerEl = $chatMessagesContainer[0];
       const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
       const observer = this.chatObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes.length) {
             for (const messageNode of mutation.addedNodes) {
+              if (messageNode.nodeType !== Node.ELEMENT_NODE)
+                continue;
               this.renderEmotesInMessage(messageNode);
             }
             if (this.stickyScroll) {
@@ -2264,16 +2405,23 @@
       if (usernameEl) {
         const { chatEntryUser, chatEntryUserId } = usernameEl.dataset;
         const chatEntryUserName = usernameEl.textContent;
-        this.usersManager.registerUser(chatEntryUserId, chatEntryUserName);
+        if (chatEntryUserId && chatEntryUserName) {
+          this.usersManager.registerUser(chatEntryUserId, chatEntryUserName);
+        }
       }
       const messageContentNodes = messageNode.querySelectorAll(".chat-entry-content");
       for (const contentNode of messageContentNodes) {
+        if (!contentNode.textContent)
+          continue;
         contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent);
       }
     }
     // Submits input to chat
     submitInput() {
       const { eventBus, emotesManager } = this;
+      if (!this.elm.$textField || !this.elm.$originalTextField || !this.elm.$originalSubmitButton) {
+        return error("Text field not loaded for submitting input");
+      }
       const originalTextFieldEl = this.elm.$originalTextField[0];
       const originalSubmitButtonEl = this.elm.$originalSubmitButton[0];
       const textFieldEl = this.elm.$textField[0];
@@ -2292,7 +2440,7 @@
         }
       }
       if (parsedString.length > this.maxMessageLength) {
-        error2(
+        error(
           `Message too long, it is ${parsedString.length} characters but max limit is ${this.maxMessageLength}.`
         );
         return;
@@ -2311,6 +2459,9 @@
     // Sends emote to chat and restores previous message
     sendEmoteToChat(emoteHid) {
       assertArgDefined(emoteHid);
+      if (!this.elm.$textField || !this.elm.$originalTextField || !this.elm.$submitButton) {
+        return error("Text field not loaded for sending emote");
+      }
       const originalTextFieldEl = this.elm.$originalTextField[0];
       const textFieldEl = this.elm.$textField[0];
       const oldMessage = textFieldEl.innerHTML;
@@ -2330,13 +2481,13 @@
       this.messageHistory.resetCursor();
       const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__inline-emote");
       if (!emoteEmbedding)
-        return error2("Invalid emote embed");
+        return error("Invalid emote embed");
       let embedNode;
       const isEmbedHtml = emoteEmbedding[0] === "<" && emoteEmbedding[emoteEmbedding.length - 1] === ">";
       if (isEmbedHtml) {
         const nodes = jQuery.parseHTML(emoteEmbedding);
         if (!nodes || !nodes.length || nodes.length > 1)
-          return error2("Invalid embedding", emoteEmbedding);
+          return error("Invalid embedding", emoteEmbedding);
         embedNode = nodes[0];
       } else {
         const needPaddingBefore = Caret.hasNonWhitespaceCharacterBeforeCaret();
@@ -2345,16 +2496,21 @@
         embedNode = document.createTextNode(paddedEmbedding);
       }
       this.insertNodeInChat(embedNode);
-      this.elm.$submitButton.removeAttr("disabled");
-      this.elm.$originalTextField[0].innerHTML = this.elm.$textField[0].innerHTML;
+      this.elm.$submitButton?.removeAttr("disabled");
+      if (!this.elm.$originalTextField)
+        return error("Original text field not loaded for emote insertion");
+      this.elm.$originalTextField.html(this.elm.$textField?.html() || "");
     }
     insertNodeInChat(embedNode) {
       if (embedNode.nodeType !== Node.TEXT_NODE && embedNode.nodeType !== Node.ELEMENT_NODE) {
-        return error2("Invalid node type", embedNode);
+        return error("Invalid node type", embedNode);
       }
-      const textFieldEl = this.elm.$textField[0];
+      const $textField = this.elm.$textField;
+      if (!$textField)
+        return error("Text field not loaded for inserting node");
+      const textFieldEl = $textField[0];
       const selection = window.getSelection();
-      const range = selection.anchorNode ? selection.getRangeAt(0) : null;
+      const range = selection?.anchorNode ? selection.getRangeAt(0) : null;
       if (range) {
         const caretIsInTextField = range.commonAncestorContainer === textFieldEl || range.commonAncestorContainer?.parentElement === textFieldEl;
         if (caretIsInTextField) {
@@ -2384,7 +2540,7 @@
     }
   };
 
-  // src/constants.js
+  // src/constants.ts
   var PLATFORM_ENUM = {
     NULL: 0,
     KICK: 1,
@@ -2397,19 +2553,29 @@
     SEVENTV: 2
   };
 
-  // src/Providers/KickProvider.js
+  // src/Providers/AbstractProvider.ts
+  var AbstractProvider = class {
+    id = PROVIDER_ENUM.NULL;
+    settingsManager;
+    datastore;
+    constructor({ settingsManager, datastore }) {
+      this.settingsManager = settingsManager;
+      this.datastore = datastore;
+    }
+  };
+
+  // src/Providers/KickProvider.ts
   var KickProvider = class extends AbstractProvider {
     id = PROVIDER_ENUM.KICK;
     status = "unloaded";
-    constructor(datastore, settingsManager) {
-      super(datastore);
-      this.settingsManager = settingsManager;
+    constructor(dependencies) {
+      super(dependencies);
     }
     async fetchEmotes({ channel_id, channel_name, user_id, me }) {
       if (!channel_id)
-        return error2("Missing channel id for Kick provider");
+        return error("Missing channel id for Kick provider");
       if (!channel_name)
-        return error2("Missing channel name for Kick provider");
+        return error("Missing channel name for Kick provider");
       const { settingsManager } = this;
       const includeGlobalEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_global");
       const includeCurrentChannelEmoteSet = settingsManager.getSetting(
@@ -2442,15 +2608,17 @@
         if (dataSet.user_id === user_id) {
           emotesFiltered = emotes.filter((emote) => me.is_subscribed || !emote.subscribers_only);
         }
-        const emotesMapped = emotesFiltered.map((emote) => ({
-          id: "" + emote.id,
-          hid: md5(emote.name),
-          name: emote.name,
-          subscribers_only: emote.subscribers_only,
-          provider: PROVIDER_ENUM.KICK,
-          width: 32,
-          size: 1
-        }));
+        const emotesMapped = emotesFiltered.map((emote) => {
+          return {
+            id: "" + emote.id,
+            hid: md5(emote.name),
+            name: emote.name,
+            subscribers_only: emote.subscribers_only,
+            provider: PROVIDER_ENUM.KICK,
+            width: 32,
+            size: 1
+          };
+        });
         const emoteSetIcon = dataSet?.user?.profile_pic || "https://kick.com/favicon.ico";
         const emoteSetName = dataSet.user ? `${dataSet.user.username}'s Emotes` : `${dataSet.name} Emotes`;
         let orderIndex = 1;
@@ -2495,18 +2663,17 @@
     }
   };
 
-  // src/Providers/SevenTVProvider.js
+  // src/Providers/SevenTVProvider.ts
   var SevenTVProvider = class extends AbstractProvider {
     id = PROVIDER_ENUM.SEVENTV;
     status = "unloaded";
-    constructor(datastore, settingsManager) {
-      super(datastore);
-      this.settingsManager = settingsManager;
+    constructor(dependencies) {
+      super(dependencies);
     }
     async fetchEmotes({ user_id }) {
       info("Fetching emote data from SevenTV..");
       if (!user_id)
-        return error2("Missing kick channel id for SevenTV provider.");
+        return error("Missing kick channel id for SevenTV provider.");
       const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`);
       if (!data.emote_set || !data.emote_set.emotes.length) {
         log("No emotes found on SevenTV provider");
@@ -2567,15 +2734,161 @@
     }
   };
 
-  // src/UserInterface/Modals/AbstractModal.js
+  // src/UserInterface/Components/CheckboxComponent.ts
+  var CheckboxComponent = class extends AbstractComponent {
+    event = new EventTarget();
+    $element;
+    checked;
+    label;
+    id;
+    constructor(id, label, checked = false) {
+      super();
+      this.id = id;
+      this.label = label;
+      this.checked = checked;
+    }
+    render() {
+      this.$element = $(`
+            <div class="nipah__checkbox">
+                <input type="checkbox" id="${this.id}" ${this.checked ? "checked" : ""}>
+                <label for="${this.id}">${this.label}</label>
+            </div>
+        `);
+    }
+    attachEventHandlers() {
+      this.$element?.find("input").on("change", (e) => {
+        this.checked = e.target.checked;
+        this.event.dispatchEvent(new Event("change"));
+      });
+    }
+    getValue() {
+      return this.checked;
+    }
+  };
+
+  // src/UserInterface/Components/DropdownComponent.ts
+  var DropdownComponent = class extends AbstractComponent {
+    event = new EventTarget();
+    id;
+    label;
+    options;
+    selectedOption;
+    $element;
+    constructor(id, label, options = [], selectedOption = null) {
+      super();
+      this.id = id;
+      this.label = label;
+      this.options = options;
+      this.selectedOption = selectedOption;
+    }
+    render() {
+      this.$element = $(`
+            <div class="nipah__dropdown">
+                <label for="${this.id}">${this.label}</label>
+                <select id="${this.id}">
+                    ${this.options.map((option) => {
+        const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
+        return `<option value="${option.value}" ${selected}>${option.label}</option>`;
+      }).join("")}
+                </select>
+            </div>
+        `);
+    }
+    attachEventHandlers() {
+      this.$element?.find("select").on("change", (e) => {
+        this.event.dispatchEvent(new Event("change"));
+      });
+    }
+    getValue() {
+      return this.$element?.find("select").val();
+    }
+  };
+
+  // src/UserInterface/Components/NumberComponent.ts
+  var NumberComponent = class extends AbstractComponent {
+    event = new EventTarget();
+    $element;
+    id;
+    label;
+    value;
+    min;
+    max;
+    step;
+    constructor(id, label, value = 0, min = 0, max = 10, step = 1) {
+      super();
+      this.id = id;
+      this.label = label;
+      this.value = value;
+      this.min = min;
+      this.max = max;
+      this.step = step;
+    }
+    render() {
+      this.$element = $(`
+            <div class="nipah__number">
+				<label for="${this.id}">${this.label}</label>
+                <input type="number" id="${this.id}" name="${this.id}" value="${this.value}" min="${this.min}" max="${this.max}" step="${this.step}">
+            </div>
+        `);
+    }
+    attachEventHandlers() {
+      this.$element?.find("input").on("input", (e) => {
+        this.value = +e.target.value;
+        this.event.dispatchEvent(new Event("change"));
+      });
+    }
+    getValue() {
+      return this.value;
+    }
+  };
+
+  // src/UserInterface/Components/ColorComponent.ts
+  var ColorComponent = class extends AbstractComponent {
+    event = new EventTarget();
+    $element;
+    value;
+    label;
+    id;
+    constructor(id, label, value = "#000000") {
+      super();
+      this.id = id;
+      this.label = label;
+      this.value = value;
+    }
+    render() {
+      this.$element = $(`
+            <div class="nipah__color">
+                <label for="${this.id}">${this.label}</label>
+                <input type="color" id="${this.id}" value="${this.value}">
+            </div>
+        `);
+    }
+    attachEventHandlers() {
+      this.$element?.find("input").on("change", (e) => {
+        this.value = e.target.value;
+        this.event.dispatchEvent(new Event("change"));
+      });
+    }
+    getValue() {
+      return this.value;
+    }
+  };
+
+  // src/UserInterface/Modals/AbstractModal.ts
   var AbstractModal = class extends AbstractComponent {
     event = new EventTarget();
+    className;
+    $modal;
+    $modalHeader;
+    $modalBody;
+    $modalClose;
     constructor(className) {
       super();
       this.className = className;
     }
     init() {
       super.init();
+      return this;
     }
     // Renders the modal container, header and body
     render() {
@@ -2596,20 +2909,20 @@
     }
     // Attaches event handlers for the modal
     attachEventHandlers() {
-      this.$modalClose.on("click", () => {
+      this.$modalClose?.on("click", () => {
         this.destroy();
         this.event.dispatchEvent(new Event("close"));
       });
-      this.$modalHeader.on("mousedown", this.handleModalDrag.bind(this));
+      this.$modalHeader?.on("mousedown", this.handleModalDrag.bind(this));
       $(window).on("resize", this.centerModal.bind(this));
     }
     destroy() {
-      this.$modal.remove();
+      this.$modal?.remove();
     }
     centerModal() {
       const windowHeight = $(window).height();
       const windowWidth = $(window).width();
-      this.$modal.css({
+      this.$modal?.css({
         left: windowWidth / 2,
         top: windowHeight / 2
       });
@@ -2648,128 +2961,12 @@
     }
   };
 
-  // src/UserInterface/Components/CheckboxComponent.js
-  var CheckboxComponent = class extends AbstractComponent {
-    event = new EventTarget();
-    constructor(id, label, checked = false) {
-      super();
-      this.id = id;
-      this.label = label;
-      this.checked = checked;
-    }
-    render() {
-      this.$element = $(`
-            <div class="nipah__checkbox">
-                <input type="checkbox" id="${this.id}" ${this.checked ? "checked" : ""}>
-                <label for="${this.id}">${this.label}</label>
-            </div>
-        `);
-    }
-    attachEventHandlers() {
-      this.$element.find("input").on("change", (e) => {
-        this.checked = e.target.checked;
-        this.event.dispatchEvent(new Event("change"));
-      });
-    }
-    getValue() {
-      return this.checked;
-    }
-  };
-
-  // src/UserInterface/Components/DropdownComponent.js
-  var DropdownComponent = class extends AbstractComponent {
-    event = new EventTarget();
-    constructor(id, label, options = [], selectedOption = null) {
-      super();
-      this.id = id;
-      this.label = label;
-      this.options = options;
-      this.selectedOption = selectedOption;
-    }
-    render() {
-      this.$element = $(`
-            <div class="nipah__dropdown">
-                <label for="${this.id}">${this.label}</label>
-                <select id="${this.id}">
-                    ${this.options.map((option) => {
-        const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
-        return `<option value="${option.value}" ${selected}>${option.label}</option>`;
-      }).join("")}
-                </select>
-            </div>
-        `);
-    }
-    attachEventHandlers() {
-      this.$element.find("select").on("change", (e) => {
-        this.event.dispatchEvent(new Event("change"));
-      });
-    }
-    getValue() {
-      return this.$element.find("select").val();
-    }
-  };
-
-  // src/UserInterface/Components/NumberComponent.js
-  var NumberComponent = class extends AbstractComponent {
-    event = new EventTarget();
-    constructor(id, label, value = 0, min = 0, max = 10, step = 1) {
-      super();
-      this.id = id;
-      this.label = label;
-      this.value = value;
-      this.min = min;
-      this.max = max;
-      this.step = step;
-    }
-    render() {
-      this.$element = $(`
-            <div class="nipah__number">
-				<label for="${this.id}">${this.label}</label>
-                <input type="number" id="${this.id}" name="${this.id}" value="${this.value}" min="${this.min}" max="${this.max}" step="${this.step}">
-            </div>
-        `);
-    }
-    attachEventHandlers() {
-      this.$element.find("input").on("input", (e) => {
-        this.value = e.target.value;
-        this.event.dispatchEvent(new Event("change"));
-      });
-    }
-    getValue() {
-      return this.value;
-    }
-  };
-
-  // src/UserInterface/Components/ColorComponent.js
-  var ColorComponent = class extends AbstractComponent {
-    event = new EventTarget();
-    constructor(id, label, value = "#000000") {
-      super();
-      this.id = id;
-      this.label = label;
-      this.value = value;
-    }
-    render() {
-      this.$element = $(`
-            <div class="nipah__color">
-                <label for="${this.id}">${this.label}</label>
-                <input type="color" id="${this.id}" value="${this.value}">
-            </div>
-        `);
-    }
-    attachEventHandlers() {
-      this.$element.find("input").on("change", (e) => {
-        this.value = e.target.value;
-        this.event.dispatchEvent(new Event("change"));
-      });
-    }
-    getValue() {
-      return this.value;
-    }
-  };
-
-  // src/UserInterface/Modals/SettingsModal.js
+  // src/UserInterface/Modals/SettingsModal.ts
   var SettingsModal = class extends AbstractModal {
+    eventBus;
+    settingsOpts;
+    $panels;
+    $sidebar;
     constructor(eventBus, settingsOpts) {
       super("settings");
       this.eventBus = eventBus;
@@ -2777,6 +2974,7 @@
     }
     init() {
       super.init();
+      return this;
     }
     render() {
       super.render();
@@ -2861,10 +3059,10 @@
                   );
                   break;
                 default:
-                  error2(`No component found for setting type: ${setting.type}`);
+                  error(`No component found for setting type: ${setting.type}`);
                   continue;
               }
-              settingComponent.init();
+              settingComponent?.init();
               $group.append(settingComponent.$element);
               settingComponent.event.addEventListener("change", () => {
                 const value = settingComponent.getValue();
@@ -2877,8 +3075,8 @@
         }
       }
       $panels.find(".nipah__settings-modal__panel").first().show();
-      $modalBody.append($sidebar);
-      $modalBody.append($panels);
+      $modalBody?.append($sidebar);
+      $modalBody?.append($panels);
     }
     getSettingElement(setting) {
     }
@@ -2892,7 +3090,7 @@
     }
   };
 
-  // src/Managers/SettingsManager.js
+  // src/Managers/SettingsManager.ts
   var SettingsManager = class {
     /*
        - Shared global settings
@@ -3256,8 +3454,10 @@
     ];
     settingsMap = /* @__PURE__ */ new Map();
     isShowingModal = false;
-    modal = null;
     isLoaded = false;
+    database;
+    eventBus;
+    modal;
     constructor({ database, eventBus }) {
       this.database = database;
       this.eventBus = eventBus;
@@ -3286,9 +3486,9 @@
     }
     setSetting(key, value) {
       if (!key || typeof value === "undefined")
-        return error2("Invalid setting key or value", key, value);
+        return error("Invalid setting key or value", key, value);
       const { database } = this;
-      database.settings.put({ id: key, value }).catch((err) => error2("Failed to save setting to database.", err.message));
+      database.settings.put({ id: key, value }).catch((err) => error("Failed to save setting to database.", err.message));
       this.settingsMap.set(key, value);
     }
     getSetting(key) {
@@ -3297,9 +3497,9 @@
     handleShowModal(evt) {
       this.showModal(!this.isShowingModal);
     }
-    showModal(bool) {
+    showModal(bool = true) {
       if (!this.isLoaded) {
-        return error2(
+        return error(
           "Unable to show settings modal because the settings are not loaded yet, please wait for it to load first."
         );
       }
@@ -3307,7 +3507,7 @@
         this.isShowingModal = false;
         if (this.modal) {
           this.modal.destroy();
-          this.modal = null;
+          delete this.modal;
         }
       } else {
         this.isShowingModal = true;
@@ -3320,7 +3520,7 @@
         this.modal.init();
         this.modal.event.addEventListener("close", () => {
           this.isShowingModal = false;
-          this.modal = null;
+          delete this.modal;
         });
         this.modal.event.addEventListener("setting_change", (evt) => {
           const { id, value } = evt.detail;
@@ -3332,8 +3532,8 @@
     }
   };
 
-  // src/app.js
-  var window2 = unsafeWindow || window2;
+  // src/app.ts
+  var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
       VERSION: "1.1.22",
@@ -3348,7 +3548,10 @@
       DEBUG: true
     };
     stylesLoaded = false;
-    async initialize() {
+    eventBus = null;
+    database = null;
+    channelData;
+    initialize() {
       const { ENV_VARS } = this;
       info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
       if (ENV_VARS.DEBUG) {
@@ -3361,11 +3564,11 @@
         this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
         info("Platform detected: Kick");
       } else {
-        return error2("Unsupported platform", window2.app_name);
+        return error("Unsupported platform", window2.app_name);
       }
       this.setupDatabase();
       this.attachPageNavigationListener();
-      this.setupClientEnvironment().catch((err) => error2("Failed to setup client environment.", err.message));
+      this.setupClientEnvironment().catch((err) => error("Failed to setup client environment.", err.message));
     }
     setupDatabase() {
       const { ENV_VARS } = this;
@@ -3377,12 +3580,14 @@
     }
     async setupClientEnvironment() {
       const { ENV_VARS, database } = this;
+      if (!database)
+        throw new Error("Database is not initialized.");
       log("Setting up client environment..");
       const eventBus = new Publisher();
       this.eventBus = eventBus;
       const settingsManager = new SettingsManager({ database, eventBus });
       settingsManager.initialize();
-      let channelData;
+      let channelData = null;
       let promises = [];
       promises.push(
         settingsManager.loadSettings().catch((err) => {
@@ -3399,19 +3604,22 @@
       });
       if (!channelData)
         throw new Error("No channel data was found.");
-      const emotesManager = new EmotesManager({ database, eventBus, settingsManager }, channelData.channel_id);
+      const emotesManager = new EmotesManager(
+        { database, eventBus, settingsManager },
+        channelData.channel_id
+      );
       emotesManager.initialize();
       let userInterface;
       if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         userInterface = new KickUserInterface({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager });
       } else {
-        return error2("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
+        return error("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
       }
       if (!this.stylesLoaded) {
         this.loadStyles().then(() => {
           this.stylesLoaded = true;
           userInterface.loadInterface();
-        }).catch((response) => error2("Failed to load styles.", response));
+        }).catch((response) => error("Failed to load styles.", response));
       } else {
         userInterface.loadInterface();
       }
@@ -3431,7 +3639,7 @@
             onload: function(response) {
               log("Loaded styles from local resource..");
               GM_addStyle(response.responseText);
-              resolve();
+              resolve(void 0);
             }
           });
         } else {
@@ -3450,7 +3658,7 @@
             reject("Invalid stylesheet resource.");
           }
           GM_addStyle(stylesheet);
-          resolve();
+          resolve(void 0);
         }
       });
     }

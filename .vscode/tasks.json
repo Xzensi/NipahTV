@@ -6,8 +6,7 @@
 			"type": "npm",
 			"script": "build",
 			"group": {
-				"kind": "build",
-				"isDefault": true
+				"kind": "build"
 			},
 			"presentation": {
 				"echo": true,
@@ -21,9 +20,9 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "Watch Files",
+			"label": "Dev-esbuild",
 			"type": "npm",
-			"script": "watch",
+			"script": "dev-esbuild",
 			"group": {
 				"kind": "build"
 			},
@@ -36,6 +35,67 @@
 				"clear": true,
 				"close": false
 			}
+		},
+		{
+			"label": "Serve files",
+			"type": "npm",
+			"script": "serve-files",
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"panel": "shared",
+				"showReuseMessage": false,
+				"clear": true,
+				"close": false
+			}
+		},
+		{
+			"label": "Watch dev build (builds dev build on change)",
+			"type": "npm",
+			"script": "watch:dev-esbuild",
+			"problemMatcher": ["$tsc"],
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"panel": "shared",
+				"showReuseMessage": false,
+				"clear": true,
+				"close": false
+			}
+		},
+		{
+			"label": "Watch Sass",
+			"type": "npm",
+			"script": "watch:dart-sass",
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"panel": "shared",
+				"showReuseMessage": false,
+				"clear": true,
+				"close": false
+			}
+		},
+		{
+			"type": "typescript",
+			"tsconfig": "tsconfig.json",
+			"problemMatcher": ["$tsc"],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"panel": "shared",
+				"showReuseMessage": false,
+				"clear": true,
+				"close": false
+			},
 		}
 	]
 }
