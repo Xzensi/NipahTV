@@ -27,18 +27,18 @@ export class AbstractModal extends AbstractComponent {
 	// Renders the modal container, header and body
 	render() {
 		this.$modal = $(`
-            <div class="nipah__modal ${this.className ? `nipah__${this.className}-modal` : ''}">
-                <div class="nipah__modal__header">
-                    <h3 class="nipah__modal__title"></h3>
-                    <button class="nipah__modal__close-btn">🞨</button>
+            <div class="ntv__modal ${this.className ? `ntv__${this.className}-modal` : ''}">
+                <div class="ntv__modal__header">
+                    <h3 class="ntv__modal__title"></h3>
+                    <button class="ntv__modal__close-btn">🞨</button>
                 </div>
-                <div class="nipah__modal__body"></div>
+                <div class="ntv__modal__body"></div>
             </div>
         `)
 
-		this.$modalHeader = this.$modal.find('.nipah__modal__header')
-		this.$modalBody = this.$modal.find('.nipah__modal__body')
-		this.$modalClose = this.$modalHeader.find('.nipah__modal__close-btn')
+		this.$modalHeader = this.$modal.find('.ntv__modal__header')
+		this.$modalBody = this.$modal.find('.ntv__modal__body')
+		this.$modalClose = this.$modalHeader.find('.ntv__modal__close-btn')
 
 		$('body').append(this.$modal)
 

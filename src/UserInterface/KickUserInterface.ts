@@ -69,11 +69,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.loadEmoteMenuButton()
 
 				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
-					$('#chatroom').addClass('nipah__hide-emote-menu-button')
-				}
-
-				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
-					$('#chatroom').addClass('nipah__smooth-scrolling')
+					$('#chatroom').addClass('ntv__hide-emote-menu-button')
 				}
 			})
 			.catch(() => {})
@@ -84,20 +80,26 @@ export class KickUserInterface extends AbstractUserInterface {
 				const $chatMessagesContainer = (this.elm.$chatMessagesContainer = $(
 					'#chatroom > div:nth-child(2) > .overflow-y-scroll'
 				))
+				$chatMessagesContainer.addClass('ntv__chat-messages-container')
+
+				// Add smooth scrolling to chat messages
+				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
+					$chatMessagesContainer.addClass('ntv__chat-messages-container--smooth-scrolling')
+				}
 
 				// Add alternating background color to chat messages
 				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
-					$('#chatroom').addClass('nipah__alternating-background')
+					$('#chatroom').addClass('ntv__alternating-background')
 				}
 
 				// Add seperator lines to chat messages
 				const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
 				if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-					$('#chatroom').addClass(`nipah__seperators-${seperatorSettingVal}`)
+					$('#chatroom').addClass(`ntv__seperators-${seperatorSettingVal}`)
 				}
 
 				// Render emotes in chat when providers are loaded
-				eventBus.subscribe('ntv.providers.loaded', this.renderEmotesInChat.bind(this), true)
+				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
 
 				this.observeChatMessages()
 				this.loadScrollingBehaviour()
@@ -118,16 +120,16 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Add alternating background color to chat messages
 		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.alternating_background', (value: boolean) => {
-			$('#chatroom').toggleClass('nipah__alternating-background', value)
+			$('#chatroom').toggleClass('ntv__alternating-background', value)
 		})
 
 		// Add seperator lines to chat messages
 		eventBus.subscribe(
 			'ntv.settings.change.shared.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
-				if (prevValue !== 'none') $('#chatroom').removeClass(`nipah__seperators-${prevValue}`)
+				if (prevValue !== 'none') $('#chatroom').removeClass(`ntv__seperators-${prevValue}`)
 				if (!value || value === 'none') return
-				$('#chatroom').addClass(`nipah__seperators-${value}`)
+				$('#chatroom').addClass(`ntv__seperators-${value}`)
 			}
 		)
 
@@ -160,9 +162,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	loadShadowProxySubmitButton() {
 		const $originalSubmitButton = (this.elm.$originalSubmitButton = $('#chatroom-footer button.base-button'))
-		const $submitButton = (this.elm.$submitButton = $(
-			`<button class="nipah__submit-button disabled">Chat</button>`
-		))
+		const $submitButton = (this.elm.$submitButton = $(`<button class="ntv__submit-button disabled">Chat</button>`))
 		$originalSubmitButton.after($submitButton)
 
 		$submitButton.on('click' as any, this.submitInput.bind(this))
@@ -172,12 +172,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $originalTextField = (this.elm.$originalTextField = $('#message-input'))
 		const placeholder = $originalTextField.data('placeholder')
 		const $textField = (this.elm.$textField = $(
-			`<div id="nipah__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
+			`<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
 		))
 		const originalTextFieldEl = $originalTextField[0]
 		const textFieldEl = $textField[0]
 
-		const $textFieldWrapper = $(`<div class="nipah__message-input__wrapper"></div>`)
+		const $textFieldWrapper = $(`<div class="ntv__message-input__wrapper"></div>`)
 		$textFieldWrapper.append($textField)
 		$originalTextField.parent().parent().append($textFieldWrapper)
 
@@ -399,7 +399,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (!$chatMessagesContainer) return error('Chat messages container not loaded for scrolling behaviour')
 
 		// Scroll is sticky by default
-		if (this.stickyScroll) $chatMessagesContainer.parent().addClass('nipah__sticky-scroll')
+		if (this.stickyScroll) $chatMessagesContainer.parent().addClass('ntv__sticky-scroll')
 
 		// Enable sticky scroll when user scrolls to bottom
 		$chatMessagesContainer[0].addEventListener(
@@ -411,7 +411,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					const isAtBottom = (target.scrollHeight || 0) - target.scrollTop <= target.clientHeight + 15
 
 					if (isAtBottom) {
-						$chatMessagesContainer.parent().addClass('nipah__sticky-scroll')
+						$chatMessagesContainer.parent().addClass('ntv__sticky-scroll')
 						target.scrollTop = 99999
 						this.stickyScroll = true
 					}
@@ -425,7 +425,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			'wheel',
 			evt => {
 				if (this.stickyScroll && evt.deltaY < 0) {
-					$chatMessagesContainer.parent().removeClass('nipah__sticky-scroll')
+					$chatMessagesContainer.parent().removeClass('ntv__sticky-scroll')
 					this.stickyScroll = false
 				}
 			},
@@ -437,9 +437,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $chatMessagesContainer = this.elm.$chatMessagesContainer
 		if (!$chatMessagesContainer) return error('Chat messages container not loaded for observing')
 		const chatMessagesContainerEl = $chatMessagesContainer[0]
+		const { eventBus } = this
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
+		this.eventBus.subscribe(
+			'ntv.providers.loaded',
+			() => {
 				// Render emotes in chat when new messages are added
 				const observer = (this.chatObserver = new MutationObserver(mutations => {
 					mutations.forEach(mutation => {
@@ -458,10 +462,13 @@ export class KickUserInterface extends AbstractUserInterface {
 				}))
 
 				observer.observe(chatMessagesContainerEl, { childList: true })
+			},
+			true
+		)
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')
-		$chatMessagesContainer.on('mouseover', '.nipah__emote-box img', evt => {
+		$chatMessagesContainer.on('mouseover', '.ntv__emote-box img', evt => {
 			const emoteName = evt.target.dataset.emoteName
 			const emoteHid = evt.target.dataset.emoteHid
 			if (!emoteName || !emoteHid) return
@@ -469,7 +476,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const target = evt.target
 			const $tooltip = $(
 				cleanupHTML(`
-					<div class="nipah__emote-tooltip ${showTooltips ? 'nipah__emote-tooltip--has-image' : ''}">
+					<div class="ntv__emote-tooltip ${showTooltips ? 'ntv__emote-tooltip--has-image' : ''}">
 						${showTooltips ? target.outerHTML.replace('chat-emote', '') : ''}
 						<span>${emoteName}</span>
 					</div>`)
@@ -488,7 +495,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Insert emote in chat input when clicked
 		// Can't track click events on kick emotes, because they kill the even with stopPropagation()
-		$chatMessagesContainer.on('click', '.nipah__emote-box img', evt => {
+		$chatMessagesContainer.on('click', '.ntv__emote-box img', evt => {
 			const emoteHid = evt.target.dataset.emoteHid
 			if (!emoteHid) return
 			this.insertEmoteInChat(emoteHid)

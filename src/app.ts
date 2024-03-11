@@ -129,7 +129,7 @@ class NipahClient {
 
 		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
-		
+
 		// Test whether UI works correctly when data loading is delayed
 		// setTimeout(() => userInterface.loadInterface(), 3000)
 	}

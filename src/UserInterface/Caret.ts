@@ -3,7 +3,7 @@ import { log, error } from '../utils'
 export class Caret {
 	static moveCaretTo(container: Node, offset: number) {
 		const selection = window.getSelection()
-		if (!selection) return
+		if (!selection || !selection.rangeCount) return
 
 		const range = document.createRange()
 		range.setStart(container, offset)
@@ -14,22 +14,31 @@ export class Caret {
 
 	static collapseToEndOfNode(node: Node) {
 		const selection = window.getSelection()
-		if (!selection) return
-
-		let targetNode = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
-		if (!targetNode) return error('Invalid node type', node)
+		if (!selection) return error('Unable to get selection, cannot collapse to end of node', node)
 
 		const range = document.createRange()
-		range.setStartAfter(targetNode)
-		range.collapse(true)
+		if (node instanceof Text) {
+			const offset = node.textContent ? node.textContent.length : 0
+			range.setStart(node, offset)
+			// No need to set end, start is after end so end gets set to start
+			// range.setEnd(node, offset)
+			// Also no need to collapse, range is already collapsed
+			// range.collapse()
+		} else {
+			range.setStartAfter(node)
+			// No need to set end, start is after end so end gets set to start
+			// range.setEnd(node, range.startOffset)
+		}
+
 		selection.removeAllRanges()
+
+		// Re-add the range to the selection
 		selection.addRange(range)
-		selection.collapseToEnd()
 	}
 
 	static hasNonWhitespaceCharacterBeforeCaret() {
 		const selection = window.getSelection()
-		if (!selection) return
+		if (!selection || !selection.rangeCount) return false
 
 		const range = selection.anchorNode ? selection.getRangeAt(0) : null
 		if (!range) return false
@@ -54,12 +63,12 @@ export class Caret {
 
 		if (!textContent) return false
 		const leadingChar = textContent[offset]
-		return leadingChar && leadingChar !== ' '
+		return leadingChar !== ' ' && leadingChar !== '\uFEFF'
 	}
 
 	static hasNonWhitespaceCharacterAfterCaret() {
 		const selection = window.getSelection()
-		if (!selection) return
+		if (!selection) return false
 
 		const range = selection.anchorNode ? selection.getRangeAt(0) : null
 		if (!range) return false
@@ -84,15 +93,13 @@ export class Caret {
 
 		if (!textContent) return false
 		const trailingChar = textContent[offset]
-		return trailingChar && trailingChar !== ' '
+		return trailingChar !== ' ' && trailingChar !== '\uFEFF'
 	}
 
 	// Checks if the caret is at the start of a node
 	static isCaretAtStartOfNode(node: Node) {
 		const selection = window.getSelection()
-		if (!selection) return
-
-		if (!selection.rangeCount) return false
+		if (!selection || !selection.rangeCount) return false
 		const range = selection.getRangeAt(0)
 
 		// Find the first text node or child node
@@ -120,7 +127,7 @@ export class Caret {
 
 	static isCaretAtEndOfNode(node: Node) {
 		const selection = window.getSelection()
-		if (!selection || !selection.rangeCount) return false
+		if (!selection || !selection.rangeCount) return true
 		const range = selection.getRangeAt(0)
 
 		// Find the last text node or child node
@@ -149,7 +156,7 @@ export class Caret {
 
 	static getWordBeforeCaret() {
 		const selection = window.getSelection()
-		if (!selection)
+		if (!selection || !selection.rangeCount)
 			return {
 				word: null,
 				start: 0,

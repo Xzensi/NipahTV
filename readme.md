@@ -85,7 +85,7 @@ First install all dependencies `npm install`. There are three different ways to 
     	{
     		"key": "ctrl+s",
     		"command": "runCommands",
-    		"when": "editorTextFocus",
+    		"when": "editorTextFocus && !editorReadonly && resourceExtname == .ts",
     		"args": {
     			"commands": [
     				"editor.action.formatDocument",

@@ -1,7 +1,7 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 
-.nipah__modal {
+.ntv__modal {
 	background-color: var(--background-color);
 	transform: translate(-50%, -50%);
 	box-shadow: shadow_elevation(4);

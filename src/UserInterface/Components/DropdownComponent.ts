@@ -18,7 +18,7 @@ export class DropdownComponent extends AbstractComponent {
 
 	render() {
 		this.$element = $(`
-            <div class="nipah__dropdown">
+            <div class="ntv__dropdown">
                 <label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
                     ${this.options

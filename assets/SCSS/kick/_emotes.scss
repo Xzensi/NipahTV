@@ -1,7 +1,8 @@
 @use '../variables' as *;
 @use '../mixins' as *;
+@use 'sass:math';
 
-.nipah__emote {
+.ntv__emote {
 	min-width: $emote_size;
 	height: $emote_size;
 
@@ -33,12 +34,13 @@
 	// }
 }
 
-.nipah__emote-box {
-	vertical-align: middle;
+.ntv__emote-box {
+	// vertical-align: middle;
 	// margin-right: 0.125rem;
 	// margin-left: 0.125rem;
 	display: inline-block;
 	position: relative;
+	height: 1em;
 
 	.chat-emote {
 		max-height: 1.75rem;
@@ -46,19 +48,33 @@
 		cursor: pointer;
 	}
 
-	.nipah__emote-tooltip {
+	.ntv__emote-tooltip {
 		left: 50%;
 		top: -80%;
 	}
 }
 
-.nipah__inline-emote {
+.ntv__inline-emote {
 	vertical-align: middle;
 	-o-object-fit: contain;
-	margin-right: 0.125rem;
-	margin-left: 0.125rem;
+	// margin-right: 0.125rem;
+	// margin-left: 0.125rem;
 	display: inline-block;
 	object-fit: contain;
 	min-width: 1.5rem;
 	height: 1.5rem;
+}
+
+.ntv__inline-emote-box {
+	display: inline;
+
+	img {
+		// height: #{1.6182 * 1.6182}em;
+		height: #{math.pow(1 + 1/3, 3)}em;
+		// margin-bottom: -0.5em;
+		vertical-align: middle;
+		position: relative;
+		// margin: -0.5em 0;
+		display: inline;
+	}
 }
