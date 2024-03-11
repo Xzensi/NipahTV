@@ -33,11 +33,11 @@ export class SettingsModal extends AbstractModal {
 		const settingsMap = this.settingsOpts.settingsMap
 		const $modalBody = this.$modalBody
 
-		const $panels = $(`<div class="nipah__settings-modal__panels"></div>`)
+		const $panels = $(`<div class="ntv__settings-modal__panels"></div>`)
 		this.$panels = $panels
 
 		const $sidebar = $(`
-			<div class="nipah__settings-modal__sidebar">
+			<div class="ntv__settings-modal__sidebar">
 				<ul></ul>
 			</div>
 		`)
@@ -48,7 +48,7 @@ export class SettingsModal extends AbstractModal {
 		// Category > Subcategory > Group > Setting
 		for (const category of sharedSettings) {
 			const $category = $(`
-				<li class="nipah__settings-modal__category">
+				<li class="ntv__settings-modal__category">
 					<span>${category.label}</span>
 					<ul></ul>
 				</li>
@@ -60,7 +60,7 @@ export class SettingsModal extends AbstractModal {
 			for (const subCategory of category.children) {
 				const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`
 				const $subCategory = $(`
-					<li data-panel="${categoryId}" class="nipah__settings-modal__sub-category">
+					<li data-panel="${categoryId}" class="ntv__settings-modal__sub-category">
 						<span>${subCategory.label}</span>
 					</li>
 				`)
@@ -75,14 +75,14 @@ export class SettingsModal extends AbstractModal {
 			for (const subCategory of category.children) {
 				const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`
 				const $subCategoryPanel = $(
-					`<div data-panel="${categoryId}" class="nipah__settings-modal__panel" style="display: none"></div>`
+					`<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`
 				)
 				$panels.append($subCategoryPanel)
 
 				for (const group of subCategory.children) {
 					const $group = $(
-						`<div class="nipah__settings-modal__group">
-							<div class="nipah__settings-modal__group-header">
+						`<div class="ntv__settings-modal__group">
+							<div class="ntv__settings-modal__group-header">
 								<h4>${group.label}</h4>
 								${group.description ? `<p>${group.description}</p>` : ''}
 							</div>
@@ -142,7 +142,7 @@ export class SettingsModal extends AbstractModal {
 		}
 
 		// Show first panel
-		$panels.find('.nipah__settings-modal__panel').first().show()
+		$panels.find('.ntv__settings-modal__panel').first().show()
 
 		$modalBody?.append($sidebar)
 		$modalBody?.append($panels)
@@ -154,10 +154,10 @@ export class SettingsModal extends AbstractModal {
 		super.attachEventHandlers()
 
 		// Sidebar navigation
-		$('.nipah__settings-modal__sub-category', this.$sidebar).on('click', evt => {
+		$('.ntv__settings-modal__sub-category', this.$sidebar).on('click', evt => {
 			const panelId = $(evt.currentTarget).data('panel')
 
-			$('.nipah__settings-modal__panel', this.$panels).hide()
+			$('.ntv__settings-modal__panel', this.$panels).hide()
 			$(`[data-panel="${panelId}"]`, this.$panels).show()
 		})
 	}

@@ -1,6 +1,6 @@
 @use '../variables' as *;
 
-.nipah__settings-modal {
+.ntv__settings-modal {
 	outline: 0.1em solid var(--border-transparent-2);
 
 	&__sidebar {
@@ -74,7 +74,7 @@
 		}
 	}
 
-	.nipah__modal__body {
+	.ntv__modal__body {
 		padding: 2em 3em 3em 3em;
 	}
 }

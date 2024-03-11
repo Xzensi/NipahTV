@@ -28,19 +28,19 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 
 	render() {
 		// Delete any existing footer logo button, in case cached page got loaded somehow
-		$('.nipah_client_footer').remove()
+		$('.nipah__emote-menu-button').remove()
 
 		const basePath = this.ENV_VARS.RESOURCE_ROOT + '/assets/img/btn'
 		const filename = this.getFile()
 
 		this.$element = $(
 			cleanupHTML(`
-				<div class="nipah_client_footer">
-					<img class="footer_logo_btn ${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
+				<div class="nipah__emote-menu-button">
+					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
 			`)
 		)
-		this.$footerLogoBtn = $('.footer_logo_btn', this.$element)
+		this.$footerLogoBtn = this.$element.find('img')
 		$('#chatroom-footer .send-row').prepend(this.$element)
 	}
 
@@ -50,10 +50,10 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 			const filename = this.getFile()
 			this.$footerLogoBtn.attr('src', `${this.ENV_VARS.RESOURCE_ROOT}/assets/img/btn/${filename}.png`)
 			this.$footerLogoBtn.removeClass()
-			this.$footerLogoBtn.addClass(`footer_logo_btn ${filename.toLowerCase()}`)
+			this.$footerLogoBtn.addClass(filename.toLowerCase())
 		})
 
-		$('.footer_logo_btn', this.$element).click(() => {
+		$('img', this.$element).click(() => {
 			this.eventBus.publish('ntv.ui.footer.click')
 		})
 	}

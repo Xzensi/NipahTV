@@ -1,7 +1,7 @@
 @use '../variables' as *;
 @use '../functions' as *;
 
-.nipah__tab-completion {
+.ntv__tab-completion {
 	background-color: var(--background-color);
 	outline: 0.1em solid var(--border-transparent-2);
 	box-shadow: shadow_elevation(3);

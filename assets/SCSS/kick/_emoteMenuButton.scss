@@ -1,9 +1,9 @@
 @use '../variables' as *;
 
-.nipah_client_footer {
+.nipah__emote-menu-button {
 	font-size: $root_font_size;
 
-	.footer_logo_btn {
+	img {
 		transition: background 0.0618s ease-in-out;
 		padding: 0.333em 0.4em 0.333em 0.5em;
 		background: transparent;

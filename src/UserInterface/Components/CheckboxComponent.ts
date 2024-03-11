@@ -17,7 +17,7 @@ export class CheckboxComponent extends AbstractComponent {
 
 	render() {
 		this.$element = $(`
-            <div class="nipah__checkbox">
+            <div class="ntv__checkbox">
                 <input type="checkbox" id="${this.id}" ${this.checked ? 'checked' : ''}>
                 <label for="${this.id}">${this.label}</label>
             </div>

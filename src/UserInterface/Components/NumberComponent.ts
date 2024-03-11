@@ -23,7 +23,7 @@ export class NumberComponent extends AbstractComponent {
 
 	render() {
 		this.$element = $(`
-            <div class="nipah__number">
+            <div class="ntv__number">
 				<label for="${this.id}">${this.label}</label>
                 <input type="number" id="${this.id}" name="${this.id}" value="${this.value}" min="${this.min}" max="${this.max}" step="${this.step}">
             </div>

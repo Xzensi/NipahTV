@@ -72,7 +72,7 @@ export class EmoteDatastore {
 	}
 
 	storeDatabase() {
-		info('Syncing emote data to database..')
+		// info('Syncing emote data to database..')
 
 		if (isEmpty(this.pendingHistoryChanges)) return
 

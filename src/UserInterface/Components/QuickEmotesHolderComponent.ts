@@ -114,7 +114,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 				this.$element?.append($emote)
 			}
 		} else {
-			const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, 'nipah__emote'))
+			const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote'))
 			const insertIndex = this.getSortedEmoteIndex(emoteHid)
 
 			if (insertIndex !== -1) {

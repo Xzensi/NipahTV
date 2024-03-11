@@ -16,7 +16,7 @@ export class ColorComponent extends AbstractComponent {
 
 	render() {
 		this.$element = $(`
-            <div class="nipah__color">
+            <div class="ntv__color">
                 <label for="${this.id}">${this.label}</label>
                 <input type="color" id="${this.id}" value="${this.value}">
             </div>
