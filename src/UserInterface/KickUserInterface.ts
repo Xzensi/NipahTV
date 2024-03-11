@@ -6,9 +6,17 @@ import { AbstractUserInterface } from './AbstractUserInterface'
 import { TabCompletor } from '../Classes/TabCompletor'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
+import { TextEditor } from '../Classes/TextEditor'
 
 export class KickUserInterface extends AbstractUserInterface {
 	abortController = new AbortController()
+
+	textEditor: TextEditor | null = null
+	chatObserver: MutationObserver | null = null
+	emoteMenu: EmoteMenuComponent | null = null
+	emoteMenuButton: EmoteMenuButtonComponent | null = null
+	quickEmotesHolder: QuickEmotesHolderComponent | null = null
+	tabCompletor: TabCompletor | null = null
 
 	elm: {
 		$originalTextField: JQuery<HTMLElement> | null
@@ -25,12 +33,6 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 	stickyScroll = true
 	maxMessageLength = 500
-
-	chatObserver: MutationObserver | null = null
-	emoteMenu: EmoteMenuComponent | null = null
-	emoteMenuButton: EmoteMenuButtonComponent | null = null
-	quickEmotesHolder: QuickEmotesHolderComponent | null = null
-	tabCompletor: TabCompletor | null = null
 
 	constructor(deps: any) {
 		super(deps)
@@ -179,6 +181,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		$textFieldWrapper.append($textField)
 		$originalTextField.parent().parent().append($textFieldWrapper)
 
+		const textEditor = (this.textEditor = new TextEditor(textFieldEl))
+
 		// Shift focus to shadow text field when original text field is focused
 		originalTextFieldEl.addEventListener('focus', () => textFieldEl.focus(), { passive: true })
 
@@ -203,6 +207,8 @@ export class KickUserInterface extends AbstractUserInterface {
 				evt.preventDefault()
 				this.submitInput()
 			}
+
+			textEditor.handleKeydown(evt)
 		})
 
 		textFieldEl.addEventListener(
@@ -235,15 +241,18 @@ export class KickUserInterface extends AbstractUserInterface {
 			const messageParts = clipboard.parsePastedMessage(evt)
 			if (!messageParts || !messageParts.length) return
 
-			for (let i = 0; i < messageParts.length; i++) {
-				messageParts[i] = this.renderEmotesInText(messageParts[i])
-			}
+			error('NOT IMPLEMENTED, FIX THIS')
+			throw new Error('NOT IMPLEMENTED, FIX THIS')
+			// TODO FIX THIS
+			// for (let i = 0; i < messageParts.length; i++) {
+			// 	messageParts[i] = this.renderEmotesInElement(messageParts[i])
+			// }
 
-			clipboard.pasteHTML(messageParts.join(''))
+			// clipboard.pasteHTML(messageParts.join(''))
 
-			if (textFieldEl.childNodes.length) {
-				this.elm.$submitButton?.removeClass('disabled')
-			}
+			// if (textFieldEl.childNodes.length) {
+			// 	this.elm.$submitButton?.removeClass('disabled')
+			// }
 		})
 
 		// Ignore control keys that are not used for typing
@@ -431,23 +440,24 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
-		// Render emotes in chat when new messages are added
-		const observer = (this.chatObserver = new MutationObserver(mutations => {
-			mutations.forEach(mutation => {
-				if (mutation.addedNodes.length) {
-					for (const messageNode of mutation.addedNodes) {
-						if (messageNode.nodeType !== Node.ELEMENT_NODE) continue
-						this.renderEmotesInMessage(messageNode as HTMLElement)
-					}
-					if (this.stickyScroll) {
-						// We need to wait for the next frame paint call to render before scrolling to bottom
-						window.requestAnimationFrame(scrollToBottom)
-					}
-				}
-			})
-		}))
+				// Render emotes in chat when new messages are added
+				const observer = (this.chatObserver = new MutationObserver(mutations => {
+					mutations.forEach(mutation => {
+						if (mutation.addedNodes.length) {
+							for (const messageNode of mutation.addedNodes) {
+								if (messageNode instanceof HTMLElement) {
+									this.renderChatMessage(messageNode)
+								}
+							}
+							if (this.stickyScroll) {
+								// We need to wait for the next frame paint call to render before scrolling to bottom
+								window.requestAnimationFrame(scrollToBottom)
+							}
+						}
+					})
+				}))
 
-		observer.observe(chatMessagesContainerEl, { childList: true })
+				observer.observe(chatMessagesContainerEl, { childList: true })
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')
@@ -485,17 +495,17 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 	}
 
-	renderEmotesInChat() {
+	renderChatMessages() {
 		if (!this.elm || !this.elm.$chatMessagesContainer) return
 		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
 		const chatMessagesContainerNode = chatMessagesContainerEl
 
 		for (const messageNode of chatMessagesContainerNode.children) {
-			this.renderEmotesInMessage(messageNode as HTMLElement)
+			this.renderChatMessage(messageNode as HTMLElement)
 		}
 	}
 
-	renderEmotesInMessage(messageNode: HTMLElement) {
+	renderChatMessage(messageNode: HTMLElement) {
 		const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
 		if (usernameEl) {
 			const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
@@ -505,11 +515,109 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}
 
-		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
-		for (const contentNode of messageContentNodes) {
-			if (!contentNode.textContent) continue
-			contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent)
+		/*
+			Kick chat message structure:
+			<div data-chat-entry="...">
+				<div class="chat-entry">
+					<div> <---|| Useless wrapper node ||
+						<span class="chat-message-identity">Foobar</span>
+						<span class="font-bold text-white">: </span>
+						<span> <---|| The content nodes start here ||
+							<span class="chat-entry-content"> <---|| Chat message components (text component) ||
+								Foobar
+							</div>
+						</span>
+						<span>
+							<div class="chat-emote-container"> <---|| Chat message components (emote component) ||
+								<div class="relative">
+									<img>
+								</div>
+							</div>
+						</span>
+					</div>
+				</div>
+			</div>
+
+			We unpack the chat message components and render them in our format:
+			<div data-chat-entry="...">
+				<div class="chat-entry"> <---|| Can't get rid of this, because Kick hooks into it with buttons ||
+					<div class="ntv__chat-message">
+						<span class="ntv__chat-message__part">Foobar</span>
+						<span class="ntv__chat-message__part ntv__inline-emote-box">
+							<img>
+						</span>
+					</div>
+				</div>
+			</div>
+		*/
+
+		const chatEntryNode = messageNode.children[0]
+		const uselessWrapperNode = chatEntryNode.children[0]
+		const contentNodes = Array.from(uselessWrapperNode.children)
+		const contentNodesLength = contentNodes.length
+
+		// We remove the useless wrapper node because we unpack it's contents to parent
+		uselessWrapperNode.remove()
+
+		// Find index of first content node after username etc
+		let firstContentNodeIndex = 0
+		for (let i = 0; i < contentNodes.length; i++) {
+			if (contentNodes[i].textContent === ': ') {
+				firstContentNodeIndex = i + 1
+				break
+			}
 		}
+
+		// Append username etc nodes to chat entry node
+		for (let i = 0; i < firstContentNodeIndex; i++) {
+			chatEntryNode.appendChild(contentNodes[i])
+		}
+
+		// Chat message after username is empty..
+		if (!contentNodes[firstContentNodeIndex]) return
+
+		// Skip first two nodes, they are the username etc
+		for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
+			const contentNode = contentNodes[i]
+			const componentNode = contentNode.children[0] // Either text or emote component
+			if (!componentNode) {
+				log('Chat message component node not found. Are chat messages being rendered twice?', contentNode)
+				continue
+			}
+
+			// We extract and flatten the Kick components to our format
+			switch (componentNode.className) {
+				case 'chat-entry-content':
+					if (!componentNode.textContent) continue
+					if (!(componentNode instanceof Element)) {
+						error('Chat message content node not an Element?', componentNode)
+						continue
+					}
+					this.renderEmotesInElement(componentNode, chatEntryNode)
+					break
+
+				case 'chat-emote-container':
+					// Unwrap and clean up native Kick emotes
+					const imgEl = componentNode.querySelector('img')
+					if (!imgEl) continue
+					imgEl.removeAttribute('class')
+					for (const attr in imgEl.dataset) {
+						if (attr.startsWith('v-')) {
+							imgEl.removeAttribute('data-' + attr)
+						}
+					}
+
+					const newContentNode = document.createElement('span')
+					newContentNode.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
+					newContentNode.setAttribute('contenteditable', 'false')
+					newContentNode.appendChild(imgEl)
+					chatEntryNode.appendChild(newContentNode)
+					break
+			}
+		}
+
+		// Adding this class removes the display: none from the chat message, causing a reflow
+		messageNode.classList.add('ntv__chat-message')
 	}
 
 	// Submits input to chat
@@ -596,7 +704,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	insertEmoteInChat(emoteHid: string) {
 		assertArgDefined(emoteHid)
-		const { emotesManager } = this
+		const { emotesManager, textEditor } = this
+
+		if (!textEditor) return error('Text editor not loaded yet for emote insertion')
 
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		this.messageHistory.resetCursor()
@@ -604,25 +714,53 @@ export class KickUserInterface extends AbstractUserInterface {
 		const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, 'nipah__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embed')
 
-		let embedNode
-		const isEmbedHtml = emoteEmbedding[0] === '<' && emoteEmbedding[emoteEmbedding.length - 1] === '>'
-		if (isEmbedHtml) {
-			const nodes = jQuery.parseHTML(emoteEmbedding)
-			if (!nodes || !nodes.length || nodes.length > 1) return error('Invalid embedding', emoteEmbedding)
-			embedNode = nodes[0]
-		} else {
-			const needPaddingBefore = Caret.hasNonWhitespaceCharacterBeforeCaret()
-			const needPaddingAfter = Caret.hasNonWhitespaceCharacterAfterCaret()
-			const paddedEmbedding = (needPaddingBefore ? ' ' : '') + emoteEmbedding + (needPaddingAfter ? ' ' : '')
-			embedNode = document.createTextNode(paddedEmbedding)
-		}
+		const embedNodes = jQuery.parseHTML(
+			`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHid}" contenteditable="false">` +
+				emoteHTML +
+				'</span>'
+		) as Element[]
 
-		this.insertNodeInChat(embedNode)
+		textEditor.deleteSelectionContents()
+		textEditor.insertElement(embedNodes[0])
+
+		// this.insertNodesInChat(embedNodes)
 		this.elm.$submitButton?.removeAttr('disabled')
 
 		// Update original text field to match the shadow text field
 		if (!this.elm.$originalTextField) return error('Original text field not loaded for emote insertion')
 		this.elm.$originalTextField.html(this.elm.$textField?.html() || '')
+	}
+
+	insertNodesInChat(embedNodes: Node[]) {
+		if (!embedNodes.length) return error('No nodes to insert in chat')
+
+		const $textField = this.elm.$textField
+		if (!$textField) return error('Text field not loaded for inserting node')
+		const textFieldEl = $textField[0]
+
+		const selection = window.getSelection()
+		if (selection && selection.rangeCount) {
+			const range = selection.getRangeAt(0)
+			const caretIsInTextField =
+				range.commonAncestorContainer === textFieldEl ||
+				range.commonAncestorContainer?.parentElement === textFieldEl
+
+			if (caretIsInTextField) {
+				range.deleteContents()
+				for (const node of embedNodes) {
+					range.insertNode(node)
+				}
+				selection.collapseToEnd()
+			} else {
+				textFieldEl.append(...embedNodes)
+			}
+		} else {
+			textFieldEl.append(...embedNodes)
+		}
+
+		textFieldEl.normalize()
+		textFieldEl.dispatchEvent(new Event('input'))
+		textFieldEl.focus()
 	}
 
 	insertNodeInChat(embedNode: Node) {

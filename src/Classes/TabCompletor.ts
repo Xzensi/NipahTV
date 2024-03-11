@@ -83,7 +83,7 @@ export class TabCompletor {
 				for (let i = 0; i < this.suggestions.length; i++) {
 					const emoteName = this.suggestions[i]
 					const emoteHid = this.suggestionHids[i]
-					const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, 'nipah__emote')
+					const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')
 					this.$list.append(`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`)
 				}
 
@@ -98,7 +98,7 @@ export class TabCompletor {
 
 	createModal(containerEl: Node) {
 		const $modal = (this.$modal = $(
-			`<div class="nipah__tab-completion"><ul class="nipah__tab-completion__list"></ul></div>`
+			`<div class="ntv__tab-completion"><ul class="ntv__tab-completion__list"></ul></div>`
 		))
 
 		this.$list = $modal.find('ul')
@@ -235,7 +235,7 @@ export class TabCompletor {
 		if (!emoteHid) return
 
 		if (this.embedNode) {
-			const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'nipah__inline-emote')
+			const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'ntv__inline-emote')
 			if (!emoteEmbedding) return error('Invalid emote embedding')
 
 			const embedNode = jQuery.parseHTML(emoteEmbedding)[0] as HTMLElement
@@ -250,7 +250,7 @@ export class TabCompletor {
 	}
 
 	insertEmote(emoteHid: string) {
-		const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'nipah__inline-emote')
+		const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'ntv__inline-emote')
 		if (!emoteEmbedding) return error('Invalid emote embedding')
 
 		const { start, end, node } = this
