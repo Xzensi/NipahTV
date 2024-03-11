@@ -711,8 +711,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		this.messageHistory.resetCursor()
 
-		const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, 'nipah__inline-emote')
-		if (!emoteEmbedding) return error('Invalid emote embed')
+		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
+		if (!emoteHTML) return error('Invalid emote embed')
 
 		const embedNodes = jQuery.parseHTML(
 			`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHid}" contenteditable="false">` +
