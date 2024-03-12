@@ -1,0 +1,100 @@
+@use 'variables' as *;
+
+$spacing: 1em;
+
+.ntv__checkbox {
+	white-space: nowrap;
+	margin: $spacing 0;
+
+	input {
+		border: 0.15em solid $color-primary;
+		vertical-align: middle;
+		border-radius: 0.15em;
+		margin: 0 1em 0 0;
+		appearance: none;
+		height: 1.618em;
+		width: 1.618em;
+
+		position: relative;
+		opacity: 0.75;
+		// left: -2em;
+
+		&::before {
+			transition: 120ms transform ease-in-out;
+			box-shadow: inset 1em 1em $color-primary;
+			// transform: scale(0);
+			// height: 0.618em;
+			// width: 0.618em;
+			content: '';
+
+			transform: translate(-50%, -50%) scale(0);
+			position: absolute;
+			height: 0.9em;
+			width: 0.9em;
+			left: 50%;
+			top: 50%;
+		}
+
+		&:hover {
+			opacity: 0.95;
+		}
+
+		&:checked::before {
+			// transform: scale(1);
+			transform: translate(-50%, -50%) scale(1);
+		}
+	}
+
+	label {
+		display: inline-block;
+		vertical-align: top;
+		white-space: normal;
+	}
+}
+
+.ntv__number {
+	label {
+		margin-right: 1em;
+	}
+
+	input {
+		background-color: var(--background-color-shade-2);
+		padding: 0.618em 1.333em;
+		appearance: auto;
+		width: 7em;
+	}
+}
+
+.ntv__dropdown {
+	margin: $spacing 0;
+
+	> label {
+		margin-bottom: 0.618em;
+		display: inline-block;
+	}
+
+	select {
+		border: 0.2em solid var(--border-transparent-2);
+		padding: 0.382em 0.618em;
+		background: transparent;
+		border-radius: 0.25em;
+		margin-right: 1em;
+
+		option {
+			background-color: var(--background-color-shade-1);
+		}
+	}
+}
+
+.ntv__color {
+	margin: $spacing 0;
+
+	label {
+		margin-right: 1em;
+	}
+
+	input {
+		vertical-align: middle;
+		height: 2em;
+	}
+}

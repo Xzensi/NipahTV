@@ -1,0 +1,51 @@
+@use '../variables' as *;
+
+.ntv__client_quick_emotes_holder {
+	max-height: $emote_size * 2;
+	font-size: $root_font_size;
+	align-items: center;
+	overflow: hidden;
+	flex-wrap: wrap;
+	display: flex;
+	width: 100%;
+
+	&[data-rows='1'] {
+		max-height: $emote_size * 1;
+	}
+
+	&[data-rows='2'] {
+		max-height: $emote_size * 2;
+	}
+
+	&[data-rows='3'] {
+		max-height: $emote_size * 3;
+	}
+
+	&[data-rows='4'] {
+		max-height: $emote_size * 4;
+	}
+
+	&[data-rows='5'] {
+		max-height: $emote_size * 5;
+	}
+
+	&[data-rows='6'] {
+		max-height: $emote_size * 6;
+	}
+
+	&[data-rows='7'] {
+		max-height: $emote_size * 7;
+	}
+
+	&[data-rows='8'] {
+		max-height: $emote_size * 8;
+	}
+
+	&[data-rows='9'] {
+		max-height: $emote_size * 9;
+	}
+
+	&[data-rows='10'] {
+		max-height: $emote_size * 10;
+	}
+}

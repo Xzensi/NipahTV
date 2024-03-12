@@ -2,3 +2,7 @@
 node_modules
 vendor
 _excluded
+dist/**/*
+!dist/client.user.js
+!dist/css
+!dist/css/kick-*.*
