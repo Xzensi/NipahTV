@@ -8,7 +8,7 @@
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-a8cd0b7e.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-530939f6.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -806,9 +806,9 @@
       this.emotesManager = emotesManager;
     }
     render() {
-      $(".nipah_client_quick_emotes_holder").remove();
+      $(".ntv__client_quick_emotes_holder").remove();
       const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
-      this.$element = $(`<div class="nipah_client_quick_emotes_holder" data-rows="${rows}"></div>`);
+      this.$element = $(`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
       $oldEmotesHolder.after(this.$element);
       $oldEmotesHolder.remove();
@@ -908,12 +908,12 @@
       this.settingsManager = settingsManager;
     }
     render() {
-      $(".nipah__emote-menu-button").remove();
+      $(".ntv__emote-menu-button").remove();
       const basePath = this.ENV_VARS.RESOURCE_ROOT + "/assets/img/btn";
       const filename = this.getFile();
       this.$element = $(
         cleanupHTML(`
-				<div class="nipah__emote-menu-button">
+				<div class="ntv__emote-menu-button">
 					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
 			`)
@@ -1417,7 +1417,7 @@
         const emoteHid = emotesManager.getEmoteHidByName(token);
         if (emoteHid) {
           const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "chat-emote");
-          tokens[i] = `<div class="nipah__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`;
+          tokens[i] = `<div class="ntv__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`;
         }
       }
       return tokens.join(" ");
@@ -1714,7 +1714,7 @@
           for (let i = 0; i < this.suggestions.length; i++) {
             const emoteName = this.suggestions[i];
             const emoteHid = this.suggestionHids[i];
-            const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__emote");
+            const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
             this.$list.append(`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`);
           }
           this.$list.find("li").eq(this.selectedIndex).addClass("selected");
@@ -1725,7 +1725,7 @@
     }
     createModal(containerEl) {
       const $modal = this.$modal = $(
-        `<div class="nipah__tab-completion"><ul class="nipah__tab-completion__list"></ul></div>`
+        `<div class="ntv__tab-completion"><ul class="ntv__tab-completion__list"></ul></div>`
       );
       this.$list = $modal.find("ul");
       $(containerEl).append($modal);
@@ -1839,7 +1839,7 @@
       if (!emoteHid)
         return;
       if (this.embedNode) {
-        const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "nipah__inline-emote");
+        const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "ntv__inline-emote");
         if (!emoteEmbedding)
           return error("Invalid emote embedding");
         const embedNode = jQuery.parseHTML(emoteEmbedding)[0];
@@ -1852,7 +1852,7 @@
       }
     }
     insertEmote(emoteHid) {
-      const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "nipah__inline-emote");
+      const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "ntv__inline-emote");
       if (!emoteEmbedding)
         return error("Invalid emote embedding");
       const { start, end, node } = this;
@@ -2076,16 +2076,15 @@
         if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
           $("#chatroom").addClass("ntv__hide-emote-menu-button");
         }
+        if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
+          $("#chatroom").addClass("ntv__smooth-scrolling");
+        }
       }).catch(() => {
       });
       waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"], 5e3, abortSignal).then(() => {
         const $chatMessagesContainer = this.elm.$chatMessagesContainer = $(
           "#chatroom > div:nth-child(2) > .overflow-y-scroll"
         );
-        $chatMessagesContainer.addClass("ntv__chat-messages-container");
-        if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
-          $chatMessagesContainer.addClass("ntv__chat-messages-container--smooth-scrolling");
-        }
         if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
           $("#chatroom").addClass("ntv__alternating-background");
         }
@@ -2093,7 +2092,7 @@
         if (seperatorSettingVal && seperatorSettingVal !== "none") {
           $("#chatroom").addClass(`ntv__seperators-${seperatorSettingVal}`);
         }
-        eventBus.subscribe("ntv.providers.loaded", this.renderEmotesInMessage.bind(this), true);
+        eventBus.subscribe("ntv.providers.loaded", this.renderEmotesInChat.bind(this), true);
         this.observeChatMessages();
         this.loadScrollingBehaviour();
       }).catch(() => {
@@ -2354,29 +2353,22 @@
       if (!$chatMessagesContainer)
         return error("Chat messages container not loaded for observing");
       const chatMessagesContainerEl = $chatMessagesContainer[0];
-      const { eventBus } = this;
       const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
-      this.eventBus.subscribe(
-        "ntv.providers.loaded",
-        () => {
-          const observer = this.chatObserver = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-              if (mutation.addedNodes.length) {
-                for (const messageNode of mutation.addedNodes) {
-                  if (messageNode.nodeType !== Node.ELEMENT_NODE)
-                    continue;
-                  this.renderEmotesInMessage(messageNode);
-                }
-                if (this.stickyScroll) {
-                  window.requestAnimationFrame(scrollToBottom);
-                }
-              }
-            });
-          });
-          observer.observe(chatMessagesContainerEl, { childList: true });
-        },
-        true
-      );
+      const observer = this.chatObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes.length) {
+            for (const messageNode of mutation.addedNodes) {
+              if (messageNode.nodeType !== Node.ELEMENT_NODE)
+                continue;
+              this.renderEmotesInMessage(messageNode);
+            }
+            if (this.stickyScroll) {
+              window.requestAnimationFrame(scrollToBottom);
+            }
+          }
+        });
+      });
+      observer.observe(chatMessagesContainerEl, { childList: true });
       const showTooltips = this.settingsManager.getSetting("shared.chat.tooltips.images");
       $chatMessagesContainer.on("mouseover", ".ntv__emote-box img", (evt) => {
         const emoteName = evt.target.dataset.emoteName;
@@ -2497,7 +2489,7 @@
       assertArgDefined(emoteHid);
       const { emotesManager } = this;
       this.messageHistory.resetCursor();
-      const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, "nipah__inline-emote");
+      const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__inline-emote");
       if (!emoteEmbedding)
         return error("Invalid emote embed");
       let embedNode;
