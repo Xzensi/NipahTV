@@ -64,7 +64,7 @@ export class AbstractUserInterface {
 		// 		const emoteRender = emotesManager.getRenderableEmoteById(emoteId, 'chat-emote')
 		// 		text = text.replace(
 		// 			`/\b(${token})\b/gm`, // Doesn't work because its a string not regex
-		// 			`<div class="nipah__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
+		// 			`<div class="ntv__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
 		// 		)
 		// 	}
 		// }
@@ -74,7 +74,7 @@ export class AbstractUserInterface {
 			const emoteHid = emotesManager.getEmoteHidByName(token)
 			if (emoteHid) {
 				const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, 'chat-emote')
-				tokens[i] = `<div class="nipah__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`
+				tokens[i] = `<div class="ntv__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`
 			}
 		}
 

@@ -35,12 +35,11 @@
 }
 
 .ntv__emote-box {
-	// vertical-align: middle;
+	vertical-align: middle;
 	// margin-right: 0.125rem;
 	// margin-left: 0.125rem;
 	display: inline-block;
 	position: relative;
-	height: 1em;
 
 	.chat-emote {
 		max-height: 1.75rem;
@@ -57,8 +56,8 @@
 .ntv__inline-emote {
 	vertical-align: middle;
 	-o-object-fit: contain;
-	// margin-right: 0.125rem;
-	// margin-left: 0.125rem;
+	margin-right: 0.125rem;
+	margin-left: 0.125rem;
 	display: inline-block;
 	object-fit: contain;
 	min-width: 1.5rem;

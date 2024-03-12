@@ -28,14 +28,14 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 
 	render() {
 		// Delete any existing footer logo button, in case cached page got loaded somehow
-		$('.nipah__emote-menu-button').remove()
+		$('.ntv__emote-menu-button').remove()
 
 		const basePath = this.ENV_VARS.RESOURCE_ROOT + '/assets/img/btn'
 		const filename = this.getFile()
 
 		this.$element = $(
 			cleanupHTML(`
-				<div class="nipah__emote-menu-button">
+				<div class="ntv__emote-menu-button">
 					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
 			`)
