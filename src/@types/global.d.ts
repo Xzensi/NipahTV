@@ -22,6 +22,7 @@ declare global {
 		app_name: string
 		navigation: any
 		clipboardData: DataTransfer | null
+		IS_LOCAL_ENV?: boolean
 	}
 
 	type Dexie = {
