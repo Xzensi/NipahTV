@@ -2,4 +2,6 @@
 node_modules
 vendor
 _excluded
-dist/debug.user.js
+dist/**/*
+!dist/client.user.js
+!dist/css/kick-*.min.css
