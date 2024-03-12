@@ -161,7 +161,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $submitButton = (this.elm.$submitButton = $(`<button class="ntv__submit-button disabled">Chat</button>`))
 		$originalSubmitButton.after($submitButton)
 
-		$submitButton.on('click' as any, this.submitInput.bind(this))
+		$submitButton.on('click' as any, this.submitInput.bind(this, false))
 	}
 
 	loadShadowProxyTextField() {
