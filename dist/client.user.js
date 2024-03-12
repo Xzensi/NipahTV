@@ -2145,7 +2145,7 @@
       const $originalSubmitButton = this.elm.$originalSubmitButton = $("#chatroom-footer button.base-button");
       const $submitButton = this.elm.$submitButton = $(`<button class="ntv__submit-button disabled">Chat</button>`);
       $originalSubmitButton.after($submitButton);
-      $submitButton.on("click", this.submitInput.bind(this));
+      $submitButton.on("click", this.submitInput.bind(this, false));
     }
     loadShadowProxyTextField() {
       const $originalTextField = this.elm.$originalTextField = $("#message-input");
