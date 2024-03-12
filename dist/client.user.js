@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.23
+// @version 1.1.24
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2145,7 +2145,7 @@
       const $originalSubmitButton = this.elm.$originalSubmitButton = $("#chatroom-footer button.base-button");
       const $submitButton = this.elm.$submitButton = $(`<button class="ntv__submit-button disabled">Chat</button>`);
       $originalSubmitButton.after($submitButton);
-      $submitButton.on("click", this.submitInput.bind(this));
+      $submitButton.on("click", this.submitInput.bind(this, false));
     }
     loadShadowProxyTextField() {
       const $originalTextField = this.elm.$originalTextField = $("#message-input");
@@ -3546,7 +3546,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.23",
+      VERSION: "1.1.24",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
