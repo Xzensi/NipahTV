@@ -97,7 +97,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 
 				// Render emotes in chat when providers are loaded
-				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
+				eventBus.subscribe('ntv.providers.loaded', this.renderEmotesInChat.bind(this), true)
 
 				this.observeChatMessages()
 				this.loadScrollingBehaviour()

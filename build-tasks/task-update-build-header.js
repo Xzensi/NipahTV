@@ -10,7 +10,7 @@ fs.readFile(headerFilePath, 'utf8', (err, headerContent) => {
 		return
 	}
 
-	fs.readFile('src/app.js', 'utf8', (err, appContent) => {
+	fs.readFile('src/app.ts', 'utf8', (err, appContent) => {
 		if (err) {
 			console.error(`Error reading header file: ${err}`)
 			return
