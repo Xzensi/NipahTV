@@ -71,6 +71,10 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
 					$('#chatroom').addClass('ntv__hide-emote-menu-button')
 				}
+
+				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
+					$('#chatroom').addClass('ntv__smooth-scrolling')
+				}
 			})
 			.catch(() => {})
 
@@ -80,12 +84,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				const $chatMessagesContainer = (this.elm.$chatMessagesContainer = $(
 					'#chatroom > div:nth-child(2) > .overflow-y-scroll'
 				))
-				$chatMessagesContainer.addClass('ntv__chat-messages-container')
-
-				// Add smooth scrolling to chat messages
-				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
-					$chatMessagesContainer.addClass('ntv__chat-messages-container--smooth-scrolling')
-				}
 
 				// Add alternating background color to chat messages
 				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
@@ -165,7 +163,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $submitButton = (this.elm.$submitButton = $(`<button class="ntv__submit-button disabled">Chat</button>`))
 		$originalSubmitButton.after($submitButton)
 
-		$submitButton.on('click' as any, this.submitInput.bind(this))
+		$submitButton.on('click' as any, this.submitInput.bind(this, false))
 	}
 
 	loadShadowProxyTextField() {
@@ -438,34 +436,28 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $chatMessagesContainer = this.elm.$chatMessagesContainer
 		if (!$chatMessagesContainer) return error('Chat messages container not loaded for observing')
 		const chatMessagesContainerEl = $chatMessagesContainer[0]
-		const { eventBus } = this
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
-		this.eventBus.subscribe(
-			'ntv.providers.loaded',
-			() => {
-				// Render emotes in chat when new messages are added
-				const observer = (this.chatObserver = new MutationObserver(mutations => {
-					mutations.forEach(mutation => {
-						if (mutation.addedNodes.length) {
-							for (const messageNode of mutation.addedNodes) {
-								if (messageNode instanceof HTMLElement) {
-									this.renderChatMessage(messageNode)
-								}
-							}
-							if (this.stickyScroll) {
-								// We need to wait for the next frame paint call to render before scrolling to bottom
-								window.requestAnimationFrame(scrollToBottom)
+		this.eventBus.subscribe('ntv.providers.loaded', () => {
+			// Render emotes in chat when new messages are added
+			const observer = (this.chatObserver = new MutationObserver(mutations => {
+				mutations.forEach(mutation => {
+					if (mutation.addedNodes.length) {
+						for (const messageNode of mutation.addedNodes) {
+							if (messageNode instanceof HTMLElement) {
+								this.renderChatMessage(messageNode)
 							}
 						}
-					})
-				}))
-
-				observer.observe(chatMessagesContainerEl, { childList: true })
-			},
-			true
-		)
+						if (this.stickyScroll) {
+							// We need to wait for the next frame paint call to render before scrolling to bottom
+							window.requestAnimationFrame(scrollToBottom)
+						}
+					}
+				})
+			}))
+			observer.observe(chatMessagesContainerEl, { childList: true })
+		})
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')

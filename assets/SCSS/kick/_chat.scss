@@ -144,7 +144,7 @@
 	outline-offset: 2px;
 	outline-color: transparent;
 
-	&:empty::before {
+	&::before {
 		content: attr(placeholder);
 		pointer-events: none;
 		overflow: clip;
@@ -154,8 +154,9 @@
 		@include user_select;
 	}
 
-	&:empty:focus::before {
-		content: '';
+	&:not(:empty)::before,
+	&:focus::before {
+		content: none !important;
 	}
 
 	// &:empty:not(:focus)::before {

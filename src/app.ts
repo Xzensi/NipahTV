@@ -18,7 +18,7 @@ import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.1.22',
+		VERSION: '1.1.24',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -27,7 +27,7 @@ class NipahClient {
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
 		RELEASE_BRANCH: 'master',
 		DATABASE_NAME: 'NipahTV',
-		DEBUG: IS_LOCAL_ENV || false
+		LOCAL_ENV: IS_LOCAL_ENV
 	}
 
 	stylesLoaded = false
@@ -40,7 +40,7 @@ class NipahClient {
 
 		info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`)
 
-		if (ENV_VARS.DEBUG) {
+		if (ENV_VARS.LOCAL_ENV) {
 			info('Running in debug mode enabled..')
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
 		} else {
@@ -138,7 +138,7 @@ class NipahClient {
 		return new Promise((resolve, reject) => {
 			info('Injecting styles..')
 
-			if (this.ENV_VARS.DEBUG) {
+			if (this.ENV_VARS.LOCAL_ENV) {
 				// * Add permission for GM_xmlhttpRequest to make
 				// *  requests to the resource root for development.
 				// * @grant GM.xmlHttpRequest

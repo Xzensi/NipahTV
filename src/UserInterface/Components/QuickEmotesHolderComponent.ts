@@ -33,10 +33,10 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 	render() {
 		// Delete any existing quick emote holders, in case cached page got loaded somehow
-		$('.nipah_client_quick_emotes_holder').remove()
+		$('.ntv__client_quick_emotes_holder').remove()
 
 		const rows = this.settingsManager.getSetting('shared.chat.quick_emote_holder.appearance.rows') || 2
-		this.$element = $(`<div class="nipah_client_quick_emotes_holder" data-rows="${rows}"></div>`)
+		this.$element = $(`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`)
 
 		const $oldEmotesHolder = $('#chatroom-footer .quick-emotes-holder')
 		$oldEmotesHolder.after(this.$element)
