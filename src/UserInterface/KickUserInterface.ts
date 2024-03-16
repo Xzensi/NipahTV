@@ -3,15 +3,15 @@ import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderCompon
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
 import { AbstractUserInterface } from './AbstractUserInterface'
+import { InputController } from '../Classes/InputController'
 import { TabCompletor } from '../Classes/TabCompletor'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
-import { TextEditor } from '../Classes/TextEditor'
 
 export class KickUserInterface extends AbstractUserInterface {
 	abortController = new AbortController()
 
-	textEditor: TextEditor | null = null
+	inputController: InputController | null = null
 	chatObserver: MutationObserver | null = null
 	emoteMenu: EmoteMenuComponent | null = null
 	emoteMenuButton: EmoteMenuButtonComponent | null = null
@@ -181,7 +181,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		$textFieldWrapper.append($textField)
 		$originalTextField.parent().parent().append($textFieldWrapper)
 
-		const textEditor = (this.textEditor = new TextEditor(textFieldEl))
+		const inputController = (this.inputController = new InputController(textFieldEl))
+		inputController.attachEventListeners()
 
 		// Shift focus to shadow text field when original text field is focused
 		originalTextFieldEl.addEventListener('focus', () => textFieldEl.focus(), { passive: true })
@@ -208,7 +209,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.submitInput()
 			}
 
-			textEditor.handleKeydown(evt)
+			// inputController.handleKeydown(evt)
 		})
 
 		textFieldEl.addEventListener(
@@ -641,16 +642,29 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		let parsedString = ''
 		let emotesInMessage = new Set()
+		let emoteFlag = false
 		for (const node of textFieldEl.childNodes) {
 			if (node.nodeType === Node.TEXT_NODE) {
+				log(`TEXT "${node.textContent}"`)
 				parsedString += node.textContent
+				emoteFlag = false
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				const emoteHid = (node as HTMLElement).dataset.emoteHid
+				const componentBody = node.childNodes[1]
+				const emoteBox = componentBody.childNodes[0]
 
-				if (emoteHid) {
-					emotesInMessage.add(emoteHid)
-					const spacingBefore = parsedString[parsedString.length - 1] !== ' '
-					parsedString += emotesManager.getEmoteEmbeddable(emoteHid, spacingBefore)
+				if (emoteBox) {
+					const emoteHid = (emoteBox as HTMLElement).dataset.emoteHid
+
+					if (emoteHid) {
+						emotesInMessage.add(emoteHid)
+						// const spacingBefore = parsedString[parsedString.length - 1] !== ' '
+						const spacingBefore = !emoteFlag ? ' ' : ''
+						parsedString += spacingBefore + emotesManager.getEmoteEmbeddable(emoteHid) + ' '
+					}
+
+					emoteFlag = true
+				} else {
+					error('Invalid component node', componentBody.childNodes)
 				}
 			}
 		}
@@ -711,9 +725,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	insertEmoteInChat(emoteHid: string) {
 		assertArgDefined(emoteHid)
-		const { emotesManager, textEditor } = this
+		const { emotesManager, inputController } = this
 
-		if (!textEditor) return error('Text editor not loaded yet for emote insertion')
+		if (!inputController) return error('Text editor not loaded yet for emote insertion')
 
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		this.messageHistory.resetCursor()
@@ -721,14 +735,26 @@ export class KickUserInterface extends AbstractUserInterface {
 		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
 		if (!emoteHTML) return error('Invalid emote embed')
 
-		const embedNodes = jQuery.parseHTML(
-			`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHid}" contenteditable="false">` +
-				emoteHTML +
-				'</span>'
-		) as Element[]
+		const component = document.createElement('span')
+		component.className = 'ntv__input-component'
+		component.appendChild(document.createTextNode('\u200B'))
+		const componentBody = document.createElement('span')
+		componentBody.className = 'ntv__input-component__body'
+		componentBody.setAttribute('contenteditable', 'false')
+		componentBody.appendChild(
+			(
+				jQuery.parseHTML(
+					`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHid}" contenteditable="false">` +
+						emoteHTML +
+						'</span>'
+				) as Element[]
+			)[0]
+		)
+		component.appendChild(componentBody)
+		component.appendChild(document.createTextNode('\u200B'))
 
-		textEditor.deleteSelectionContents()
-		textEditor.insertElement(embedNodes[0])
+		// inputController.deleteSelectionContents()
+		inputController.insertComponent(component)
 
 		// this.insertNodesInChat(embedNodes)
 		this.elm.$submitButton?.removeAttr('disabled')

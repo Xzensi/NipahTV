@@ -3,31 +3,257 @@ import { log, error } from '../utils'
 
 const CHAR_BOM = '\uFEFF'
 
-export class TextEditor {
+/**
+ * Inserts a space character before the component if there is no space character before it.
+ * Does not insert a space character if the component is the first child of the input node.
+ * @param component
+ */
+function maybeInsertSpaceCharacterBeforeComponent(component: HTMLElement) {
+	const prevSibling = component.previousSibling
+	if (prevSibling && prevSibling.nodeType === Node.TEXT_NODE) {
+		const textNode = prevSibling as Text
+		const textContent = textNode.textContent
+		if (textContent === null) {
+			component.before(document.createTextNode(' '))
+		} else if (textContent[textContent.length - 1] !== ' ') {
+			textNode.textContent += ' '
+		}
+	} else if (prevSibling && prevSibling.nodeType === Node.ELEMENT_NODE) {
+		component.before(document.createTextNode(' '))
+	}
+}
+
+/**
+ * Inserts a space character after the component if there is no space character after it.
+ * Always inserts a space character if the component is the last child of the input node.
+ * @param component
+ */
+function maybeInsertSpaceCharacterAfterComponent(component: HTMLElement) {
+	const nextSibling = component.nextSibling
+	if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
+		const textNode = nextSibling as Text
+		const textContent = textNode.textContent
+		if (textContent === null) {
+			component.after(document.createTextNode(' '))
+		} else if (textContent[0] !== ' ') {
+			textNode.textContent = ' ' + textContent
+		}
+	} else if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE) {
+		component.after(document.createTextNode(' '))
+	} else {
+		component.after(document.createTextNode(' '))
+	}
+}
+
+export class InputController {
 	inputNode: HTMLElement
 
 	constructor(inputNode: HTMLElement) {
 		this.inputNode = inputNode satisfies ElementContentEditable
 	}
 
+	attachEventListeners() {
+		const { inputNode } = this
+
+		inputNode.addEventListener('selectstart', (evt: Event) => {
+			const selection = (evt.target as any)?.value
+			log('SelectStart', selection)
+		})
+
+		document.addEventListener('selectionchange', (evt: Event) => {
+			const activeElement = document.activeElement
+			if (activeElement !== inputNode) return
+
+			log('SelectionChange')
+			this.adjustSelection()
+		})
+
+		inputNode.addEventListener('keydown', this.handleKeydown.bind(this))
+	}
+
 	handleKeydown(evt: KeyboardEvent) {
 		switch (evt.key) {
 			case 'Backspace':
-				evt.preventDefault()
-				this.extendSelection('backward')
-				this.deleteSelectionContents()
+				this.deleteBackwards(evt)
 				break
 
 			case 'Delete':
-				evt.preventDefault()
-				this.extendSelection('forward')
-				this.deleteSelectionContents()
+				this.deleteForwards(evt)
 				break
 
 			default:
 				if (evt.key.length === 1 && !evt.ctrlKey && !evt.altKey && !evt.shiftKey && !evt.metaKey) {
 					this.deleteSelectionContents()
 				}
+		}
+	}
+
+	deleteBackwards(evt: KeyboardEvent) {
+		const { inputNode } = this
+
+		const selection = document.getSelection()
+		if (!selection || !selection.rangeCount) return error('No ranges found in selection')
+
+		const range = selection.getRangeAt(0)
+		const { startContainer, endContainer, collapsed, startOffset } = range
+
+		const isStartTextNodeInComponent =
+			startContainer instanceof Text && startContainer.parentElement?.classList.contains('ntv__input-component')
+
+		// Selection focus is text node in component
+		if (isStartTextNodeInComponent) {
+			evt.preventDefault()
+			range.setStartBefore(startContainer.parentElement as HTMLElement)
+			range.deleteContents()
+			selection.removeAllRanges()
+			selection.addRange(range)
+			inputNode.normalize()
+			return
+		}
+
+		const isStartContainerTheInputNode = startContainer === inputNode
+
+		// Ensure selection does not include outside scope of input node.
+		if (!isStartContainerTheInputNode && startContainer.parentElement !== inputNode) {
+			// range.setStart(inputNode, 0)
+			return
+		}
+		if (endContainer !== inputNode && endContainer.parentElement !== inputNode) {
+			// range.setEnd(inputNode, inputNode.childNodes.length)
+			return
+		}
+
+		const isStartInComponent =
+			startContainer instanceof Element && startContainer.classList.contains('ntv__input-component')
+		const prevSibling = startContainer.previousSibling
+
+		let rangeIncludesComponent = false
+		if (isStartInComponent) {
+			range.setStartBefore(startContainer)
+			rangeIncludesComponent = true
+		} else if (startContainer instanceof Text && startOffset === 0 && prevSibling instanceof Element) {
+			range.setStartBefore(prevSibling)
+			rangeIncludesComponent = true
+		} else if (isStartContainerTheInputNode && inputNode.childNodes[startOffset - 1] instanceof Element) {
+			range.setStartBefore(inputNode.childNodes[startOffset - 1])
+			rangeIncludesComponent = true
+		}
+
+		if (rangeIncludesComponent) {
+			evt.preventDefault()
+			range.deleteContents()
+			selection.removeAllRanges()
+			selection.addRange(range)
+			inputNode.normalize()
+		}
+	}
+
+	deleteForwards(evt: KeyboardEvent) {
+		// TODO quick dirty mirrored code of deleteBackwards(), there are some issues with it that require debugging.
+
+		const { inputNode } = this
+
+		const selection = document.getSelection()
+		if (!selection || !selection.rangeCount) return error('No ranges found in selection')
+
+		const range = selection.getRangeAt(0)
+		const { startContainer, endContainer, collapsed, startOffset, endOffset } = range
+
+		const isEndTextNodeInComponent =
+			endContainer instanceof Text && endContainer.parentElement?.classList.contains('ntv__input-component')
+
+		// Selection focus is text node in component
+		if (isEndTextNodeInComponent) {
+			evt.preventDefault()
+			range.setEndAfter(endContainer.parentElement as HTMLElement)
+			range.deleteContents()
+			selection.removeAllRanges()
+			selection.addRange(range)
+			inputNode.normalize()
+			return
+		}
+
+		const isEndContainerTheInputNode = endContainer === inputNode
+
+		// Ensure selection does not include outside scope of input node.
+		if (!isEndContainerTheInputNode && endContainer.parentElement !== inputNode) {
+			return
+		}
+		if (startContainer !== inputNode && startContainer.parentElement !== inputNode) {
+			return
+		}
+
+		const isEndInComponent =
+			endContainer instanceof Element && endContainer.classList.contains('ntv__input-component')
+		const nextSibling = endContainer.nextSibling
+
+		let rangeIncludesComponent = false
+		if (isEndInComponent) {
+			range.setEndAfter(endContainer)
+			rangeIncludesComponent = true
+		} else if (endContainer instanceof Text && endOffset === endContainer.textContent?.length) {
+			range.setEndAfter(endContainer)
+			rangeIncludesComponent = true
+		} else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
+			range.setEndAfter(inputNode.childNodes[endOffset])
+			rangeIncludesComponent = true
+		}
+
+		if (rangeIncludesComponent) {
+			evt.preventDefault()
+			range.deleteContents()
+			selection.removeAllRanges()
+			selection.addRange(range)
+			inputNode.normalize()
+		}
+	}
+
+	/**
+	 * Adjusts the selection to ensure that the selection focus and anchor are never
+	 *  inbetween a component's body and it's adjecent zero-width space text nodes.
+	 */
+	adjustSelection() {
+		const selection = document.getSelection()
+		if (!selection) return
+
+		const { inputNode } = this
+		const range = selection.getRangeAt(0)
+		const { startContainer, endContainer, startOffset, endOffset } = range
+
+		// If selection focus and anchor are collapsed, it means caret was placed by mouse so
+		//  we can shift anchor and focus if they are inside the body element of a component.
+		// If caret is between component body and zero-width space, push the caret outwards of the zero-width space text node.
+		if (selection.isCollapsed) {
+			if (!startContainer.parentElement?.classList.contains('ntv__input-component')) return
+
+			const nextSibling = startContainer.nextSibling
+			const prevSibling = startContainer.previousSibling
+
+			if (!nextSibling && startOffset === 0) {
+				const prevZWSP = prevSibling?.previousSibling
+				if (prevZWSP) selection.collapse(prevZWSP, 0)
+			} else if (!prevSibling && startOffset === 1) {
+				const nextZWSP = nextSibling?.nextSibling
+				if (nextZWSP) selection.collapse(nextZWSP, 1)
+			}
+		}
+
+		// If anchor and focus are not collapsed, it means the user is trying to make a selection
+		//  so we check if the focus is inside a component and force extend the focus past the component.
+		else {
+			const focusNode = selection.focusNode
+			if (!focusNode) return
+
+			const isFocusInComponent = focusNode.parentElement?.classList.contains('ntv__input-component')
+			if (!isFocusInComponent) return
+
+			const childIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement as any)
+
+			if (!focusNode?.previousSibling) {
+				selection.extend(inputNode, childIndex + 1)
+			} else {
+				selection.extend(inputNode, childIndex)
+			}
 		}
 	}
 
@@ -521,5 +747,62 @@ export class TextEditor {
 		inputNode.normalize()
 		inputNode.dispatchEvent(new Event('input'))
 		inputNode.focus()
+	}
+
+	insertComponent(component: HTMLElement) {
+		const { inputNode } = this
+
+		const selection = document.getSelection()
+		if (!selection) {
+			inputNode.append(document.createTextNode(' '), component, document.createTextNode(' '))
+			return error('Selection API is not available, please use a modern browser supports the Selection API.')
+		}
+
+		if (!selection.rangeCount) {
+			inputNode.appendChild(component)
+			const spacer = document.createTextNode(' ')
+			inputNode.appendChild(spacer)
+			const range = document.createRange()
+			range.setStart(spacer, 1)
+			selection.addRange(range)
+			return
+		}
+
+		const range = selection.getRangeAt(0)
+		const { startContainer, startOffset } = range
+		const isFocusInInputNode = startContainer === inputNode
+
+		// If selection is not in inputNode, append component to end.
+		if (!isFocusInInputNode && startContainer.parentElement !== inputNode) {
+			inputNode.appendChild(component)
+		}
+
+		// Caret is inbetween text nodes, so we insert the component at the caret position.
+		else if (isFocusInInputNode) {
+			if (startOffset && inputNode.childNodes[startOffset + 1]) {
+				inputNode.insertBefore(component, inputNode.childNodes[startOffset + 1])
+			} else {
+				inputNode.appendChild(component)
+			}
+		}
+
+		// Caret is in a text node, so we insert the component at the caret position in the text node.
+		else if (startContainer instanceof Text) {
+			range.insertNode(component)
+		} else {
+			return error('Encountered unexpected unprocessable node', component, startContainer, range)
+		}
+
+		maybeInsertSpaceCharacterBeforeComponent(component)
+		maybeInsertSpaceCharacterAfterComponent(component)
+
+		// It's always guaranteed that there is a space character after a new component insertion.
+		range.setEnd(component.nextSibling as Node, 1)
+		range.collapse()
+		selection.removeAllRanges()
+		selection.addRange(range)
+
+		inputNode.normalize()
+		inputNode.dispatchEvent(new Event('input'))
 	}
 }
