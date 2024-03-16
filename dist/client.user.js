@@ -3555,7 +3555,7 @@
       GITHUB_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV",
       RELEASE_BRANCH: "master",
       DATABASE_NAME: "NipahTV",
-      DEBUG: IS_LOCAL_ENV || false
+      LOCAL_ENV: false
     };
     stylesLoaded = false;
     eventBus = null;
@@ -3564,7 +3564,7 @@
     initialize() {
       const { ENV_VARS } = this;
       info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
-      if (ENV_VARS.DEBUG) {
+      if (ENV_VARS.LOCAL_ENV) {
         info("Running in debug mode enabled..");
         ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
       } else {
@@ -3641,7 +3641,7 @@
     loadStyles() {
       return new Promise((resolve, reject) => {
         info("Injecting styles..");
-        if (this.ENV_VARS.DEBUG) {
+        if (this.ENV_VARS.LOCAL_ENV) {
           GM_xmlhttpRequest({
             method: "GET",
             url: this.ENV_VARS.RESOURCE_ROOT + "/dist/css/kick.css",
