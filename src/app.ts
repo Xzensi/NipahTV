@@ -18,7 +18,7 @@ import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.2.3',
+		VERSION: '1.2.4',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -32,8 +32,8 @@ class NipahClient {
 
 	stylesLoaded = false
 	eventBus: Publisher | null = null
-	database: Dexie | null = null
-	channelData: any
+	private database: Dexie | null = null
+	private channelData: any
 
 	initialize() {
 		const { ENV_VARS } = this
@@ -43,6 +43,7 @@ class NipahClient {
 		if (ENV_VARS.LOCAL_ENV) {
 			info('Running in debug mode enabled..')
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
+			window.NipahTV = this
 		} else {
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH
 		}

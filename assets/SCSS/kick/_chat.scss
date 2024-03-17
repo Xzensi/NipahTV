@@ -3,6 +3,9 @@
 
 #chatroom {
 	[data-chat-entry] {
+		> div > span {
+			white-space: normal;
+		}
 	}
 
 	&.ntv__alternating-background {

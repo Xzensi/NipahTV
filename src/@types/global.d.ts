@@ -23,6 +23,7 @@ declare global {
 		navigation: any
 		clipboardData: DataTransfer | null
 		IS_LOCAL_ENV?: boolean
+		NipahTV?: NipahClient
 	}
 
 	type Dexie = {
