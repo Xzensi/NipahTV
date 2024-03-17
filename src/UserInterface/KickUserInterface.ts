@@ -563,7 +563,11 @@ export class KickUserInterface extends AbstractUserInterface {
 			const contentNode = contentNodes[i]
 			const componentNode = contentNode.children[0] // Either text or emote component
 			if (!componentNode) {
-				log('Chat message component node not found. Are chat messages being rendered twice?', contentNode)
+				// Component node does not exist for:
+				// - Removed messages
+				// - Kick cosmetic messages like "New Messages-------"
+				// - Message replies
+				// log('Chat message component node not found. Are chat messages being rendered twice?', contentNode)
 				continue
 			}
 
