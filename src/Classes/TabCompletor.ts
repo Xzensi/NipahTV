@@ -259,7 +259,10 @@ export class TabCompletor {
 			this.inputController.replaceEmote(this.emoteComponent, emoteHid)
 		} else {
 			if (!this.node) return error('Invalid node to restore original text')
-			Caret.replaceTextInRange(this.node, this.start, this.end, '')
+			const range = document.createRange()
+			range.setStart(this.node, this.start)
+			range.setEnd(this.node, this.end)
+			range.deleteContents()
 			this.inputController.normalize()
 			this.emoteComponent = this.inputController.insertEmote(emoteHid)
 		}
