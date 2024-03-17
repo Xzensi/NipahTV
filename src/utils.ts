@@ -6,6 +6,8 @@ export const logEvent = logger.logEvent.bind(logger)
 export const info = logger.info.bind(logger)
 export const error = logger.error.bind(logger)
 
+export const CHAR_ZWSP = '\uFEFF'
+
 export const assertArgument = (arg: any, type: string) => {
 	if (typeof arg !== type) {
 		throw new Error(`Invalid argument, expected ${type} but got ${typeof arg}`)
@@ -38,6 +40,22 @@ export function isEmpty(obj: object) {
 		return false
 	}
 	return true
+}
+
+export function hex2rgb(hex: string) {
+	if (hex.length === 4) {
+		let r = hex.slice(1, 2)
+		let g = hex.slice(2, 3)
+		let b = hex.slice(3, 4)
+
+		return [parseInt(r + r, 16), parseInt(g + g, 16), parseInt(b + b, 16)]
+	}
+
+	const r = parseInt(hex.slice(1, 3), 16)
+	const g = parseInt(hex.slice(3, 5), 16)
+	const b = parseInt(hex.slice(5, 7), 16)
+
+	return [r, g, b]
 }
 
 /**

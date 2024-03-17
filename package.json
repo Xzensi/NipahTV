@@ -13,7 +13,7 @@
 		"watch:sass": "sass --watch assets/scss:dist/css --style=compressed",
 		"watch:tsc": "tsc --watch --noEmit",
 		"preesbuild": "npm run tsc && npm run update-build-header && rm -f dist/client.user.js && cat build-tasks/compile_header >> dist/client.user.js",
-		"esbuild": "esbuild src/app.ts --bundle >> dist/client.user.js",
+		"esbuild": "esbuild --define:IS_LOCAL_ENV=false src/app.ts --bundle >> dist/client.user.js",
 		"predev-esbuild": "rm -f dist/debug.user.js && cat build-tasks/debug_compile_header >> dist/debug.user.js",
 		"dev-esbuild": "esbuild --define:IS_LOCAL_ENV=true src/app.ts --bundle >> dist/debug.user.js",
 		"build": "npm run sass && npm run esbuild",

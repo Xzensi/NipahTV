@@ -37,6 +37,10 @@ export class UsersDatastore {
 		})
 	}
 
+	hasUser(name: string): boolean {
+		return this.usersNameMap.has(name)
+	}
+
 	registerUser(id: string, name: string) {
 		if (this.usersIdMap.has(id)) return
 		if (this.usersCount >= this.maxUsers) {

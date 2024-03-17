@@ -3,7 +3,7 @@ import { MessagesHistory } from '../Classes/MessagesHistory'
 import { EmotesManager } from '../Managers/EmotesManager'
 import { UsersManager } from '../Managers/UsersManager'
 import { Publisher } from '../Classes/Publisher'
-import { assertArgDefined } from '../utils'
+import { assertArgDefined, log } from '../utils'
 
 export class AbstractUserInterface {
 	messageHistory = new MessagesHistory()
@@ -50,34 +50,44 @@ export class AbstractUserInterface {
 		throw new Error('loadInterface() not implemented')
 	}
 
-	renderEmotesInText(text: string) {
+	renderEmotesInElement(textElement: Element, appendTo?: Element) {
 		const { emotesManager } = this
+		const text = textElement.innerHTML
 		const tokens = text.split(' ')
-		// const uniqueTokens = [...new Set(tokens)]
+		const newNodes = []
 
-		// text = replaceText || text
-
-		// for (const token of uniqueTokens) {
-		// 	const emoteId = emotesManager.getEmoteIdByName(token)
-
-		// 	if (emoteId) {
-		// 		const emoteRender = emotesManager.getRenderableEmoteById(emoteId, 'chat-emote')
-		// 		text = text.replace(
-		// 			`/\b(${token})\b/gm`, // Doesn't work because its a string not regex
-		// 			`<div class="ntv__emote-box" data-emote-id="${emoteId}">${emoteRender}</div>`
-		// 		)
-		// 	}
-		// }
-
-		for (let i = 0; i < tokens.length; i++) {
-			const token = tokens[i]
+		let textBuffer = ''
+		for (const token of tokens) {
 			const emoteHid = emotesManager.getEmoteHidByName(token)
 			if (emoteHid) {
-				const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, 'chat-emote')
-				tokens[i] = `<div class="ntv__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`
+				if (textBuffer) {
+					const newNode = document.createElement('span')
+					newNode.appendChild(document.createTextNode(textBuffer))
+					newNode.classList.add('ntv__chat-message__part')
+					newNodes.push(newNode)
+					textBuffer = ''
+				}
+
+				const newNode = document.createElement('span')
+				newNode.innerHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
+				newNode.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
+				newNode.setAttribute('data-emote-hid', emoteHid)
+				newNode.setAttribute('contenteditable', 'false')
+				newNodes.push(newNode)
+			} else if (token) {
+				textBuffer += ' ' + token
 			}
 		}
 
-		return tokens.join(' ')
+		if (textBuffer) {
+			const newNode = document.createElement('span')
+			newNode.appendChild(document.createTextNode(textBuffer))
+			newNode.classList.add('ntv__chat-message__part')
+			newNodes.push(newNode)
+		}
+
+		if (appendTo) appendTo.append(...newNodes)
+		else textElement.after(...newNodes)
+		textElement.remove()
 	}
 }

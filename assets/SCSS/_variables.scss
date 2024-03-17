@@ -25,6 +25,8 @@ $color-muted: #999;
 $dark-theme-background-color: #1b1b1d;
 
 :root {
+	--color-accent: 41, 182, 246;
+
 	--background-color: #{$dark-theme-background-color};
 	--background-color-tint-1: #{tint($dark-theme-background-color, 3%)};
 	--background-color-tint-2: #{tint($dark-theme-background-color, 7%)};
@@ -34,6 +36,8 @@ $dark-theme-background-color: #1b1b1d;
 
 	--background-highlight-1: hsla(0, 0%, 50%, 0.125);
 	--background-highlight-2: hsla(0, 0%, 50%, 0.202);
+
+	--background-highlight-accent-1: rgba(var(--color-accent), 0.125);
 
 	--border-transparent-1: #ffffff0e;
 	--border-transparent-2: #ffffff1a;

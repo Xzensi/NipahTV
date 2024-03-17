@@ -110,7 +110,8 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 	}
 
 	getEmbeddableEmote(emote: Emote) {
-		return `[emote:${emote.id}:${emote.name}]`
+		// return `[emote:${emote.id}:${emote.name}]`
+		return `[emote:${emote.id}:]` // Turns out name is not necessary, saves characters sent.
 	}
 
 	getEmoteSrc(emote: Emote) {
