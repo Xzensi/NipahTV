@@ -34,25 +34,6 @@
 	// }
 }
 
-.ntv__emote-box {
-	vertical-align: middle;
-	// margin-right: 0.125rem;
-	// margin-left: 0.125rem;
-	display: inline-block;
-	position: relative;
-
-	.chat-emote {
-		max-height: 1.75rem;
-		max-width: none;
-		cursor: pointer;
-	}
-
-	.ntv__emote-tooltip {
-		left: 50%;
-		top: -80%;
-	}
-}
-
 .ntv__inline-emote {
 	vertical-align: middle;
 	-o-object-fit: contain;
@@ -65,6 +46,7 @@
 }
 
 .ntv__inline-emote-box {
+	position: relative;
 	display: inline;
 
 	img {
