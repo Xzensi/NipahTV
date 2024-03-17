@@ -269,23 +269,15 @@ export class InputController {
 		const selection = document.getSelection()
 		if (!selection || !selection.rangeCount) return error('No ranges found in selection')
 
-		const range = selection.getRangeAt(0)
-		const { startContainer, endContainer, collapsed, startOffset, endOffset } = range
+		let range = selection.getRangeAt(0)
 
-		const isEndTextNodeInComponent =
-			endContainer instanceof Text && endContainer.parentElement?.classList.contains('ntv__input-component')
-
-		// Selection focus is text node in component
-		if (isEndTextNodeInComponent) {
-			evt.preventDefault()
-			range.setEndAfter(endContainer.parentElement!)
-			range.deleteContents()
-			selection.removeAllRanges()
-			selection.addRange(range)
-			inputNode.normalize()
-			return
+		// Selection focus is inside component
+		if (range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
+			this.adjustSelectionForceOutOfComponent(selection)
+			range = selection.getRangeAt(0)
 		}
 
+		const { startContainer, endContainer, collapsed, startOffset, endOffset } = range
 		const isEndContainerTheInputNode = endContainer === inputNode
 
 		// Ensure selection does not include outside scope of input node.
@@ -296,15 +288,8 @@ export class InputController {
 			return
 		}
 
-		const isEndInComponent =
-			endContainer instanceof Element && endContainer.classList.contains('ntv__input-component')
-		const nextSibling = endContainer.nextSibling
-
 		let rangeIncludesComponent = false
-		if (isEndInComponent) {
-			range.setEndAfter(endContainer)
-			rangeIncludesComponent = true
-		} else if (endContainer instanceof Text && endOffset === endContainer.textContent?.length) {
+		if (endContainer instanceof Text && endOffset === endContainer.textContent?.length) {
 			range.setEndAfter(endContainer)
 			rangeIncludesComponent = true
 		} else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
