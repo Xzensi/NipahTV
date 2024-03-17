@@ -1,5 +1,8 @@
+import { EmotesManager } from '../Managers/EmotesManager'
+import { log, error, assertArgDefined } from '../utils'
+import { MessagesHistory } from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
-import { log, error } from '../utils'
+import { PriorityEventTarget } from './PriorityEventTarget'
 
 const CHAR_BOM = '\uFEFF'
 
@@ -46,10 +49,28 @@ function maybeInsertSpaceCharacterAfterComponent(component: HTMLElement) {
 }
 
 export class InputController {
-	inputNode: HTMLElement
+	private emotesManager: EmotesManager
+	private messageHistory: MessagesHistory
+	private inputNode: HTMLElement
+	private eventTarget = new PriorityEventTarget()
+	isInputEmpty = true
 
-	constructor(inputNode: HTMLElement) {
-		this.inputNode = inputNode satisfies ElementContentEditable
+	constructor(
+		{ emotesManager, messageHistory }: { emotesManager: EmotesManager; messageHistory: MessagesHistory },
+		contentEditableEl: HTMLElement
+	) {
+		this.emotesManager = emotesManager
+		this.messageHistory = messageHistory
+		this.inputNode = contentEditableEl satisfies ElementContentEditable
+	}
+
+	addEventListener(
+		type: string,
+		priority: number,
+		listener: (event: any) => void,
+		options?: AddEventListenerOptions
+	) {
+		this.eventTarget.addEventListener(type, priority, listener, options)
 	}
 
 	attachEventListeners() {
@@ -68,24 +89,55 @@ export class InputController {
 			this.adjustSelection()
 		})
 
-		inputNode.addEventListener('keydown', this.handleKeydown.bind(this))
+		// Hook the event into a PriorityTargetEvent so that it can handle stopPropagation calls
+		//  for callbacks that want to intercept and cancel the event.
+		this.eventTarget.addEventListener('keydown', 10, this.handleKeydown.bind(this))
+		inputNode.addEventListener('keydown', this.eventTarget.dispatchEvent.bind(this.eventTarget))
+		this.eventTarget.addEventListener('keyup', 10, this.handleKeyUp.bind(this))
+		inputNode.addEventListener('keyup', this.eventTarget.dispatchEvent.bind(this.eventTarget))
 	}
 
-	handleKeydown(evt: KeyboardEvent) {
-		switch (evt.key) {
+	handleKeydown(event: KeyboardEvent) {
+		switch (event.key) {
 			case 'Backspace':
-				this.deleteBackwards(evt)
+				this.deleteBackwards(event)
 				break
 
 			case 'Delete':
-				this.deleteForwards(evt)
+				this.deleteForwards(event)
+				break
+
+			case 'Enter':
+				event.preventDefault()
+				error('Enter key events should not be handled by the input controller.')
 				break
 
 			default:
-				if (evt.key.length === 1 && !evt.ctrlKey && !evt.altKey && !evt.shiftKey && !evt.metaKey) {
-					this.deleteSelectionContents()
-				}
+			// if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+			// 	this.deleteSelectionContents()
+			// }
 		}
+	}
+
+	handleKeyUp(event: KeyboardEvent) {
+		const { inputNode } = this
+
+		// Contenteditable is a nightmare in Firefox, keeps injecting <br> tags.
+		//  Best solution I found yet, is to use :before to prevent collapse
+		//  but now the caret gets placed after the :before pseudo element..
+		//  Also bugs in Firefox keep causing the caret to shift outside the text field.
+		if (inputNode.children.length === 1 && inputNode.children[0].tagName === 'BR') {
+			inputNode.children[0].remove()
+		}
+
+		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
+		if (this.isInputEmpty === !isNotEmpty) return
+		this.isInputEmpty = !this.isInputEmpty
+		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
+	}
+
+	normalize() {
+		this.inputNode.normalize()
 	}
 
 	deleteBackwards(evt: KeyboardEvent) {
@@ -103,7 +155,7 @@ export class InputController {
 		// Selection focus is text node in component
 		if (isStartTextNodeInComponent) {
 			evt.preventDefault()
-			range.setStartBefore(startContainer.parentElement as HTMLElement)
+			range.setStartBefore(startContainer.parentElement!)
 			range.deleteContents()
 			selection.removeAllRanges()
 			selection.addRange(range)
@@ -165,7 +217,7 @@ export class InputController {
 		// Selection focus is text node in component
 		if (isEndTextNodeInComponent) {
 			evt.preventDefault()
-			range.setEndAfter(endContainer.parentElement as HTMLElement)
+			range.setEndAfter(endContainer.parentElement!)
 			range.deleteContents()
 			selection.removeAllRanges()
 			selection.addRange(range)
@@ -214,7 +266,7 @@ export class InputController {
 	 */
 	adjustSelection() {
 		const selection = document.getSelection()
-		if (!selection) return
+		if (!selection || !selection.rangeCount) return
 
 		const { inputNode } = this
 		const range = selection.getRangeAt(0)
@@ -749,6 +801,31 @@ export class InputController {
 		inputNode.focus()
 	}
 
+	insertText(text: string) {
+		const { inputNode } = this
+
+		const selection = window.getSelection()
+		if (!selection) {
+			inputNode.append(document.createTextNode(text))
+			return
+		}
+
+		let range
+		if (selection.rangeCount) {
+			range = selection.getRangeAt(0)
+			range.deleteContents()
+		} else {
+			range = document.createRange()
+			range.setStart(inputNode, inputNode.childNodes.length)
+		}
+
+		range.insertNode(document.createTextNode(text))
+		range.collapse()
+		selection.removeAllRanges()
+		selection.addRange(range)
+		inputNode.normalize()
+	}
+
 	insertComponent(component: HTMLElement) {
 		const { inputNode } = this
 
@@ -802,7 +879,88 @@ export class InputController {
 		selection.removeAllRanges()
 		selection.addRange(range)
 
-		inputNode.normalize()
+		// inputNode.normalize()
 		inputNode.dispatchEvent(new Event('input'))
+	}
+
+	insertEmote(emoteHid: string) {
+		assertArgDefined(emoteHid)
+		const { emotesManager, messageHistory, eventTarget } = this
+
+		// Inserting emote means you chose the history entry, so we reset the cursor
+		messageHistory.resetCursor()
+
+		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
+		if (!emoteHTML) {
+			error('Invalid emote embed')
+			return null
+		}
+
+		const component = document.createElement('span')
+		component.className = 'ntv__input-component'
+		component.appendChild(document.createTextNode('\u200B'))
+		const componentBody = document.createElement('span')
+		componentBody.className = 'ntv__input-component__body'
+		componentBody.setAttribute('contenteditable', 'false')
+		componentBody.appendChild(
+			(
+				jQuery.parseHTML(
+					`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHid}" contenteditable="false">` +
+						emoteHTML +
+						'</span>'
+				) as Element[]
+			)[0]
+		)
+		component.appendChild(componentBody)
+		component.appendChild(document.createTextNode('\u200B'))
+
+		// this.deleteSelectionContents()
+		this.insertComponent(component)
+
+		// eventTarget.dispatchEvent(new CustomEvent('emote-inserted', { detail: { emoteHid } }))
+		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
+
+		return component
+	}
+
+	replaceEmote(component: HTMLElement, emoteHid: string) {
+		const { emotesManager } = this
+
+		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
+		if (!emoteHTML) {
+			error('Invalid emote embed')
+			return null
+		}
+
+		const emoteBox = component.querySelector('.ntv__inline-emote-box')
+		if (!emoteBox) {
+			error('Component does not contain emote box')
+			return null
+		}
+
+		emoteBox.innerHTML = emoteHTML
+		emoteBox.setAttribute('data-emote-hid', emoteHid)
+
+		return component
+	}
+
+	replaceEmoteWithText(component: HTMLElement, text: string) {
+		const { inputNode } = this
+
+		const textNode = document.createTextNode(text)
+		component.replaceWith(textNode)
+
+		const selection = document.getSelection()
+		if (!selection) return
+
+		const range = document.createRange()
+		range.setStart(textNode, text.length)
+		range.setEnd(textNode, text.length)
+		selection.removeAllRanges()
+		selection.addRange(range)
+
+		inputNode.normalize()
+
+		return textNode
 	}
 }
