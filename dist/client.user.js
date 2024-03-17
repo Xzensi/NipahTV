@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.1.24
+// @version 1.2.1
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-530939f6.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-0a0822ce.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -93,6 +93,7 @@
   var logEvent = logger.logEvent.bind(logger);
   var info = logger.info.bind(logger);
   var error = logger.error.bind(logger);
+  var CHAR_ZWSP = "\uFEFF";
   var assertArgument = (arg, type) => {
     if (typeof arg !== type) {
       throw new Error(`Invalid argument, expected ${type} but got ${typeof arg}`);
@@ -118,6 +119,18 @@
       return false;
     }
     return true;
+  }
+  function hex2rgb(hex) {
+    if (hex.length === 4) {
+      let r2 = hex.slice(1, 2);
+      let g2 = hex.slice(2, 3);
+      let b2 = hex.slice(3, 4);
+      return [parseInt(r2 + r2, 16), parseInt(g2 + g2, 16), parseInt(b2 + b2, 16)];
+    }
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return [r, g, b];
   }
   function waitForElements(selectors, timeout = 1e4, signal = null) {
     return new Promise((resolve, reject) => {
@@ -728,6 +741,8 @@
       if (!emote)
         return error("No emote provided");
       const provider = this.providers.get(emote.provider);
+      if (!provider)
+        return error("Provider not found for emote", emote);
       return provider.getRenderableEmote(emote, classes);
     }
     getRenderableEmoteByHid(emoteHid, classes = "") {
@@ -1341,6 +1356,9 @@
         delete this.usersNameMap;
       });
     }
+    hasUser(name) {
+      return this.usersNameMap.has(name);
+    }
     registerUser(id, name) {
       if (this.usersIdMap.has(id))
         return;
@@ -1365,6 +1383,9 @@
     datastore;
     constructor({ eventBus, settingsManager }) {
       this.datastore = new UsersDatastore({ eventBus });
+    }
+    hasSeenUser(name) {
+      return this.datastore.hasUser(name);
     }
     registerUser(id, name) {
       this.datastore.registerUser(id, name);
@@ -1409,18 +1430,43 @@
     loadInterface() {
       throw new Error("loadInterface() not implemented");
     }
-    renderEmotesInText(text) {
+    renderEmotesInElement(textElement, appendTo) {
       const { emotesManager } = this;
+      const text = textElement.innerHTML;
       const tokens = text.split(" ");
-      for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
+      const newNodes = [];
+      let textBuffer = "";
+      for (const token of tokens) {
         const emoteHid = emotesManager.getEmoteHidByName(token);
         if (emoteHid) {
-          const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "chat-emote");
-          tokens[i] = `<div class="ntv__emote-box" data-emote-hid="${emoteHid}">${emoteRender}</div>`;
+          if (textBuffer) {
+            const newNode2 = document.createElement("span");
+            newNode2.appendChild(document.createTextNode(textBuffer));
+            newNode2.classList.add("ntv__chat-message__part");
+            newNodes.push(newNode2);
+            textBuffer = "";
+          }
+          const newNode = document.createElement("span");
+          newNode.innerHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
+          newNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
+          newNode.setAttribute("data-emote-hid", emoteHid);
+          newNode.setAttribute("contenteditable", "false");
+          newNodes.push(newNode);
+        } else if (token) {
+          textBuffer += " " + token;
         }
       }
-      return tokens.join(" ");
+      if (textBuffer) {
+        const newNode = document.createElement("span");
+        newNode.appendChild(document.createTextNode(textBuffer));
+        newNode.classList.add("ntv__chat-message__part");
+        newNodes.push(newNode);
+      }
+      if (appendTo)
+        appendTo.append(...newNodes);
+      else
+        textElement.after(...newNodes);
+      textElement.remove();
     }
   };
 
@@ -1652,27 +1698,906 @@
     }
   };
 
+  // src/Classes/PriorityEventTarget.ts
+  var notAllowed = function() {
+    throw new Error("PreventDefault cannot be called because the event was set as passive.");
+  };
+  var stopPropagation = function() {
+    this._stopPropagation();
+    this.stoppedPropagation = true;
+  };
+  var stopImmediatePropagation = function() {
+    this._stopImmediatePropagation();
+    this.stoppedImmediatePropagation = true;
+  };
+  var PriorityEventTarget = class {
+    events = /* @__PURE__ */ new Map();
+    /**
+     * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.
+     * @param type
+     * @param priority
+     * @param listener
+     * @param options
+     */
+    addEventListener(type, priority, listener, options) {
+      if (!this.events.has(type)) {
+        this.events.set(type, []);
+      }
+      const priorities = this.events.get(type);
+      if (!priorities[priority])
+        priorities[priority] = [];
+      const listeners = priorities[priority];
+      if (options)
+        listeners.push([listener, options]);
+      else
+        listeners.push([listener]);
+      if (options && options.signal) {
+        options.signal.addEventListener("abort", () => {
+          this.removeEventListener(type, priority, listener, options);
+        });
+      }
+    }
+    removeEventListener(type, priority, listener, options) {
+      if (this.events.has(type)) {
+        const priorities = this.events.get(type);
+        const listeners = priorities[priority];
+        if (!listeners)
+          return;
+        for (let i = 0; i < listeners.length; i++) {
+          let listenerItem = listeners[i][0];
+          let optionsItem = listeners[i][1];
+          if (listenerItem === listener && optionsItem === options) {
+            listeners.splice(i, 1);
+            i--;
+          }
+        }
+      }
+    }
+    dispatchEvent(event) {
+      ;
+      event._stopPropagation = event.stopPropagation;
+      event.stopPropagation = stopPropagation;
+      event._stopImmediatePropagation = event.stopImmediatePropagation;
+      event.stopImmediatePropagation = stopImmediatePropagation;
+      const type = event.type;
+      if (this.events.has(type)) {
+        const priorities = this.events.get(type);
+        for (const key in priorities) {
+          const listeners = priorities[key];
+          for (let i = 0; i < listeners.length; i++) {
+            const listener = listeners[i][0];
+            const options = listeners[i][1];
+            if (options) {
+              if (options.once) {
+                listeners.splice(i, 1);
+                i--;
+              }
+              if (options.passive) {
+                event.preventDefault = notAllowed;
+              }
+            }
+            listener(event);
+            if (event.stoppedImmediatePropagation) {
+              return;
+            }
+          }
+          if (event.stoppedPropagation) {
+            return;
+          }
+        }
+      }
+    }
+  };
+
+  // src/Classes/InputController.ts
+  function maybeInsertSpaceCharacterBeforeComponent(component) {
+    const prevSibling = component.previousSibling;
+    if (prevSibling && prevSibling.nodeType === Node.TEXT_NODE) {
+      const textNode = prevSibling;
+      const textContent = textNode.textContent;
+      if (textContent === null) {
+        component.before(document.createTextNode(" "));
+      } else if (textContent[textContent.length - 1] !== " ") {
+        textNode.textContent += " ";
+      }
+    } else if (prevSibling && prevSibling.nodeType === Node.ELEMENT_NODE) {
+      component.before(document.createTextNode(" "));
+    }
+  }
+  function maybeInsertSpaceCharacterAfterComponent(component) {
+    const nextSibling = component.nextSibling;
+    if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
+      const textNode = nextSibling;
+      const textContent = textNode.textContent;
+      if (textContent === null) {
+        component.after(document.createTextNode(" "));
+      } else if (textContent[0] !== " ") {
+        textNode.textContent = " " + textContent;
+      }
+    } else if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE) {
+      component.after(document.createTextNode(" "));
+    } else {
+      component.after(document.createTextNode(" "));
+    }
+  }
+  function eventKeyIsVisibleCharacter(event) {
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey)
+      return true;
+    return false;
+  }
+  var InputController = class {
+    emotesManager;
+    messageHistory;
+    clipboard;
+    inputNode;
+    eventTarget = new PriorityEventTarget();
+    isInputEmpty = true;
+    constructor({
+      emotesManager,
+      messageHistory,
+      clipboard
+    }, contentEditableEl) {
+      this.emotesManager = emotesManager;
+      this.messageHistory = messageHistory;
+      this.clipboard = clipboard;
+      this.inputNode = contentEditableEl;
+    }
+    addEventListener(type, priority, listener, options) {
+      this.eventTarget.addEventListener(type, priority, listener, options);
+    }
+    attachEventListeners() {
+      const { inputNode, emotesManager, clipboard } = this;
+      document.addEventListener("selectionchange", (evt) => {
+        const activeElement = document.activeElement;
+        if (activeElement !== inputNode)
+          return;
+        this.adjustSelection();
+      });
+      inputNode.addEventListener("paste", (evt) => {
+        evt.preventDefault();
+        const messageParts = clipboard.parsePastedMessage(evt);
+        if (!messageParts || !messageParts.length)
+          return;
+        const newNodes = [];
+        for (let i = 0; i < messageParts.length; i++) {
+          const tokens = messageParts[i].split(" ");
+          for (let j = 0; j < tokens.length; j++) {
+            const token = tokens[j];
+            const emoteHid = emotesManager.getEmoteHidByName(token);
+            if (emoteHid) {
+              if (i > 0 && j > 0) {
+                newNodes.push(document.createTextNode(" "));
+              }
+              newNodes.push(
+                this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
+              );
+            } else if (i === 0 && j === 0) {
+              newNodes.push(document.createTextNode(token));
+            } else {
+              newNodes.push(document.createTextNode(" " + token));
+            }
+          }
+        }
+        this.insertNodes(newNodes);
+        const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
+        if (this.isInputEmpty && isNotEmpty) {
+          this.isInputEmpty = isNotEmpty;
+          this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
+        }
+      });
+      this.eventTarget.addEventListener("keydown", 10, this.handleKeydown.bind(this));
+      inputNode.addEventListener("keydown", this.eventTarget.dispatchEvent.bind(this.eventTarget));
+      this.eventTarget.addEventListener("keyup", 10, this.handleKeyUp.bind(this));
+      inputNode.addEventListener("keyup", this.eventTarget.dispatchEvent.bind(this.eventTarget));
+    }
+    handleKeydown(event) {
+      switch (event.key) {
+        case "Backspace":
+          this.deleteBackwards(event);
+          break;
+        case "Delete":
+          this.deleteForwards(event);
+          break;
+        case "Enter":
+          event.preventDefault();
+          error("Enter key events should not be handled by the input controller.");
+          break;
+        case " ":
+          this.handleSpaceKey(event);
+          break;
+        default:
+          if (eventKeyIsVisibleCharacter(event)) {
+            const selection = document.getSelection();
+            if (selection && selection.rangeCount) {
+              const range = selection.getRangeAt(0);
+              if (range && range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
+                this.adjustSelectionForceOutOfComponent(selection);
+              }
+            }
+          }
+      }
+    }
+    handleKeyUp(event) {
+      const { inputNode } = this;
+      if (inputNode.children.length === 1 && inputNode.children[0].tagName === "BR") {
+        inputNode.children[0].remove();
+      }
+      const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
+      if (this.isInputEmpty === !isNotEmpty)
+        return;
+      this.isInputEmpty = !this.isInputEmpty;
+      this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
+    }
+    handleSpaceKey(event) {
+      const { inputNode } = this;
+      const { word, start, end, node } = Caret.getWordBeforeCaret();
+      if (!word)
+        return;
+      const emoteHid = this.emotesManager.getEmoteHidByName(word);
+      if (!emoteHid)
+        return;
+      const textContent = node.textContent;
+      if (!textContent)
+        return;
+      node.textContent = textContent.slice(0, start) + textContent.slice(end);
+      inputNode.normalize();
+      Caret.moveCaretTo(node, start);
+      this.insertEmote(emoteHid);
+      event.preventDefault();
+    }
+    normalize() {
+      this.inputNode.normalize();
+    }
+    createEmoteComponent(emoteHID, emoteHTML) {
+      const component = document.createElement("span");
+      component.className = "ntv__input-component";
+      component.appendChild(document.createTextNode(CHAR_ZWSP));
+      const componentBody = document.createElement("span");
+      componentBody.className = "ntv__input-component__body";
+      componentBody.setAttribute("contenteditable", "false");
+      componentBody.appendChild(
+        jQuery.parseHTML(
+          `<span class="ntv__inline-emote-box" data-emote-hid="${emoteHID}" contenteditable="false">` + emoteHTML + "</span>"
+        )[0]
+      );
+      component.appendChild(componentBody);
+      component.appendChild(document.createTextNode(CHAR_ZWSP));
+      return component;
+    }
+    deleteBackwards(evt) {
+      const { inputNode } = this;
+      const selection = document.getSelection();
+      if (!selection || !selection.rangeCount)
+        return error("No ranges found in selection");
+      let range = selection.getRangeAt(0);
+      if (range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
+        this.adjustSelectionForceOutOfComponent(selection);
+        range = selection.getRangeAt(0);
+      }
+      const { startContainer, endContainer, startOffset } = range;
+      const isStartContainerTheInputNode = startContainer === inputNode;
+      if (!isStartContainerTheInputNode && startContainer.parentElement !== inputNode) {
+        return;
+      }
+      if (endContainer !== inputNode && endContainer.parentElement !== inputNode) {
+        return;
+      }
+      const isStartInComponent = startContainer instanceof Element && startContainer.classList.contains("ntv__input-component");
+      const prevSibling = startContainer.previousSibling;
+      let rangeIncludesComponent = false;
+      if (isStartInComponent) {
+        range.setStartBefore(startContainer);
+        rangeIncludesComponent = true;
+      } else if (startContainer instanceof Text && startOffset === 0 && prevSibling instanceof Element) {
+        range.setStartBefore(prevSibling);
+        rangeIncludesComponent = true;
+      } else if (isStartContainerTheInputNode && inputNode.childNodes[startOffset - 1] instanceof Element) {
+        range.setStartBefore(inputNode.childNodes[startOffset - 1]);
+        rangeIncludesComponent = true;
+      }
+      if (rangeIncludesComponent) {
+        evt.preventDefault();
+        range.deleteContents();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        inputNode.normalize();
+      }
+    }
+    deleteForwards(evt) {
+      const { inputNode } = this;
+      const selection = document.getSelection();
+      if (!selection || !selection.rangeCount)
+        return error("No ranges found in selection");
+      let range = selection.getRangeAt(0);
+      if (range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
+        this.adjustSelectionForceOutOfComponent(selection);
+        range = selection.getRangeAt(0);
+      }
+      const { startContainer, endContainer, collapsed, startOffset, endOffset } = range;
+      const isEndContainerTheInputNode = endContainer === inputNode;
+      if (!isEndContainerTheInputNode && endContainer.parentElement !== inputNode) {
+        return;
+      }
+      if (startContainer !== inputNode && startContainer.parentElement !== inputNode) {
+        return;
+      }
+      let rangeIncludesComponent = false;
+      if (endContainer instanceof Text && endOffset === endContainer.textContent?.length) {
+        range.setEndAfter(endContainer);
+        rangeIncludesComponent = true;
+      } else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
+        range.setEndAfter(inputNode.childNodes[endOffset]);
+        rangeIncludesComponent = true;
+      }
+      if (rangeIncludesComponent) {
+        evt.preventDefault();
+        range.deleteContents();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        inputNode.normalize();
+      }
+    }
+    /**
+     * Adjusts the selection to ensure that the selection focus and anchor are never
+     *  inbetween a component's body and it's adjecent zero-width space text nodes.
+     */
+    adjustSelection() {
+      const selection = document.getSelection();
+      if (!selection || !selection.rangeCount)
+        return;
+      const { inputNode } = this;
+      const range = selection.getRangeAt(0);
+      const { startContainer, startOffset } = range;
+      if (selection.isCollapsed) {
+        if (!startContainer.parentElement?.classList.contains("ntv__input-component"))
+          return;
+        const nextSibling = startContainer.nextSibling;
+        const prevSibling = startContainer.previousSibling;
+        if (!nextSibling && startOffset === 0) {
+          const prevZWSP = prevSibling?.previousSibling;
+          if (prevZWSP)
+            selection.collapse(prevZWSP, 0);
+        } else if (startOffset === 1) {
+          const nextZWSP = nextSibling?.nextSibling;
+          if (nextZWSP)
+            selection.collapse(nextZWSP, 1);
+        }
+      } else {
+        const focusNode = selection.focusNode;
+        if (!focusNode)
+          return;
+        const isFocusInComponent = focusNode.parentElement?.classList.contains("ntv__input-component");
+        if (!isFocusInComponent)
+          return;
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement);
+        if (!focusNode?.previousSibling) {
+          selection.extend(inputNode, componentIndex + 1);
+        } else {
+          selection.extend(inputNode, componentIndex);
+        }
+      }
+    }
+    adjustSelectionForceOutOfComponent(selection) {
+      selection = selection || window.getSelection();
+      if (!selection || !selection.rangeCount)
+        return;
+      const { inputNode } = this;
+      const range = selection.getRangeAt(0);
+      const { startContainer } = range;
+      const nextSibling = startContainer.nextSibling;
+      if (selection.isCollapsed) {
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(startContainer.parentElement);
+        if (!nextSibling) {
+          selection.collapse(inputNode, componentIndex + 1);
+        } else {
+          selection.collapse(inputNode, componentIndex);
+        }
+      } else {
+        error("Selection somehow reached inside component. This should never happen. Correcting it anyway.");
+        const focusNode = selection.focusNode;
+        if (!focusNode)
+          return;
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement);
+        if (!focusNode?.previousSibling) {
+          selection.extend(inputNode, componentIndex + 1);
+        } else {
+          selection.extend(inputNode, componentIndex);
+        }
+      }
+    }
+    extendSelection(direction) {
+      log("Text editor: Backspace key pressed");
+      const { inputNode } = this;
+      if (!inputNode.childNodes.length)
+        return;
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount)
+        return;
+      selection.modify("extend", direction, "character");
+    }
+    deleteSelectionContents() {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount)
+        return;
+      for (let i = 0; i < selection.rangeCount; i++) {
+        const range = selection.getRangeAt(i);
+        if (!range.collapsed)
+          this.deleteRangeContents(range);
+      }
+    }
+    /**
+     * Simplistic implementation that intentionally does not traverse nodes for leaf nodes.
+     * It deletes the contents of a selection range and cleans up BOM characters around emote nodes.
+     * It makes a few assumptions about the possible input nodes and their children.
+     *
+     * Assumptions:
+     * - Input node has no children other than text nodes and emote nodes.
+     * - Emote nodes have attribute contenteditable="false", so selection anchor/focus can never be inside an emote node.
+     * - Emote nodes are always followed by either a visible character or BOM character.
+     * - Emote nodes are always preceded by either a visible character or BOM character.
+     * - BOM characters are only used to separate emote nodes.
+     */
+    deleteRangeContents(range) {
+      const { inputNode } = this;
+      inputNode.normalize();
+      const startContainer = range.startContainer;
+      const endContainer = range.endContainer;
+      const previousSibling = startContainer.previousSibling;
+      const nextSibling = startContainer.nextSibling;
+      log("Range", range);
+      if (range.commonAncestorContainer !== inputNode && range.commonAncestorContainer.parentElement !== inputNode)
+        return error("Start container is input node, this should not happen. Bailing out.");
+      const textContent = startContainer.textContent || "";
+      if (range.startOffset > 0) {
+        const charBeforeStart = textContent[range.startOffset - 1];
+        if (charBeforeStart === CHAR_ZWSP) {
+          if (previousSibling) {
+            const nodeBeforeEmote = previousSibling.previousSibling;
+            const nodeBeforeEmoteIsText = nodeBeforeEmote instanceof Text;
+            const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_ZWSP;
+            if (nodeBeforeEmoteIsBOM) {
+              range.setStart(nodeBeforeEmote, nodeBeforeEmote.length - 1);
+            } else if (nodeBeforeEmoteIsText) {
+              range.setStart(nodeBeforeEmote, nodeBeforeEmote.length);
+            } else {
+              error("Encountered unexpected missing node before emote node, this should never happen.");
+              range.setStart(inputNode, 0);
+            }
+          } else {
+          }
+        }
+      } else if (previousSibling) {
+        const nodeBeforeEmote = previousSibling.previousSibling;
+        const nodeBeforeEmoteIsText = nodeBeforeEmote instanceof Text;
+        const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_ZWSP;
+        if (nodeBeforeEmoteIsBOM) {
+          range.setStart(nodeBeforeEmote, nodeBeforeEmote.length - 1);
+        } else if (nodeBeforeEmoteIsText) {
+          range.setStart(nodeBeforeEmote, nodeBeforeEmote.length);
+        }
+      } else {
+      }
+      if (endContainer instanceof Text) {
+        const textContent2 = endContainer.textContent || "";
+        if (range.endOffset === 0) {
+          const charAfterEnd = textContent2[range.endOffset];
+          if (charAfterEnd === CHAR_ZWSP) {
+            range.setEnd(endContainer, 1);
+          } else {
+            range.setEnd(endContainer, 0);
+          }
+        } else {
+        }
+      } else {
+        if (nextSibling) {
+          const nodeAfterEmoteIsText = nextSibling instanceof Text;
+          const nodeAfterEmoteIsBOM = nodeAfterEmoteIsText && nextSibling.textContent === CHAR_ZWSP;
+          if (nodeAfterEmoteIsBOM) {
+            range.setEnd(nextSibling, 1);
+          } else if (nodeAfterEmoteIsText) {
+            range.setEnd(nextSibling, 0);
+          } else {
+            error("Encountered unexpected node after emote node, this should never happen.");
+            range.setEnd(inputNode, inputNode.childNodes.length);
+          }
+        } else {
+        }
+      }
+      range.deleteContents();
+    }
+    insertElement(element) {
+      const { inputNode } = this;
+      const selection = window.getSelection();
+      if (!selection) {
+        return log("Cannot get selection, appending emote nodes to end of text field");
+      }
+      let range;
+      if (selection.rangeCount && inputNode.childNodes.length) {
+        log("Selection with ranges found");
+        range = selection.getRangeAt(0);
+        range.setEnd(range.startContainer, range.startOffset);
+      } else if (inputNode.childNodes.length) {
+        log("No selection found, setting caret at end of last child node");
+        const lastChild = inputNode.childNodes[inputNode.childNodes.length - 1];
+        range = document.createRange();
+        range.setStart(lastChild, lastChild.childNodes.length);
+      } else {
+        const BOM = document.createTextNode("\uFEFF");
+        const space = document.createTextNode(" ");
+        inputNode.append(BOM, element, space);
+        selection.removeAllRanges();
+        range = document.createRange();
+        range.setStart(space, 1);
+        selection.addRange(range);
+        return;
+      }
+      if (!(range.startContainer instanceof Text)) {
+        log("Start container is not a text node, setting caret at end of last child node");
+        const lastChild = inputNode.childNodes[inputNode.childNodes.length - 1];
+        range = document.createRange();
+        range.setStart(lastChild, lastChild.childNodes.length);
+      }
+      const startContainer = range.startContainer;
+      let addBOMBeforeCaret = false;
+      let addBOMAfterCaret = false;
+      let addSpaceBeforeCaret = false;
+      let addSpaceAfterCaret = false;
+      const textContent = startContainer.textContent || "";
+      const isStartAtStart = range.startOffset === 0;
+      const isEndAtEnd = range.endOffset === textContent.length;
+      const isStartOfAncestor = startContainer === inputNode.firstChild;
+      const isEndOfAncestor = startContainer === inputNode.lastChild;
+      const charBeforeCaret = textContent[range.startOffset - 1];
+      const charAfterCaret = textContent[range.endOffset];
+      const bomBeforeCaret = charBeforeCaret === CHAR_ZWSP;
+      const bomAfterCaret = charAfterCaret === CHAR_ZWSP;
+      const spaceAfterCaret = charAfterCaret === " ";
+      log("Space before caret:", charBeforeCaret === " ");
+      log("Space after caret:", charAfterCaret === " ");
+      if (isStartAtStart && isStartOfAncestor) {
+        addBOMBeforeCaret = true;
+      } else if (bomBeforeCaret && isStartOfAncestor) {
+      } else if (bomBeforeCaret) {
+        range.setStart(startContainer, range.startOffset - 1);
+        addSpaceBeforeCaret = true;
+      } else if (charBeforeCaret && charBeforeCaret.trim()) {
+        addSpaceBeforeCaret = true;
+      } else if (isStartAtStart && startContainer.previousSibling instanceof Element) {
+        log("Node before caret is element, adding space before caret", startContainer.previousSibling);
+        addSpaceBeforeCaret = true;
+      }
+      if (isEndAtEnd && isEndOfAncestor) {
+        addSpaceAfterCaret = true;
+      } else if (bomAfterCaret) {
+        range.setEnd(startContainer, range.endOffset + 1);
+        addSpaceAfterCaret = true;
+      } else if (!spaceAfterCaret) {
+        addSpaceAfterCaret = true;
+      }
+      log("Range", range);
+      log("Add BOM before caret:", addBOMBeforeCaret);
+      log("Add BOM after caret:", addBOMAfterCaret);
+      log("Add space before caret:", addSpaceBeforeCaret);
+      log("Add space after caret:", addSpaceAfterCaret);
+      range.deleteContents();
+      if (addBOMAfterCaret) {
+        range.insertNode(document.createTextNode(CHAR_ZWSP));
+      } else if (addSpaceAfterCaret) {
+        range.insertNode(document.createTextNode(" "));
+      }
+      range.insertNode(element);
+      if (addBOMBeforeCaret) {
+        range.insertNode(document.createTextNode(CHAR_ZWSP));
+      } else if (addSpaceBeforeCaret) {
+        range.insertNode(document.createTextNode(" "));
+      }
+      range.collapse();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      inputNode.normalize();
+    }
+    replaceSelectedTextNodes(nodes) {
+      const { inputNode } = this;
+      if (!inputNode.childNodes.length) {
+        log("Input node is empty, appending emote nodes to end of input node");
+        nodes.unshift(document.createTextNode("\uFEFF"));
+        nodes.push(document.createTextNode(" "));
+        inputNode.append(...nodes);
+        Caret.collapseToEndOfNode(nodes[nodes.length - 1]);
+      } else {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount) {
+          const range = selection.getRangeAt(0);
+          log("Range", range);
+          const commonAncestor = range.commonAncestorContainer;
+          const isCommonAncestorTextField = commonAncestor === inputNode;
+          const isCommonAncestorTextFieldParent = commonAncestor.parentElement === inputNode;
+          const isCaretInTextNodeInInputNode = commonAncestor instanceof Text && (isCommonAncestorTextField || isCommonAncestorTextFieldParent);
+          if (isCaretInTextNodeInInputNode) {
+            const startContainer = range.startContainer;
+            if (!(startContainer instanceof Text)) {
+              error(
+                "Selection start container is not a text node, selection is corrupted. This means either the selection focus has escaped outside the input node, or selection focus started right before an element (between BOM?).",
+                range
+              );
+              return;
+            }
+            const endContainer = range.endContainer;
+            if (!(endContainer instanceof Text)) {
+              error(
+                "Selection end container is not a text node, selection is corrupted. This means either the selection focus has escaped outside the input node, or selection focus ended right after an element (between BOM?).",
+                range
+              );
+              return;
+            }
+            const textContent = startContainer.textContent;
+            if (!textContent)
+              return error("Text content not found for text node start container");
+            const isStartAtStart = range.startOffset === 0;
+            const isEndAtEnd = range.endOffset === textContent.length;
+            log("Caret start is at start", isStartAtStart, "Caret end is at end", isEndAtEnd);
+            const charBeforeCaret = textContent[range.startOffset - 1], charAfterCaret = textContent[range.endOffset];
+            const bomBeforeCaret = charBeforeCaret === CHAR_ZWSP, bomAfterCaret = charAfterCaret === CHAR_ZWSP;
+            log(`Char before caret: ${charBeforeCaret}`, "Is BOM:", bomBeforeCaret);
+            log(`Char after caret: ${charAfterCaret}`, "Is BOM:", bomAfterCaret);
+            const isStartOfAncestor = startContainer === inputNode.firstChild;
+            const isEndOfAncestor = endContainer === inputNode.lastChild;
+            if (isStartAtStart) {
+              const nodeBeforeIsElement = startContainer.previousSibling instanceof Element;
+              log("Caret is at start of input node:", isStartOfAncestor);
+              log("Node before caret is element:", nodeBeforeIsElement);
+              if (isStartOfAncestor) {
+                nodes.unshift(document.createTextNode(CHAR_ZWSP));
+              } else if (nodeBeforeIsElement) {
+                nodes.unshift(document.createTextNode(" "));
+              } else {
+                error(
+                  "Selection start is at start of text node, but not at start of input node and previous node is not an element either. Is previous node a text node? It should have been normalized.",
+                  range
+                );
+              }
+            } else {
+              if (bomBeforeCaret) {
+                const isStartBeforeBom = range.startOffset === 1;
+                if (isStartBeforeBom && isStartOfAncestor) {
+                } else {
+                  range.setStart(startContainer, range.startOffset - 1);
+                  nodes.unshift(document.createTextNode(" "));
+                }
+              } else if (charBeforeCaret.trim()) {
+                nodes.unshift(document.createTextNode(" "));
+              }
+            }
+            if (isEndAtEnd) {
+              const nodeAfterIsElement = endContainer.nextSibling instanceof Element;
+              log("Caret is at end of input node:", isEndOfAncestor);
+              log("Node after caret is element:", nodeAfterIsElement);
+              if (isEndOfAncestor || nodeAfterIsElement) {
+                nodes.push(document.createTextNode(" "));
+              } else {
+                error(
+                  "Selection end is at end of text node, but not at end of input node and next node is not an element either. Is next node a text node? It should have been normalized.",
+                  range
+                );
+              }
+            } else {
+              if (bomAfterCaret) {
+                range.setEnd(endContainer, range.endOffset + 1);
+              }
+              if (bomAfterCaret || charAfterCaret.trim()) {
+                nodes.push(document.createTextNode(" "));
+              }
+            }
+            range.deleteContents();
+            for (let i = nodes.length - 1; i >= 0; i--) {
+              range.insertNode(nodes[i]);
+            }
+            range.collapse();
+            selection.removeAllRanges();
+            selection.addRange(range);
+          } else if (commonAncestor === inputNode) {
+            log(
+              "Caret is in input node but not in text node, appending emote nodes to end of input node",
+              range
+            );
+            error("This should never happen, fix this");
+          } else {
+            log("Caret is in input node not text node, appending emote nodes to end of text field", range);
+            error("This should never happen, fix this");
+            nodes.push(document.createTextNode(" "));
+            inputNode.append(...nodes);
+            Caret.collapseToEndOfNode(nodes[nodes.length - 1]);
+          }
+        } else {
+          log("No range found, appending emote nodes to end of text field");
+          nodes.push(document.createTextNode(" "));
+          inputNode.append(...nodes);
+          Caret.collapseToEndOfNode(nodes[nodes.length - 1]);
+        }
+      }
+      inputNode.normalize();
+      inputNode.dispatchEvent(new Event("input"));
+      inputNode.focus();
+    }
+    insertText(text) {
+      const { inputNode } = this;
+      const selection = window.getSelection();
+      if (!selection) {
+        inputNode.append(document.createTextNode(text));
+        return;
+      }
+      let range;
+      if (selection.rangeCount) {
+        range = selection.getRangeAt(0);
+        range.deleteContents();
+        if (range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
+          this.adjustSelectionForceOutOfComponent(selection);
+          range = selection.getRangeAt(0);
+        }
+      } else {
+        range = document.createRange();
+        range.setStart(inputNode, inputNode.childNodes.length);
+      }
+      range.insertNode(document.createTextNode(text));
+      range.collapse();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      inputNode.normalize();
+    }
+    insertNodes(nodes) {
+      const selection = document.getSelection();
+      if (!selection)
+        return;
+      if (!selection.rangeCount) {
+        for (let i = 0; i < nodes.length; i++) {
+          this.inputNode.appendChild(nodes[i]);
+        }
+        Caret.collapseToEndOfNode(this.inputNode.lastChild);
+        return;
+      }
+      let range = selection.getRangeAt(0);
+      const { startContainer } = range;
+      range.deleteContents();
+      if (startContainer.parentElement?.classList.contains("ntv__input-component")) {
+        this.adjustSelectionForceOutOfComponent(selection);
+        range = selection.getRangeAt(0);
+      }
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        range.insertNode(nodes[i]);
+      }
+      selection.collapseToEnd();
+      this.inputNode.normalize;
+    }
+    insertComponent(component) {
+      const { inputNode } = this;
+      const selection = document.getSelection();
+      if (!selection) {
+        inputNode.append(document.createTextNode(" "), component, document.createTextNode(" "));
+        return error("Selection API is not available, please use a modern browser supports the Selection API.");
+      }
+      if (!selection.rangeCount) {
+        inputNode.appendChild(component);
+        const spacer = document.createTextNode(" ");
+        inputNode.appendChild(spacer);
+        const range2 = document.createRange();
+        range2.setStart(spacer, 1);
+        selection.addRange(range2);
+        return;
+      }
+      let range = selection.getRangeAt(0);
+      if (range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
+        this.adjustSelectionForceOutOfComponent(selection);
+        range = selection.getRangeAt(0);
+      }
+      const { startContainer, startOffset } = range;
+      const isFocusInInputNode = startContainer === inputNode;
+      if (!isFocusInInputNode && startContainer.parentElement !== inputNode) {
+        inputNode.appendChild(component);
+      } else if (isFocusInInputNode) {
+        if (inputNode.childNodes[startOffset]) {
+          inputNode.insertBefore(component, inputNode.childNodes[startOffset]);
+        } else {
+          inputNode.appendChild(component);
+        }
+      } else if (startContainer instanceof Text) {
+        range.insertNode(component);
+      } else {
+        return error("Encountered unexpected unprocessable node", component, startContainer, range);
+      }
+      maybeInsertSpaceCharacterBeforeComponent(component);
+      maybeInsertSpaceCharacterAfterComponent(component);
+      range.setEnd(component.nextSibling, 1);
+      range.collapse();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      inputNode.dispatchEvent(new Event("input"));
+    }
+    insertEmote(emoteHid) {
+      assertArgDefined(emoteHid);
+      const { emotesManager, messageHistory, eventTarget } = this;
+      messageHistory.resetCursor();
+      const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
+      if (!emoteHTML) {
+        error("Invalid emote embed");
+        return null;
+      }
+      const emoteComponent = this.createEmoteComponent(emoteHid, emoteHTML);
+      this.insertComponent(emoteComponent);
+      if (this.isInputEmpty) {
+        this.isInputEmpty = false;
+        eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: false } }));
+      }
+      return emoteComponent;
+    }
+    replaceEmote(component, emoteHid) {
+      const { emotesManager } = this;
+      const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
+      if (!emoteHTML) {
+        error("Invalid emote embed");
+        return null;
+      }
+      const emoteBox = component.querySelector(".ntv__inline-emote-box");
+      if (!emoteBox) {
+        error("Component does not contain emote box");
+        return null;
+      }
+      emoteBox.innerHTML = emoteHTML;
+      emoteBox.setAttribute("data-emote-hid", emoteHid);
+      return component;
+    }
+    replaceEmoteWithText(component, text) {
+      const { inputNode } = this;
+      const textNode = document.createTextNode(text);
+      component.replaceWith(textNode);
+      const selection = document.getSelection();
+      if (!selection)
+        return;
+      const range = document.createRange();
+      range.setStart(textNode, text.length);
+      range.setEnd(textNode, text.length);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      inputNode.normalize();
+      return textNode;
+    }
+  };
+
   // src/Classes/TabCompletor.ts
   var TabCompletor = class {
     suggestions = [];
     suggestionHids = [];
     selectedIndex = 0;
-    isShowingModal = false;
     mode = "";
     $list;
     $modal;
+    isShowingModal = false;
     // Context
     start = 0;
     end = 0;
     mentionEnd = 0;
     node = null;
     word = null;
-    embedNode = null;
+    emoteComponent = null;
     emotesManager;
     usersManager;
-    constructor({ emotesManager, usersManager }) {
+    inputController;
+    constructor({
+      emotesManager,
+      usersManager,
+      inputController
+    }) {
       this.emotesManager = emotesManager;
       this.usersManager = usersManager;
+      this.inputController = inputController;
+    }
+    attachEventHandlers() {
+      const { inputController } = this;
+      inputController.addEventListener("keydown", 8, this.handleKeydown.bind(this));
+      inputController.addEventListener("keyup", 10, (event) => {
+        if (this.isShowingModal && inputController.isInputEmpty) {
+          this.reset();
+        }
+      });
     }
     updateSuggestions() {
       const { word, start, end, node } = Caret.getWordBeforeCaret();
@@ -1733,8 +2658,10 @@
         this.selectedIndex = $(e.currentTarget).index();
         if (this.mode === "emote")
           this.renderInlineEmote();
-        else if (this.mode === "mention")
-          this.renderInlineUserMention();
+        else if (this.mode === "mention") {
+          Caret.moveCaretTo(this.node, this.mentionEnd);
+          this.inputController.insertText(" ");
+        }
         this.hideModal();
         this.reset();
       });
@@ -1820,13 +2747,9 @@
     }
     restoreOriginalText() {
       if (this.mode === "emote" && this.word) {
-        if (!this.embedNode)
+        if (!this.emoteComponent)
           return error("Invalid embed node to restore original text");
-        const textNode = document.createTextNode(this.word);
-        this.embedNode.after(textNode);
-        this.embedNode.remove();
-        Caret.collapseToEndOfNode(textNode);
-        textNode.parentElement?.normalize();
+        this.inputController.replaceEmoteWithText(this.emoteComponent, this.word);
       } else if (this.mode === "mention") {
         if (!this.node)
           return error("Invalid node to restore original text");
@@ -1838,36 +2761,14 @@
       const emoteHid = this.suggestionHids[this.selectedIndex];
       if (!emoteHid)
         return;
-      if (this.embedNode) {
-        const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "ntv__inline-emote");
-        if (!emoteEmbedding)
-          return error("Invalid emote embedding");
-        const embedNode = jQuery.parseHTML(emoteEmbedding)[0];
-        this.embedNode.after(embedNode);
-        this.embedNode.remove();
-        this.embedNode = embedNode;
-        Caret.collapseToEndOfNode(embedNode);
+      if (this.emoteComponent) {
+        this.inputController.replaceEmote(this.emoteComponent, emoteHid);
       } else {
-        this.insertEmote(emoteHid);
-      }
-    }
-    insertEmote(emoteHid) {
-      const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid("" + emoteHid, "ntv__inline-emote");
-      if (!emoteEmbedding)
-        return error("Invalid emote embedding");
-      const { start, end, node } = this;
-      if (!node)
-        return error("Invalid node");
-      const embedNode = this.embedNode = jQuery.parseHTML(emoteEmbedding)[0];
-      Caret.replaceTextWithElementInRange(node, start, end, embedNode);
-      const range = document.createRange();
-      range.setStartAfter(embedNode);
-      range.collapse(true);
-      const selection = window.getSelection();
-      if (selection) {
-        selection.removeAllRanges();
-        selection.addRange(range);
-        selection.collapseToEnd();
+        if (!this.node)
+          return error("Invalid node to restore original text");
+        Caret.replaceTextInRange(this.node, this.start, this.end, "");
+        this.inputController.normalize();
+        this.emoteComponent = this.inputController.insertEmote(emoteHid);
       }
     }
     isClickInsideModal(target) {
@@ -1899,19 +2800,24 @@
           evt.preventDefault();
           this.moveSelectorDown();
         } else if (evt.key === "ArrowRight" || evt.key === "Enter") {
-          if (evt.key === "Enter")
+          if (evt.key === "Enter") {
             evt.preventDefault();
+            evt.stopImmediatePropagation();
+          }
+          this.inputController.insertText(" ");
           this.hideModal();
           this.reset();
         } else if (evt.key === "ArrowLeft" || evt.key === " " || evt.key === "Escape") {
           this.reset();
         } else if (evt.key === "Backspace") {
           evt.preventDefault();
+          evt.stopImmediatePropagation();
           this.restoreOriginalText();
           this.hideModal();
           this.reset();
         } else if (evt.key === "Shift") {
         } else {
+          this.inputController.insertText(" ");
           this.hideModal();
           this.reset();
         }
@@ -1931,7 +2837,7 @@
       this.mentionEnd = 0;
       this.node = null;
       this.word = null;
-      this.embedNode = null;
+      this.emoteComponent = null;
     }
   };
 
@@ -1954,6 +2860,55 @@
   }
   var Clipboard2 = class {
     domParser = new DOMParser();
+    handleCopyEvent(event) {
+      const selection = document.getSelection();
+      if (!selection || !selection.rangeCount)
+        return error("Selection is null");
+      event.preventDefault();
+      const range = selection.getRangeAt(0);
+      if (!range)
+        return;
+      let buffer = "";
+      let prevNodeWasEmote = false;
+      const nodes = range.cloneContents().childNodes;
+      log(nodes);
+      for (const node of nodes) {
+        if (node instanceof Text) {
+          if (prevNodeWasEmote)
+            buffer += " ";
+          prevNodeWasEmote = false;
+          buffer += node.textContent;
+        } else if (node instanceof HTMLElement) {
+          const emoteImg = node.querySelector("img");
+          if (emoteImg) {
+            if (prevNodeWasEmote)
+              buffer += " ";
+            else if (buffer && buffer[buffer.length - 1] !== " ")
+              buffer += " ";
+            prevNodeWasEmote = true;
+            buffer += emoteImg.dataset.emoteName || "UNSET_EMOTE";
+          }
+        }
+      }
+      const copyString = buffer.replaceAll(CHAR_ZWSP, "");
+      event.clipboardData?.setData("text/plain", copyString);
+      log(copyString);
+    }
+    handleCutEvent(event) {
+      const selection = document.getSelection();
+      if (!selection || !selection.rangeCount)
+        return;
+      const range = selection.getRangeAt(0);
+      if (!range)
+        return;
+      const commonAncestorContainer = range.commonAncestorContainer;
+      if (!(commonAncestorContainer instanceof HTMLElement) && !commonAncestorContainer.isContentEditable && !commonAncestorContainer.parentElement.isContentEditable) {
+        return;
+      }
+      event.preventDefault();
+      this.handleCopyEvent(event);
+      selection.deleteFromDocument();
+    }
     paste(text) {
       const selection = window.getSelection();
       if (!selection || !selection.rangeCount)
@@ -1988,7 +2943,7 @@
         return;
       const html = clipboardData.getData("text/html");
       if (html) {
-        const doc = this.domParser.parseFromString(html, "text/html");
+        const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
         const childNodes = doc.body.childNodes;
         if (childNodes.length === 0) {
           return;
@@ -2030,7 +2985,7 @@
         const text = clipboardData.getData("text/plain");
         if (!text)
           return;
-        return [text];
+        return [text.replaceAll(CHAR_ZWSP, "")];
       }
     }
   };
@@ -2038,20 +2993,22 @@
   // src/UserInterface/KickUserInterface.ts
   var KickUserInterface = class extends AbstractUserInterface {
     abortController = new AbortController();
-    elm = {
-      $originalTextField: null,
-      $originalSubmitButton: null,
-      $chatMessagesContainer: null,
-      $submitButton: null,
-      $textField: null
-    };
-    stickyScroll = true;
-    maxMessageLength = 500;
+    clipboard = new Clipboard2();
+    inputController = null;
     chatObserver = null;
     emoteMenu = null;
     emoteMenuButton = null;
     quickEmotesHolder = null;
     tabCompletor = null;
+    elm = {
+      originalTextField: null,
+      originalSubmitButton: null,
+      chatMessagesContainer: null,
+      submitButton: null,
+      textField: null
+    };
+    stickyScroll = true;
+    maxMessageLength = 500;
     constructor(deps) {
       super(deps);
     }
@@ -2059,20 +3016,17 @@
       info("Creating user interface..");
       const { eventBus, settingsManager, abortController } = this;
       const abortSignal = abortController.signal;
-      waitForElements(["#message-input"], 5e3, abortSignal).then(() => {
-        this.loadShadowProxyTextField();
+      this.loadSettings();
+      waitForElements(
+        ["#message-input", "#chatroom-footer button.base-button", ".chat-input-wrapper .chat-input-icon"],
+        5e3,
+        abortSignal
+      ).then(() => {
+        this.loadShadowProxyElements();
         this.loadEmoteMenu();
+        this.loadEmoteMenuButton();
         this.loadChatHistoryBehaviour();
         this.loadTabCompletionBehaviour();
-      }).catch(() => {
-      });
-      waitForElements(["#chatroom-footer .quick-emotes-holder"], 5e3, abortSignal).then(() => {
-        this.loadQuickEmotesHolder();
-      }).catch(() => {
-      });
-      waitForElements(["#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
-        this.loadShadowProxySubmitButton();
-        this.loadEmoteMenuButton();
         if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
           $("#chatroom").addClass("ntv__hide-emote-menu-button");
         }
@@ -2081,10 +3035,14 @@
         }
       }).catch(() => {
       });
+      waitForElements(["#chatroom-footer .quick-emotes-holder"], 5e3, abortSignal).then(() => {
+        this.loadQuickEmotesHolder();
+      }).catch(() => {
+      });
       waitForElements(["#chatroom > div:nth-child(2) > .overflow-y-scroll"], 5e3, abortSignal).then(() => {
-        const $chatMessagesContainer = this.elm.$chatMessagesContainer = $(
+        const chatMessagesContainer = this.elm.chatMessagesContainer = $(
           "#chatroom > div:nth-child(2) > .overflow-y-scroll"
-        );
+        )[0];
         if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
           $("#chatroom").addClass("ntv__alternating-background");
         }
@@ -2092,7 +3050,7 @@
         if (seperatorSettingVal && seperatorSettingVal !== "none") {
           $("#chatroom").addClass(`ntv__seperators-${seperatorSettingVal}`);
         }
-        eventBus.subscribe("ntv.providers.loaded", this.renderEmotesInChat.bind(this), true);
+        eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
         this.observeChatMessages();
         this.loadScrollingBehaviour();
       }).catch(() => {
@@ -2124,14 +3082,14 @@
     }
     async loadEmoteMenu() {
       const { channelData, eventBus, settingsManager, emotesManager } = this;
-      if (!this.elm.$textField)
+      if (!this.elm.textField)
         return error("Text field not loaded for emote menu");
-      const container = this.elm.$textField.parent().parent()[0];
+      const container = this.elm.textField.parentElement.parentElement;
       this.emoteMenu = new EmoteMenuComponent(
         { channelData, eventBus, emotesManager, settingsManager },
         container
       ).init();
-      this.elm.$textField.on("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
+      this.elm.textField.addEventListener("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
     }
     async loadEmoteMenuButton() {
       const { ENV_VARS, eventBus, settingsManager } = this;
@@ -2141,71 +3099,66 @@
       const { eventBus, settingsManager, emotesManager } = this;
       this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init();
     }
-    loadShadowProxySubmitButton() {
-      const $originalSubmitButton = this.elm.$originalSubmitButton = $("#chatroom-footer button.base-button");
-      const $submitButton = this.elm.$submitButton = $(`<button class="ntv__submit-button disabled">Chat</button>`);
-      $originalSubmitButton.after($submitButton);
-      $submitButton.on("click", this.submitInput.bind(this, false));
+    loadSettings() {
+      const { eventBus, settingsManager } = this;
+      const firstMessageHighlightColor = settingsManager.getSetting("shared.chat.appearance.highlight_color");
+      if (firstMessageHighlightColor) {
+        const rgb = hex2rgb(firstMessageHighlightColor);
+        document.documentElement.style.setProperty("--color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+      }
+      eventBus.subscribe("ntv.settings.change.shared.chat.appearance.highlight_color", (data) => {
+        if (!data.value)
+          return;
+        const rgb = hex2rgb(data.value);
+        document.documentElement.style.setProperty("--color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+      });
     }
-    loadShadowProxyTextField() {
-      const $originalTextField = this.elm.$originalTextField = $("#message-input");
-      const placeholder = $originalTextField.data("placeholder");
-      const $textField = this.elm.$textField = $(
+    loadShadowProxyElements() {
+      const originalSubmitButtonEl = this.elm.originalSubmitButton = $("#chatroom-footer button.base-button")[0];
+      const submitButtonEl = this.elm.submitButton = $(
+        `<button class="ntv__submit-button disabled">Chat</button>`
+      )[0];
+      originalSubmitButtonEl.after(submitButtonEl);
+      const originalTextFieldEl = this.elm.originalTextField = $("#message-input")[0];
+      const placeholder = originalTextFieldEl.dataset.placeholder;
+      const textFieldEl = this.elm.textField = $(
         `<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
-      );
-      const originalTextFieldEl = $originalTextField[0];
-      const textFieldEl = $textField[0];
-      const $textFieldWrapper = $(`<div class="ntv__message-input__wrapper"></div>`);
-      $textFieldWrapper.append($textField);
-      $originalTextField.parent().parent().append($textFieldWrapper);
-      originalTextFieldEl.addEventListener("focus", () => textFieldEl.focus(), { passive: true });
-      textFieldEl.addEventListener(
-        "input",
-        (evt) => {
-          const $submitButton = this.elm.$submitButton;
-          if (!$submitButton)
-            return;
-          if (textFieldEl.children.length && textFieldEl.children[0]?.tagName !== "BR") {
-            $submitButton.removeClass("disabled");
-          } else if (!$submitButton.hasClass("disabled")) {
-            $submitButton.addClass("disabled");
-          }
-        },
-        { passive: true }
-      );
-      textFieldEl.addEventListener("keydown", (evt) => {
-        if (evt.key === "Enter" && !this.tabCompletor?.isShowingModal) {
-          evt.preventDefault();
+      )[0];
+      const textFieldWrapperEl = $(`<div class="ntv__message-input__wrapper"></div>`)[0];
+      textFieldWrapperEl.append(textFieldEl);
+      originalTextFieldEl.parentElement.parentElement?.append(textFieldWrapperEl);
+      $(textFieldEl).before($(".chat-input-wrapper .chat-input-icon"));
+      submitButtonEl.addEventListener("click", this.submitInput.bind(this, false));
+      const inputController = this.inputController = new InputController(this, textFieldEl);
+      inputController.attachEventListeners();
+      inputController.addEventListener("is_empty", 10, (event) => {
+        if (event.detail.isEmpty) {
+          submitButtonEl.setAttribute("disabled", "");
+          submitButtonEl.classList.add("disabled");
+        } else {
+          submitButtonEl.removeAttribute("disabled");
+          submitButtonEl.classList.remove("disabled");
+        }
+      });
+      inputController.addEventListener("keydown", 9, (event) => {
+        if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+          this.messageHistory.resetCursor();
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
           this.submitInput();
         }
       });
-      textFieldEl.addEventListener(
-        "keyup",
-        (evt) => {
-          $originalTextField[0].innerHTML = textFieldEl.innerHTML;
-          if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === "BR") {
-            textFieldEl.children[0].remove();
-            textFieldEl.normalize();
-          }
-          if (evt.keyCode > 47 && evt.keyCode < 112) {
-            this.messageHistory.resetCursor();
-          }
-        },
-        { passive: true }
-      );
-      const clipboard = new Clipboard2();
-      textFieldEl.addEventListener("paste", (evt) => {
+      originalTextFieldEl.addEventListener("focus", (evt) => {
         evt.preventDefault();
-        const messageParts = clipboard.parsePastedMessage(evt);
-        if (!messageParts || !messageParts.length)
-          return;
-        for (let i = 0; i < messageParts.length; i++) {
-          messageParts[i] = this.renderEmotesInText(messageParts[i]);
-        }
-        clipboard.pasteHTML(messageParts.join(""));
-        if (textFieldEl.childNodes.length) {
-          this.elm.$submitButton?.removeClass("disabled");
-        }
+        textFieldEl.focus();
+      });
+      textFieldEl.addEventListener("cut", (evt) => {
+        this.clipboard.handleCutEvent(evt);
+      });
+      textFieldEl.addEventListener("copy", (evt) => {
+        this.clipboard.handleCopyEvent(evt);
       });
       const ignoredKeys = {
         ArrowUp: true,
@@ -2256,10 +3209,9 @@
       const { settingsManager } = this;
       if (!settingsManager.getSetting("shared.chat.input.history.enable"))
         return;
-      const $textField = this.elm.$textField;
-      if (!$textField)
+      const textFieldEl = this.elm.textField;
+      if (!textFieldEl)
         return error("Text field not loaded for chat history");
-      const textFieldEl = $textField[0];
       textFieldEl.addEventListener("keydown", (evt) => {
         if (this.tabCompletor?.isShowingModal)
           return;
@@ -2293,21 +3245,17 @@
       });
     }
     loadTabCompletionBehaviour() {
-      const { emotesManager, usersManager } = this;
-      const $textField = this.elm.$textField;
-      if (!$textField)
+      const { emotesManager, usersManager, inputController } = this;
+      const textFieldEl = this.elm.textField;
+      if (!textFieldEl)
         return error("Text field not loaded for chat history");
-      const textFieldEl = $textField[0];
-      const tabCompletor = this.tabCompletor = new TabCompletor({ emotesManager, usersManager });
-      tabCompletor.createModal($textField.parent().parent()[0]);
-      textFieldEl.addEventListener("keydown", tabCompletor.handleKeydown.bind(tabCompletor));
-      textFieldEl.addEventListener("keyup", (evt) => {
-        if (this.tabCompletor?.isShowingModal) {
-          if ((!textFieldEl.textContent || textFieldEl.textContent.trim() === "") && !textFieldEl.childNodes.length) {
-            tabCompletor.reset();
-          }
-        }
+      const tabCompletor = this.tabCompletor = new TabCompletor({
+        emotesManager,
+        usersManager,
+        inputController
       });
+      tabCompletor.attachEventHandlers();
+      tabCompletor.createModal(textFieldEl.parentElement.parentElement);
       document.addEventListener("click", (evt) => {
         if (!evt.target)
           return;
@@ -2317,19 +3265,19 @@
       });
     }
     loadScrollingBehaviour() {
-      const $chatMessagesContainer = this.elm.$chatMessagesContainer;
-      if (!$chatMessagesContainer)
+      const chatMessagesContainerEl = this.elm.chatMessagesContainer;
+      if (!chatMessagesContainerEl)
         return error("Chat messages container not loaded for scrolling behaviour");
       if (this.stickyScroll)
-        $chatMessagesContainer.parent().addClass("ntv__sticky-scroll");
-      $chatMessagesContainer[0].addEventListener(
+        chatMessagesContainerEl.parentElement?.classList.add("ntv__sticky-scroll");
+      chatMessagesContainerEl.addEventListener(
         "scroll",
         (evt) => {
           if (!this.stickyScroll) {
             const target = evt.target;
             const isAtBottom = (target.scrollHeight || 0) - target.scrollTop <= target.clientHeight + 15;
             if (isAtBottom) {
-              $chatMessagesContainer.parent().addClass("ntv__sticky-scroll");
+              chatMessagesContainerEl.parentElement?.classList.add("ntv__sticky-scroll");
               target.scrollTop = 99999;
               this.stickyScroll = true;
             }
@@ -2337,11 +3285,11 @@
         },
         { passive: true }
       );
-      $chatMessagesContainer[0].addEventListener(
+      chatMessagesContainerEl.addEventListener(
         "wheel",
         (evt) => {
           if (this.stickyScroll && evt.deltaY < 0) {
-            $chatMessagesContainer.parent().removeClass("ntv__sticky-scroll");
+            chatMessagesContainerEl.parentElement?.classList.remove("ntv__sticky-scroll");
             this.stickyScroll = false;
           }
         },
@@ -2349,28 +3297,30 @@
       );
     }
     observeChatMessages() {
-      const $chatMessagesContainer = this.elm.$chatMessagesContainer;
-      if (!$chatMessagesContainer)
+      const chatMessagesContainerEl = this.elm.chatMessagesContainer;
+      if (!chatMessagesContainerEl)
         return error("Chat messages container not loaded for observing");
-      const chatMessagesContainerEl = $chatMessagesContainer[0];
+      const $chatMessagesContainer = $(chatMessagesContainerEl);
       const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
-      const observer = this.chatObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.addedNodes.length) {
-            for (const messageNode of mutation.addedNodes) {
-              if (messageNode.nodeType !== Node.ELEMENT_NODE)
-                continue;
-              this.renderEmotesInMessage(messageNode);
+      this.eventBus.subscribe("ntv.providers.loaded", () => {
+        const observer = this.chatObserver = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.addedNodes.length) {
+              for (const messageNode of mutation.addedNodes) {
+                if (messageNode instanceof HTMLElement) {
+                  this.renderChatMessage(messageNode);
+                }
+              }
+              if (this.stickyScroll) {
+                window.requestAnimationFrame(scrollToBottom);
+              }
             }
-            if (this.stickyScroll) {
-              window.requestAnimationFrame(scrollToBottom);
-            }
-          }
+          });
         });
+        observer.observe(chatMessagesContainerEl, { childList: true });
       });
-      observer.observe(chatMessagesContainerEl, { childList: true });
       const showTooltips = this.settingsManager.getSetting("shared.chat.tooltips.images");
-      $chatMessagesContainer.on("mouseover", ".ntv__emote-box img", (evt) => {
+      $chatMessagesContainer.on("mouseover", ".ntv__inline-emote-box img", (evt) => {
         const emoteName = evt.target.dataset.emoteName;
         const emoteHid = evt.target.dataset.emoteHid;
         if (!emoteName || !emoteHid)
@@ -2378,9 +3328,11 @@
         const target = evt.target;
         const $tooltip = $(
           cleanupHTML(`
-					<div class="ntv__emote-tooltip ${showTooltips ? "ntv__emote-tooltip--has-image" : ""}">
-						${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}
-						<span>${emoteName}</span>
+					<div class="ntv__emote-tooltip__wrapper">
+						<div class="ntv__emote-tooltip ${showTooltips ? "ntv__emote-tooltip--has-image" : ""}">
+							${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}
+							<span>${emoteName}</span>
+						</div>
 					</div>`)
         );
         $(target).after($tooltip);
@@ -2392,58 +3344,132 @@
           { once: true, passive: true }
         );
       });
-      $chatMessagesContainer.on("click", ".ntv__emote-box img", (evt) => {
-        const emoteHid = evt.target.dataset.emoteHid;
-        if (!emoteHid)
-          return;
-        this.insertEmoteInChat(emoteHid);
+      $chatMessagesContainer.on("click", ".ntv__inline-emote-box img", (evt) => {
+        const emoteHid = evt.target.getAttribute("data-emote-hid");
+        if (emoteHid)
+          this.insertEmoteInChat(emoteHid);
       });
     }
-    renderEmotesInChat() {
-      if (!this.elm || !this.elm.$chatMessagesContainer)
+    renderChatMessages() {
+      if (!this.elm || !this.elm.chatMessagesContainer)
         return;
-      const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0];
+      const chatMessagesContainerEl = this.elm.chatMessagesContainer;
       const chatMessagesContainerNode = chatMessagesContainerEl;
       for (const messageNode of chatMessagesContainerNode.children) {
-        this.renderEmotesInMessage(messageNode);
+        this.renderChatMessage(messageNode);
       }
     }
-    renderEmotesInMessage(messageNode) {
+    renderChatMessage(messageNode) {
       const usernameEl = messageNode.querySelector(".chat-entry-username");
       if (usernameEl) {
         const { chatEntryUser, chatEntryUserId } = usernameEl.dataset;
         const chatEntryUserName = usernameEl.textContent;
         if (chatEntryUserId && chatEntryUserName) {
+          if (!this.usersManager.hasSeenUser(chatEntryUserName)) {
+            const enableFirstMessageHighlight = this.settingsManager.getSetting(
+              "shared.chat.appearance.highlight_first_message"
+            );
+            if (enableFirstMessageHighlight) {
+              messageNode.classList.add("ntv__highlight-first-message");
+            }
+          }
           this.usersManager.registerUser(chatEntryUserId, chatEntryUserName);
         }
       }
-      const messageContentNodes = messageNode.querySelectorAll(".chat-entry-content");
-      for (const contentNode of messageContentNodes) {
-        if (!contentNode.textContent)
-          continue;
-        contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent);
+      const chatEntryNode = messageNode.children[0];
+      if (!chatEntryNode)
+        return error("ChatEntryNode not found for message", messageNode);
+      const uselessWrapperNode = chatEntryNode.children[0];
+      const contentNodes = Array.from(uselessWrapperNode.children);
+      const contentNodesLength = contentNodes.length;
+      uselessWrapperNode.remove();
+      let firstContentNodeIndex = 0;
+      for (let i = 0; i < contentNodes.length; i++) {
+        if (contentNodes[i].textContent === ": ") {
+          firstContentNodeIndex = i + 1;
+          break;
+        }
       }
+      for (let i = 0; i < firstContentNodeIndex; i++) {
+        chatEntryNode.appendChild(contentNodes[i]);
+      }
+      if (!contentNodes[firstContentNodeIndex])
+        return;
+      const emotesManager = this.emotesManager;
+      for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
+        const contentNode = contentNodes[i];
+        const componentNode = contentNode.children[0];
+        if (!componentNode) {
+          continue;
+        }
+        switch (componentNode.className) {
+          case "chat-entry-content":
+            if (!componentNode.textContent)
+              continue;
+            if (!(componentNode instanceof Element)) {
+              error("Chat message content node not an Element?", componentNode);
+              continue;
+            }
+            this.renderEmotesInElement(componentNode, chatEntryNode);
+            break;
+          case "chat-emote-container":
+            const imgEl = componentNode.querySelector("img");
+            if (!imgEl)
+              continue;
+            imgEl.removeAttribute("class");
+            for (const attr in imgEl.dataset) {
+              if (attr.startsWith("v-")) {
+                imgEl.removeAttribute("data-" + attr);
+              }
+            }
+            const emoteName = imgEl.dataset.emoteName;
+            if (emoteName) {
+              const emoteHid = emotesManager.getEmoteHidByName(emoteName);
+              if (emoteHid) {
+                imgEl.setAttribute("data-emote-hid", emoteHid);
+              }
+            }
+            const newContentNode = document.createElement("span");
+            newContentNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
+            newContentNode.setAttribute("contenteditable", "false");
+            newContentNode.appendChild(imgEl);
+            chatEntryNode.appendChild(newContentNode);
+            break;
+        }
+      }
+      messageNode.classList.add("ntv__chat-message");
     }
     // Submits input to chat
     submitInput(suppressEngagementEvent = false) {
       const { eventBus, emotesManager } = this;
-      if (!this.elm.$textField || !this.elm.$originalTextField || !this.elm.$originalSubmitButton) {
+      if (!this.elm.textField || !this.elm.originalTextField || !this.elm.originalSubmitButton) {
         return error("Text field not loaded for submitting input");
       }
-      const originalTextFieldEl = this.elm.$originalTextField[0];
-      const originalSubmitButtonEl = this.elm.$originalSubmitButton[0];
-      const textFieldEl = this.elm.$textField[0];
+      const originalTextFieldEl = this.elm.originalTextField;
+      const originalSubmitButtonEl = this.elm.originalSubmitButton;
+      const textFieldEl = this.elm.textField;
       let parsedString = "";
       let emotesInMessage = /* @__PURE__ */ new Set();
+      let spaceBeforeFlag = false;
       for (const node of textFieldEl.childNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
           parsedString += node.textContent;
+          spaceBeforeFlag = false;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const emoteHid = node.dataset.emoteHid;
-          if (emoteHid) {
-            emotesInMessage.add(emoteHid);
-            const spacingBefore = parsedString[parsedString.length - 1] !== " ";
-            parsedString += emotesManager.getEmoteEmbeddable(emoteHid, spacingBefore);
+          const componentBody = node.childNodes[1];
+          const emoteBox = componentBody.childNodes[0];
+          if (emoteBox) {
+            const emoteHid = emoteBox.dataset.emoteHid;
+            if (emoteHid) {
+              emotesInMessage.add(emoteHid);
+              const spacingBefore = !spaceBeforeFlag ? " " : "";
+              parsedString += spacingBefore + emotesManager.getEmoteEmbeddable(emoteHid) + " ";
+              spaceBeforeFlag = true;
+            } else {
+              error("Invalid emote node, missing HID", emoteBox);
+            }
+          } else {
+            error("Invalid component node", componentBody.childNodes);
           }
         }
       }
@@ -2469,11 +3495,11 @@
     // Sends emote to chat and restores previous message
     sendEmoteToChat(emoteHid) {
       assertArgDefined(emoteHid);
-      if (!this.elm.$textField || !this.elm.$originalTextField || !this.elm.$submitButton) {
+      if (!this.elm.textField || !this.elm.originalTextField || !this.elm.submitButton) {
         return error("Text field not loaded for sending emote");
       }
-      const originalTextFieldEl = this.elm.$originalTextField[0];
-      const textFieldEl = this.elm.$textField[0];
+      const originalTextFieldEl = this.elm.originalTextField;
+      const textFieldEl = this.elm.textField;
       const oldMessage = textFieldEl.innerHTML;
       textFieldEl.innerHTML = "";
       this.insertEmoteInChat(emoteHid);
@@ -2482,43 +3508,49 @@
       originalTextFieldEl.innerHTML = oldMessage;
       originalTextFieldEl.dispatchEvent(new Event("input"));
       if (oldMessage) {
-        this.elm.$submitButton.removeAttr("disabled");
+        this.elm.submitButton.removeAttribute("disabled");
       }
     }
     insertEmoteInChat(emoteHid) {
       assertArgDefined(emoteHid);
-      const { emotesManager } = this;
-      this.messageHistory.resetCursor();
-      const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__inline-emote");
-      if (!emoteEmbedding)
-        return error("Invalid emote embed");
-      let embedNode;
-      const isEmbedHtml = emoteEmbedding[0] === "<" && emoteEmbedding[emoteEmbedding.length - 1] === ">";
-      if (isEmbedHtml) {
-        const nodes = jQuery.parseHTML(emoteEmbedding);
-        if (!nodes || !nodes.length || nodes.length > 1)
-          return error("Invalid embedding", emoteEmbedding);
-        embedNode = nodes[0];
+      const { emotesManager, inputController } = this;
+      if (!inputController)
+        return error("Text editor not loaded yet for emote insertion");
+      inputController.insertEmote(emoteHid);
+    }
+    insertNodesInChat(embedNodes) {
+      if (!embedNodes.length)
+        return error("No nodes to insert in chat");
+      const textFieldEl = this.elm.textField;
+      if (!textFieldEl)
+        return error("Text field not loaded for inserting node");
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount) {
+        const range = selection.getRangeAt(0);
+        const caretIsInTextField = range.commonAncestorContainer === textFieldEl || range.commonAncestorContainer?.parentElement === textFieldEl;
+        if (caretIsInTextField) {
+          range.deleteContents();
+          for (const node of embedNodes) {
+            range.insertNode(node);
+          }
+          selection.collapseToEnd();
+        } else {
+          textFieldEl.append(...embedNodes);
+        }
       } else {
-        const needPaddingBefore = Caret.hasNonWhitespaceCharacterBeforeCaret();
-        const needPaddingAfter = Caret.hasNonWhitespaceCharacterAfterCaret();
-        const paddedEmbedding = (needPaddingBefore ? " " : "") + emoteEmbedding + (needPaddingAfter ? " " : "");
-        embedNode = document.createTextNode(paddedEmbedding);
+        textFieldEl.append(...embedNodes);
       }
-      this.insertNodeInChat(embedNode);
-      this.elm.$submitButton?.removeAttr("disabled");
-      if (!this.elm.$originalTextField)
-        return error("Original text field not loaded for emote insertion");
-      this.elm.$originalTextField.html(this.elm.$textField?.html() || "");
+      textFieldEl.normalize();
+      textFieldEl.dispatchEvent(new Event("input"));
+      textFieldEl.focus();
     }
     insertNodeInChat(embedNode) {
       if (embedNode.nodeType !== Node.TEXT_NODE && embedNode.nodeType !== Node.ELEMENT_NODE) {
         return error("Invalid node type", embedNode);
       }
-      const $textField = this.elm.$textField;
-      if (!$textField)
+      const textFieldEl = this.elm.textField;
+      if (!textFieldEl)
         return error("Text field not loaded for inserting node");
-      const textFieldEl = $textField[0];
       const selection = window.getSelection();
       const range = selection?.anchorNode ? selection.getRangeAt(0) : null;
       if (range) {
@@ -2666,7 +3698,7 @@
       return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
     }
     getEmbeddableEmote(emote) {
-      return `[emote:${emote.id}:${emote.name}]`;
+      return `[emote:${emote.id}:]`;
     }
     getEmoteSrc(emote) {
       return `https://files.kick.com/emotes/${emote.id}/fullsize`;
@@ -3172,13 +4204,13 @@
                     type: "checkbox"
                   },
                   {
-                    label: "Highlight first messages (not yet implemented)",
-                    id: "shared.chat.appearance.highlight",
+                    label: "Highlight first messages",
+                    id: "shared.chat.appearance.highlight_first_message",
                     default: false,
                     type: "checkbox"
                   },
                   {
-                    label: "Highlight Color (not yet implemented)",
+                    label: "Highlight Color",
                     id: "shared.chat.appearance.highlight_color",
                     default: "",
                     type: "color"
@@ -3546,7 +4578,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.1.24",
+      VERSION: "1.2.1",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
