@@ -48,7 +48,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.loadSettings()
 
 		// Wait for text input & submit button to load
-		waitForElements(['#message-input', '#chatroom-footer button.base-button'], 5_000, abortSignal)
+		waitForElements(
+			['#message-input', '#chatroom-footer button.base-button', '.chat-input-wrapper .chat-input-icon'],
+			5_000,
+			abortSignal
+		)
 			.then(() => {
 				this.loadShadowProxyElements()
 
@@ -190,6 +194,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		const textFieldWrapperEl = $(`<div class="ntv__message-input__wrapper"></div>`)[0]
 		textFieldWrapperEl.append(textFieldEl)
 		originalTextFieldEl.parentElement!.parentElement?.append(textFieldWrapperEl)
+
+		$(textFieldEl).before($('.chat-input-wrapper .chat-input-icon'))
 
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
