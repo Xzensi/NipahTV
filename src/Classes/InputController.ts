@@ -138,20 +138,6 @@ export class InputController {
 		inputNode.addEventListener('keyup', this.eventTarget.dispatchEvent.bind(this.eventTarget))
 	}
 
-	insertNodes(nodes: Node[]) {
-		const selection = document.getSelection()
-		if (!selection) return
-
-		const range = selection.getRangeAt(0)
-		range.deleteContents()
-
-		for (let i = nodes.length - 1; i >= 0; i--) {
-			range.insertNode(nodes[i])
-		}
-
-		selection.collapseToEnd()
-	}
-
 	handleKeydown(event: KeyboardEvent) {
 		switch (event.key) {
 			case 'Backspace':
@@ -168,6 +154,13 @@ export class InputController {
 				break
 
 			default:
+				const selection = document.getSelection()
+				if (selection && selection.rangeCount) {
+					const range = selection.getRangeAt(0)
+					if (range && range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
+						this.adjustSelectionForceOutOfComponent(selection)
+					}
+				}
 			// if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
 			// 	this.deleteSelectionContents()
 			// }
@@ -346,7 +339,7 @@ export class InputController {
 
 		const { inputNode } = this
 		const range = selection.getRangeAt(0)
-		const { startContainer } = range
+		const { startContainer, startOffset } = range
 
 		// If selection focus and anchor are collapsed and caret is between component body
 		//  and zero-width space, push the caret out of the component on other side.
@@ -354,12 +347,14 @@ export class InputController {
 			if (!startContainer.parentElement?.classList.contains('ntv__input-component')) return
 
 			const nextSibling = startContainer.nextSibling
-			const componentIndex = Array.from(inputNode.childNodes).indexOf(startContainer.parentElement as any)
+			const prevSibling = startContainer.previousSibling
 
-			if (!nextSibling) {
-				selection.collapse(inputNode, componentIndex)
-			} else {
-				selection.collapse(inputNode, componentIndex + 1)
+			if (!nextSibling && startOffset === 0) {
+				const prevZWSP = prevSibling?.previousSibling
+				if (prevZWSP) selection.collapse(prevZWSP, 0)
+			} else if (startOffset === 1) {
+				const nextZWSP = nextSibling?.nextSibling
+				if (nextZWSP) selection.collapse(nextZWSP, 1)
 			}
 		}
 
@@ -371,6 +366,44 @@ export class InputController {
 
 			const isFocusInComponent = focusNode.parentElement?.classList.contains('ntv__input-component')
 			if (!isFocusInComponent) return
+
+			const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement as any)
+
+			if (!focusNode?.previousSibling) {
+				selection.extend(inputNode, componentIndex + 1)
+			} else {
+				selection.extend(inputNode, componentIndex)
+			}
+		}
+
+		// const test = selection.getRangeAt(0)
+		// log('Caret position:', test.startOffset, test.startContainer)
+	}
+
+	adjustSelectionForceOutOfComponent(selection?: Selection | null) {
+		selection = selection || window.getSelection()
+		if (!selection || !selection.rangeCount) return
+
+		const { inputNode } = this
+		const range = selection.getRangeAt(0)
+		const { startContainer } = range
+		const nextSibling = startContainer.nextSibling
+
+		if (selection.isCollapsed) {
+			const componentIndex = Array.from(inputNode.childNodes).indexOf(startContainer.parentElement as any)
+
+			if (!nextSibling) {
+				selection.collapse(inputNode, componentIndex + 1)
+			} else {
+				selection.collapse(inputNode, componentIndex)
+			}
+		}
+		// Technically this should never happen, but just in case
+		else {
+			error('Selection somehow reached inside component. This should never happen. Correcting it anyway.')
+
+			const focusNode = selection.focusNode
+			if (!focusNode) return
 
 			const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement as any)
 
@@ -883,10 +916,16 @@ export class InputController {
 			return
 		}
 
+		log('INSERTING TEXT')
 		let range
 		if (selection.rangeCount) {
 			range = selection.getRangeAt(0)
 			range.deleteContents()
+
+			if (range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
+				this.adjustSelectionForceOutOfComponent(selection)
+				range = selection.getRangeAt(0)
+			}
 		} else {
 			range = document.createRange()
 			range.setStart(inputNode, inputNode.childNodes.length)
@@ -897,6 +936,37 @@ export class InputController {
 		selection.removeAllRanges()
 		selection.addRange(range)
 		inputNode.normalize()
+	}
+
+	insertNodes(nodes: Node[]) {
+		const selection = document.getSelection()
+		if (!selection) return
+
+		if (!selection.rangeCount) {
+			for (let i = 0; i < nodes.length; i++) {
+				this.inputNode.appendChild(nodes[i])
+			}
+			Caret.collapseToEndOfNode(this.inputNode.lastChild!)
+			return
+		}
+
+		let range = selection.getRangeAt(0)
+		const { startContainer } = range
+		range.deleteContents()
+
+		log(startContainer.parentElement)
+
+		if (startContainer.parentElement?.classList.contains('ntv__input-component')) {
+			this.adjustSelectionForceOutOfComponent(selection)
+			range = selection.getRangeAt(0)
+		}
+
+		for (let i = nodes.length - 1; i >= 0; i--) {
+			range.insertNode(nodes[i])
+		}
+
+		selection.collapseToEnd()
+		this.inputNode.normalize
 	}
 
 	insertComponent(component: HTMLElement) {

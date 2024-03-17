@@ -31,8 +31,6 @@ export class Caret {
 		}
 
 		selection.removeAllRanges()
-
-		// Re-add the range to the selection
 		selection.addRange(range)
 	}
 

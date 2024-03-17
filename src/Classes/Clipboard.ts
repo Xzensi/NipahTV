@@ -47,13 +47,14 @@ export class Clipboard2 {
 		log(nodes)
 		for (const node of nodes) {
 			if (node instanceof Text) {
-				// if (prevNodeWasEmote) buffer += ' '
+				if (prevNodeWasEmote) buffer += ' '
 				prevNodeWasEmote = false
 				buffer += node.textContent
 			} else if (node instanceof HTMLElement) {
 				const emoteImg = node.querySelector('img')
 
 				if (emoteImg) {
+					// buffer += ' '
 					if (prevNodeWasEmote) buffer += ' '
 					else if (buffer && buffer[buffer.length - 1] !== ' ') buffer += ' '
 					prevNodeWasEmote = true
