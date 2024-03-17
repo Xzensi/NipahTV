@@ -95,6 +95,10 @@
 		white-space: normal;
 		line-height: 1em;
 		display: inline;
+
+		img {
+			cursor: pointer;
+		}
 	}
 
 	> div {

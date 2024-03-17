@@ -1,4 +1,4 @@
-import { log, info, error, assertArgDefined, waitForElements, cleanupHTML } from '../utils'
+import { log, info, error, assertArgDefined, waitForElements, cleanupHTML, md5 } from '../utils'
 import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
@@ -440,10 +440,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Insert emote in chat input when clicked
 		// Can't track click events on kick emotes, because they kill the even with stopPropagation()
-		$chatMessagesContainer.on('click', '.ntv__emote-box img', evt => {
-			const emoteHid = evt.target.dataset.emoteHid
-			if (!emoteHid) return
-			this.insertEmoteInChat(emoteHid)
+		$chatMessagesContainer.on('click', '.ntv__inline-emote-box img', evt => {
+			const emoteHid = evt.target.getAttribute('data-emote-hid')
+			if (emoteHid) this.insertEmoteInChat(emoteHid)
 		})
 	}
 
@@ -528,6 +527,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Chat message after username is empty..
 		if (!contentNodes[firstContentNodeIndex]) return
 
+		const emotesManager = this.emotesManager
+
 		// Skip first two nodes, they are the username etc
 		for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
 			const contentNode = contentNodes[i]
@@ -556,6 +557,13 @@ export class KickUserInterface extends AbstractUserInterface {
 					for (const attr in imgEl.dataset) {
 						if (attr.startsWith('v-')) {
 							imgEl.removeAttribute('data-' + attr)
+						}
+					}
+					const emoteName = imgEl.dataset.emoteName
+					if (emoteName) {
+						const emoteHid = emotesManager.getEmoteHidByName(emoteName)
+						if (emoteHid) {
+							imgEl.setAttribute('data-emote-hid', emoteHid)
 						}
 					}
 
