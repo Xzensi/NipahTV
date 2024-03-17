@@ -47,6 +47,11 @@ function maybeInsertSpaceCharacterAfterComponent(component: HTMLElement) {
 	}
 }
 
+function eventKeyIsVisibleCharacter(event: KeyboardEvent) {
+	if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) return true
+	return false
+}
+
 export class InputController {
 	private emotesManager: EmotesManager
 	private messageHistory: MessagesHistory
@@ -154,16 +159,15 @@ export class InputController {
 				break
 
 			default:
-				const selection = document.getSelection()
-				if (selection && selection.rangeCount) {
-					const range = selection.getRangeAt(0)
-					if (range && range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
-						this.adjustSelectionForceOutOfComponent(selection)
+				if (eventKeyIsVisibleCharacter(event)) {
+					const selection = document.getSelection()
+					if (selection && selection.rangeCount) {
+						const range = selection.getRangeAt(0)
+						if (range && range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
+							this.adjustSelectionForceOutOfComponent(selection)
+						}
 					}
 				}
-			// if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
-			// 	this.deleteSelectionContents()
-			// }
 		}
 	}
 
@@ -262,8 +266,6 @@ export class InputController {
 	}
 
 	deleteForwards(evt: KeyboardEvent) {
-		// TODO quick dirty mirrored code of deleteBackwards(), there are some issues with it that require debugging.
-
 		const { inputNode } = this
 
 		const selection = document.getSelection()
@@ -893,7 +895,6 @@ export class InputController {
 			return
 		}
 
-		log('INSERTING TEXT')
 		let range
 		if (selection.rangeCount) {
 			range = selection.getRangeAt(0)
@@ -930,8 +931,6 @@ export class InputController {
 		let range = selection.getRangeAt(0)
 		const { startContainer } = range
 		range.deleteContents()
-
-		log(startContainer.parentElement)
 
 		if (startContainer.parentElement?.classList.contains('ntv__input-component')) {
 			this.adjustSelectionForceOutOfComponent(selection)
