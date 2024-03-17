@@ -74,13 +74,13 @@ export class SettingsManager {
 									type: 'checkbox'
 								},
 								{
-									label: 'Highlight first messages (not yet implemented)',
-									id: 'shared.chat.appearance.highlight',
+									label: 'Highlight first messages',
+									id: 'shared.chat.appearance.highlight_first_message',
 									default: false,
 									type: 'checkbox'
 								},
 								{
-									label: 'Highlight Color (not yet implemented)',
+									label: 'Highlight Color',
 									id: 'shared.chat.appearance.highlight_color',
 									default: '',
 									type: 'color'

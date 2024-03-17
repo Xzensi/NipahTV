@@ -1,4 +1,4 @@
-import { log, info, error, assertArgDefined, waitForElements, cleanupHTML, md5 } from '../utils'
+import { log, info, error, assertArgDefined, waitForElements, cleanupHTML, md5, hex2rgb } from '../utils'
 import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
@@ -44,6 +44,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const { eventBus, settingsManager, abortController } = this
 		const abortSignal = abortController.signal
+
+		this.loadSettings()
 
 		// Wait for text input & submit button to load
 		waitForElements(['#message-input', '#chatroom-footer button.base-button'], 5_000, abortSignal)
@@ -150,6 +152,22 @@ export class KickUserInterface extends AbstractUserInterface {
 	async loadQuickEmotesHolder() {
 		const { eventBus, settingsManager, emotesManager } = this
 		this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init()
+	}
+
+	loadSettings() {
+		const { eventBus, settingsManager } = this
+
+		const firstMessageHighlightColor = settingsManager.getSetting('shared.chat.appearance.highlight_color')
+		if (firstMessageHighlightColor) {
+			const rgb = hex2rgb(firstMessageHighlightColor)
+			document.documentElement.style.setProperty('--color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
+		}
+
+		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.highlight_color', (data: { value: string }) => {
+			if (!data.value) return
+			const rgb = hex2rgb(data.value)
+			document.documentElement.style.setProperty('--color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
+		})
 	}
 
 	loadShadowProxyElements() {
@@ -464,6 +482,14 @@ export class KickUserInterface extends AbstractUserInterface {
 			const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
 			const chatEntryUserName = usernameEl.textContent
 			if (chatEntryUserId && chatEntryUserName) {
+				if (!this.usersManager.hasSeenUser(chatEntryUserName)) {
+					const enableFirstMessageHighlight = this.settingsManager.getSetting(
+						'shared.chat.appearance.highlight_first_message'
+					)
+					if (enableFirstMessageHighlight) {
+						messageNode.classList.add('ntv__highlight-first-message')
+					}
+				}
 				this.usersManager.registerUser(chatEntryUserId, chatEntryUserName)
 			}
 		}
@@ -505,6 +531,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		*/
 
 		const chatEntryNode = messageNode.children[0]
+		if (!chatEntryNode) return error('ChatEntryNode not found for message', messageNode)
 		const uselessWrapperNode = chatEntryNode.children[0]
 		const contentNodes = Array.from(uselessWrapperNode.children)
 		const contentNodesLength = contentNodes.length

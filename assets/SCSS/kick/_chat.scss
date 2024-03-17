@@ -106,11 +106,14 @@
 	}
 }
 
+.ntv__highlight-first-message {
+	background-color: var(--background-highlight-accent-1);
+}
+
 .ntv__message-input__wrapper {
-	background-color: rgba(255, 255, 255, 0.04);
-	// background-color: rgb(36 39 44 / var(--tw-bg-opacity));
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	background-color: rgba(255, 255, 255, 0.04);
 	font-size: $root_font_size;
 	transition-duration: 0.2s;
 	border-color: #a8b1b855;
