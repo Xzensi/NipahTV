@@ -3,6 +3,7 @@ import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderCompon
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
 import { AbstractUserInterface } from './AbstractUserInterface'
+import { InputController } from '../Classes/InputController'
 import { TabCompletor } from '../Classes/TabCompletor'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
@@ -10,27 +11,29 @@ import { Caret } from './Caret'
 export class KickUserInterface extends AbstractUserInterface {
 	abortController = new AbortController()
 
-	elm: {
-		$originalTextField: JQuery<HTMLElement> | null
-		$originalSubmitButton: JQuery<HTMLElement> | null
-		$chatMessagesContainer: JQuery<HTMLElement> | null
-		$submitButton: JQuery<HTMLElement> | null
-		$textField: JQuery<HTMLElement> | null
-	} = {
-		$originalTextField: null,
-		$originalSubmitButton: null,
-		$chatMessagesContainer: null,
-		$submitButton: null,
-		$textField: null
-	}
-	stickyScroll = true
-	maxMessageLength = 500
-
+	clipboard = new Clipboard2()
+	inputController: InputController | null = null
 	chatObserver: MutationObserver | null = null
 	emoteMenu: EmoteMenuComponent | null = null
 	emoteMenuButton: EmoteMenuButtonComponent | null = null
 	quickEmotesHolder: QuickEmotesHolderComponent | null = null
 	tabCompletor: TabCompletor | null = null
+
+	elm: {
+		originalTextField: HTMLElement | null
+		originalSubmitButton: HTMLElement | null
+		chatMessagesContainer: HTMLElement | null
+		submitButton: HTMLElement | null
+		textField: HTMLElement | null
+	} = {
+		originalTextField: null,
+		originalSubmitButton: null,
+		chatMessagesContainer: null,
+		submitButton: null,
+		textField: null
+	}
+	stickyScroll = true
+	maxMessageLength = 500
 
 	constructor(deps: any) {
 		super(deps)
@@ -42,29 +45,15 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { eventBus, settingsManager, abortController } = this
 		const abortSignal = abortController.signal
 
-		// Wait for text input to load
-		waitForElements(['#message-input'], 5_000, abortSignal)
+		// Wait for text input & submit button to load
+		waitForElements(['#message-input', '#chatroom-footer button.base-button'], 5_000, abortSignal)
 			.then(() => {
-				this.loadShadowProxyTextField()
+				this.loadShadowProxyElements()
 
 				this.loadEmoteMenu()
+				this.loadEmoteMenuButton()
 				this.loadChatHistoryBehaviour()
 				this.loadTabCompletionBehaviour()
-			})
-			.catch(() => {})
-
-		// Wait for quick emotes holder to load
-		waitForElements(['#chatroom-footer .quick-emotes-holder'], 5_000, abortSignal)
-			.then(() => {
-				this.loadQuickEmotesHolder()
-			})
-			.catch(() => {})
-
-		// Wait for submit button to load
-		waitForElements(['#chatroom-footer button.base-button'], 5_000, abortSignal)
-			.then(() => {
-				this.loadShadowProxySubmitButton()
-				this.loadEmoteMenuButton()
 
 				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
 					$('#chatroom').addClass('ntv__hide-emote-menu-button')
@@ -76,12 +65,19 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
+		// Wait for quick emotes holder to load
+		waitForElements(['#chatroom-footer .quick-emotes-holder'], 5_000, abortSignal)
+			.then(() => {
+				this.loadQuickEmotesHolder()
+			})
+			.catch(() => {})
+
 		// Wait for chat messages container to load
 		waitForElements(['#chatroom > div:nth-child(2) > .overflow-y-scroll'], 5_000, abortSignal)
 			.then(() => {
-				const $chatMessagesContainer = (this.elm.$chatMessagesContainer = $(
+				const chatMessagesContainer = (this.elm.chatMessagesContainer = $(
 					'#chatroom > div:nth-child(2) > .overflow-y-scroll'
-				))
+				)[0])
 
 				// Add alternating background color to chat messages
 				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
@@ -95,7 +91,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 
 				// Render emotes in chat when providers are loaded
-				eventBus.subscribe('ntv.providers.loaded', this.renderEmotesInChat.bind(this), true)
+				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
 
 				this.observeChatMessages()
 				this.loadScrollingBehaviour()
@@ -135,15 +131,15 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async loadEmoteMenu() {
 		const { channelData, eventBus, settingsManager, emotesManager } = this
-		if (!this.elm.$textField) return error('Text field not loaded for emote menu')
+		if (!this.elm.textField) return error('Text field not loaded for emote menu')
 
-		const container = this.elm.$textField.parent().parent()[0]
+		const container = this.elm.textField.parentElement!.parentElement!
 		this.emoteMenu = new EmoteMenuComponent(
 			{ channelData, eventBus, emotesManager, settingsManager },
 			container
 		).init()
 
-		this.elm.$textField.on('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
+		this.elm.textField.addEventListener('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
 	}
 
 	async loadEmoteMenuButton() {
@@ -156,92 +152,69 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init()
 	}
 
-	loadShadowProxySubmitButton() {
-		const $originalSubmitButton = (this.elm.$originalSubmitButton = $('#chatroom-footer button.base-button'))
-		const $submitButton = (this.elm.$submitButton = $(`<button class="ntv__submit-button disabled">Chat</button>`))
-		$originalSubmitButton.after($submitButton)
+	loadShadowProxyElements() {
+		//////////////////////////////////////
+		//====// Proxy Submit Button //====//
+		const originalSubmitButtonEl = (this.elm.originalSubmitButton = $('#chatroom-footer button.base-button')[0])
+		const submitButtonEl = (this.elm.submitButton = $(
+			`<button class="ntv__submit-button disabled">Chat</button>`
+		)[0])
+		originalSubmitButtonEl.after(submitButtonEl)
 
-		$submitButton.on('click' as any, this.submitInput.bind(this, false))
-	}
-
-	loadShadowProxyTextField() {
-		const $originalTextField = (this.elm.$originalTextField = $('#message-input'))
-		const placeholder = $originalTextField.data('placeholder')
-		const $textField = (this.elm.$textField = $(
+		///////////////////////////////////
+		//====// Proxy Text Field //====//
+		const originalTextFieldEl = (this.elm.originalTextField = $('#message-input')[0])
+		const placeholder = originalTextFieldEl.dataset.placeholder
+		const textFieldEl = (this.elm.textField = $(
 			`<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
-		))
-		const originalTextFieldEl = $originalTextField[0]
-		const textFieldEl = $textField[0]
+		)[0])
 
-		const $textFieldWrapper = $(`<div class="ntv__message-input__wrapper"></div>`)
-		$textFieldWrapper.append($textField)
-		$originalTextField.parent().parent().append($textFieldWrapper)
+		const textFieldWrapperEl = $(`<div class="ntv__message-input__wrapper"></div>`)[0]
+		textFieldWrapperEl.append(textFieldEl)
+		originalTextFieldEl.parentElement!.parentElement?.append(textFieldWrapperEl)
 
-		// Shift focus to shadow text field when original text field is focused
-		originalTextFieldEl.addEventListener('focus', () => textFieldEl.focus(), { passive: true })
+		////////////////////////////////////////////////
+		//====// Proxy Element Event Listeners //====//
+		submitButtonEl.addEventListener('click', this.submitInput.bind(this, false))
 
-		textFieldEl.addEventListener(
-			'input',
-			evt => {
-				const $submitButton = this.elm.$submitButton
-				if (!$submitButton) return
+		const inputController = (this.inputController = new InputController(this, textFieldEl))
+		inputController.attachEventListeners()
 
-				// Enable/disable submit button based on text field content
-				if (textFieldEl.children.length && textFieldEl.children[0]?.tagName !== 'BR') {
-					$submitButton.removeClass('disabled')
-				} else if (!$submitButton.hasClass('disabled')) {
-					$submitButton.addClass('disabled')
-				}
-			},
-			{ passive: true }
-		)
+		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
+			if (event.detail.isEmpty) {
+				submitButtonEl.setAttribute('disabled', '')
+				submitButtonEl.classList.add('disabled')
+			} else {
+				submitButtonEl.removeAttribute('disabled')
+				submitButtonEl.classList.remove('disabled')
+			}
+		})
 
-		textFieldEl.addEventListener('keydown', evt => {
-			if (evt.key === 'Enter' && !this.tabCompletor?.isShowingModal) {
-				evt.preventDefault()
+		inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
+			// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
+			if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+				this.messageHistory.resetCursor()
+			}
+
+			if (event.key === 'Enter') {
+				event.preventDefault()
+				event.stopImmediatePropagation()
 				this.submitInput()
 			}
 		})
 
-		textFieldEl.addEventListener(
-			'keyup',
-			evt => {
-				$originalTextField[0].innerHTML = textFieldEl.innerHTML
-				// $originalTextField[0].dispatchEvent(new Event('input')) // This breaks kick emotes for some reason
-
-				// Contenteditable is a nightmare in Firefox, keeps injecting <br> tags
-				//  best solution I found yet, is to use :before to prevent collapse
-				//  but now the caret gets placed after the :before pseudo element..
-				//  Also bugs in Firefox keep causing the caret to shift outside the text field.
-				if (textFieldEl.children.length === 1 && textFieldEl.children[0].tagName === 'BR') {
-					textFieldEl.children[0].remove()
-					textFieldEl.normalize()
-				}
-
-				if (evt.keyCode > 47 && evt.keyCode < 112) {
-					// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
-					this.messageHistory.resetCursor()
-				}
-			},
-			{ passive: true }
-		)
-
-		const clipboard = new Clipboard2()
-		textFieldEl.addEventListener('paste', evt => {
+		// Redirect focus to proxy text field when original text field is focused.
+		originalTextFieldEl.addEventListener('focus', (evt: Event) => {
 			evt.preventDefault()
+			textFieldEl.focus()
+		})
 
-			const messageParts = clipboard.parsePastedMessage(evt)
-			if (!messageParts || !messageParts.length) return
+		textFieldEl.addEventListener('cut', evt => {
+			this.clipboard.handleCutEvent(evt)
+		})
 
-			for (let i = 0; i < messageParts.length; i++) {
-				messageParts[i] = this.renderEmotesInText(messageParts[i])
-			}
-
-			clipboard.pasteHTML(messageParts.join(''))
-
-			if (textFieldEl.childNodes.length) {
-				this.elm.$submitButton?.removeClass('disabled')
-			}
+		textFieldEl.addEventListener('copy', evt => {
+			this.clipboard.handleCopyEvent(evt)
 		})
 
 		// Ignore control keys that are not used for typing
@@ -306,10 +279,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { settingsManager } = this
 		if (!settingsManager.getSetting('shared.chat.input.history.enable')) return
 
-		const $textField = this.elm.$textField
-		if (!$textField) return error('Text field not loaded for chat history')
-
-		const textFieldEl = $textField[0]
+		const textFieldEl = this.elm.textField
+		if (!textFieldEl) return error('Text field not loaded for chat history')
 
 		textFieldEl.addEventListener('keydown', evt => {
 			if (this.tabCompletor?.isShowingModal) return
@@ -353,27 +324,18 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadTabCompletionBehaviour() {
-		const { emotesManager, usersManager } = this
+		const { emotesManager, usersManager, inputController } = this
 
-		const $textField = this.elm.$textField
-		if (!$textField) return error('Text field not loaded for chat history')
-		const textFieldEl = $textField[0]
+		const textFieldEl = this.elm.textField
+		if (!textFieldEl) return error('Text field not loaded for chat history')
 
-		const tabCompletor = (this.tabCompletor = new TabCompletor({ emotesManager, usersManager }))
-		tabCompletor.createModal($textField.parent().parent()[0])
-
-		textFieldEl.addEventListener('keydown', tabCompletor.handleKeydown.bind(tabCompletor))
-
-		textFieldEl.addEventListener('keyup', evt => {
-			if (this.tabCompletor?.isShowingModal) {
-				if (
-					(!textFieldEl.textContent || textFieldEl.textContent.trim() === '') &&
-					!textFieldEl.childNodes.length
-				) {
-					tabCompletor.reset()
-				}
-			}
-		})
+		const tabCompletor = (this.tabCompletor = new TabCompletor({
+			emotesManager,
+			usersManager,
+			inputController
+		} as any))
+		tabCompletor.attachEventHandlers()
+		tabCompletor.createModal(textFieldEl.parentElement!.parentElement!)
 
 		// Hide tab completion modal when clicking outside of it by calling tabCompletor.reset()
 		document.addEventListener('click', evt => {
@@ -384,14 +346,14 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadScrollingBehaviour() {
-		const $chatMessagesContainer = this.elm.$chatMessagesContainer
-		if (!$chatMessagesContainer) return error('Chat messages container not loaded for scrolling behaviour')
+		const chatMessagesContainerEl = this.elm.chatMessagesContainer
+		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for scrolling behaviour')
 
 		// Scroll is sticky by default
-		if (this.stickyScroll) $chatMessagesContainer.parent().addClass('ntv__sticky-scroll')
+		if (this.stickyScroll) chatMessagesContainerEl.parentElement?.classList.add('ntv__sticky-scroll')
 
 		// Enable sticky scroll when user scrolls to bottom
-		$chatMessagesContainer[0].addEventListener(
+		chatMessagesContainerEl.addEventListener(
 			'scroll',
 			evt => {
 				if (!this.stickyScroll) {
@@ -400,7 +362,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					const isAtBottom = (target.scrollHeight || 0) - target.scrollTop <= target.clientHeight + 15
 
 					if (isAtBottom) {
-						$chatMessagesContainer.parent().addClass('ntv__sticky-scroll')
+						chatMessagesContainerEl.parentElement?.classList.add('ntv__sticky-scroll')
 						target.scrollTop = 99999
 						this.stickyScroll = true
 					}
@@ -410,11 +372,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Disable sticky scroll when user scrolls up
-		$chatMessagesContainer[0].addEventListener(
+		chatMessagesContainerEl.addEventListener(
 			'wheel',
 			evt => {
 				if (this.stickyScroll && evt.deltaY < 0) {
-					$chatMessagesContainer.parent().removeClass('ntv__sticky-scroll')
+					chatMessagesContainerEl.parentElement?.classList.remove('ntv__sticky-scroll')
 					this.stickyScroll = false
 				}
 			},
@@ -423,29 +385,31 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	observeChatMessages() {
-		const $chatMessagesContainer = this.elm.$chatMessagesContainer
-		if (!$chatMessagesContainer) return error('Chat messages container not loaded for observing')
-		const chatMessagesContainerEl = $chatMessagesContainer[0]
+		const chatMessagesContainerEl = this.elm.chatMessagesContainer
+		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for observing')
+		const $chatMessagesContainer = $(chatMessagesContainerEl)
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
-		// Render emotes in chat when new messages are added
-		const observer = (this.chatObserver = new MutationObserver(mutations => {
-			mutations.forEach(mutation => {
-				if (mutation.addedNodes.length) {
-					for (const messageNode of mutation.addedNodes) {
-						if (messageNode.nodeType !== Node.ELEMENT_NODE) continue
-						this.renderEmotesInMessage(messageNode as HTMLElement)
+		this.eventBus.subscribe('ntv.providers.loaded', () => {
+			// Render emotes in chat when new messages are added
+			const observer = (this.chatObserver = new MutationObserver(mutations => {
+				mutations.forEach(mutation => {
+					if (mutation.addedNodes.length) {
+						for (const messageNode of mutation.addedNodes) {
+							if (messageNode instanceof HTMLElement) {
+								this.renderChatMessage(messageNode)
+							}
+						}
+						if (this.stickyScroll) {
+							// We need to wait for the next frame paint call to render before scrolling to bottom
+							window.requestAnimationFrame(scrollToBottom)
+						}
 					}
-					if (this.stickyScroll) {
-						// We need to wait for the next frame paint call to render before scrolling to bottom
-						window.requestAnimationFrame(scrollToBottom)
-					}
-				}
-			})
-		}))
-
-		observer.observe(chatMessagesContainerEl, { childList: true })
+				})
+			}))
+			observer.observe(chatMessagesContainerEl, { childList: true })
+		})
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')
@@ -483,17 +447,17 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 	}
 
-	renderEmotesInChat() {
-		if (!this.elm || !this.elm.$chatMessagesContainer) return
-		const chatMessagesContainerEl = this.elm.$chatMessagesContainer[0]
+	renderChatMessages() {
+		if (!this.elm || !this.elm.chatMessagesContainer) return
+		const chatMessagesContainerEl = this.elm.chatMessagesContainer
 		const chatMessagesContainerNode = chatMessagesContainerEl
 
 		for (const messageNode of chatMessagesContainerNode.children) {
-			this.renderEmotesInMessage(messageNode as HTMLElement)
+			this.renderChatMessage(messageNode as HTMLElement)
 		}
 	}
 
-	renderEmotesInMessage(messageNode: HTMLElement) {
+	renderChatMessage(messageNode: HTMLElement) {
 		const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
 		if (usernameEl) {
 			const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
@@ -503,37 +467,149 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}
 
-		const messageContentNodes = messageNode.querySelectorAll('.chat-entry-content')
-		for (const contentNode of messageContentNodes) {
-			if (!contentNode.textContent) continue
-			contentNode.innerHTML = this.renderEmotesInText(contentNode.textContent)
+		/*
+		  * Kick chat message structure:
+			<div data-chat-entry="...">
+				<div class="chat-entry">
+					<div> <---|| Useless wrapper node ||
+						<span class="chat-message-identity">Foobar</span>
+						<span class="font-bold text-white">: </span>
+						<span> <---|| The content nodes start here ||
+							<span class="chat-entry-content"> <---|| Chat message components (text component) ||
+								Foobar
+							</div>
+						</span>
+						<span>
+							<div class="chat-emote-container"> <---|| Chat message components (emote component) ||
+								<div class="relative">
+									<img>
+								</div>
+							</div>
+						</span>
+					</div>
+				</div>
+			</div>
+
+		  * We unpack the chat message components and render them in our format:
+			<div data-chat-entry="...">
+				<div class="chat-entry"> <---|| Can't get rid of this, because Kick hooks into it with buttons ||
+					<div class="ntv__chat-message">
+						<span class="ntv__chat-message__part">Foobar</span>
+						<span class="ntv__chat-message__part ntv__inline-emote-box">
+							<img>
+						</span>
+					</div>
+				</div>
+			</div>
+		*/
+
+		const chatEntryNode = messageNode.children[0]
+		const uselessWrapperNode = chatEntryNode.children[0]
+		const contentNodes = Array.from(uselessWrapperNode.children)
+		const contentNodesLength = contentNodes.length
+
+		// We remove the useless wrapper node because we unpack it's contents to parent
+		uselessWrapperNode.remove()
+
+		// Find index of first content node after username etc
+		let firstContentNodeIndex = 0
+		for (let i = 0; i < contentNodes.length; i++) {
+			if (contentNodes[i].textContent === ': ') {
+				firstContentNodeIndex = i + 1
+				break
+			}
 		}
+
+		// Append username etc nodes to chat entry node
+		for (let i = 0; i < firstContentNodeIndex; i++) {
+			chatEntryNode.appendChild(contentNodes[i])
+		}
+
+		// Chat message after username is empty..
+		if (!contentNodes[firstContentNodeIndex]) return
+
+		// Skip first two nodes, they are the username etc
+		for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
+			const contentNode = contentNodes[i]
+			const componentNode = contentNode.children[0] // Either text or emote component
+			if (!componentNode) {
+				log('Chat message component node not found. Are chat messages being rendered twice?', contentNode)
+				continue
+			}
+
+			// We extract and flatten the Kick components to our format
+			switch (componentNode.className) {
+				case 'chat-entry-content':
+					if (!componentNode.textContent) continue
+					if (!(componentNode instanceof Element)) {
+						error('Chat message content node not an Element?', componentNode)
+						continue
+					}
+					this.renderEmotesInElement(componentNode, chatEntryNode)
+					break
+
+				case 'chat-emote-container':
+					// Unwrap and clean up native Kick emotes
+					const imgEl = componentNode.querySelector('img')
+					if (!imgEl) continue
+					imgEl.removeAttribute('class')
+					for (const attr in imgEl.dataset) {
+						if (attr.startsWith('v-')) {
+							imgEl.removeAttribute('data-' + attr)
+						}
+					}
+
+					const newContentNode = document.createElement('span')
+					newContentNode.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
+					newContentNode.setAttribute('contenteditable', 'false')
+					newContentNode.appendChild(imgEl)
+					chatEntryNode.appendChild(newContentNode)
+					break
+			}
+		}
+
+		// Adding this class removes the display: none from the chat message, causing a reflow
+		messageNode.classList.add('ntv__chat-message')
 	}
 
 	// Submits input to chat
 	submitInput(suppressEngagementEvent = false) {
 		const { eventBus, emotesManager } = this
 
-		if (!this.elm.$textField || !this.elm.$originalTextField || !this.elm.$originalSubmitButton) {
+		if (!this.elm.textField || !this.elm.originalTextField || !this.elm.originalSubmitButton) {
 			return error('Text field not loaded for submitting input')
 		}
 
-		const originalTextFieldEl = this.elm.$originalTextField[0]
-		const originalSubmitButtonEl = this.elm.$originalSubmitButton[0]
-		const textFieldEl = this.elm.$textField[0]
+		const originalTextFieldEl = this.elm.originalTextField
+		const originalSubmitButtonEl = this.elm.originalSubmitButton
+		const textFieldEl = this.elm.textField
 
 		let parsedString = ''
 		let emotesInMessage = new Set()
+		let spaceBeforeFlag = false
 		for (const node of textFieldEl.childNodes) {
 			if (node.nodeType === Node.TEXT_NODE) {
 				parsedString += node.textContent
+				spaceBeforeFlag = false
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				const emoteHid = (node as HTMLElement).dataset.emoteHid
+				const componentBody = node.childNodes[1]
+				const emoteBox = componentBody.childNodes[0]
 
-				if (emoteHid) {
-					emotesInMessage.add(emoteHid)
-					const spacingBefore = parsedString[parsedString.length - 1] !== ' '
-					parsedString += emotesManager.getEmoteEmbeddable(emoteHid, spacingBefore)
+				if (emoteBox) {
+					const emoteHid = (emoteBox as HTMLElement).dataset.emoteHid
+
+					if (emoteHid) {
+						emotesInMessage.add(emoteHid)
+						// Spacing doesn't really work anyway because Kick strips double spaces..
+						// const spacingBefore = parsedString[parsedString.length - 1] !== ' '
+						const spacingBefore = !spaceBeforeFlag ? ' ' : ''
+						parsedString += spacingBefore + emotesManager.getEmoteEmbeddable(emoteHid) + ' '
+						spaceBeforeFlag = true
+					} else {
+						error('Invalid emote node, missing HID', emoteBox)
+					}
+				} else {
+					error('Invalid component node', componentBody.childNodes)
 				}
 			}
 		}
@@ -570,12 +646,12 @@ export class KickUserInterface extends AbstractUserInterface {
 	sendEmoteToChat(emoteHid: string) {
 		assertArgDefined(emoteHid)
 
-		if (!this.elm.$textField || !this.elm.$originalTextField || !this.elm.$submitButton) {
+		if (!this.elm.textField || !this.elm.originalTextField || !this.elm.submitButton) {
 			return error('Text field not loaded for sending emote')
 		}
 
-		const originalTextFieldEl = this.elm.$originalTextField[0]
-		const textFieldEl = this.elm.$textField[0]
+		const originalTextFieldEl = this.elm.originalTextField
+		const textFieldEl = this.elm.textField
 
 		const oldMessage = textFieldEl.innerHTML
 		textFieldEl.innerHTML = ''
@@ -588,39 +664,48 @@ export class KickUserInterface extends AbstractUserInterface {
 		originalTextFieldEl.dispatchEvent(new Event('input'))
 
 		if (oldMessage) {
-			this.elm.$submitButton.removeAttr('disabled')
+			this.elm.submitButton.removeAttribute('disabled')
 		}
 	}
 
 	insertEmoteInChat(emoteHid: string) {
 		assertArgDefined(emoteHid)
-		const { emotesManager } = this
+		const { emotesManager, inputController } = this
 
-		// Inserting emote means you chose the history entry, so we reset the cursor
-		this.messageHistory.resetCursor()
+		if (!inputController) return error('Text editor not loaded yet for emote insertion')
 
-		const emoteEmbedding = emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__inline-emote')
-		if (!emoteEmbedding) return error('Invalid emote embed')
+		inputController.insertEmote(emoteHid)
+	}
 
-		let embedNode
-		const isEmbedHtml = emoteEmbedding[0] === '<' && emoteEmbedding[emoteEmbedding.length - 1] === '>'
-		if (isEmbedHtml) {
-			const nodes = jQuery.parseHTML(emoteEmbedding)
-			if (!nodes || !nodes.length || nodes.length > 1) return error('Invalid embedding', emoteEmbedding)
-			embedNode = nodes[0]
+	insertNodesInChat(embedNodes: Node[]) {
+		if (!embedNodes.length) return error('No nodes to insert in chat')
+
+		const textFieldEl = this.elm.textField
+		if (!textFieldEl) return error('Text field not loaded for inserting node')
+
+		const selection = window.getSelection()
+		if (selection && selection.rangeCount) {
+			const range = selection.getRangeAt(0)
+			const caretIsInTextField =
+				range.commonAncestorContainer === textFieldEl ||
+				range.commonAncestorContainer?.parentElement === textFieldEl
+
+			if (caretIsInTextField) {
+				range.deleteContents()
+				for (const node of embedNodes) {
+					range.insertNode(node)
+				}
+				selection.collapseToEnd()
+			} else {
+				textFieldEl.append(...embedNodes)
+			}
 		} else {
-			const needPaddingBefore = Caret.hasNonWhitespaceCharacterBeforeCaret()
-			const needPaddingAfter = Caret.hasNonWhitespaceCharacterAfterCaret()
-			const paddedEmbedding = (needPaddingBefore ? ' ' : '') + emoteEmbedding + (needPaddingAfter ? ' ' : '')
-			embedNode = document.createTextNode(paddedEmbedding)
+			textFieldEl.append(...embedNodes)
 		}
 
-		this.insertNodeInChat(embedNode)
-		this.elm.$submitButton?.removeAttr('disabled')
-
-		// Update original text field to match the shadow text field
-		if (!this.elm.$originalTextField) return error('Original text field not loaded for emote insertion')
-		this.elm.$originalTextField.html(this.elm.$textField?.html() || '')
+		textFieldEl.normalize()
+		textFieldEl.dispatchEvent(new Event('input'))
+		textFieldEl.focus()
 	}
 
 	insertNodeInChat(embedNode: Node) {
@@ -628,9 +713,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			return error('Invalid node type', embedNode)
 		}
 
-		const $textField = this.elm.$textField
-		if (!$textField) return error('Text field not loaded for inserting node')
-		const textFieldEl = $textField[0]
+		const textFieldEl = this.elm.textField
+		if (!textFieldEl) return error('Text field not loaded for inserting node')
 
 		const selection = window.getSelection()
 		const range = selection?.anchorNode ? selection.getRangeAt(0) : null

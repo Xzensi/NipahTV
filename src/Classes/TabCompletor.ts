@@ -2,30 +2,53 @@ import { EmotesManager } from '../Managers/EmotesManager'
 import { UsersManager } from '../Managers/UsersManager'
 import { Caret } from '../UserInterface/Caret'
 import { error, log } from '../utils'
+import { InputController } from './InputController'
 
 export class TabCompletor {
-	suggestions = []
-	suggestionHids = []
-	selectedIndex = 0
+	private suggestions = []
+	private suggestionHids = []
+	private selectedIndex = 0
+	private mode = ''
+	private $list?: JQuery<HTMLElement>
+	private $modal?: JQuery<HTMLElement>
+
 	isShowingModal = false
-	mode = ''
-	$list?: JQuery<HTMLElement>
-	$modal?: JQuery<HTMLElement>
 
 	// Context
-	start = 0
-	end = 0
-	mentionEnd = 0
-	node: Node | null = null
-	word: string | null = null
-	embedNode: HTMLElement | null = null
+	private start = 0
+	private end = 0
+	private mentionEnd = 0
+	private node: Node | null = null
+	private word: string | null = null
+	private emoteComponent: HTMLElement | null = null
 
-	emotesManager: EmotesManager
-	usersManager: UsersManager
+	private emotesManager: EmotesManager
+	private usersManager: UsersManager
+	private inputController: InputController
 
-	constructor({ emotesManager, usersManager }: { emotesManager: EmotesManager; usersManager: UsersManager }) {
+	constructor({
+		emotesManager,
+		usersManager,
+		inputController
+	}: {
+		emotesManager: EmotesManager
+		usersManager: UsersManager
+		inputController: InputController
+	}) {
 		this.emotesManager = emotesManager
 		this.usersManager = usersManager
+		this.inputController = inputController
+	}
+
+	attachEventHandlers() {
+		const { inputController } = this
+		inputController.addEventListener('keydown', 8, this.handleKeydown.bind(this))
+
+		inputController.addEventListener('keyup', 10, (event: KeyboardEvent) => {
+			if (this.isShowingModal && inputController.isInputEmpty) {
+				this.reset()
+			}
+		})
 	}
 
 	updateSuggestions() {
@@ -108,7 +131,10 @@ export class TabCompletor {
 			// Get index of clicked element and update selectedIndex
 			this.selectedIndex = $(e.currentTarget).index()
 			if (this.mode === 'emote') this.renderInlineEmote()
-			else if (this.mode === 'mention') this.renderInlineUserMention()
+			else if (this.mode === 'mention') {
+				Caret.moveCaretTo(this.node!, this.mentionEnd)
+				this.inputController.insertText(' ')
+			}
 
 			this.hideModal()
 			this.reset()
@@ -214,14 +240,9 @@ export class TabCompletor {
 
 	restoreOriginalText() {
 		if (this.mode === 'emote' && this.word) {
-			if (!this.embedNode) return error('Invalid embed node to restore original text')
+			if (!this.emoteComponent) return error('Invalid embed node to restore original text')
 
-			const textNode = document.createTextNode(this.word)
-			this.embedNode.after(textNode)
-			this.embedNode.remove()
-			Caret.collapseToEndOfNode(textNode)
-			// const parentEL = textNode.parentElement
-			textNode.parentElement?.normalize()
+			this.inputController.replaceEmoteWithText(this.emoteComponent, this.word)
 		} else if (this.mode === 'mention') {
 			if (!this.node) return error('Invalid node to restore original text')
 
@@ -234,42 +255,13 @@ export class TabCompletor {
 		const emoteHid = this.suggestionHids[this.selectedIndex]
 		if (!emoteHid) return
 
-		if (this.embedNode) {
-			const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'ntv__inline-emote')
-			if (!emoteEmbedding) return error('Invalid emote embedding')
-
-			const embedNode = jQuery.parseHTML(emoteEmbedding)[0] as HTMLElement
-			this.embedNode.after(embedNode)
-			this.embedNode.remove()
-			this.embedNode = embedNode
-
-			Caret.collapseToEndOfNode(embedNode)
+		if (this.emoteComponent) {
+			this.inputController.replaceEmote(this.emoteComponent, emoteHid)
 		} else {
-			this.insertEmote(emoteHid)
-		}
-	}
-
-	insertEmote(emoteHid: string) {
-		const emoteEmbedding = this.emotesManager.getRenderableEmoteByHid('' + emoteHid, 'ntv__inline-emote')
-		if (!emoteEmbedding) return error('Invalid emote embedding')
-
-		const { start, end, node } = this
-		if (!node) return error('Invalid node')
-
-		const embedNode = (this.embedNode = jQuery.parseHTML(emoteEmbedding)[0] as HTMLElement)
-		Caret.replaceTextWithElementInRange(node, start, end, embedNode)
-
-		// Move the caret to the end of the emote
-		const range = document.createRange()
-		// range.selectNode(embedNode)
-		range.setStartAfter(embedNode)
-		range.collapse(true)
-
-		const selection = window.getSelection()
-		if (selection) {
-			selection.removeAllRanges()
-			selection.addRange(range)
-			selection.collapseToEnd()
+			if (!this.node) return error('Invalid node to restore original text')
+			Caret.replaceTextInRange(this.node, this.start, this.end, '')
+			this.inputController.normalize()
+			this.emoteComponent = this.inputController.insertEmote(emoteHid)
 		}
 	}
 
@@ -306,7 +298,12 @@ export class TabCompletor {
 
 				this.moveSelectorDown()
 			} else if (evt.key === 'ArrowRight' || evt.key === 'Enter') {
-				if (evt.key === 'Enter') evt.preventDefault()
+				if (evt.key === 'Enter') {
+					evt.preventDefault()
+					evt.stopImmediatePropagation()
+				}
+
+				this.inputController.insertText(' ')
 
 				this.hideModal()
 				this.reset()
@@ -314,6 +311,7 @@ export class TabCompletor {
 				this.reset()
 			} else if (evt.key === 'Backspace') {
 				evt.preventDefault()
+				evt.stopImmediatePropagation()
 
 				this.restoreOriginalText()
 				this.hideModal()
@@ -321,6 +319,7 @@ export class TabCompletor {
 			} else if (evt.key === 'Shift') {
 				// Ignore shift key press
 			} else {
+				this.inputController.insertText(' ')
 				this.hideModal()
 				this.reset()
 			}
@@ -341,6 +340,6 @@ export class TabCompletor {
 		this.mentionEnd = 0
 		this.node = null
 		this.word = null
-		this.embedNode = null
+		this.emoteComponent = null
 	}
 }
