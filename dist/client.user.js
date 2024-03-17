@@ -3017,11 +3017,7 @@
       const { eventBus, settingsManager, abortController } = this;
       const abortSignal = abortController.signal;
       this.loadSettings();
-      waitForElements(
-        ["#message-input", "#chatroom-footer button.base-button", ".chat-input-wrapper .chat-input-icon"],
-        5e3,
-        abortSignal
-      ).then(() => {
+      waitForElements(["#message-input", "#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
         this.loadShadowProxyElements();
         this.loadEmoteMenu();
         this.loadEmoteMenuButton();
@@ -3127,7 +3123,9 @@
       const textFieldWrapperEl = $(`<div class="ntv__message-input__wrapper"></div>`)[0];
       textFieldWrapperEl.append(textFieldEl);
       originalTextFieldEl.parentElement.parentElement?.append(textFieldWrapperEl);
-      $(textFieldEl).before($(".chat-input-wrapper .chat-input-icon"));
+      const $moderatorChatIdentityBadgeIcon = $(".chat-input-wrapper .chat-input-icon");
+      if ($moderatorChatIdentityBadgeIcon.length)
+        $(textFieldEl).before($moderatorChatIdentityBadgeIcon);
       submitButtonEl.addEventListener("click", this.submitInput.bind(this, false));
       const inputController = this.inputController = new InputController(this, textFieldEl);
       inputController.attachEventListeners();
