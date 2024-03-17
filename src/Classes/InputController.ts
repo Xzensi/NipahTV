@@ -346,23 +346,20 @@ export class InputController {
 
 		const { inputNode } = this
 		const range = selection.getRangeAt(0)
-		const { startContainer, endContainer, startOffset, endOffset } = range
+		const { startContainer } = range
 
-		// If selection focus and anchor are collapsed, it means caret was placed by mouse so
-		//  we can shift anchor and focus if they are inside the body element of a component.
-		// If caret is between component body and zero-width space, push the caret outwards of the zero-width space text node.
+		// If selection focus and anchor are collapsed and caret is between component body
+		//  and zero-width space, push the caret out of the component on other side.
 		if (selection.isCollapsed) {
 			if (!startContainer.parentElement?.classList.contains('ntv__input-component')) return
 
 			const nextSibling = startContainer.nextSibling
-			const prevSibling = startContainer.previousSibling
+			const componentIndex = Array.from(inputNode.childNodes).indexOf(startContainer.parentElement as any)
 
-			if (!nextSibling && startOffset === 0) {
-				const prevZWSP = prevSibling?.previousSibling
-				if (prevZWSP) selection.collapse(prevZWSP, 0)
-			} else if (!prevSibling && startOffset === 1) {
-				const nextZWSP = nextSibling?.nextSibling
-				if (nextZWSP) selection.collapse(nextZWSP, 1)
+			if (!nextSibling) {
+				selection.collapse(inputNode, componentIndex)
+			} else {
+				selection.collapse(inputNode, componentIndex + 1)
 			}
 		}
 
@@ -375,12 +372,12 @@ export class InputController {
 			const isFocusInComponent = focusNode.parentElement?.classList.contains('ntv__input-component')
 			if (!isFocusInComponent) return
 
-			const childIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement as any)
+			const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement as any)
 
 			if (!focusNode?.previousSibling) {
-				selection.extend(inputNode, childIndex + 1)
+				selection.extend(inputNode, componentIndex + 1)
 			} else {
-				selection.extend(inputNode, childIndex)
+				selection.extend(inputNode, componentIndex)
 			}
 		}
 	}
