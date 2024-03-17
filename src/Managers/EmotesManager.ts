@@ -117,6 +117,8 @@ export class EmotesManager {
 		if (!emote) return error('No emote provided')
 
 		const provider = this.providers.get(emote.provider)
+		if (!provider) return error('Provider not found for emote', emote)
+
 		return provider.getRenderableEmote(emote, classes)
 	}
 

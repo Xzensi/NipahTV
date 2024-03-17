@@ -6,6 +6,8 @@ export const logEvent = logger.logEvent.bind(logger)
 export const info = logger.info.bind(logger)
 export const error = logger.error.bind(logger)
 
+export const CHAR_ZWSP = '\uFEFF'
+
 export const assertArgument = (arg: any, type: string) => {
 	if (typeof arg !== type) {
 		throw new Error(`Invalid argument, expected ${type} but got ${typeof arg}`)

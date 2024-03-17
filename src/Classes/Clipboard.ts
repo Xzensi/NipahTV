@@ -1,5 +1,5 @@
 import { Caret } from '../UserInterface/Caret'
-import { log, error } from '../utils'
+import { log, error, CHAR_ZWSP } from '../utils'
 
 function flattenNestedElement(node: Node) {
 	const result: Node[] = []
@@ -30,6 +30,65 @@ function flattenNestedElement(node: Node) {
 
 export class Clipboard2 {
 	domParser = new DOMParser()
+
+	handleCopyEvent(event: ClipboardEvent) {
+		const selection = document.getSelection()
+		if (!selection || !selection.rangeCount) return error('Selection is null')
+
+		event.preventDefault()
+
+		const range = selection.getRangeAt(0)
+		if (!range) return
+
+		// Loop over range content elements. Add text nodes to buffer and make sure top most elements are padded with space characters.
+		let buffer = ''
+		let prevNodeWasEmote = false
+		const nodes = range.cloneContents().childNodes
+		log(nodes)
+		for (const node of nodes) {
+			if (node instanceof Text) {
+				// if (prevNodeWasEmote) buffer += ' '
+				prevNodeWasEmote = false
+				buffer += node.textContent
+			} else if (node instanceof HTMLElement) {
+				const emoteImg = node.querySelector('img')
+
+				if (emoteImg) {
+					if (prevNodeWasEmote) buffer += ' '
+					else if (buffer && buffer[buffer.length - 1] !== ' ') buffer += ' '
+					prevNodeWasEmote = true
+					buffer += emoteImg.dataset.emoteName || 'UNSET_EMOTE'
+				}
+			}
+		}
+
+		// const copyString = selection.toString().replaceAll(CHAR_ZWSP, '')
+		const copyString = buffer.replaceAll(CHAR_ZWSP, '')
+		event.clipboardData?.setData('text/plain', copyString)
+		log(copyString)
+	}
+
+	handleCutEvent(event: ClipboardEvent) {
+		const selection = document.getSelection()
+		if (!selection || !selection.rangeCount) return
+
+		// Check that the selection start and end is within a contenteditable element
+		const range = selection.getRangeAt(0)
+		if (!range) return
+
+		const commonAncestorContainer = range.commonAncestorContainer as any
+		if (
+			!(commonAncestorContainer instanceof HTMLElement) &&
+			!commonAncestorContainer.isContentEditable &&
+			!commonAncestorContainer.parentElement.isContentEditable
+		) {
+			return
+		}
+
+		event.preventDefault()
+		this.handleCopyEvent(event)
+		selection.deleteFromDocument()
+	}
 
 	paste(text: string) {
 		const selection = window.getSelection()
@@ -84,7 +143,7 @@ export class Clipboard2 {
 
 		const html = clipboardData.getData('text/html')
 		if (html) {
-			const doc = this.domParser.parseFromString(html, 'text/html')
+			const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ''), 'text/html')
 			const childNodes = doc.body.childNodes
 
 			if (childNodes.length === 0) {
@@ -136,7 +195,7 @@ export class Clipboard2 {
 			const text = clipboardData.getData('text/plain')
 			if (!text) return
 
-			return [text]
+			return [text.replaceAll(CHAR_ZWSP, '')]
 		}
 	}
 }

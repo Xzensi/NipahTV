@@ -11,6 +11,7 @@ import { Caret } from './Caret'
 export class KickUserInterface extends AbstractUserInterface {
 	abortController = new AbortController()
 
+	clipboard = new Clipboard2()
 	inputController: InputController | null = null
 	chatObserver: MutationObserver | null = null
 	emoteMenu: EmoteMenuComponent | null = null
@@ -208,25 +209,12 @@ export class KickUserInterface extends AbstractUserInterface {
 			textFieldEl.focus()
 		})
 
-		const clipboard = new Clipboard2()
-		textFieldEl.addEventListener('paste', evt => {
-			evt.preventDefault()
+		textFieldEl.addEventListener('cut', evt => {
+			this.clipboard.handleCutEvent(evt)
+		})
 
-			const messageParts = clipboard.parsePastedMessage(evt)
-			if (!messageParts || !messageParts.length) return
-
-			error('NOT IMPLEMENTED, FIX THIS')
-			throw new Error('NOT IMPLEMENTED, FIX THIS')
-			// TODO FIX THIS
-			// for (let i = 0; i < messageParts.length; i++) {
-			// 	messageParts[i] = this.renderEmotesInElement(messageParts[i])
-			// }
-
-			// clipboard.pasteHTML(messageParts.join(''))
-
-			// if (textFieldEl.childNodes.length) {
-			// 	this.elm.$submitButton?.removeClass('disabled')
-			// }
+		textFieldEl.addEventListener('copy', evt => {
+			this.clipboard.handleCopyEvent(evt)
 		})
 
 		// Ignore control keys that are not used for typing

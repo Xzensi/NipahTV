@@ -1,10 +1,9 @@
 import { EmotesManager } from '../Managers/EmotesManager'
-import { log, error, assertArgDefined } from '../utils'
+import { log, error, assertArgDefined, CHAR_ZWSP } from '../utils'
 import { MessagesHistory } from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
 import { PriorityEventTarget } from './PriorityEventTarget'
-
-const CHAR_BOM = '\uFEFF'
+import { Clipboard2 } from './Clipboard'
 
 /**
  * Inserts a space character before the component if there is no space character before it.
@@ -51,16 +50,22 @@ function maybeInsertSpaceCharacterAfterComponent(component: HTMLElement) {
 export class InputController {
 	private emotesManager: EmotesManager
 	private messageHistory: MessagesHistory
+	private clipboard: Clipboard2
 	private inputNode: HTMLElement
 	private eventTarget = new PriorityEventTarget()
 	isInputEmpty = true
 
 	constructor(
-		{ emotesManager, messageHistory }: { emotesManager: EmotesManager; messageHistory: MessagesHistory },
+		{
+			emotesManager,
+			messageHistory,
+			clipboard
+		}: { emotesManager: EmotesManager; messageHistory: MessagesHistory; clipboard: Clipboard2 },
 		contentEditableEl: HTMLElement
 	) {
 		this.emotesManager = emotesManager
 		this.messageHistory = messageHistory
+		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
 	}
 
@@ -74,19 +79,55 @@ export class InputController {
 	}
 
 	attachEventListeners() {
-		const { inputNode } = this
+		const { inputNode, emotesManager, clipboard } = this
 
-		inputNode.addEventListener('selectstart', (evt: Event) => {
-			const selection = (evt.target as any)?.value
-			log('SelectStart', selection)
-		})
+		// inputNode.addEventListener('selectstart', (evt: Event) => {
+		// 	const selection = (evt.target as any)?.value
+		// 	log('SelectStart', selection)
+		// })
 
 		document.addEventListener('selectionchange', (evt: Event) => {
 			const activeElement = document.activeElement
 			if (activeElement !== inputNode) return
 
-			log('SelectionChange')
 			this.adjustSelection()
+		})
+
+		inputNode.addEventListener('paste', evt => {
+			evt.preventDefault()
+
+			const messageParts = clipboard.parsePastedMessage(evt)
+			if (!messageParts || !messageParts.length) return
+
+			const newNodes = []
+			for (let i = 0; i < messageParts.length; i++) {
+				const tokens = messageParts[i].split(' ')
+
+				for (let j = 0; j < tokens.length; j++) {
+					const token = tokens[j]
+					const emoteHid = emotesManager.getEmoteHidByName(token)
+					if (emoteHid) {
+						if (i > 0 && j > 0) {
+							newNodes.push(document.createTextNode(' '))
+						}
+						newNodes.push(
+							this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
+						)
+					} else if (i === 0 && j === 0) {
+						newNodes.push(document.createTextNode(token))
+					} else {
+						newNodes.push(document.createTextNode(' ' + token))
+					}
+				}
+			}
+
+			this.insertNodes(newNodes)
+
+			const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
+			if (this.isInputEmpty && isNotEmpty) {
+				this.isInputEmpty = isNotEmpty
+				this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
+			}
 		})
 
 		// Hook the event into a PriorityTargetEvent so that it can handle stopPropagation calls
@@ -95,6 +136,20 @@ export class InputController {
 		inputNode.addEventListener('keydown', this.eventTarget.dispatchEvent.bind(this.eventTarget))
 		this.eventTarget.addEventListener('keyup', 10, this.handleKeyUp.bind(this))
 		inputNode.addEventListener('keyup', this.eventTarget.dispatchEvent.bind(this.eventTarget))
+	}
+
+	insertNodes(nodes: Node[]) {
+		const selection = document.getSelection()
+		if (!selection) return
+
+		const range = selection.getRangeAt(0)
+		range.deleteContents()
+
+		for (let i = nodes.length - 1; i >= 0; i--) {
+			range.insertNode(nodes[i])
+		}
+
+		selection.collapseToEnd()
 	}
 
 	handleKeydown(event: KeyboardEvent) {
@@ -138,6 +193,27 @@ export class InputController {
 
 	normalize() {
 		this.inputNode.normalize()
+	}
+
+	createEmoteComponent(emoteHID: string, emoteHTML: string) {
+		const component = document.createElement('span')
+		component.className = 'ntv__input-component'
+		component.appendChild(document.createTextNode(CHAR_ZWSP))
+		const componentBody = document.createElement('span')
+		componentBody.className = 'ntv__input-component__body'
+		componentBody.setAttribute('contenteditable', 'false')
+		componentBody.appendChild(
+			(
+				jQuery.parseHTML(
+					`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHID}" contenteditable="false">` +
+						emoteHTML +
+						'</span>'
+				) as Element[]
+			)[0]
+		)
+		component.appendChild(componentBody)
+		component.appendChild(document.createTextNode(CHAR_ZWSP))
+		return component
 	}
 
 	deleteBackwards(evt: KeyboardEvent) {
@@ -392,12 +468,12 @@ export class InputController {
 			const charBeforeStart = textContent[range.startOffset - 1]
 
 			// Bom means either start of input or emote
-			if (charBeforeStart === CHAR_BOM) {
+			if (charBeforeStart === CHAR_ZWSP) {
 				// Caret is after emote with BOM
 				if (previousSibling) {
 					const nodeBeforeEmote = previousSibling.previousSibling
 					const nodeBeforeEmoteIsText = nodeBeforeEmote instanceof Text
-					const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_BOM
+					const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_ZWSP
 
 					if (nodeBeforeEmoteIsBOM) {
 						range.setStart(nodeBeforeEmote, nodeBeforeEmote.length - 1)
@@ -423,7 +499,7 @@ export class InputController {
 		else if (previousSibling) {
 			const nodeBeforeEmote = previousSibling.previousSibling
 			const nodeBeforeEmoteIsText = nodeBeforeEmote instanceof Text
-			const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_BOM
+			const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_ZWSP
 
 			if (nodeBeforeEmoteIsBOM) {
 				range.setStart(nodeBeforeEmote, nodeBeforeEmote.length - 1)
@@ -439,7 +515,7 @@ export class InputController {
 
 			if (range.endOffset === 0) {
 				const charAfterEnd = textContent[range.endOffset]
-				if (charAfterEnd === CHAR_BOM) {
+				if (charAfterEnd === CHAR_ZWSP) {
 					range.setEnd(endContainer, 1)
 				} else {
 					range.setEnd(endContainer, 0)
@@ -453,7 +529,7 @@ export class InputController {
 		else {
 			if (nextSibling) {
 				const nodeAfterEmoteIsText = nextSibling instanceof Text
-				const nodeAfterEmoteIsBOM = nodeAfterEmoteIsText && nextSibling.textContent === CHAR_BOM
+				const nodeAfterEmoteIsBOM = nodeAfterEmoteIsText && nextSibling.textContent === CHAR_ZWSP
 
 				if (nodeAfterEmoteIsBOM) {
 					range.setEnd(nextSibling, 1)
@@ -526,8 +602,8 @@ export class InputController {
 		const isEndOfAncestor = startContainer === inputNode.lastChild
 		const charBeforeCaret = textContent[range.startOffset - 1]
 		const charAfterCaret = textContent[range.endOffset]
-		const bomBeforeCaret = charBeforeCaret === CHAR_BOM
-		const bomAfterCaret = charAfterCaret === CHAR_BOM
+		const bomBeforeCaret = charBeforeCaret === CHAR_ZWSP
+		const bomAfterCaret = charAfterCaret === CHAR_ZWSP
 		const spaceAfterCaret = charAfterCaret === ' '
 
 		log('Space before caret:', charBeforeCaret === ' ')
@@ -569,7 +645,7 @@ export class InputController {
 
 		// Range inserts nodes from start, so we insert at reverse order
 		if (addBOMAfterCaret) {
-			range.insertNode(document.createTextNode(CHAR_BOM))
+			range.insertNode(document.createTextNode(CHAR_ZWSP))
 		} else if (addSpaceAfterCaret) {
 			range.insertNode(document.createTextNode(' '))
 		}
@@ -577,7 +653,7 @@ export class InputController {
 		range.insertNode(element)
 
 		if (addBOMBeforeCaret) {
-			range.insertNode(document.createTextNode(CHAR_BOM))
+			range.insertNode(document.createTextNode(CHAR_ZWSP))
 		} else if (addSpaceBeforeCaret) {
 			range.insertNode(document.createTextNode(' '))
 		}
@@ -647,8 +723,8 @@ export class InputController {
 
 					// BOM chars should always be replaced with a space. It should never be possible to have
 					//  the selection caret between a BOM and element node, additional logic should prevent this.
-					const bomBeforeCaret = charBeforeCaret === CHAR_BOM,
-						bomAfterCaret = charAfterCaret === CHAR_BOM
+					const bomBeforeCaret = charBeforeCaret === CHAR_ZWSP,
+						bomAfterCaret = charAfterCaret === CHAR_ZWSP
 
 					log(`Char before caret: ${charBeforeCaret}`, 'Is BOM:', bomBeforeCaret)
 					log(`Char after caret: ${charAfterCaret}`, 'Is BOM:', bomAfterCaret)
@@ -662,7 +738,7 @@ export class InputController {
 						log('Node before caret is element:', nodeBeforeIsElement)
 
 						if (isStartOfAncestor) {
-							nodes.unshift(document.createTextNode(CHAR_BOM))
+							nodes.unshift(document.createTextNode(CHAR_ZWSP))
 						} else if (nodeBeforeIsElement) {
 							nodes.unshift(document.createTextNode(' '))
 						} else {
@@ -896,31 +972,17 @@ export class InputController {
 			return null
 		}
 
-		const component = document.createElement('span')
-		component.className = 'ntv__input-component'
-		component.appendChild(document.createTextNode('\u200B'))
-		const componentBody = document.createElement('span')
-		componentBody.className = 'ntv__input-component__body'
-		componentBody.setAttribute('contenteditable', 'false')
-		componentBody.appendChild(
-			(
-				jQuery.parseHTML(
-					`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHid}" contenteditable="false">` +
-						emoteHTML +
-						'</span>'
-				) as Element[]
-			)[0]
-		)
-		component.appendChild(componentBody)
-		component.appendChild(document.createTextNode('\u200B'))
+		const emoteComponent = this.createEmoteComponent(emoteHid, emoteHTML)
 
 		// this.deleteSelectionContents()
-		this.insertComponent(component)
+		this.insertComponent(emoteComponent)
 
-		// eventTarget.dispatchEvent(new CustomEvent('emote-inserted', { detail: { emoteHid } }))
-		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
+		if (this.isInputEmpty) {
+			this.isInputEmpty = false
+			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
+		}
 
-		return component
+		return emoteComponent
 	}
 
 	replaceEmote(component: HTMLElement, emoteHid: string) {
