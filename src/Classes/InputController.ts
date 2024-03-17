@@ -215,23 +215,15 @@ export class InputController {
 		const selection = document.getSelection()
 		if (!selection || !selection.rangeCount) return error('No ranges found in selection')
 
-		const range = selection.getRangeAt(0)
-		const { startContainer, endContainer, collapsed, startOffset } = range
+		let range = selection.getRangeAt(0)
 
-		const isStartTextNodeInComponent =
-			startContainer instanceof Text && startContainer.parentElement?.classList.contains('ntv__input-component')
-
-		// Selection focus is text node in component
-		if (isStartTextNodeInComponent) {
-			evt.preventDefault()
-			range.setStartBefore(startContainer.parentElement!)
-			range.deleteContents()
-			selection.removeAllRanges()
-			selection.addRange(range)
-			inputNode.normalize()
-			return
+		// Selection focus is inside component
+		if (range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
+			this.adjustSelectionForceOutOfComponent(selection)
+			range = selection.getRangeAt(0)
 		}
 
+		const { startContainer, endContainer, startOffset } = range
 		const isStartContainerTheInputNode = startContainer === inputNode
 
 		// Ensure selection does not include outside scope of input node.
@@ -988,7 +980,13 @@ export class InputController {
 			return
 		}
 
-		const range = selection.getRangeAt(0)
+		// If selection is inside a component make sure to push it out first
+		let range = selection.getRangeAt(0)
+		if (range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
+			this.adjustSelectionForceOutOfComponent(selection)
+			range = selection.getRangeAt(0)
+		}
+
 		const { startContainer, startOffset } = range
 		const isFocusInInputNode = startContainer === inputNode
 
@@ -999,8 +997,8 @@ export class InputController {
 
 		// Caret is inbetween text nodes, so we insert the component at the caret position.
 		else if (isFocusInInputNode) {
-			if (startOffset && inputNode.childNodes[startOffset + 1]) {
-				inputNode.insertBefore(component, inputNode.childNodes[startOffset + 1])
+			if (inputNode.childNodes[startOffset]) {
+				inputNode.insertBefore(component, inputNode.childNodes[startOffset])
 			} else {
 				inputNode.appendChild(component)
 			}
