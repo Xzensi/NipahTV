@@ -158,6 +158,10 @@ export class InputController {
 				error('Enter key events should not be handled by the input controller.')
 				break
 
+			case ' ': // Space character key
+				this.handleSpaceKey(event)
+				break
+
 			default:
 				if (eventKeyIsVisibleCharacter(event)) {
 					const selection = document.getSelection()
@@ -186,6 +190,27 @@ export class InputController {
 		if (this.isInputEmpty === !isNotEmpty) return
 		this.isInputEmpty = !this.isInputEmpty
 		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
+	}
+
+	handleSpaceKey(event: KeyboardEvent) {
+		const { inputNode } = this
+
+		const { word, start, end, node } = Caret.getWordBeforeCaret()
+		if (!word) return
+
+		const emoteHid = this.emotesManager.getEmoteHidByName(word)
+		if (!emoteHid) return
+
+		const textContent = node.textContent
+		if (!textContent) return
+
+		node.textContent = textContent.slice(0, start) + textContent.slice(end)
+		inputNode.normalize()
+		// Caret.replaceTextInRange(node, start, start, '')
+		Caret.moveCaretTo(node, start)
+		this.insertEmote(emoteHid)
+
+		event.preventDefault()
 	}
 
 	normalize() {
