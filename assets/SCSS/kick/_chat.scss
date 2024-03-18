@@ -3,9 +3,6 @@
 
 #chatroom {
 	[data-chat-entry] {
-		> div > span {
-			white-space: normal;
-		}
 	}
 
 	&.ntv__alternating-background {
@@ -104,9 +101,9 @@
 		}
 	}
 
-	> div {
-		white-space: nowrap;
-	}
+	// 	> div {
+	// 		white-space: nowrap;
+	// 	}
 }
 
 .ntv__highlight-first-message {
