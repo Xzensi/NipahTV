@@ -310,7 +310,10 @@ export class TabCompletor {
 
 				this.hideModal()
 				this.reset()
-			} else if (evt.key === 'ArrowLeft' || evt.key === ' ' || evt.key === 'Escape') {
+			} else if (evt.key === ' ') {
+				evt.preventDefault()
+				this.reset()
+			} else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') {
 				this.reset()
 			} else if (evt.key === 'Backspace') {
 				evt.preventDefault()
