@@ -611,6 +611,10 @@ export class KickUserInterface extends AbstractUserInterface {
 					newContentNode.appendChild(imgEl)
 					chatEntryNode.appendChild(newContentNode)
 					break
+
+				default:
+					if (componentNode.childNodes.length) chatEntryNode.append(...componentNode.childNodes)
+					else error('Unknown chat message component', componentNode)
 			}
 		}
 

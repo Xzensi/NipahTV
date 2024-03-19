@@ -52,7 +52,7 @@ export class AbstractUserInterface {
 
 	renderEmotesInElement(textElement: Element, appendTo?: Element) {
 		const { emotesManager } = this
-		const text = textElement.innerHTML
+		const text = textElement.textContent || ''
 		const tokens = text.split(' ')
 		const newNodes = []
 
