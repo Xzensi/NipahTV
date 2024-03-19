@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.2.5
+// @version 1.2.6
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e3511cf1.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7d5cf665.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -460,6 +460,7 @@
   var EmoteDatastore = class {
     emoteSets = [];
     emoteMap = /* @__PURE__ */ new Map();
+    emoteIdMap = /* @__PURE__ */ new Map();
     emoteNameMap = /* @__PURE__ */ new Map();
     emoteHistory = /* @__PURE__ */ new Map();
     emoteEmoteSetMap = /* @__PURE__ */ new Map();
@@ -545,6 +546,7 @@
           return log(`Skipping duplicate emote ${emote.name}.`);
         }
         this.emoteMap.set("" + emote.hid, emote);
+        this.emoteIdMap.set("" + emote.id, emote);
         this.emoteNameMap.set(emote.name, emote);
         this.emoteEmoteSetMap.set(emote.hid, emoteSet);
         let providerEmoteNameMap = this.emoteProviderNameMap.get(emote.provider);
@@ -565,6 +567,15 @@
     }
     getEmoteHidByProviderName(providerId, emoteName) {
       return this.emoteProviderNameMap.get(providerId)?.get(emoteName);
+    }
+    getEmoteNameByHid(hid) {
+      return this.emoteMap.get(hid)?.name;
+    }
+    getEmoteNameById(id) {
+      return this.emoteIdMap.get(id)?.name;
+    }
+    getEmoteById(id) {
+      return this.emoteIdMap.get(id);
     }
     getEmoteHistoryCount(emoteHid) {
       return this.emoteHistory.get(emoteHid)?.getTotal() || 0;
@@ -721,6 +732,15 @@
     }
     getEmoteHidByProviderName(providerId, emoteName) {
       return this.datastore.getEmoteHidByProviderName(providerId, emoteName);
+    }
+    getEmoteNameByHid(hid) {
+      return this.datastore.getEmoteNameByHid(hid);
+    }
+    getEmoteNameById(id) {
+      return this.datastore.getEmoteNameById(id);
+    }
+    getEmoteById(id) {
+      return this.datastore.getEmoteById(id);
     }
     getEmoteSrc(emoteHid) {
       const emote = this.getEmote(emoteHid);
@@ -1432,7 +1452,7 @@
     }
     renderEmotesInElement(textElement, appendTo) {
       const { emotesManager } = this;
-      const text = textElement.innerHTML;
+      const text = textElement.textContent || "";
       const tokens = text.split(" ");
       const newNodes = [];
       let textBuffer = "";
@@ -1442,7 +1462,7 @@
           if (textBuffer) {
             const newNode2 = document.createElement("span");
             newNode2.appendChild(document.createTextNode(textBuffer));
-            newNode2.classList.add("ntv__chat-message__part");
+            newNode2.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
             newNodes.push(newNode2);
             textBuffer = "";
           }
@@ -1459,7 +1479,7 @@
       if (textBuffer) {
         const newNode = document.createElement("span");
         newNode.appendChild(document.createTextNode(textBuffer));
-        newNode.classList.add("ntv__chat-message__part");
+        newNode.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
         newNodes.push(newNode);
       }
       if (appendTo)
@@ -3377,7 +3397,7 @@
           this.usersManager.registerUser(chatEntryUserId, chatEntryUserName);
         }
       }
-      const chatEntryNode = messageNode.children[0];
+      const chatEntryNode = messageNode.querySelector(".chat-entry");
       if (!chatEntryNode)
         return error("ChatEntryNode not found for message", messageNode);
       const uselessWrapperNode = chatEntryNode.children[0];
@@ -3421,13 +3441,13 @@
             for (const attr in imgEl.dataset) {
               if (attr.startsWith("v-")) {
                 imgEl.removeAttribute("data-" + attr);
-              }
-            }
-            const emoteName = imgEl.dataset.emoteName;
-            if (emoteName) {
-              const emoteHid = emotesManager.getEmoteHidByName(emoteName);
-              if (emoteHid) {
-                imgEl.setAttribute("data-emote-hid", emoteHid);
+              } else if (attr === "emoteId") {
+                const emoteId = imgEl.getAttribute("data-emote-id");
+                if (emoteId) {
+                  const emote = emotesManager.getEmoteById(emoteId);
+                  imgEl.setAttribute("data-emote-hid", emote.hid);
+                  imgEl.setAttribute("data-emote-name", emote.name);
+                }
               }
             }
             const newContentNode = document.createElement("span");
@@ -3436,6 +3456,11 @@
             newContentNode.appendChild(imgEl);
             chatEntryNode.appendChild(newContentNode);
             break;
+          default:
+            if (componentNode.childNodes.length)
+              chatEntryNode.append(...componentNode.childNodes);
+            else
+              error("Unknown chat message component", componentNode);
         }
       }
       messageNode.classList.add("ntv__chat-message");
@@ -3449,23 +3474,23 @@
       const originalTextFieldEl = this.elm.originalTextField;
       const originalSubmitButtonEl = this.elm.originalSubmitButton;
       const textFieldEl = this.elm.textField;
-      let parsedString = "";
+      const buffer = [];
+      let bufferString = "";
       let emotesInMessage = /* @__PURE__ */ new Set();
-      let spaceBeforeFlag = false;
       for (const node of textFieldEl.childNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
-          parsedString += node.textContent;
-          spaceBeforeFlag = false;
+          bufferString += node.textContent;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const componentBody = node.childNodes[1];
           const emoteBox = componentBody.childNodes[0];
           if (emoteBox) {
             const emoteHid = emoteBox.dataset.emoteHid;
             if (emoteHid) {
+              if (bufferString)
+                buffer.push(bufferString);
+              bufferString = "";
               emotesInMessage.add(emoteHid);
-              const spacingBefore = !spaceBeforeFlag ? " " : "";
-              parsedString += spacingBefore + emotesManager.getEmoteEmbeddable(emoteHid) + " ";
-              spaceBeforeFlag = true;
+              buffer.push(emotesManager.getEmoteEmbeddable(emoteHid));
             } else {
               error("Invalid emote node, missing HID", emoteBox);
             }
@@ -3474,6 +3499,11 @@
           }
         }
       }
+      if (bufferString)
+        buffer.push(bufferString);
+      const parsedString = buffer.join(" ");
+      log(parsedString);
+      buffer.length = 0;
       if (parsedString.length > this.maxMessageLength) {
         error(
           `Message too long, it is ${parsedString.length} characters but max limit is ${this.maxMessageLength}.`
@@ -4579,7 +4609,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.2.5",
+      VERSION: "1.2.6",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
@@ -4592,6 +4622,7 @@
     };
     stylesLoaded = false;
     eventBus = null;
+    emotesManager = null;
     database = null;
     channelData;
     initialize() {
@@ -4648,7 +4679,7 @@
       });
       if (!channelData)
         throw new Error("No channel data was found.");
-      const emotesManager = new EmotesManager(
+      const emotesManager = this.emotesManager = new EmotesManager(
         { database, eventBus, settingsManager },
         channelData.channel_id
       );
