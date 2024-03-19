@@ -533,7 +533,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			</div>
 		*/
 
-		const chatEntryNode = messageNode.children[0]
+		const chatEntryNode = messageNode.querySelector('.chat-entry')
 		if (!chatEntryNode) return error('ChatEntryNode not found for message', messageNode)
 		const uselessWrapperNode = chatEntryNode.children[0]
 		const contentNodes = Array.from(uselessWrapperNode.children)
@@ -589,17 +589,19 @@ export class KickUserInterface extends AbstractUserInterface {
 					// Unwrap and clean up native Kick emotes
 					const imgEl = componentNode.querySelector('img')
 					if (!imgEl) continue
+
 					imgEl.removeAttribute('class')
 					for (const attr in imgEl.dataset) {
 						if (attr.startsWith('v-')) {
 							imgEl.removeAttribute('data-' + attr)
-						}
-					}
-					const emoteName = imgEl.dataset.emoteName
-					if (emoteName) {
-						const emoteHid = emotesManager.getEmoteHidByName(emoteName)
-						if (emoteHid) {
-							imgEl.setAttribute('data-emote-hid', emoteHid)
+						} else if (attr === 'emoteId') {
+							const emoteId = imgEl.getAttribute('data-emote-id')
+
+							if (emoteId) {
+								const emote = emotesManager.getEmoteById(emoteId)
+								imgEl.setAttribute('data-emote-hid', emote.hid)
+								imgEl.setAttribute('data-emote-name', emote.name)
+							}
 						}
 					}
 
@@ -628,13 +630,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		const originalSubmitButtonEl = this.elm.originalSubmitButton
 		const textFieldEl = this.elm.textField
 
-		let parsedString = ''
+		const buffer = []
+		let bufferString = ''
 		let emotesInMessage = new Set()
-		let spaceBeforeFlag = false
 		for (const node of textFieldEl.childNodes) {
 			if (node.nodeType === Node.TEXT_NODE) {
-				parsedString += node.textContent
-				spaceBeforeFlag = false
+				bufferString += node.textContent
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
 				const componentBody = node.childNodes[1]
 				const emoteBox = componentBody.childNodes[0]
@@ -643,12 +644,10 @@ export class KickUserInterface extends AbstractUserInterface {
 					const emoteHid = (emoteBox as HTMLElement).dataset.emoteHid
 
 					if (emoteHid) {
+						if (bufferString) buffer.push(bufferString)
+						bufferString = ''
 						emotesInMessage.add(emoteHid)
-						// Spacing doesn't really work anyway because Kick strips double spaces..
-						// const spacingBefore = parsedString[parsedString.length - 1] !== ' '
-						const spacingBefore = !spaceBeforeFlag ? ' ' : ''
-						parsedString += spacingBefore + emotesManager.getEmoteEmbeddable(emoteHid) + ' '
-						spaceBeforeFlag = true
+						buffer.push(emotesManager.getEmoteEmbeddable(emoteHid))
 					} else {
 						error('Invalid emote node, missing HID', emoteBox)
 					}
@@ -657,6 +656,12 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}
 		}
+
+		if (bufferString) buffer.push(bufferString)
+
+		const parsedString = buffer.join(' ')
+		log(parsedString)
+		buffer.length = 0
 
 		if (parsedString.length > this.maxMessageLength) {
 			error(

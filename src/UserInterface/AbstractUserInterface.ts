@@ -63,7 +63,7 @@ export class AbstractUserInterface {
 				if (textBuffer) {
 					const newNode = document.createElement('span')
 					newNode.appendChild(document.createTextNode(textBuffer))
-					newNode.classList.add('ntv__chat-message__part')
+					newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
 					newNodes.push(newNode)
 					textBuffer = ''
 				}
@@ -82,7 +82,7 @@ export class AbstractUserInterface {
 		if (textBuffer) {
 			const newNode = document.createElement('span')
 			newNode.appendChild(document.createTextNode(textBuffer))
-			newNode.classList.add('ntv__chat-message__part')
+			newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
 			newNodes.push(newNode)
 		}
 

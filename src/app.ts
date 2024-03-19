@@ -32,6 +32,7 @@ class NipahClient {
 
 	stylesLoaded = false
 	eventBus: Publisher | null = null
+	emotesManager: EmotesManager | null = null
 	private database: Dexie | null = null
 	private channelData: any
 
@@ -101,10 +102,10 @@ class NipahClient {
 
 		if (!channelData) throw new Error('No channel data was found.')
 
-		const emotesManager = new EmotesManager(
+		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
 			(<ChannelData>channelData).channel_id
-		)
+		))
 		emotesManager.initialize()
 
 		let userInterface: KickUserInterface
