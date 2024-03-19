@@ -306,8 +306,6 @@ export class TabCompletor {
 					evt.stopImmediatePropagation()
 				}
 
-				this.inputController.insertText(' ')
-
 				this.hideModal()
 				this.reset()
 			} else if (evt.key === ' ') {
