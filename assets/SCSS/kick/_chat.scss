@@ -94,12 +94,15 @@
 	&__part {
 		white-space: normal;
 		line-height: 1em;
-		display: inline;
 
 		img {
 			cursor: pointer;
 		}
 	}
+
+	// &--text {
+	// 	margin-right: 0.2em;
+	// }
 
 	// 	> div {
 	// 		white-space: nowrap;

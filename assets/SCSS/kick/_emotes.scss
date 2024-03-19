@@ -34,19 +34,9 @@
 	// }
 }
 
-.ntv__inline-emote {
-	vertical-align: middle;
-	-o-object-fit: contain;
-	margin-right: 0.125rem;
-	margin-left: 0.125rem;
-	display: inline-block;
-	object-fit: contain;
-	min-width: 1.5rem;
-	height: 1.5rem;
-}
-
 .ntv__inline-emote-box {
 	position: relative;
+	margin: 0 0.125em;
 	display: inline;
 
 	img {

@@ -95,6 +95,18 @@ export class EmotesManager {
 		return this.datastore.getEmoteHidByProviderName(providerId, emoteName)
 	}
 
+	getEmoteNameByHid(hid: string) {
+		return this.datastore.getEmoteNameByHid(hid)
+	}
+
+	getEmoteNameById(id: string) {
+		return this.datastore.getEmoteNameById(id)
+	}
+
+	getEmoteById(id: string) {
+		return this.datastore.getEmoteById(id)
+	}
+
 	getEmoteSrc(emoteHid: string) {
 		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')

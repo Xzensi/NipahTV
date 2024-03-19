@@ -5,6 +5,7 @@ import { log, info, error, isEmpty } from '../utils'
 export class EmoteDatastore {
 	emoteSets: Array<any> = []
 	emoteMap = new Map()
+	emoteIdMap = new Map()
 	emoteNameMap = new Map()
 	emoteHistory = new Map()
 	emoteEmoteSetMap = new Map()
@@ -121,6 +122,7 @@ export class EmoteDatastore {
 			}
 
 			this.emoteMap.set('' + emote.hid, emote)
+			this.emoteIdMap.set('' + emote.id, emote)
 			this.emoteNameMap.set(emote.name, emote)
 			this.emoteEmoteSetMap.set(emote.hid, emoteSet)
 
@@ -158,6 +160,18 @@ export class EmoteDatastore {
 
 	getEmoteHidByProviderName(providerId: string, emoteName: string) {
 		return this.emoteProviderNameMap.get(providerId)?.get(emoteName)
+	}
+
+	getEmoteNameByHid(hid: string) {
+		return this.emoteMap.get(hid)?.name
+	}
+
+	getEmoteNameById(id: string) {
+		return this.emoteIdMap.get(id)?.name
+	}
+
+	getEmoteById(id: string) {
+		return this.emoteIdMap.get(id)
 	}
 
 	getEmoteHistoryCount(emoteHid: string) {

@@ -18,7 +18,7 @@ import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.2.5',
+		VERSION: '1.2.6',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -32,6 +32,7 @@ class NipahClient {
 
 	stylesLoaded = false
 	eventBus: Publisher | null = null
+	emotesManager: EmotesManager | null = null
 	private database: Dexie | null = null
 	private channelData: any
 
@@ -101,10 +102,10 @@ class NipahClient {
 
 		if (!channelData) throw new Error('No channel data was found.')
 
-		const emotesManager = new EmotesManager(
+		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
 			(<ChannelData>channelData).channel_id
-		)
+		))
 		emotesManager.initialize()
 
 		let userInterface: KickUserInterface
