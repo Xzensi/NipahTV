@@ -18,7 +18,7 @@ import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.2.13',
+		VERSION: '1.2.14',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -239,7 +239,7 @@ class NipahClient {
 				})
 			}
 
-			const channelName = this.channelData?.channel_name
+			const channelName = (channelData as any).channel_name as string
 			const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
 				() => {}
 			)
