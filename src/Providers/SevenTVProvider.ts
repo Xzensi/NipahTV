@@ -12,9 +12,13 @@ export class SevenTVProvider extends AbstractProvider implements IAbstractProvid
 
 	async fetchEmotes({ user_id }: ChannelData) {
 		info('Fetching emote data from SevenTV..')
-		if (!user_id) return error('Missing kick channel id for SevenTV provider.')
+		if (!user_id) return error('Missing Kick channel id for SevenTV provider.')
 
-		const data = (await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`)) as any | undefined
+		const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`).catch(err => {
+			error('Failed to fetch SevenTV emotes.', err)
+			this.status = 'connection_failed'
+			return []
+		})
 		if (!data.emote_set || !data.emote_set.emotes.length) {
 			log('No emotes found on SevenTV provider')
 			this.status = 'no_emotes_found'

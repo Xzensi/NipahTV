@@ -31,11 +31,16 @@ export const assertArgDefined = (arg: any) => {
 export async function fetchJSON(url: URL | RequestInfo) {
 	return new Promise((resolve, reject) => {
 		fetch(url)
-			.then(res => {
+			.then(async res => {
 				if (res.redirected) {
 					reject('Request failed, redirected to ' + res.url)
 				} else if (res.status !== 200 && res.status !== 304) {
-					reject('Request failed with status code ' + res.status)
+					await res
+						.json()
+						.then(reject)
+						.catch(() => {
+							reject('Request failed with status code ' + res.status)
+						})
 				}
 				return res
 			})

@@ -27,7 +27,7 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 		const includeEmojiEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_emojis')
 
 		info('Fetching emote data from Kick..')
-		const data = (await fetchJSON(`https://kick.com/emotes/${channel_name}`)) as any | undefined
+		const data = await fetchJSON(`https://kick.com/emotes/${channel_name}`)
 
 		let dataFiltered = data
 		if (!includeGlobalEmoteSet) {
@@ -43,7 +43,6 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 			dataFiltered = dataFiltered.filter((entry: any) => !entry.user_id)
 		}
 
-		log(dataFiltered)
 		const emoteSets = []
 		for (const dataSet of dataFiltered) {
 			const { emotes } = dataSet as EmoteSet

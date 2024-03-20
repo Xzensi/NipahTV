@@ -43,6 +43,7 @@ declare global {
 		channel_id: string
 		channel_name: string
 		user_id: string
+		is_vod?: boolean
 		me: {
 			is_subscribed?: boolean
 			is_following?: boolean

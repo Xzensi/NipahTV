@@ -76,11 +76,13 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 
 		// Wait for chat messages container to load
-		waitForElements(['#chatroom > div:nth-child(2) > .overflow-y-scroll'], 5_000, abortSignal)
+		const chatMessagesContainerSelector = this.channelData.is_vod
+			? '#chatroom-replay > .overflow-y-scroll > .flex-col-reverse'
+			: '#chatroom > div:nth-child(2) > .overflow-y-scroll'
+
+		waitForElements([chatMessagesContainerSelector], 5_000, abortSignal)
 			.then(() => {
-				const chatMessagesContainer = (this.elm.chatMessagesContainer = $(
-					'#chatroom > div:nth-child(2) > .overflow-y-scroll'
-				)[0])
+				this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector)
 
 				// Add alternating background color to chat messages
 				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
@@ -513,20 +515,22 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderChatMessage(messageNode: HTMLElement) {
-		const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
-		if (usernameEl) {
-			const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
-			const chatEntryUserName = usernameEl.textContent
-			if (chatEntryUserId && chatEntryUserName) {
-				if (!this.usersManager.hasSeenUser(chatEntryUserName)) {
-					const enableFirstMessageHighlight = this.settingsManager.getSetting(
-						'shared.chat.appearance.highlight_first_message'
-					)
-					if (enableFirstMessageHighlight) {
-						messageNode.classList.add('ntv__highlight-first-message')
+		if (!this.channelData.is_vod) {
+			const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
+			if (usernameEl) {
+				const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
+				const chatEntryUserName = usernameEl.textContent
+				if (chatEntryUserId && chatEntryUserName) {
+					if (!this.usersManager.hasSeenUser(chatEntryUserName)) {
+						const enableFirstMessageHighlight = this.settingsManager.getSetting(
+							'shared.chat.appearance.highlight_first_message'
+						)
+						if (enableFirstMessageHighlight) {
+							messageNode.classList.add('ntv__highlight-first-message')
+						}
 					}
+					this.usersManager.registerUser(chatEntryUserId, chatEntryUserName)
 				}
-				this.usersManager.registerUser(chatEntryUserId, chatEntryUserName)
 			}
 		}
 
@@ -534,7 +538,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		  * Kick chat message structure:
 			<div data-chat-entry="...">
 				<div class="chat-entry">
-					<div> <---|| Useless wrapper node ||
+					<div></div> <---|| Wrapper for reply message attachment ||
+					<div> <---|| Chat message wrapper node ||
 						<span class="chat-message-identity">Foobar</span>
 						<span class="font-bold text-white">: </span>
 						<span> <---|| The content nodes start here ||
@@ -649,7 +654,7 @@ export class KickUserInterface extends AbstractUserInterface {
 								if (!emote) {
 									// error('Emote not found', emoteId, imgEl)
 									log(
-										`Skipping missing emote ${emoteId}, probably subscriber emote of different channel you're not subscribed to.`
+										`Skipping missing emote ${emoteId}, probably subscriber emote of channel you're not subscribed to.`
 									)
 									continue
 								}
