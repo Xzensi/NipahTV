@@ -14,6 +14,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	clipboard = new Clipboard2()
 	inputController: InputController | null = null
 	chatObserver: MutationObserver | null = null
+	pinnedMessageObserver: MutationObserver | null = null
 	emoteMenu: EmoteMenuComponent | null = null
 	emoteMenuButton: EmoteMenuButtonComponent | null = null
 	quickEmotesHolder: QuickEmotesHolderComponent | null = null
@@ -97,6 +98,12 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				this.observeChatMessages()
 				this.loadScrollingBehaviour()
+			})
+			.catch(() => {})
+
+		waitForElements(['#chatroom-top'], 5_000)
+			.then(() => {
+				this.observePinnedMessage()
 			})
 			.catch(() => {})
 
@@ -469,6 +476,32 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 	}
 
+	observePinnedMessage() {
+		const chatroomTopEl = document.getElementById('chatroom-top')
+		if (!chatroomTopEl) return error('Chatroom top not loaded for observing pinned message')
+
+		this.eventBus.subscribe('ntv.providers.loaded', () => {
+			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
+				mutations.forEach(mutation => {
+					if (mutation.addedNodes.length) {
+						for (const node of mutation.addedNodes) {
+							if (node instanceof HTMLElement && node.classList.contains('pinned-message')) {
+								this.renderPinnedMessage(node as HTMLElement)
+							}
+						}
+					}
+				})
+			}))
+
+			observer.observe(chatroomTopEl, { childList: true, subtree: true })
+
+			const pinnedMessage = chatroomTopEl.querySelector('.pinned-message')
+			if (pinnedMessage) {
+				this.renderPinnedMessage(pinnedMessage as HTMLElement)
+			}
+		})
+	}
+
 	renderChatMessages() {
 		if (!this.elm || !this.elm.chatMessagesContainer) return
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
@@ -533,10 +566,12 @@ export class KickUserInterface extends AbstractUserInterface {
 			</div>
 		*/
 
+		if (messageNode.children && messageNode.children[0]?.classList.contains('chatroom-history-breaker')) return
+
 		const chatEntryNode = messageNode.querySelector('.chat-entry')
 		if (!chatEntryNode) {
 			// TODO Sometimes Kick decides to just not load messages. Attach another observer to the message to wait for when the message will actually load..
-			return error('ChatEntryNode not found for message', messageNode)
+			return error('Message has no content loaded yet..', messageNode)
 		}
 
 		let messageWrapperNode
@@ -612,7 +647,10 @@ export class KickUserInterface extends AbstractUserInterface {
 							if (emoteId) {
 								const emote = emotesManager.getEmoteById(emoteId)
 								if (!emote) {
-									error('Emote not found', emoteId, imgEl)
+									// error('Emote not found', emoteId, imgEl)
+									log(
+										`Skipping missing emote ${emoteId}, probably subscriber emote of different channel you're not subscribed to.`
+									)
 									continue
 								}
 								imgEl.setAttribute('data-emote-hid', emote.hid)
@@ -636,6 +674,15 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Adding this class removes the display: none from the chat message, causing a reflow
 		messageNode.classList.add('ntv__chat-message')
+	}
+
+	renderPinnedMessage(node: HTMLElement) {
+		const { emotesManager } = this
+
+		const chatEntryContentNode = node.querySelector('.chat-entry-content')
+		if (!chatEntryContentNode) return error('Pinned message content node not found', node)
+
+		this.renderEmotesInElement(chatEntryContentNode)
 	}
 
 	// Submits input to chat
@@ -835,6 +882,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	destroy() {
 		if (this.abortController) this.abortController.abort()
 		if (this.chatObserver) this.chatObserver.disconnect()
+		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()

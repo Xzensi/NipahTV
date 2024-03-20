@@ -18,7 +18,7 @@ import { SettingsManager } from './Managers/SettingsManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.2.11',
+		VERSION: '1.2.12',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -185,7 +185,6 @@ class NipahClient {
 
 			// We extract channel data from the Kick API
 			const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)
-			log('responseChannelData', responseChannelData)
 			if (!responseChannelData) {
 				throw new Error('Failed to fetch channel data')
 			}
