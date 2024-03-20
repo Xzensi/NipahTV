@@ -95,7 +95,7 @@
 		white-space: normal;
 		line-height: 1em;
 
-		img {
+		img[data-emote-name] {
 			cursor: pointer;
 		}
 	}
