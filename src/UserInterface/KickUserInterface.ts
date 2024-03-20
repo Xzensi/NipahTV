@@ -533,10 +533,12 @@ export class KickUserInterface extends AbstractUserInterface {
 			</div>
 		*/
 
+		if (messageNode.children && messageNode.children[0]?.classList.contains('chatroom-history-breaker')) return
+
 		const chatEntryNode = messageNode.querySelector('.chat-entry')
 		if (!chatEntryNode) {
 			// TODO Sometimes Kick decides to just not load messages. Attach another observer to the message to wait for when the message will actually load..
-			return error('ChatEntryNode not found for message', messageNode)
+			return error('Message has no content loaded yet..', messageNode)
 		}
 
 		let messageWrapperNode
@@ -612,7 +614,10 @@ export class KickUserInterface extends AbstractUserInterface {
 							if (emoteId) {
 								const emote = emotesManager.getEmoteById(emoteId)
 								if (!emote) {
-									error('Emote not found', emoteId, imgEl)
+									// error('Emote not found', emoteId, imgEl)
+									log(
+										"Skipping missing emote ${emoteId}, probably subscriber emote of different channel you're not subscribed to."
+									)
 									continue
 								}
 								imgEl.setAttribute('data-emote-hid', emote.hid)
