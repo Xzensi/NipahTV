@@ -535,15 +535,24 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const chatEntryNode = messageNode.querySelector('.chat-entry')
 		if (!chatEntryNode) {
-			// TODO attach another observer to the message to wait for when the message will actually load..
+			// TODO Sometimes Kick decides to just not load messages. Attach another observer to the message to wait for when the message will actually load..
 			return error('ChatEntryNode not found for message', messageNode)
 		}
-		const uselessWrapperNode = chatEntryNode.children[0]
-		const contentNodes = Array.from(uselessWrapperNode.children)
+
+		let messageWrapperNode
+
+		// Test if message has a reply attached to it
+		if (messageNode.querySelector('[title*="Replying to"]')) {
+			messageWrapperNode = chatEntryNode.children[1]
+		} else {
+			messageWrapperNode = chatEntryNode.children[0]
+		}
+
+		const contentNodes = Array.from(messageWrapperNode.children)
 		const contentNodesLength = contentNodes.length
 
 		// We remove the useless wrapper node because we unpack it's contents to parent
-		uselessWrapperNode.remove()
+		messageWrapperNode.remove()
 
 		// Find index of first content node after username etc
 		let firstContentNodeIndex = 0
