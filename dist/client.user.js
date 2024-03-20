@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.2.9
+// @version 1.2.10
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7d5cf665.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-5385edf0.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -2102,13 +2102,13 @@
         if (!focusNode)
           return;
         const isFocusInComponent = focusNode.parentElement?.classList.contains("ntv__input-component");
-        if (!isFocusInComponent)
-          return;
-        const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement);
-        if (!focusNode?.previousSibling) {
-          selection.extend(inputNode, componentIndex + 1);
-        } else {
-          selection.extend(inputNode, componentIndex);
+        if (isFocusInComponent) {
+          const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement);
+          if (selection.focusOffset === 0) {
+            selection.extend(inputNode, componentIndex);
+          } else {
+            selection.extend(inputNode, componentIndex + 1);
+          }
         }
       }
     }
@@ -2149,310 +2149,6 @@
       if (!selection || !selection.rangeCount)
         return;
       selection.modify("extend", direction, "character");
-    }
-    deleteSelectionContents() {
-      const selection = window.getSelection();
-      if (!selection || !selection.rangeCount)
-        return;
-      for (let i = 0; i < selection.rangeCount; i++) {
-        const range = selection.getRangeAt(i);
-        if (!range.collapsed)
-          this.deleteRangeContents(range);
-      }
-    }
-    /**
-     * Simplistic implementation that intentionally does not traverse nodes for leaf nodes.
-     * It deletes the contents of a selection range and cleans up BOM characters around emote nodes.
-     * It makes a few assumptions about the possible input nodes and their children.
-     *
-     * Assumptions:
-     * - Input node has no children other than text nodes and emote nodes.
-     * - Emote nodes have attribute contenteditable="false", so selection anchor/focus can never be inside an emote node.
-     * - Emote nodes are always followed by either a visible character or BOM character.
-     * - Emote nodes are always preceded by either a visible character or BOM character.
-     * - BOM characters are only used to separate emote nodes.
-     */
-    deleteRangeContents(range) {
-      const { inputNode } = this;
-      inputNode.normalize();
-      const startContainer = range.startContainer;
-      const endContainer = range.endContainer;
-      const previousSibling = startContainer.previousSibling;
-      const nextSibling = startContainer.nextSibling;
-      log("Range", range);
-      if (range.commonAncestorContainer !== inputNode && range.commonAncestorContainer.parentElement !== inputNode)
-        return error("Start container is input node, this should not happen. Bailing out.");
-      const textContent = startContainer.textContent || "";
-      if (range.startOffset > 0) {
-        const charBeforeStart = textContent[range.startOffset - 1];
-        if (charBeforeStart === CHAR_ZWSP) {
-          if (previousSibling) {
-            const nodeBeforeEmote = previousSibling.previousSibling;
-            const nodeBeforeEmoteIsText = nodeBeforeEmote instanceof Text;
-            const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_ZWSP;
-            if (nodeBeforeEmoteIsBOM) {
-              range.setStart(nodeBeforeEmote, nodeBeforeEmote.length - 1);
-            } else if (nodeBeforeEmoteIsText) {
-              range.setStart(nodeBeforeEmote, nodeBeforeEmote.length);
-            } else {
-              error("Encountered unexpected missing node before emote node, this should never happen.");
-              range.setStart(inputNode, 0);
-            }
-          } else {
-          }
-        }
-      } else if (previousSibling) {
-        const nodeBeforeEmote = previousSibling.previousSibling;
-        const nodeBeforeEmoteIsText = nodeBeforeEmote instanceof Text;
-        const nodeBeforeEmoteIsBOM = nodeBeforeEmoteIsText && nodeBeforeEmote.textContent === CHAR_ZWSP;
-        if (nodeBeforeEmoteIsBOM) {
-          range.setStart(nodeBeforeEmote, nodeBeforeEmote.length - 1);
-        } else if (nodeBeforeEmoteIsText) {
-          range.setStart(nodeBeforeEmote, nodeBeforeEmote.length);
-        }
-      } else {
-      }
-      if (endContainer instanceof Text) {
-        const textContent2 = endContainer.textContent || "";
-        if (range.endOffset === 0) {
-          const charAfterEnd = textContent2[range.endOffset];
-          if (charAfterEnd === CHAR_ZWSP) {
-            range.setEnd(endContainer, 1);
-          } else {
-            range.setEnd(endContainer, 0);
-          }
-        } else {
-        }
-      } else {
-        if (nextSibling) {
-          const nodeAfterEmoteIsText = nextSibling instanceof Text;
-          const nodeAfterEmoteIsBOM = nodeAfterEmoteIsText && nextSibling.textContent === CHAR_ZWSP;
-          if (nodeAfterEmoteIsBOM) {
-            range.setEnd(nextSibling, 1);
-          } else if (nodeAfterEmoteIsText) {
-            range.setEnd(nextSibling, 0);
-          } else {
-            error("Encountered unexpected node after emote node, this should never happen.");
-            range.setEnd(inputNode, inputNode.childNodes.length);
-          }
-        } else {
-        }
-      }
-      range.deleteContents();
-    }
-    insertElement(element) {
-      const { inputNode } = this;
-      const selection = window.getSelection();
-      if (!selection) {
-        return log("Cannot get selection, appending emote nodes to end of text field");
-      }
-      let range;
-      if (selection.rangeCount && inputNode.childNodes.length) {
-        log("Selection with ranges found");
-        range = selection.getRangeAt(0);
-        range.setEnd(range.startContainer, range.startOffset);
-      } else if (inputNode.childNodes.length) {
-        log("No selection found, setting caret at end of last child node");
-        const lastChild = inputNode.childNodes[inputNode.childNodes.length - 1];
-        range = document.createRange();
-        range.setStart(lastChild, lastChild.childNodes.length);
-      } else {
-        const BOM = document.createTextNode("\uFEFF");
-        const space = document.createTextNode(" ");
-        inputNode.append(BOM, element, space);
-        selection.removeAllRanges();
-        range = document.createRange();
-        range.setStart(space, 1);
-        selection.addRange(range);
-        return;
-      }
-      if (!(range.startContainer instanceof Text)) {
-        log("Start container is not a text node, setting caret at end of last child node");
-        const lastChild = inputNode.childNodes[inputNode.childNodes.length - 1];
-        range = document.createRange();
-        range.setStart(lastChild, lastChild.childNodes.length);
-      }
-      const startContainer = range.startContainer;
-      let addBOMBeforeCaret = false;
-      let addBOMAfterCaret = false;
-      let addSpaceBeforeCaret = false;
-      let addSpaceAfterCaret = false;
-      const textContent = startContainer.textContent || "";
-      const isStartAtStart = range.startOffset === 0;
-      const isEndAtEnd = range.endOffset === textContent.length;
-      const isStartOfAncestor = startContainer === inputNode.firstChild;
-      const isEndOfAncestor = startContainer === inputNode.lastChild;
-      const charBeforeCaret = textContent[range.startOffset - 1];
-      const charAfterCaret = textContent[range.endOffset];
-      const bomBeforeCaret = charBeforeCaret === CHAR_ZWSP;
-      const bomAfterCaret = charAfterCaret === CHAR_ZWSP;
-      const spaceAfterCaret = charAfterCaret === " ";
-      log("Space before caret:", charBeforeCaret === " ");
-      log("Space after caret:", charAfterCaret === " ");
-      if (isStartAtStart && isStartOfAncestor) {
-        addBOMBeforeCaret = true;
-      } else if (bomBeforeCaret && isStartOfAncestor) {
-      } else if (bomBeforeCaret) {
-        range.setStart(startContainer, range.startOffset - 1);
-        addSpaceBeforeCaret = true;
-      } else if (charBeforeCaret && charBeforeCaret.trim()) {
-        addSpaceBeforeCaret = true;
-      } else if (isStartAtStart && startContainer.previousSibling instanceof Element) {
-        log("Node before caret is element, adding space before caret", startContainer.previousSibling);
-        addSpaceBeforeCaret = true;
-      }
-      if (isEndAtEnd && isEndOfAncestor) {
-        addSpaceAfterCaret = true;
-      } else if (bomAfterCaret) {
-        range.setEnd(startContainer, range.endOffset + 1);
-        addSpaceAfterCaret = true;
-      } else if (!spaceAfterCaret) {
-        addSpaceAfterCaret = true;
-      }
-      log("Range", range);
-      log("Add BOM before caret:", addBOMBeforeCaret);
-      log("Add BOM after caret:", addBOMAfterCaret);
-      log("Add space before caret:", addSpaceBeforeCaret);
-      log("Add space after caret:", addSpaceAfterCaret);
-      range.deleteContents();
-      if (addBOMAfterCaret) {
-        range.insertNode(document.createTextNode(CHAR_ZWSP));
-      } else if (addSpaceAfterCaret) {
-        range.insertNode(document.createTextNode(" "));
-      }
-      range.insertNode(element);
-      if (addBOMBeforeCaret) {
-        range.insertNode(document.createTextNode(CHAR_ZWSP));
-      } else if (addSpaceBeforeCaret) {
-        range.insertNode(document.createTextNode(" "));
-      }
-      range.collapse();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      inputNode.normalize();
-    }
-    replaceSelectedTextNodes(nodes) {
-      const { inputNode } = this;
-      if (!inputNode.childNodes.length) {
-        log("Input node is empty, appending emote nodes to end of input node");
-        nodes.unshift(document.createTextNode("\uFEFF"));
-        nodes.push(document.createTextNode(" "));
-        inputNode.append(...nodes);
-        Caret.collapseToEndOfNode(nodes[nodes.length - 1]);
-      } else {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount) {
-          const range = selection.getRangeAt(0);
-          log("Range", range);
-          const commonAncestor = range.commonAncestorContainer;
-          const isCommonAncestorTextField = commonAncestor === inputNode;
-          const isCommonAncestorTextFieldParent = commonAncestor.parentElement === inputNode;
-          const isCaretInTextNodeInInputNode = commonAncestor instanceof Text && (isCommonAncestorTextField || isCommonAncestorTextFieldParent);
-          if (isCaretInTextNodeInInputNode) {
-            const startContainer = range.startContainer;
-            if (!(startContainer instanceof Text)) {
-              error(
-                "Selection start container is not a text node, selection is corrupted. This means either the selection focus has escaped outside the input node, or selection focus started right before an element (between BOM?).",
-                range
-              );
-              return;
-            }
-            const endContainer = range.endContainer;
-            if (!(endContainer instanceof Text)) {
-              error(
-                "Selection end container is not a text node, selection is corrupted. This means either the selection focus has escaped outside the input node, or selection focus ended right after an element (between BOM?).",
-                range
-              );
-              return;
-            }
-            const textContent = startContainer.textContent;
-            if (!textContent)
-              return error("Text content not found for text node start container");
-            const isStartAtStart = range.startOffset === 0;
-            const isEndAtEnd = range.endOffset === textContent.length;
-            log("Caret start is at start", isStartAtStart, "Caret end is at end", isEndAtEnd);
-            const charBeforeCaret = textContent[range.startOffset - 1], charAfterCaret = textContent[range.endOffset];
-            const bomBeforeCaret = charBeforeCaret === CHAR_ZWSP, bomAfterCaret = charAfterCaret === CHAR_ZWSP;
-            log(`Char before caret: ${charBeforeCaret}`, "Is BOM:", bomBeforeCaret);
-            log(`Char after caret: ${charAfterCaret}`, "Is BOM:", bomAfterCaret);
-            const isStartOfAncestor = startContainer === inputNode.firstChild;
-            const isEndOfAncestor = endContainer === inputNode.lastChild;
-            if (isStartAtStart) {
-              const nodeBeforeIsElement = startContainer.previousSibling instanceof Element;
-              log("Caret is at start of input node:", isStartOfAncestor);
-              log("Node before caret is element:", nodeBeforeIsElement);
-              if (isStartOfAncestor) {
-                nodes.unshift(document.createTextNode(CHAR_ZWSP));
-              } else if (nodeBeforeIsElement) {
-                nodes.unshift(document.createTextNode(" "));
-              } else {
-                error(
-                  "Selection start is at start of text node, but not at start of input node and previous node is not an element either. Is previous node a text node? It should have been normalized.",
-                  range
-                );
-              }
-            } else {
-              if (bomBeforeCaret) {
-                const isStartBeforeBom = range.startOffset === 1;
-                if (isStartBeforeBom && isStartOfAncestor) {
-                } else {
-                  range.setStart(startContainer, range.startOffset - 1);
-                  nodes.unshift(document.createTextNode(" "));
-                }
-              } else if (charBeforeCaret.trim()) {
-                nodes.unshift(document.createTextNode(" "));
-              }
-            }
-            if (isEndAtEnd) {
-              const nodeAfterIsElement = endContainer.nextSibling instanceof Element;
-              log("Caret is at end of input node:", isEndOfAncestor);
-              log("Node after caret is element:", nodeAfterIsElement);
-              if (isEndOfAncestor || nodeAfterIsElement) {
-                nodes.push(document.createTextNode(" "));
-              } else {
-                error(
-                  "Selection end is at end of text node, but not at end of input node and next node is not an element either. Is next node a text node? It should have been normalized.",
-                  range
-                );
-              }
-            } else {
-              if (bomAfterCaret) {
-                range.setEnd(endContainer, range.endOffset + 1);
-              }
-              if (bomAfterCaret || charAfterCaret.trim()) {
-                nodes.push(document.createTextNode(" "));
-              }
-            }
-            range.deleteContents();
-            for (let i = nodes.length - 1; i >= 0; i--) {
-              range.insertNode(nodes[i]);
-            }
-            range.collapse();
-            selection.removeAllRanges();
-            selection.addRange(range);
-          } else if (commonAncestor === inputNode) {
-            log(
-              "Caret is in input node but not in text node, appending emote nodes to end of input node",
-              range
-            );
-            error("This should never happen, fix this");
-          } else {
-            log("Caret is in input node not text node, appending emote nodes to end of text field", range);
-            error("This should never happen, fix this");
-            nodes.push(document.createTextNode(" "));
-            inputNode.append(...nodes);
-            Caret.collapseToEndOfNode(nodes[nodes.length - 1]);
-          }
-        } else {
-          log("No range found, appending emote nodes to end of text field");
-          nodes.push(document.createTextNode(" "));
-          inputNode.append(...nodes);
-          Caret.collapseToEndOfNode(nodes[nodes.length - 1]);
-        }
-      }
-      inputNode.normalize();
-      inputNode.dispatchEvent(new Event("input"));
-      inputNode.focus();
     }
     insertText(text) {
       const { inputNode } = this;
@@ -4630,7 +4326,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.2.9",
+      VERSION: "1.2.10",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
