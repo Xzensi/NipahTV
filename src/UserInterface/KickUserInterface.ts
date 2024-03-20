@@ -14,6 +14,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	clipboard = new Clipboard2()
 	inputController: InputController | null = null
 	chatObserver: MutationObserver | null = null
+	pinnedMessageObserver: MutationObserver | null = null
 	emoteMenu: EmoteMenuComponent | null = null
 	emoteMenuButton: EmoteMenuButtonComponent | null = null
 	quickEmotesHolder: QuickEmotesHolderComponent | null = null
@@ -480,7 +481,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (!chatroomTopEl) return error('Chatroom top not loaded for observing pinned message')
 
 		this.eventBus.subscribe('ntv.providers.loaded', () => {
-			const observer = new MutationObserver(mutations => {
+			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
 				mutations.forEach(mutation => {
 					if (mutation.addedNodes.length) {
 						for (const node of mutation.addedNodes) {
@@ -490,7 +491,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						}
 					}
 				})
-			})
+			}))
 
 			observer.observe(chatroomTopEl, { childList: true, subtree: true })
 
@@ -881,6 +882,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	destroy() {
 		if (this.abortController) this.abortController.abort()
 		if (this.chatObserver) this.chatObserver.disconnect()
+		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
