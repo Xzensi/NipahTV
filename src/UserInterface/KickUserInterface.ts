@@ -671,7 +671,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (bufferString) buffer.push(bufferString)
 
 		const parsedString = buffer.join(' ')
-		log(parsedString)
 		buffer.length = 0
 
 		if (parsedString.length > this.maxMessageLength) {
