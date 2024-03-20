@@ -43,7 +43,14 @@ declare global {
 		channel_id: string
 		channel_name: string
 		user_id: string
-		me: any
+		me: {
+			is_subscribed?: boolean
+			is_following?: boolean
+			is_super_admin?: boolean
+			is_broadcaster?: boolean
+			is_moderator?: boolean
+			is_banned?: boolean
+		}
 	}
 
 	type EmoteSet = {

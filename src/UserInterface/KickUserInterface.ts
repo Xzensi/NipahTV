@@ -1,4 +1,4 @@
-import { log, info, error, assertArgDefined, waitForElements, cleanupHTML, md5, hex2rgb } from '../utils'
+import { log, info, error, assertArgDefined, waitForElements, cleanupHTML, md5, hex2rgb, logNow } from '../utils'
 import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
@@ -534,7 +534,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		*/
 
 		const chatEntryNode = messageNode.querySelector('.chat-entry')
-		if (!chatEntryNode) return error('ChatEntryNode not found for message', messageNode)
+		if (!chatEntryNode) {
+			// TODO attach another observer to the message to wait for when the message will actually load..
+			return error('ChatEntryNode not found for message', messageNode)
+		}
 		const uselessWrapperNode = chatEntryNode.children[0]
 		const contentNodes = Array.from(uselessWrapperNode.children)
 		const contentNodesLength = contentNodes.length
@@ -599,6 +602,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 							if (emoteId) {
 								const emote = emotesManager.getEmoteById(emoteId)
+								if (!emote) {
+									error('Emote not found', emoteId, imgEl)
+									continue
+								}
 								imgEl.setAttribute('data-emote-hid', emote.hid)
 								imgEl.setAttribute('data-emote-name', emote.name)
 							}

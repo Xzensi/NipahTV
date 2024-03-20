@@ -34,7 +34,7 @@ class NipahClient {
 	eventBus: Publisher | null = null
 	emotesManager: EmotesManager | null = null
 	private database: Dexie | null = null
-	private channelData: any
+	private channelData: ChannelData | null = null
 
 	initialize() {
 		const { ENV_VARS } = this
@@ -84,8 +84,7 @@ class NipahClient {
 		const settingsManager = new SettingsManager({ database, eventBus })
 		settingsManager.initialize()
 
-		let channelData: ChannelData | null = null
-		let promises = []
+		const promises = []
 		promises.push(
 			settingsManager.loadSettings().catch(err => {
 				throw new Error(`Couldn't load settings. ${err}`)
@@ -96,15 +95,14 @@ class NipahClient {
 				throw new Error(`Couldn't load channel data. ${err}`)
 			})
 		)
-		await Promise.all(promises).then(values => {
-			channelData = values[1] as ChannelData
-		})
+		await Promise.all(promises)
 
-		if (!channelData) throw new Error('No channel data was found.')
+		const channelData = this.channelData
+		if (!channelData) throw new Error('Channel data has not loaded yet.')
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
-			(<ChannelData>channelData).channel_id
+			channelData.channel_id
 		))
 		emotesManager.initialize()
 
@@ -178,48 +176,53 @@ class NipahClient {
 	}
 
 	async loadChannelData() {
-		let channelData = {}
-
 		if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
+			const channelData = {}
+
 			// We extract channel name from the URL
 			const channelName = window.location.pathname.substring(1).split('/')[0]
 			if (!channelName) throw new Error('Failed to extract channel name from URL')
 
 			// We extract channel data from the Kick API
-			const responseChannelData = (await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)) as
-				| any
-				| undefined
+			const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)
+			log('responseChannelData', responseChannelData)
 			if (!responseChannelData) {
 				throw new Error('Failed to fetch channel data')
 			}
-			if (!responseChannelData.id || !responseChannelData.user_id) {
-				throw new Error('Invalid channel data')
+			if (!responseChannelData.id) {
+				throw new Error('Invalid channel data, missing property "id"')
 			}
-			const responseChannelMeData = (await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`)) as
-				| any
-				| undefined
-			if (!responseChannelMeData) {
-				throw new Error('Failed to fetch channel me data')
+			if (!responseChannelData.user_id) {
+				throw new Error('Invalid channel data, missing property "user_id"')
 			}
 
-			channelData = {
+			Object.assign(channelData, {
 				user_id: responseChannelData.user_id,
 				channel_id: responseChannelData.id,
 				channel_name: channelName,
-				me: {
-					is_subscribed: !!responseChannelMeData.subscription,
-					is_following: !!responseChannelMeData.is_following,
-					is_super_admin: !!responseChannelMeData.is_super_admin,
-					is_broadcaster: !!responseChannelMeData.is_broadcaster,
-					is_moderator: !!responseChannelMeData.is_moderator,
-					is_banned: !!responseChannelMeData.banned
-				}
+				me: {}
+			})
+
+			const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
+				() => {}
+			)
+			if (responseChannelMeData) {
+				Object.assign(channelData, {
+					me: {
+						is_subscribed: !!responseChannelMeData.subscription,
+						is_following: !!responseChannelMeData.is_following,
+						is_super_admin: !!responseChannelMeData.is_super_admin,
+						is_broadcaster: !!responseChannelMeData.is_broadcaster,
+						is_moderator: !!responseChannelMeData.is_moderator,
+						is_banned: !!responseChannelMeData.banned
+					}
+				})
+			} else {
+				info('User is not logged in.')
 			}
+
+			this.channelData = channelData as ChannelData
 		}
-
-		this.channelData = channelData
-
-		return channelData
 	}
 
 	attachPageNavigationListener() {
