@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.2.11
+// @version 1.2.12
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2732,6 +2732,7 @@
     clipboard = new Clipboard2();
     inputController = null;
     chatObserver = null;
+    pinnedMessageObserver = null;
     emoteMenu = null;
     emoteMenuButton = null;
     quickEmotesHolder = null;
@@ -2785,6 +2786,10 @@
         eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
         this.observeChatMessages();
         this.loadScrollingBehaviour();
+      }).catch(() => {
+      });
+      waitForElements(["#chatroom-top"], 5e3).then(() => {
+        this.observePinnedMessage();
       }).catch(() => {
       });
       eventBus.subscribe(
@@ -3084,6 +3089,29 @@
           this.insertEmoteInChat(emoteHid);
       });
     }
+    observePinnedMessage() {
+      const chatroomTopEl = document.getElementById("chatroom-top");
+      if (!chatroomTopEl)
+        return error("Chatroom top not loaded for observing pinned message");
+      this.eventBus.subscribe("ntv.providers.loaded", () => {
+        const observer = this.pinnedMessageObserver = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.addedNodes.length) {
+              for (const node of mutation.addedNodes) {
+                if (node instanceof HTMLElement && node.classList.contains("pinned-message")) {
+                  this.renderPinnedMessage(node);
+                }
+              }
+            }
+          });
+        });
+        observer.observe(chatroomTopEl, { childList: true, subtree: true });
+        const pinnedMessage = chatroomTopEl.querySelector(".pinned-message");
+        if (pinnedMessage) {
+          this.renderPinnedMessage(pinnedMessage);
+        }
+      });
+    }
     renderChatMessages() {
       if (!this.elm || !this.elm.chatMessagesContainer)
         return;
@@ -3110,9 +3138,11 @@
           this.usersManager.registerUser(chatEntryUserId, chatEntryUserName);
         }
       }
+      if (messageNode.children && messageNode.children[0]?.classList.contains("chatroom-history-breaker"))
+        return;
       const chatEntryNode = messageNode.querySelector(".chat-entry");
       if (!chatEntryNode) {
-        return error("ChatEntryNode not found for message", messageNode);
+        return error("Message has no content loaded yet..", messageNode);
       }
       let messageWrapperNode;
       if (messageNode.querySelector('[title*="Replying to"]')) {
@@ -3165,7 +3195,9 @@
                 if (emoteId) {
                   const emote = emotesManager.getEmoteById(emoteId);
                   if (!emote) {
-                    error("Emote not found", emoteId, imgEl);
+                    log(
+                      `Skipping missing emote ${emoteId}, probably subscriber emote of different channel you're not subscribed to.`
+                    );
                     continue;
                   }
                   imgEl.setAttribute("data-emote-hid", emote.hid);
@@ -3187,6 +3219,13 @@
         }
       }
       messageNode.classList.add("ntv__chat-message");
+    }
+    renderPinnedMessage(node) {
+      const { emotesManager } = this;
+      const chatEntryContentNode = node.querySelector(".chat-entry-content");
+      if (!chatEntryContentNode)
+        return error("Pinned message content node not found", node);
+      this.renderEmotesInElement(chatEntryContentNode);
     }
     // Submits input to chat
     submitInput(suppressEngagementEvent = false) {
@@ -3326,6 +3365,8 @@
         this.abortController.abort();
       if (this.chatObserver)
         this.chatObserver.disconnect();
+      if (this.pinnedMessageObserver)
+        this.pinnedMessageObserver.disconnect();
       if (this.emoteMenu)
         this.emoteMenu.destroy();
       if (this.emoteMenuButton)
@@ -4331,7 +4372,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.2.11",
+      VERSION: "1.2.12",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
@@ -4464,7 +4505,6 @@
         if (!channelName)
           throw new Error("Failed to extract channel name from URL");
         const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`);
-        log("responseChannelData", responseChannelData);
         if (!responseChannelData) {
           throw new Error("Failed to fetch channel data");
         }
