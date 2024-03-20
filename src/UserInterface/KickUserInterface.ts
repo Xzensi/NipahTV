@@ -100,6 +100,12 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
+		waitForElements(['#chatroom-top'], 5_000)
+			.then(() => {
+				this.observePinnedMessage()
+			})
+			.catch(() => {})
+
 		// Inject or send emote to chat on emote click
 		eventBus.subscribe(
 			'ntv.ui.emote.click',
@@ -469,6 +475,32 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 	}
 
+	observePinnedMessage() {
+		const chatroomTopEl = document.getElementById('chatroom-top')
+		if (!chatroomTopEl) return error('Chatroom top not loaded for observing pinned message')
+
+		this.eventBus.subscribe('ntv.providers.loaded', () => {
+			const observer = new MutationObserver(mutations => {
+				mutations.forEach(mutation => {
+					if (mutation.addedNodes.length) {
+						for (const node of mutation.addedNodes) {
+							if (node instanceof HTMLElement && node.classList.contains('pinned-message')) {
+								this.renderPinnedMessage(node as HTMLElement)
+							}
+						}
+					}
+				})
+			})
+
+			observer.observe(chatroomTopEl, { childList: true, subtree: true })
+
+			const pinnedMessage = chatroomTopEl.querySelector('.pinned-message')
+			if (pinnedMessage) {
+				this.renderPinnedMessage(pinnedMessage as HTMLElement)
+			}
+		})
+	}
+
 	renderChatMessages() {
 		if (!this.elm || !this.elm.chatMessagesContainer) return
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
@@ -616,7 +648,7 @@ export class KickUserInterface extends AbstractUserInterface {
 								if (!emote) {
 									// error('Emote not found', emoteId, imgEl)
 									log(
-										"Skipping missing emote ${emoteId}, probably subscriber emote of different channel you're not subscribed to."
+										`Skipping missing emote ${emoteId}, probably subscriber emote of different channel you're not subscribed to.`
 									)
 									continue
 								}
@@ -641,6 +673,15 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Adding this class removes the display: none from the chat message, causing a reflow
 		messageNode.classList.add('ntv__chat-message')
+	}
+
+	renderPinnedMessage(node: HTMLElement) {
+		const { emotesManager } = this
+
+		const chatEntryContentNode = node.querySelector('.chat-entry-content')
+		if (!chatEntryContentNode) return error('Pinned message content node not found', node)
+
+		this.renderEmotesInElement(chatEntryContentNode)
 	}
 
 	// Submits input to chat

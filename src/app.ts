@@ -185,7 +185,6 @@ class NipahClient {
 
 			// We extract channel data from the Kick API
 			const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)
-			log('responseChannelData', responseChannelData)
 			if (!responseChannelData) {
 				throw new Error('Failed to fetch channel data')
 			}
