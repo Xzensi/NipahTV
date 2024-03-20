@@ -59,6 +59,10 @@ export class Logger {
 		)
 	}
 
+	errorNow(...args: any[]) {
+		this.error(...structuredClone(args))
+	}
+
 	logEvent(event: string, ...args: any[]) {
 		console.log(
 			`%c${this.prefix}%cEVENT%c`,
@@ -68,5 +72,9 @@ export class Logger {
 			event,
 			...args
 		)
+	}
+
+	logNow(...args: any[]) {
+		this.log(...structuredClone(args))
 	}
 }

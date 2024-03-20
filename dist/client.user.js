@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.2.8
+// @version 1.2.9
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -75,6 +75,9 @@
         ...args
       );
     }
+    errorNow(...args) {
+      this.error(...structuredClone(args));
+    }
     logEvent(event, ...args) {
       console.log(
         `%c${this.prefix}%cEVENT%c`,
@@ -85,14 +88,19 @@
         ...args
       );
     }
+    logNow(...args) {
+      this.log(...structuredClone(args));
+    }
   };
 
   // src/utils.ts
   var logger = new Logger();
   var log = logger.log.bind(logger);
   var logEvent = logger.logEvent.bind(logger);
+  var logNow = logger.logNow.bind(logger);
   var info = logger.info.bind(logger);
   var error = logger.error.bind(logger);
+  var errorNow = logger.errorNow.bind(logger);
   var CHAR_ZWSP = "\uFEFF";
   var assertArgument = (arg, type) => {
     if (typeof arg !== type) {
@@ -111,7 +119,14 @@
   };
   async function fetchJSON(url) {
     return new Promise((resolve, reject) => {
-      fetch(url).then((res) => res.json()).then(resolve).catch(reject);
+      fetch(url).then((res) => {
+        if (res.redirected) {
+          reject("Request failed, redirected to " + res.url);
+        } else if (res.status !== 200 && res.status !== 304) {
+          reject("Request failed with status code " + res.status);
+        }
+        return res;
+      }).then((res) => res.json()).then(resolve).catch(reject);
     });
   }
   function isEmpty(obj) {
@@ -3400,8 +3415,9 @@
         }
       }
       const chatEntryNode = messageNode.querySelector(".chat-entry");
-      if (!chatEntryNode)
+      if (!chatEntryNode) {
         return error("ChatEntryNode not found for message", messageNode);
+      }
       const uselessWrapperNode = chatEntryNode.children[0];
       const contentNodes = Array.from(uselessWrapperNode.children);
       const contentNodesLength = contentNodes.length;
@@ -3447,6 +3463,10 @@
                 const emoteId = imgEl.getAttribute("data-emote-id");
                 if (emoteId) {
                   const emote = emotesManager.getEmoteById(emoteId);
+                  if (!emote) {
+                    error("Emote not found", emoteId, imgEl);
+                    continue;
+                  }
                   imgEl.setAttribute("data-emote-hid", emote.hid);
                   imgEl.setAttribute("data-emote-name", emote.name);
                 }
@@ -3504,7 +3524,6 @@
       if (bufferString)
         buffer.push(bufferString);
       const parsedString = buffer.join(" ");
-      log(parsedString);
       buffer.length = 0;
       if (parsedString.length > this.maxMessageLength) {
         error(
@@ -4611,7 +4630,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.2.8",
+      VERSION: "1.2.9",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
@@ -4626,7 +4645,7 @@
     eventBus = null;
     emotesManager = null;
     database = null;
-    channelData;
+    channelData = null;
     initialize() {
       const { ENV_VARS } = this;
       info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
@@ -4664,8 +4683,7 @@
       this.eventBus = eventBus;
       const settingsManager = new SettingsManager({ database, eventBus });
       settingsManager.initialize();
-      let channelData = null;
-      let promises = [];
+      const promises = [];
       promises.push(
         settingsManager.loadSettings().catch((err) => {
           throw new Error(`Couldn't load settings. ${err}`);
@@ -4676,11 +4694,10 @@
           throw new Error(`Couldn't load channel data. ${err}`);
         })
       );
-      await Promise.all(promises).then((values) => {
-        channelData = values[1];
-      });
+      await Promise.all(promises);
+      const channelData = this.channelData;
       if (!channelData)
-        throw new Error("No channel data was found.");
+        throw new Error("Channel data has not loaded yet.");
       const emotesManager = this.emotesManager = new EmotesManager(
         { database, eventBus, settingsManager },
         channelData.channel_id
@@ -4740,38 +4757,48 @@
       });
     }
     async loadChannelData() {
-      let channelData = {};
       if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
+        const channelData = {};
         const channelName = window2.location.pathname.substring(1).split("/")[0];
         if (!channelName)
           throw new Error("Failed to extract channel name from URL");
         const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`);
+        log("responseChannelData", responseChannelData);
         if (!responseChannelData) {
           throw new Error("Failed to fetch channel data");
         }
-        if (!responseChannelData.id || !responseChannelData.user_id) {
-          throw new Error("Invalid channel data");
+        if (!responseChannelData.id) {
+          throw new Error('Invalid channel data, missing property "id"');
         }
-        const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`);
-        if (!responseChannelMeData) {
-          throw new Error("Failed to fetch channel me data");
+        if (!responseChannelData.user_id) {
+          throw new Error('Invalid channel data, missing property "user_id"');
         }
-        channelData = {
+        Object.assign(channelData, {
           user_id: responseChannelData.user_id,
           channel_id: responseChannelData.id,
           channel_name: channelName,
-          me: {
-            is_subscribed: !!responseChannelMeData.subscription,
-            is_following: !!responseChannelMeData.is_following,
-            is_super_admin: !!responseChannelMeData.is_super_admin,
-            is_broadcaster: !!responseChannelMeData.is_broadcaster,
-            is_moderator: !!responseChannelMeData.is_moderator,
-            is_banned: !!responseChannelMeData.banned
+          me: {}
+        });
+        const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
+          () => {
           }
-        };
+        );
+        if (responseChannelMeData) {
+          Object.assign(channelData, {
+            me: {
+              is_subscribed: !!responseChannelMeData.subscription,
+              is_following: !!responseChannelMeData.is_following,
+              is_super_admin: !!responseChannelMeData.is_super_admin,
+              is_broadcaster: !!responseChannelMeData.is_broadcaster,
+              is_moderator: !!responseChannelMeData.is_moderator,
+              is_banned: !!responseChannelMeData.banned
+            }
+          });
+        } else {
+          info("User is not logged in.");
+        }
+        this.channelData = channelData;
       }
-      this.channelData = channelData;
-      return channelData;
     }
     attachPageNavigationListener() {
       info("Current URL:", window2.location.href);

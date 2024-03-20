@@ -3,8 +3,10 @@ import { Logger } from './Classes/Logger'
 const logger = new Logger()
 export const log = logger.log.bind(logger)
 export const logEvent = logger.logEvent.bind(logger)
+export const logNow = logger.logNow.bind(logger)
 export const info = logger.info.bind(logger)
 export const error = logger.error.bind(logger)
+export const errorNow = logger.errorNow.bind(logger)
 
 export const CHAR_ZWSP = '\uFEFF'
 
@@ -29,10 +31,18 @@ export const assertArgDefined = (arg: any) => {
 export async function fetchJSON(url: URL | RequestInfo) {
 	return new Promise((resolve, reject) => {
 		fetch(url)
+			.then(res => {
+				if (res.redirected) {
+					reject('Request failed, redirected to ' + res.url)
+				} else if (res.status !== 200 && res.status !== 304) {
+					reject('Request failed with status code ' + res.status)
+				}
+				return res
+			})
 			.then(res => res.json())
 			.then(resolve)
 			.catch(reject)
-	})
+	}) as Promise<any | void>
 }
 
 export function isEmpty(obj: object) {
