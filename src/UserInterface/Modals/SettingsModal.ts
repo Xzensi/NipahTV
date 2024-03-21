@@ -142,7 +142,9 @@ export class SettingsModal extends AbstractModal {
 		}
 
 		// Show first panel
-		$panels.find('.ntv__settings-modal__panel').first().show()
+		const defaultPanel = 'chat.appearance'
+		$panels.find(`[data-panel="${defaultPanel}]"`).show()
+		$sidebar.find(`[data-panel="${defaultPanel}"]`).addClass('ntv__settings-modal__sub-category--active')
 
 		$modalBody?.append($sidebar)
 		$modalBody?.append($panels)
@@ -156,6 +158,11 @@ export class SettingsModal extends AbstractModal {
 		// Sidebar navigation
 		$('.ntv__settings-modal__sub-category', this.$sidebar).on('click', evt => {
 			const panelId = $(evt.currentTarget).data('panel')
+
+			$('.ntv__settings-modal__sub-category', this.$sidebar).removeClass(
+				'ntv__settings-modal__sub-category--active'
+			)
+			$(evt.currentTarget).addClass('ntv__settings-modal__sub-category--active')
 
 			$('.ntv__settings-modal__panel', this.$panels).hide()
 			$(`[data-panel="${panelId}"]`, this.$panels).show()

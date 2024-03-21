@@ -692,47 +692,20 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	// Submits input to chat
 	submitInput(suppressEngagementEvent = false) {
-		const { eventBus, emotesManager } = this
+		const { eventBus, emotesManager, inputController } = this
 
 		if (!this.elm.textField || !this.elm.originalTextField || !this.elm.originalSubmitButton) {
 			return error('Text field not loaded for submitting input')
+		}
+		if (!inputController) {
+			return error('Input controller not loaded for submitting input')
 		}
 
 		const originalTextFieldEl = this.elm.originalTextField
 		const originalSubmitButtonEl = this.elm.originalSubmitButton
 		const textFieldEl = this.elm.textField
 
-		const buffer = []
-		let bufferString = ''
-		let emotesInMessage = new Set()
-		for (const node of textFieldEl.childNodes) {
-			if (node.nodeType === Node.TEXT_NODE) {
-				bufferString += node.textContent
-			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				const componentBody = node.childNodes[1]
-				const emoteBox = componentBody.childNodes[0]
-
-				if (emoteBox) {
-					const emoteHid = (emoteBox as HTMLElement).dataset.emoteHid
-
-					if (emoteHid) {
-						if (bufferString) buffer.push(bufferString)
-						bufferString = ''
-						emotesInMessage.add(emoteHid)
-						buffer.push(emotesManager.getEmoteEmbeddable(emoteHid))
-					} else {
-						error('Invalid emote node, missing HID', emoteBox)
-					}
-				} else {
-					error('Invalid component node', componentBody.childNodes)
-				}
-			}
-		}
-
-		if (bufferString) buffer.push(bufferString)
-
-		const parsedString = buffer.join(' ')
-		buffer.length = 0
+		const [parsedString, emotesInMessage] = inputController.getEncodedContent()
 
 		if (parsedString.length > this.maxMessageLength) {
 			error(

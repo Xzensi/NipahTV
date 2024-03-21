@@ -43,6 +43,10 @@
 	}
 
 	&__sub-category {
+		&--active {
+			background-color: hsla(0, 0%, 50%, 0.2);
+		}
+
 		span {
 			transition: background-color 0.1s;
 

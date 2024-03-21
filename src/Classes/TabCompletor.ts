@@ -323,7 +323,6 @@ export class TabCompletor {
 			} else if (evt.key === 'Shift') {
 				// Ignore shift key press
 			} else {
-				this.inputController.insertText(' ')
 				this.hideModal()
 				this.reset()
 			}
