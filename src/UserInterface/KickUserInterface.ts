@@ -160,7 +160,27 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async loadQuickEmotesHolder() {
 		const { eventBus, settingsManager, emotesManager } = this
-		this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init()
+
+		const quickEmotesHolderEnabled = settingsManager.getSetting('shared.chat.quick_emote_holder.enabled')
+		if (quickEmotesHolderEnabled) {
+			this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init()
+		}
+
+		eventBus.subscribe(
+			'ntv.settings.change.shared.chat.quick_emote_holder.enabled',
+			({ value, prevValue }: any) => {
+				if (value) {
+					this.quickEmotesHolder = new QuickEmotesHolderComponent({
+						eventBus,
+						settingsManager,
+						emotesManager
+					}).init()
+				} else {
+					this.quickEmotesHolder?.destroy()
+					this.quickEmotesHolder = null
+				}
+			}
+		)
 	}
 
 	loadSettings() {

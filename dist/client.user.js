@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.2.15
+// @version 1.2.16
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -854,6 +854,7 @@
     emotesManager;
     $element;
     $emote;
+    renderQuickEmotesCallback;
     constructor({
       eventBus,
       settingsManager,
@@ -870,7 +871,7 @@
       this.$element = $(`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
       $oldEmotesHolder.after(this.$element);
-      $oldEmotesHolder.remove();
+      $oldEmotesHolder.hide();
     }
     attachEventHandlers() {
       this.$element?.on("click", "img", (evt) => {
@@ -883,7 +884,8 @@
         ["ntv.providers.loaded", "ntv.datastore.emotes.history.loaded"],
         this.renderQuickEmotes.bind(this)
       );
-      this.eventBus.subscribe("ntv.ui.submit_input", this.renderQuickEmotes.bind(this));
+      this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this);
+      this.eventBus.subscribe("ntv.ui.submit_input", this.renderQuickEmotesCallback);
     }
     handleEmoteClick(emoteHid, sendImmediately = false) {
       assertArgDefined(emoteHid);
@@ -896,6 +898,7 @@
     renderQuickEmotes() {
       const { emotesManager } = this;
       const emoteHistory = emotesManager.getEmoteHistory();
+      log(emoteHistory);
       if (emoteHistory.size) {
         for (const [emoteHid, history] of emoteHistory) {
           this.renderQuickEmote(emoteHid);
@@ -946,6 +949,8 @@
     }
     destroy() {
       this.$element?.remove();
+      if (this.renderQuickEmotesCallback)
+        this.eventBus.unsubscribe("ntv.ui.submit_input", this.renderQuickEmotesCallback);
     }
   };
 
@@ -2904,7 +2909,25 @@
     }
     async loadQuickEmotesHolder() {
       const { eventBus, settingsManager, emotesManager } = this;
-      this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init();
+      const quickEmotesHolderEnabled = settingsManager.getSetting("shared.chat.quick_emote_holder.enabled");
+      if (quickEmotesHolderEnabled) {
+        this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init();
+      }
+      eventBus.subscribe(
+        "ntv.settings.change.shared.chat.quick_emote_holder.enabled",
+        ({ value, prevValue }) => {
+          if (value) {
+            this.quickEmotesHolder = new QuickEmotesHolderComponent({
+              eventBus,
+              settingsManager,
+              emotesManager
+            }).init();
+          } else {
+            this.quickEmotesHolder?.destroy();
+            this.quickEmotesHolder = null;
+          }
+        }
+      );
     }
     loadSettings() {
       const { eventBus, settingsManager } = this;
@@ -4233,10 +4256,16 @@
                 label: "Appearance",
                 children: [
                   {
+                    label: "Show quick emote holder",
+                    id: "shared.chat.quick_emote_holder.enabled",
+                    type: "checkbox",
+                    default: true
+                  },
+                  {
                     label: "Rows of emotes to display.",
                     id: "shared.chat.quick_emote_holder.appearance.rows",
                     type: "number",
-                    default: 4,
+                    default: 2,
                     min: 1,
                     max: 10
                   }
@@ -4287,7 +4316,7 @@
                 children: [
                   {
                     label: "Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages.",
-                    id: "shared.chat.input.history.enable",
+                    id: "shared.chat.input.history.enabled",
                     default: true,
                     type: "checkbox"
                   }
@@ -4428,7 +4457,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.2.15",
+      VERSION: "1.2.16",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

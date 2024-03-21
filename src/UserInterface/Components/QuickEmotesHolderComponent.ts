@@ -15,6 +15,8 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	$element?: JQuery<HTMLElement>
 	$emote?: JQuery<HTMLElement>
 
+	renderQuickEmotesCallback?: () => void
+
 	constructor({
 		eventBus,
 		settingsManager,
@@ -40,7 +42,8 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 		const $oldEmotesHolder = $('#chatroom-footer .quick-emotes-holder')
 		$oldEmotesHolder.after(this.$element)
-		$oldEmotesHolder.remove()
+		$oldEmotesHolder.hide()
+		// $oldEmotesHolder.remove()
 	}
 
 	attachEventHandlers() {
@@ -56,7 +59,8 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 			this.renderQuickEmotes.bind(this)
 		)
 
-		this.eventBus.subscribe('ntv.ui.submit_input', this.renderQuickEmotes.bind(this))
+		this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this)
+		this.eventBus.subscribe('ntv.ui.submit_input', this.renderQuickEmotesCallback)
 	}
 
 	handleEmoteClick(emoteHid: string, sendImmediately = false) {
@@ -73,6 +77,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		const { emotesManager } = this
 		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.history.changed" event to cache the emotes that are changed on "ntv.ui.submit_input"
 		const emoteHistory = emotesManager.getEmoteHistory()
+		log(emoteHistory)
 
 		if (emoteHistory.size) {
 			for (const [emoteHid, history] of emoteHistory) {
@@ -139,5 +144,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 	destroy() {
 		this.$element?.remove()
+		if (this.renderQuickEmotesCallback)
+			this.eventBus.unsubscribe('ntv.ui.submit_input', this.renderQuickEmotesCallback)
 	}
 }
