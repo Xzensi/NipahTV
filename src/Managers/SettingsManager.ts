@@ -253,10 +253,16 @@ export class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
+									label: 'Show quick emote holder',
+									id: 'shared.chat.quick_emote_holder.enabled',
+									type: 'checkbox',
+									default: true
+								},
+								{
 									label: 'Rows of emotes to display.',
 									id: 'shared.chat.quick_emote_holder.appearance.rows',
 									type: 'number',
-									default: 4,
+									default: 2,
 									min: 1,
 									max: 10
 								}
@@ -307,7 +313,7 @@ export class SettingsManager {
 							children: [
 								{
 									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages.',
-									id: 'shared.chat.input.history.enable',
+									id: 'shared.chat.input.history.enabled',
 									default: true,
 									type: 'checkbox'
 								}
