@@ -57,6 +57,14 @@ export function isEmpty(obj: object) {
 	return true
 }
 
+export function debounce(fn: Function, delay: number) {
+	let timeout: NodeJS.Timeout
+	return function (...args: any) {
+		clearTimeout(timeout)
+		timeout = setTimeout(() => fn(...args), delay)
+	}
+}
+
 export function hex2rgb(hex: string) {
 	if (hex.length === 4) {
 		let r = hex.slice(1, 2)

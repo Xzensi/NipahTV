@@ -1,9 +1,10 @@
 import { EmotesManager } from '../Managers/EmotesManager'
-import { log, error, assertArgDefined, CHAR_ZWSP } from '../utils'
+import { log, error, assertArgDefined, CHAR_ZWSP, debounce } from '../utils'
 import { MessagesHistory } from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
 import { PriorityEventTarget } from './PriorityEventTarget'
 import { Clipboard2 } from './Clipboard'
+import { Publisher } from './Publisher'
 
 /**
  * Inserts a space character before the component if there is no space character before it.
@@ -53,25 +54,36 @@ function eventKeyIsVisibleCharacter(event: KeyboardEvent) {
 }
 
 export class InputController {
+	private eventBus: Publisher
 	private emotesManager: EmotesManager
 	private messageHistory: MessagesHistory
 	private clipboard: Clipboard2
 	private inputNode: HTMLElement
 	private eventTarget = new PriorityEventTarget()
+	private updateCharacterCountDebounce: () => void
 	isInputEmpty = true
 
 	constructor(
 		{
+			eventBus,
 			emotesManager,
 			messageHistory,
 			clipboard
-		}: { emotesManager: EmotesManager; messageHistory: MessagesHistory; clipboard: Clipboard2 },
+		}: {
+			eventBus: Publisher
+			emotesManager: EmotesManager
+			messageHistory: MessagesHistory
+			clipboard: Clipboard2
+		},
 		contentEditableEl: HTMLElement
 	) {
+		this.eventBus = eventBus
 		this.emotesManager = emotesManager
 		this.messageHistory = messageHistory
 		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
+
+		this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 30)
 	}
 
 	addEventListener(
@@ -179,8 +191,15 @@ export class InputController {
 							this.insertText(event.key)
 						}
 					}
+
+					this.updateCharacterCountDebounce()
 				}
 		}
+	}
+
+	updateCharacterCount() {
+		const [parsedString] = this.getEncodedContent()
+		this.eventBus.publish('ntv.input_controller.character_count', { value: parsedString })
 	}
 
 	handleKeyUp(event: KeyboardEvent) {
@@ -266,6 +285,41 @@ export class InputController {
 		component.appendChild(componentBody)
 		component.appendChild(document.createTextNode(CHAR_ZWSP))
 		return component
+	}
+
+	getEncodedContent(): [string, Set<string>] {
+		const { inputNode, emotesManager } = this
+		const buffer = []
+		let bufferString = ''
+		let emotesInMessage: Set<string> = new Set()
+
+		for (const node of inputNode.childNodes) {
+			if (node.nodeType === Node.TEXT_NODE) {
+				bufferString += node.textContent
+			} else if (node.nodeType === Node.ELEMENT_NODE) {
+				const componentBody = node.childNodes[1]
+				const emoteBox = componentBody.childNodes[0]
+
+				if (emoteBox) {
+					const emoteHid = (emoteBox as HTMLElement).dataset.emoteHid
+
+					if (emoteHid) {
+						if (bufferString) buffer.push(bufferString)
+						bufferString = ''
+						emotesInMessage.add(emoteHid)
+						buffer.push(emotesManager.getEmoteEmbeddable(emoteHid))
+					} else {
+						error('Invalid emote node, missing HID', emoteBox)
+					}
+				} else {
+					error('Invalid component node', componentBody.childNodes)
+				}
+			}
+		}
+
+		if (bufferString) buffer.push(bufferString)
+
+		return [buffer.join(' '), emotesInMessage]
 	}
 
 	deleteBackwards(evt: KeyboardEvent) {
