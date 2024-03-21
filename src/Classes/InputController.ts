@@ -168,7 +168,15 @@ export class InputController {
 					if (selection && selection.rangeCount) {
 						const range = selection.getRangeAt(0)
 						if (range && range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
-							this.adjustSelectionForceOutOfComponent(selection)
+							event.preventDefault()
+							// this.adjustSelectionForceOutOfComponent(selection) // Already called in insertText()
+
+							// This is necessary because a bug in browers seem to cause issues
+							//  where appending text node to DOM during lifetime of this event
+							//  causes the event's lifetime to expire and thus insert the
+							//  keyDown event key before the text node was appended to the DOM.
+							//  As solution we just insert the text ourselves instead.
+							this.insertText(event.key)
 						}
 					}
 				}
@@ -184,6 +192,13 @@ export class InputController {
 		//  Also bugs in Firefox keep causing the caret to shift outside the text field.
 		if (inputNode.children.length === 1 && inputNode.children[0].tagName === 'BR') {
 			inputNode.children[0].remove()
+		}
+
+		// TODO fix it properly so this is not necessary
+		if (event.key === 'Backspace' || event.key === 'Delete') {
+			// Ctrl backspace/delete can sometimes (seemingly?) skip over components leaving them as partially empty/corrupt component nodes.
+			//  We do a fast pass check for empty component nodes and clean them up.
+			this.normalizeComponents()
 		}
 
 		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
@@ -217,6 +232,21 @@ export class InputController {
 		this.inputNode.normalize()
 	}
 
+	normalizeComponents() {
+		const { inputNode } = this
+		const components = inputNode.querySelectorAll('.ntv__input-component')
+		for (let i = 0; i < components.length; i++) {
+			const component = components[i]
+			if (
+				!component.childNodes[1] ||
+				(component.childNodes[1] as HTMLElement).className !== 'ntv__input-component__body'
+			) {
+				log('Cleaning up empty component', component)
+				component.remove()
+			}
+		}
+	}
+
 	createEmoteComponent(emoteHID: string, emoteHTML: string) {
 		const component = document.createElement('span')
 		component.className = 'ntv__input-component'
@@ -243,6 +273,33 @@ export class InputController {
 
 		const selection = document.getSelection()
 		if (!selection || !selection.rangeCount) return error('No ranges found in selection')
+
+		const { focusNode, focusOffset } = selection
+		if (focusNode === inputNode && focusOffset === 0) {
+			evt.preventDefault()
+			return
+		}
+
+		// TODO need to custom implement ctrl + backspace handling because browsers do not handle it well. Components sometimes somehow end up half empty with missing body.
+
+		// if (focusNode === inputNode) {
+
+		// 	selection.extend(inputNode, focusOffset - 1)
+		// } else if (focusNode?.parentElement?.classList.contains('ntv__input-component')) {
+		// 	const componentNode = focusNode.parentElement
+		// 	const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode as HTMLElement)
+		// 	selection.extend(inputNode, componentIndex)
+		// } else if (focusOffset === 0 && focusNode?.previousSibling instanceof HTMLElement) {
+		// 	const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.previousSibling as any)
+		// 	selection.extend(inputNode, componentIndex)
+		// } else if (focusNode instanceof Text)
+
+		// evt.preventDefault()
+		// // range.deleteContents()
+		// selection.deleteFromDocument()
+		// // selection.removeAllRanges()
+		// // selection.addRange(range)
+		// inputNode.normalize()
 
 		let range = selection.getRangeAt(0)
 
@@ -299,10 +356,8 @@ export class InputController {
 		let range = selection.getRangeAt(0)
 
 		// Selection focus is inside component
-		if (range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
-			this.adjustSelectionForceOutOfComponent(selection)
-			range = selection.getRangeAt(0)
-		}
+		this.adjustSelectionForceOutOfComponent(selection)
+		range = selection.getRangeAt(0)
 
 		const { startContainer, endContainer, collapsed, startOffset, endOffset } = range
 		const isEndContainerTheInputNode = endContainer === inputNode
@@ -389,33 +444,39 @@ export class InputController {
 		if (!selection || !selection.rangeCount) return
 
 		const { inputNode } = this
+		const { focusNode, focusOffset } = selection
+		if (!focusNode || !focusNode.parentElement?.classList.contains('ntv__input-component')) {
+			return
+		}
+
 		const range = selection.getRangeAt(0)
 		const { startContainer } = range
 		const nextSibling = startContainer.nextSibling
 
 		if (selection.isCollapsed) {
-			const componentIndex = Array.from(inputNode.childNodes).indexOf(startContainer.parentElement as any)
+			const componentNode = focusNode.parentElement as HTMLElement
 
-			if (!nextSibling) {
-				selection.collapse(inputNode, componentIndex + 1)
+			log('Is collaped, adjusting a', nextSibling, focusNode)
+
+			if (nextSibling) {
+				if (componentNode.previousSibling instanceof Text) {
+					selection.collapse(componentNode.previousSibling, componentNode.previousSibling.length)
+				} else {
+					const emptyTextNode = document.createTextNode('')
+					componentNode.before(emptyTextNode)
+					selection.collapse(emptyTextNode, 0)
+				}
 			} else {
-				selection.collapse(inputNode, componentIndex)
+				if (componentNode.nextSibling instanceof Text) {
+					selection.collapse(componentNode.nextSibling, 0)
+				} else {
+					const emptyTextNode = new Text('')
+					inputNode.appendChild(emptyTextNode)
+					selection.collapse(emptyTextNode, 0)
+				}
 			}
-		}
-		// Technically this should never happen, but just in case
-		else {
-			error('Selection somehow reached inside component. This should never happen. Correcting it anyway.')
-
-			const focusNode = selection.focusNode
-			if (!focusNode) return
-
-			const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement as any)
-
-			if (!focusNode?.previousSibling) {
-				selection.extend(inputNode, componentIndex + 1)
-			} else {
-				selection.extend(inputNode, componentIndex)
-			}
+		} else {
+			error('Unadjusted selection focus somehow reached inside component. This should never happen.')
 		}
 	}
 
@@ -462,10 +523,8 @@ export class InputController {
 			range = selection.getRangeAt(0)
 			range.deleteContents()
 
-			if (range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
-				this.adjustSelectionForceOutOfComponent(selection)
-				range = selection.getRangeAt(0)
-			}
+			this.adjustSelectionForceOutOfComponent(selection)
+			range = selection.getRangeAt(0)
 		} else {
 			range = document.createRange()
 			range.setStart(inputNode, inputNode.childNodes.length)
@@ -494,10 +553,8 @@ export class InputController {
 		const { startContainer } = range
 		range.deleteContents()
 
-		if (startContainer.parentElement?.classList.contains('ntv__input-component')) {
-			this.adjustSelectionForceOutOfComponent(selection)
-			range = selection.getRangeAt(0)
-		}
+		this.adjustSelectionForceOutOfComponent(selection)
+		range = selection.getRangeAt(0)
 
 		for (let i = nodes.length - 1; i >= 0; i--) {
 			range.insertNode(nodes[i])
