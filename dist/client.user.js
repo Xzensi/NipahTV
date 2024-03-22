@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.2.16
+// @version 1.2.17
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-d3b55334.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-02e0f24c.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -898,7 +898,6 @@
     renderQuickEmotes() {
       const { emotesManager } = this;
       const emoteHistory = emotesManager.getEmoteHistory();
-      log(emoteHistory);
       if (emoteHistory.size) {
         for (const [emoteHid, history] of emoteHistory) {
           this.renderQuickEmote(emoteHid);
@@ -1894,7 +1893,7 @@
       this.messageHistory = messageHistory;
       this.clipboard = clipboard;
       this.inputNode = contentEditableEl;
-      this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 30);
+      this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 50);
     }
     addEventListener(type, priority, listener, options) {
       this.eventTarget.addEventListener(type, priority, listener, options);
@@ -1969,13 +1968,13 @@
                 this.insertText(event.key);
               }
             }
-            this.updateCharacterCountDebounce();
           }
       }
+      this.updateCharacterCountDebounce();
     }
     updateCharacterCount() {
       const [parsedString] = this.getEncodedContent();
-      this.eventBus.publish("ntv.input_controller.character_count", { value: parsedString });
+      this.eventBus.publish("ntv.input_controller.character_count", { value: parsedString.length });
     }
     handleKeyUp(event) {
       const { inputNode } = this;
@@ -2007,6 +2006,10 @@
       Caret.moveCaretTo(node, start);
       this.insertEmote(emoteHid);
       event.preventDefault();
+    }
+    clearInput() {
+      this.inputNode.innerHTML = "";
+      this.updateCharacterCount();
     }
     normalize() {
       this.inputNode.normalize();
@@ -2048,6 +2051,10 @@
           bufferString += node.textContent;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const componentBody = node.childNodes[1];
+          if (!componentBody) {
+            error("Invalid component node", node);
+            continue;
+          }
           const emoteBox = componentBody.childNodes[0];
           if (emoteBox) {
             const emoteHid = emoteBox.dataset.emoteHid;
@@ -2129,9 +2136,14 @@
       if (startContainer !== inputNode && startContainer.parentElement !== inputNode) {
         return;
       }
+      const isEndInComponent = endContainer instanceof Element && endContainer.classList.contains("ntv__input-component");
+      const nextSibling = endContainer.nextSibling;
       let rangeIncludesComponent = false;
-      if (endContainer instanceof Text && endOffset === endContainer.textContent?.length) {
+      if (isEndInComponent) {
         range.setEndAfter(endContainer);
+        rangeIncludesComponent = true;
+      } else if (endContainer instanceof Text && endOffset === endContainer.length && nextSibling instanceof Element) {
+        range.setEndAfter(nextSibling);
         rangeIncludesComponent = true;
       } else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
         range.setEndAfter(inputNode.childNodes[endOffset]);
@@ -2199,7 +2211,7 @@
       const nextSibling = startContainer.nextSibling;
       if (selection.isCollapsed) {
         const componentNode = focusNode.parentElement;
-        log("Is collaped, adjusting a", nextSibling, focusNode);
+        log("Is collaped, adjusting", nextSibling, focusNode);
         if (nextSibling) {
           if (componentNode.previousSibling instanceof Text) {
             selection.collapse(componentNode.previousSibling, componentNode.previousSibling.length);
@@ -2235,7 +2247,7 @@
       const { inputNode } = this;
       const selection = window.getSelection();
       if (!selection) {
-        inputNode.append(document.createTextNode(text));
+        inputNode.append(new Text(text));
         return;
       }
       let range;
@@ -2252,6 +2264,7 @@
       range.collapse();
       selection.removeAllRanges();
       selection.addRange(range);
+      this.normalizeComponents();
       inputNode.normalize();
     }
     insertNodes(nodes) {
@@ -2335,6 +2348,7 @@
         this.isInputEmpty = false;
         eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: false } }));
       }
+      this.updateCharacterCountDebounce();
       return emoteComponent;
     }
     replaceEmote(component, emoteHid) {
@@ -2351,6 +2365,7 @@
       }
       emoteBox.innerHTML = emoteHTML;
       emoteBox.setAttribute("data-emote-hid", emoteHid);
+      this.updateCharacterCountDebounce();
       return component;
     }
     replaceEmoteWithText(component, text) {
@@ -2366,6 +2381,7 @@
       selection.removeAllRanges();
       selection.addRange(range);
       inputNode.normalize();
+      this.updateCharacterCountDebounce();
       return textNode;
     }
   };
@@ -2680,31 +2696,22 @@
       const range = selection.getRangeAt(0);
       if (!range)
         return;
-      let buffer = "";
-      let prevNodeWasEmote = false;
+      range.startContainer.parentElement?.normalize();
+      const buffer = [];
       const nodes = range.cloneContents().childNodes;
-      log(nodes);
       for (const node of nodes) {
         if (node instanceof Text) {
-          if (prevNodeWasEmote)
-            buffer += " ";
-          prevNodeWasEmote = false;
-          buffer += node.textContent;
+          buffer.push(node.textContent?.trim());
         } else if (node instanceof HTMLElement) {
           const emoteImg = node.querySelector("img");
           if (emoteImg) {
-            if (prevNodeWasEmote)
-              buffer += " ";
-            else if (buffer && buffer[buffer.length - 1] !== " ")
-              buffer += " ";
-            prevNodeWasEmote = true;
-            buffer += emoteImg.dataset.emoteName || "UNSET_EMOTE";
+            buffer.push(emoteImg.dataset.emoteName || "UNSET_EMOTE");
           }
         }
       }
-      const copyString = buffer.replaceAll(CHAR_ZWSP, "");
+      const copyString = buffer.join(" ").replaceAll(CHAR_ZWSP, "");
       event.clipboardData?.setData("text/plain", copyString);
-      log(copyString);
+      log(`Copied: "${copyString}"`);
     }
     handleCutEvent(event) {
       const selection = document.getSelection();
@@ -2954,7 +2961,9 @@
       const textFieldEl = this.elm.textField = $(
         `<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
       )[0];
-      const textFieldWrapperEl = $(`<div class="ntv__message-input__wrapper"></div>`)[0];
+      const textFieldWrapperEl = $(
+        `<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`
+      )[0];
       textFieldWrapperEl.append(textFieldEl);
       originalTextFieldEl.parentElement.parentElement?.append(textFieldWrapperEl);
       const $moderatorChatIdentityBadgeIcon = $(".chat-input-wrapper .chat-input-icon");
@@ -2991,6 +3000,23 @@
       });
       textFieldEl.addEventListener("copy", (evt) => {
         this.clipboard.handleCopyEvent(evt);
+      });
+      this.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
+        if (value > this.maxMessageLength) {
+          textFieldWrapperEl.setAttribute("data-char-count", value);
+          textFieldWrapperEl.classList.add("ntv__message-input__wrapper--char-limit-reached");
+          textFieldWrapperEl.classList.remove("ntv__message-input__wrapper--char-limit-close");
+        } else if (value > this.maxMessageLength * 0.8) {
+          textFieldWrapperEl.setAttribute("data-char-count", value);
+          textFieldWrapperEl.classList.add("ntv__message-input__wrapper--char-limit-close");
+          textFieldWrapperEl.classList.remove("ntv__message-input__wrapper--char-limit-reached");
+        } else {
+          textFieldWrapperEl.removeAttribute("data-char-count");
+          textFieldWrapperEl.classList.remove(
+            "ntv__message-input__wrapper--char-limit-reached",
+            "ntv__message-input__wrapper--char-limit-close"
+          );
+        }
       });
       const ignoredKeys = {
         ArrowUp: true,
@@ -3349,7 +3375,7 @@
       originalTextFieldEl.innerHTML = parsedString;
       this.messageHistory.addMessage(textFieldEl.innerHTML);
       this.messageHistory.resetCursor();
-      textFieldEl.innerHTML = "";
+      inputController.clearInput();
       originalSubmitButtonEl.dispatchEvent(new Event("click"));
       textFieldEl.dispatchEvent(new Event("input"));
       eventBus.publish("ntv.ui.submit_input");
@@ -4457,7 +4483,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.2.16",
+      VERSION: "1.2.17",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
