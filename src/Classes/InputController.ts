@@ -193,8 +193,6 @@ export class InputController {
 					}
 				}
 		}
-
-		this.updateCharacterCountDebounce()
 	}
 
 	updateCharacterCount() {
@@ -219,6 +217,8 @@ export class InputController {
 			//  We do a fast pass check for empty component nodes and clean them up.
 			this.normalizeComponents()
 		}
+
+		this.updateCharacterCountDebounce()
 
 		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
 		if (this.isInputEmpty === !isNotEmpty) return
