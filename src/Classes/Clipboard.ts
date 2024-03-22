@@ -40,33 +40,25 @@ export class Clipboard2 {
 		const range = selection.getRangeAt(0)
 		if (!range) return
 
-		// Loop over range content elements. Add text nodes to buffer and make sure top most elements are padded with space characters.
-		let buffer = ''
-		let prevNodeWasEmote = false
+		range.startContainer.parentElement?.normalize()
+
+		const buffer = []
 		const nodes = range.cloneContents().childNodes
-		log(nodes)
 		for (const node of nodes) {
 			if (node instanceof Text) {
-				if (prevNodeWasEmote) buffer += ' '
-				prevNodeWasEmote = false
-				buffer += node.textContent
+				buffer.push(node.textContent?.trim())
 			} else if (node instanceof HTMLElement) {
 				const emoteImg = node.querySelector('img')
-
 				if (emoteImg) {
-					// buffer += ' '
-					if (prevNodeWasEmote) buffer += ' '
-					else if (buffer && buffer[buffer.length - 1] !== ' ') buffer += ' '
-					prevNodeWasEmote = true
-					buffer += emoteImg.dataset.emoteName || 'UNSET_EMOTE'
+					buffer.push(emoteImg.dataset.emoteName || 'UNSET_EMOTE')
 				}
 			}
 		}
 
 		// const copyString = selection.toString().replaceAll(CHAR_ZWSP, '')
-		const copyString = buffer.replaceAll(CHAR_ZWSP, '')
+		const copyString = buffer.join(' ').replaceAll(CHAR_ZWSP, '')
 		event.clipboardData?.setData('text/plain', copyString)
-		log(copyString)
+		log(`Copied: "${copyString}"`)
 	}
 
 	handleCutEvent(event: ClipboardEvent) {

@@ -216,7 +216,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			`<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
 		)[0])
 
-		const textFieldWrapperEl = $(`<div class="ntv__message-input__wrapper"></div>`)[0]
+		const textFieldWrapperEl = $(
+			`<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`
+		)[0]
 		textFieldWrapperEl.append(textFieldEl)
 		originalTextFieldEl.parentElement!.parentElement?.append(textFieldWrapperEl)
 
@@ -265,6 +267,24 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldEl.addEventListener('copy', evt => {
 			this.clipboard.handleCopyEvent(evt)
+		})
+
+		this.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
+			if (value > this.maxMessageLength) {
+				textFieldWrapperEl.setAttribute('data-char-count', value)
+				textFieldWrapperEl.classList.add('ntv__message-input__wrapper--char-limit-reached')
+				textFieldWrapperEl.classList.remove('ntv__message-input__wrapper--char-limit-close')
+			} else if (value > this.maxMessageLength * 0.8) {
+				textFieldWrapperEl.setAttribute('data-char-count', value)
+				textFieldWrapperEl.classList.add('ntv__message-input__wrapper--char-limit-close')
+				textFieldWrapperEl.classList.remove('ntv__message-input__wrapper--char-limit-reached')
+			} else {
+				textFieldWrapperEl.removeAttribute('data-char-count')
+				textFieldWrapperEl.classList.remove(
+					'ntv__message-input__wrapper--char-limit-reached',
+					'ntv__message-input__wrapper--char-limit-close'
+				)
+			}
 		})
 
 		// Ignore control keys that are not used for typing
@@ -745,7 +765,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.messageHistory.addMessage(textFieldEl.innerHTML)
 		this.messageHistory.resetCursor()
 
-		textFieldEl.innerHTML = ''
+		inputController.clearInput()
 
 		originalSubmitButtonEl.dispatchEvent(new Event('click'))
 
