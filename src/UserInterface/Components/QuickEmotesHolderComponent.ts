@@ -77,7 +77,6 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		const { emotesManager } = this
 		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.history.changed" event to cache the emotes that are changed on "ntv.ui.submit_input"
 		const emoteHistory = emotesManager.getEmoteHistory()
-		log(emoteHistory)
 
 		if (emoteHistory.size) {
 			for (const [emoteHid, history] of emoteHistory) {

@@ -124,12 +124,32 @@
 	padding-left: 0.5rem;
 	align-items: center;
 	border-radius: 4px;
+	position: relative;
 	border-width: 1px;
 	display: flex;
 	width: 100%;
 
 	&:hover {
 		border-color: var(--border-transparent-2);
+	}
+
+	&[data-char-count]:after {
+		content: attr(data-char-count) '/' attr(data-char-limit);
+		background: #00000096;
+		display: inline-block;
+		border-radius: 0.5em;
+		padding: 0.1em 0.5em;
+		position: absolute;
+		right: 0;
+		top: 0;
+	}
+
+	&--char-limit-close:after {
+		color: #ffae19;
+	}
+
+	&--char-limit-reached:after {
+		color: #ff1919;
 	}
 }
 

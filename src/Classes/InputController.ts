@@ -83,7 +83,7 @@ export class InputController {
 		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
 
-		this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 30)
+		this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 50)
 	}
 
 	addEventListener(
@@ -191,15 +191,15 @@ export class InputController {
 							this.insertText(event.key)
 						}
 					}
-
-					this.updateCharacterCountDebounce()
 				}
 		}
+
+		this.updateCharacterCountDebounce()
 	}
 
 	updateCharacterCount() {
 		const [parsedString] = this.getEncodedContent()
-		this.eventBus.publish('ntv.input_controller.character_count', { value: parsedString })
+		this.eventBus.publish('ntv.input_controller.character_count', { value: parsedString.length })
 	}
 
 	handleKeyUp(event: KeyboardEvent) {
@@ -245,6 +245,11 @@ export class InputController {
 		this.insertEmote(emoteHid)
 
 		event.preventDefault()
+	}
+
+	clearInput() {
+		this.inputNode.innerHTML = ''
+		this.updateCharacterCount()
 	}
 
 	normalize() {
@@ -298,6 +303,10 @@ export class InputController {
 				bufferString += node.textContent
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
 				const componentBody = node.childNodes[1]
+				if (!componentBody) {
+					error('Invalid component node', node)
+					continue
+				}
 				const emoteBox = componentBody.childNodes[0]
 
 				if (emoteBox) {
@@ -337,7 +346,6 @@ export class InputController {
 		// TODO need to custom implement ctrl + backspace handling because browsers do not handle it well. Components sometimes somehow end up half empty with missing body.
 
 		// if (focusNode === inputNode) {
-
 		// 	selection.extend(inputNode, focusOffset - 1)
 		// } else if (focusNode?.parentElement?.classList.contains('ntv__input-component')) {
 		// 	const componentNode = focusNode.parentElement
@@ -347,13 +355,6 @@ export class InputController {
 		// 	const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.previousSibling as any)
 		// 	selection.extend(inputNode, componentIndex)
 		// } else if (focusNode instanceof Text)
-
-		// evt.preventDefault()
-		// // range.deleteContents()
-		// selection.deleteFromDocument()
-		// // selection.removeAllRanges()
-		// // selection.addRange(range)
-		// inputNode.normalize()
 
 		let range = selection.getRangeAt(0)
 
@@ -424,9 +425,20 @@ export class InputController {
 			return
 		}
 
+		const isEndInComponent =
+			endContainer instanceof Element && endContainer.classList.contains('ntv__input-component')
+		const nextSibling = endContainer.nextSibling
+
 		let rangeIncludesComponent = false
-		if (endContainer instanceof Text && endOffset === endContainer.textContent?.length) {
+		if (isEndInComponent) {
 			range.setEndAfter(endContainer)
+			rangeIncludesComponent = true
+		} else if (
+			endContainer instanceof Text &&
+			endOffset === endContainer.length &&
+			nextSibling instanceof Element
+		) {
+			range.setEndAfter(nextSibling)
 			rangeIncludesComponent = true
 		} else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
 			range.setEndAfter(inputNode.childNodes[endOffset])
@@ -510,7 +522,7 @@ export class InputController {
 		if (selection.isCollapsed) {
 			const componentNode = focusNode.parentElement as HTMLElement
 
-			log('Is collaped, adjusting a', nextSibling, focusNode)
+			log('Is collaped, adjusting', nextSibling, focusNode)
 
 			if (nextSibling) {
 				if (componentNode.previousSibling instanceof Text) {
@@ -568,7 +580,7 @@ export class InputController {
 
 		const selection = window.getSelection()
 		if (!selection) {
-			inputNode.append(document.createTextNode(text))
+			inputNode.append(new Text(text))
 			return
 		}
 
@@ -588,6 +600,7 @@ export class InputController {
 		range.collapse()
 		selection.removeAllRanges()
 		selection.addRange(range)
+		this.normalizeComponents()
 		inputNode.normalize()
 	}
 
@@ -703,6 +716,8 @@ export class InputController {
 			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
 		}
 
+		this.updateCharacterCountDebounce()
+
 		return emoteComponent
 	}
 
@@ -724,6 +739,8 @@ export class InputController {
 		emoteBox.innerHTML = emoteHTML
 		emoteBox.setAttribute('data-emote-hid', emoteHid)
 
+		this.updateCharacterCountDebounce()
+
 		return component
 	}
 
@@ -743,6 +760,8 @@ export class InputController {
 		selection.addRange(range)
 
 		inputNode.normalize()
+
+		this.updateCharacterCountDebounce()
 
 		return textNode
 	}
