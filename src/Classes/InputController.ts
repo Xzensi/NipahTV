@@ -60,8 +60,11 @@ export class InputController {
 	private clipboard: Clipboard2
 	private inputNode: HTMLElement
 	private eventTarget = new PriorityEventTarget()
-	private updateCharacterCountDebounce: () => void
+	private processMessageContentDebounce: () => void
 	isInputEmpty = true
+	characterCount = 0
+	messageContent = ''
+	emotesInMessage: Set<string> = new Set()
 
 	constructor(
 		{
@@ -83,7 +86,7 @@ export class InputController {
 		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
 
-		this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 50)
+		this.processMessageContentDebounce = debounce(this.processMessageContent.bind(this), 25)
 	}
 
 	addEventListener(
@@ -195,9 +198,16 @@ export class InputController {
 		}
 	}
 
-	updateCharacterCount() {
-		const [parsedString] = this.getEncodedContent()
-		this.eventBus.publish('ntv.input_controller.character_count', { value: parsedString.length })
+	getCharacterCount() {
+		return this.characterCount
+	}
+
+	getMessageContent() {
+		return this.messageContent
+	}
+
+	getEmotesInMessage() {
+		return this.emotesInMessage
 	}
 
 	handleKeyUp(event: KeyboardEvent) {
@@ -218,7 +228,7 @@ export class InputController {
 			this.normalizeComponents()
 		}
 
-		this.updateCharacterCountDebounce()
+		this.processMessageContentDebounce()
 
 		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
 		if (this.isInputEmpty === !isNotEmpty) return
@@ -249,7 +259,7 @@ export class InputController {
 
 	clearInput() {
 		this.inputNode.innerHTML = ''
-		this.updateCharacterCount()
+		this.processMessageContent()
 	}
 
 	normalize() {
@@ -278,25 +288,22 @@ export class InputController {
 		const componentBody = document.createElement('span')
 		componentBody.className = 'ntv__input-component__body'
 		componentBody.setAttribute('contenteditable', 'false')
-		componentBody.appendChild(
-			(
-				jQuery.parseHTML(
-					`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHID}" contenteditable="false">` +
-						emoteHTML +
-						'</span>'
-				) as Element[]
-			)[0]
-		)
+		const inlineEmoteBox = document.createElement('span')
+		inlineEmoteBox.className = 'ntv__inline-emote-box'
+		inlineEmoteBox.setAttribute('data-emote-hid', emoteHID)
+		inlineEmoteBox.innerHTML = emoteHTML
+		componentBody.appendChild(inlineEmoteBox)
 		component.appendChild(componentBody)
 		component.appendChild(document.createTextNode(CHAR_ZWSP))
 		return component
 	}
 
-	getEncodedContent(): [string, Set<string>] {
-		const { inputNode, emotesManager } = this
+	processMessageContent() {
+		const { inputNode, eventBus, emotesManager } = this
 		const buffer = []
 		let bufferString = ''
-		let emotesInMessage: Set<string> = new Set()
+		let emotesInMessage = this.emotesInMessage
+		emotesInMessage.clear()
 
 		for (const node of inputNode.childNodes) {
 			if (node.nodeType === Node.TEXT_NODE) {
@@ -313,7 +320,7 @@ export class InputController {
 					const emoteHid = (emoteBox as HTMLElement).dataset.emoteHid
 
 					if (emoteHid) {
-						if (bufferString) buffer.push(bufferString)
+						if (bufferString) buffer.push(bufferString.trim())
 						bufferString = ''
 						emotesInMessage.add(emoteHid)
 						buffer.push(emotesManager.getEmoteEmbeddable(emoteHid))
@@ -326,9 +333,13 @@ export class InputController {
 			}
 		}
 
-		if (bufferString) buffer.push(bufferString)
+		if (bufferString) buffer.push(bufferString.trim())
 
-		return [buffer.join(' '), emotesInMessage]
+		this.messageContent = buffer.join(' ')
+		this.emotesInMessage = emotesInMessage
+
+		this.characterCount = this.messageContent.length
+		eventBus.publish('ntv.input_controller.character_count', { value: this.characterCount })
 	}
 
 	deleteBackwards(evt: KeyboardEvent) {
@@ -716,7 +727,7 @@ export class InputController {
 			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
 		}
 
-		this.updateCharacterCountDebounce()
+		this.processMessageContentDebounce()
 
 		return emoteComponent
 	}
@@ -739,7 +750,7 @@ export class InputController {
 		emoteBox.innerHTML = emoteHTML
 		emoteBox.setAttribute('data-emote-hid', emoteHid)
 
-		this.updateCharacterCountDebounce()
+		this.processMessageContentDebounce()
 
 		return component
 	}
@@ -761,7 +772,7 @@ export class InputController {
 
 		inputNode.normalize()
 
-		this.updateCharacterCountDebounce()
+		this.processMessageContentDebounce()
 
 		return textNode
 	}

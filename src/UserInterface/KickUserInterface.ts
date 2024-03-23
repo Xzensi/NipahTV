@@ -52,7 +52,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		waitForElements(['#message-input', '#chatroom-footer button.base-button'], 5_000, abortSignal)
 			.then(() => {
 				this.loadShadowProxyElements()
-
 				this.loadEmoteMenu()
 				this.loadEmoteMenuButton()
 				this.loadChatHistoryBehaviour()
@@ -346,13 +345,14 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadChatHistoryBehaviour() {
-		const { settingsManager } = this
-		if (!settingsManager.getSetting('shared.chat.input.history.enable')) return
+		const { settingsManager, inputController } = this
+		if (!settingsManager.getSetting('shared.chat.input.history.enabled')) return
+		if (!inputController) return error('Input controller not loaded for chat history')
 
 		const textFieldEl = this.elm.textField
 		if (!textFieldEl) return error('Text field not loaded for chat history')
 
-		textFieldEl.addEventListener('keydown', evt => {
+		inputController.addEventListener('keydown', 4, evt => {
 			if (this.tabCompletor?.isShowingModal) return
 
 			if (evt.key === 'ArrowUp' || evt.key === 'ArrowDown') {
@@ -745,22 +745,23 @@ export class KickUserInterface extends AbstractUserInterface {
 		const originalSubmitButtonEl = this.elm.originalSubmitButton
 		const textFieldEl = this.elm.textField
 
-		const [parsedString, emotesInMessage] = inputController.getEncodedContent()
-
-		if (parsedString.length > this.maxMessageLength) {
+		if (inputController.getCharacterCount() > this.maxMessageLength) {
 			error(
-				`Message too long, it is ${parsedString.length} characters but max limit is ${this.maxMessageLength}.`
+				`Message too long, it is ${inputController.getCharacterCount()} characters but max limit is ${
+					this.maxMessageLength
+				}.`
 			)
 			return
 		}
 
 		if (!suppressEngagementEvent) {
+			const emotesInMessage = inputController.getEmotesInMessage()
 			for (const emoteHid of emotesInMessage) {
 				emotesManager.registerEmoteEngagement(emoteHid as string)
 			}
 		}
 
-		originalTextFieldEl.innerHTML = parsedString
+		originalTextFieldEl.innerHTML = inputController.getMessageContent()
 
 		this.messageHistory.addMessage(textFieldEl.innerHTML)
 		this.messageHistory.resetCursor()
