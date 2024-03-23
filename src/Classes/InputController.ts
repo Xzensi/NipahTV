@@ -652,11 +652,14 @@ export class InputController {
 		}
 
 		if (!selection.rangeCount) {
-			inputNode.appendChild(component)
-			const spacer = document.createTextNode(' ')
-			inputNode.appendChild(spacer)
-			const range = document.createRange()
-			range.setStart(spacer, 1)
+			// inputNode.appendChild(component)
+			// const spacer = document.createTextNode(' ')
+			// inputNode.appendChild(spacer)
+			const range = new Range()
+			// range.setStart(spacer, 1)
+			range.setStart(inputNode, inputNode.childNodes.length)
+			range.insertNode(component)
+			range.collapse()
 			selection.addRange(range)
 			return
 		}
@@ -692,11 +695,7 @@ export class InputController {
 			return error('Encountered unexpected unprocessable node', component, startContainer, range)
 		}
 
-		maybeInsertSpaceCharacterBeforeComponent(component)
-		maybeInsertSpaceCharacterAfterComponent(component)
-
-		// It's always guaranteed that there is a space character after a new component insertion.
-		range.setEnd(component.nextSibling as Node, 1)
+		range.setEnd(component.childNodes[2], 1)
 		range.collapse()
 		selection.removeAllRanges()
 		selection.addRange(range)
