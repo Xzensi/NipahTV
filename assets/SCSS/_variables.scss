@@ -1,5 +1,8 @@
 @use '_functions' as *;
 
+$golden_ratio: 1.61803398875;
+$golden_ratio_inverse: 0.61803398875;
+
 $root_font_size: 14px;
 $emote_size: 2.8em;
 $emote_row_size: 6;

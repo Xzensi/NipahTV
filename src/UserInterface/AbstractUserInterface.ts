@@ -75,7 +75,7 @@ export class AbstractUserInterface {
 				newNode.setAttribute('contenteditable', 'false')
 				newNodes.push(newNode)
 			} else if (token) {
-				textBuffer += ' ' + token
+				textBuffer += token
 			}
 		}
 

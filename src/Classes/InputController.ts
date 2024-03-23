@@ -60,8 +60,12 @@ export class InputController {
 	private clipboard: Clipboard2
 	private inputNode: HTMLElement
 	private eventTarget = new PriorityEventTarget()
-	private updateCharacterCountDebounce: () => void
-	isInputEmpty = true
+	private processMessageContentDebounce: () => void
+	private inputEmpty = true
+	private characterCount = 0
+	private messageContent = ''
+	private emotesInMessage: Set<string> = new Set()
+	private hasMouseDown = false
 
 	constructor(
 		{
@@ -83,7 +87,28 @@ export class InputController {
 		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
 
-		this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 50)
+		this.processMessageContentDebounce = debounce(this.processMessageContent.bind(this), 25)
+	}
+
+	getCharacterCount() {
+		return this.characterCount
+	}
+
+	getMessageContent() {
+		return this.messageContent
+	}
+
+	getEmotesInMessage() {
+		return this.emotesInMessage
+	}
+
+	isInputEmpty() {
+		return this.inputEmpty
+	}
+
+	clearInput() {
+		this.inputNode.innerHTML = ''
+		this.processMessageContent()
 	}
 
 	addEventListener(
@@ -141,8 +166,8 @@ export class InputController {
 			this.insertNodes(newNodes)
 
 			const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
-			if (this.isInputEmpty && isNotEmpty) {
-				this.isInputEmpty = isNotEmpty
+			if (this.inputEmpty && isNotEmpty) {
+				this.inputEmpty = isNotEmpty
 				this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
 			}
 		})
@@ -153,6 +178,9 @@ export class InputController {
 		inputNode.addEventListener('keydown', this.eventTarget.dispatchEvent.bind(this.eventTarget))
 		this.eventTarget.addEventListener('keyup', 10, this.handleKeyUp.bind(this))
 		inputNode.addEventListener('keyup', this.eventTarget.dispatchEvent.bind(this.eventTarget))
+
+		inputNode.addEventListener('mousedown', this.handleMouseDown.bind(this))
+		inputNode.addEventListener('mouseup', this.handleMouseUp.bind(this))
 	}
 
 	handleKeydown(event: KeyboardEvent) {
@@ -178,26 +206,29 @@ export class InputController {
 				if (eventKeyIsVisibleCharacter(event)) {
 					const selection = document.getSelection()
 					if (selection && selection.rangeCount) {
-						const range = selection.getRangeAt(0)
-						if (range && range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
-							event.preventDefault()
+						const focusNode = selection.focusNode
+						if (focusNode && focusNode.parentElement?.classList.contains('ntv__input-component')) {
+							// event.preventDefault()
 							// this.adjustSelectionForceOutOfComponent(selection) // Already called in insertText()
-
 							// This is necessary because a bug in browers seem to cause issues
 							//  where appending text node to DOM during lifetime of this event
 							//  causes the event's lifetime to expire and thus insert the
 							//  keyDown event key before the text node was appended to the DOM.
 							//  As solution we just insert the text ourselves instead.
-							this.insertText(event.key)
 						}
 					}
+					event.preventDefault()
+					this.insertText(event.key)
 				}
 		}
 	}
 
-	updateCharacterCount() {
-		const [parsedString] = this.getEncodedContent()
-		this.eventBus.publish('ntv.input_controller.character_count', { value: parsedString.length })
+	handleMouseDown(event: MouseEvent) {
+		this.hasMouseDown = true
+	}
+
+	handleMouseUp(event: MouseEvent) {
+		this.hasMouseDown = false
 	}
 
 	handleKeyUp(event: KeyboardEvent) {
@@ -218,11 +249,13 @@ export class InputController {
 			this.normalizeComponents()
 		}
 
-		this.updateCharacterCountDebounce()
+		if (eventKeyIsVisibleCharacter(event) || event.key === 'Backspace' || event.key === 'Delete') {
+			this.processMessageContentDebounce()
+		}
 
 		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
-		if (this.isInputEmpty === !isNotEmpty) return
-		this.isInputEmpty = !this.isInputEmpty
+		if (this.inputEmpty === !isNotEmpty) return
+		this.inputEmpty = !this.inputEmpty
 		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
 	}
 
@@ -245,11 +278,6 @@ export class InputController {
 		this.insertEmote(emoteHid)
 
 		event.preventDefault()
-	}
-
-	clearInput() {
-		this.inputNode.innerHTML = ''
-		this.updateCharacterCount()
 	}
 
 	normalize() {
@@ -278,25 +306,22 @@ export class InputController {
 		const componentBody = document.createElement('span')
 		componentBody.className = 'ntv__input-component__body'
 		componentBody.setAttribute('contenteditable', 'false')
-		componentBody.appendChild(
-			(
-				jQuery.parseHTML(
-					`<span class="ntv__inline-emote-box" data-emote-hid="${emoteHID}" contenteditable="false">` +
-						emoteHTML +
-						'</span>'
-				) as Element[]
-			)[0]
-		)
+		const inlineEmoteBox = document.createElement('span')
+		inlineEmoteBox.className = 'ntv__inline-emote-box'
+		inlineEmoteBox.setAttribute('data-emote-hid', emoteHID)
+		inlineEmoteBox.innerHTML = emoteHTML
+		componentBody.appendChild(inlineEmoteBox)
 		component.appendChild(componentBody)
 		component.appendChild(document.createTextNode(CHAR_ZWSP))
 		return component
 	}
 
-	getEncodedContent(): [string, Set<string>] {
-		const { inputNode, emotesManager } = this
+	processMessageContent() {
+		const { inputNode, eventBus, emotesManager } = this
 		const buffer = []
 		let bufferString = ''
-		let emotesInMessage: Set<string> = new Set()
+		let emotesInMessage = this.emotesInMessage
+		emotesInMessage.clear()
 
 		for (const node of inputNode.childNodes) {
 			if (node.nodeType === Node.TEXT_NODE) {
@@ -313,7 +338,7 @@ export class InputController {
 					const emoteHid = (emoteBox as HTMLElement).dataset.emoteHid
 
 					if (emoteHid) {
-						if (bufferString) buffer.push(bufferString)
+						if (bufferString) buffer.push(bufferString.trim())
 						bufferString = ''
 						emotesInMessage.add(emoteHid)
 						buffer.push(emotesManager.getEmoteEmbeddable(emoteHid))
@@ -326,9 +351,13 @@ export class InputController {
 			}
 		}
 
-		if (bufferString) buffer.push(bufferString)
+		if (bufferString) buffer.push(bufferString.trim())
 
-		return [buffer.join(' '), emotesInMessage]
+		this.messageContent = buffer.join(' ')
+		this.emotesInMessage = emotesInMessage
+
+		this.characterCount = this.messageContent.length
+		eventBus.publish('ntv.input_controller.character_count', { value: this.characterCount })
 	}
 
 	deleteBackwards(evt: KeyboardEvent) {
@@ -463,12 +492,12 @@ export class InputController {
 		if (!selection || !selection.rangeCount) return
 
 		const { inputNode } = this
-		const range = selection.getRangeAt(0)
-		const { startContainer, startOffset } = range
 
 		// If selection focus and anchor are collapsed and caret is between component body
 		//  and zero-width space, push the caret out of the component on other side.
 		if (selection.isCollapsed) {
+			const { startContainer, startOffset } = selection.getRangeAt(0)
+
 			if (!startContainer.parentElement?.classList.contains('ntv__input-component')) return
 
 			const nextSibling = startContainer.nextSibling
@@ -484,25 +513,67 @@ export class InputController {
 		}
 
 		// If anchor and focus are not collapsed, it means the user is trying to make a selection
-		//  so we check if the focus is inside a component and force extend the focus past the component.
+		//  so we check if either focus or anchor is inside a component and force extend it out of the component.
 		else {
-			const focusNode = selection.focusNode
-			if (!focusNode) return
+			const { focusNode, focusOffset, anchorNode, anchorOffset } = selection
+			const { hasMouseDown } = this
 
-			const isFocusInComponent = focusNode.parentElement?.classList.contains('ntv__input-component')
+			const isFocusInComponent = focusNode?.parentElement?.classList.contains('ntv__input-component')
+			const isAnchorInComponent = anchorNode?.parentElement?.classList.contains('ntv__input-component')
+
+			let adjustedFocusOffset = null,
+				adjustedAnchorOffset = null
+
 			if (isFocusInComponent) {
-				const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement as any)
-
-				if (selection.focusOffset === 0) {
-					selection.extend(inputNode, componentIndex)
+				const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode?.parentElement as HTMLElement)
+				if (focusNode?.nextSibling) {
+					if (hasMouseDown) {
+						adjustedFocusOffset = componentIndex
+					} else {
+						if (focusOffset === 0) {
+							adjustedFocusOffset = componentIndex
+						} else {
+							adjustedFocusOffset = componentIndex + 1
+						}
+					}
 				} else {
-					selection.extend(inputNode, componentIndex + 1)
+					if (hasMouseDown) {
+						adjustedFocusOffset = componentIndex + 1
+					} else {
+						if (focusOffset === 0) {
+							adjustedFocusOffset = componentIndex
+						} else {
+							adjustedFocusOffset = componentIndex + 1
+						}
+					}
 				}
 			}
-		}
 
-		// const test = selection.getRangeAt(0)
-		// log('Caret position:', test.startOffset, test.startContainer)
+			if (isAnchorInComponent) {
+				const componentIndex = Array.from(inputNode.childNodes).indexOf(
+					anchorNode?.parentElement as HTMLElement
+				)
+				if (anchorNode?.nextSibling) {
+					if (anchorOffset === 0) {
+						adjustedAnchorOffset = componentIndex
+					} else {
+						adjustedAnchorOffset = componentIndex + 1
+					}
+				} else {
+					if (anchorOffset === 0) {
+						adjustedAnchorOffset = componentIndex
+					} else {
+						adjustedAnchorOffset = componentIndex + 1
+					}
+				}
+			}
+
+			if (adjustedFocusOffset !== null && adjustedAnchorOffset !== null) {
+				selection.setBaseAndExtent(inputNode, adjustedAnchorOffset, inputNode, adjustedFocusOffset)
+			} else if (adjustedFocusOffset !== null) {
+				selection.extend(inputNode, adjustedFocusOffset)
+			}
+		}
 	}
 
 	adjustSelectionForceOutOfComponent(selection?: Selection | null) {
@@ -511,7 +582,9 @@ export class InputController {
 
 		const { inputNode } = this
 		const { focusNode, focusOffset } = selection
-		if (!focusNode || !focusNode.parentElement?.classList.contains('ntv__input-component')) {
+		const componentNode = focusNode?.parentElement as HTMLElement
+
+		if (!componentNode || !componentNode.classList.contains('ntv__input-component')) {
 			return
 		}
 
@@ -520,8 +593,6 @@ export class InputController {
 		const nextSibling = startContainer.nextSibling
 
 		if (selection.isCollapsed) {
-			const componentNode = focusNode.parentElement as HTMLElement
-
 			log('Is collaped, adjusting', nextSibling, focusNode)
 
 			if (nextSibling) {
@@ -546,35 +617,6 @@ export class InputController {
 		}
 	}
 
-	extendSelection(direction: 'forward' | 'backward') {
-		log('Text editor: Backspace key pressed')
-
-		const { inputNode } = this
-
-		if (!inputNode.childNodes.length) return
-
-		const selection = window.getSelection()
-		if (!selection || !selection.rangeCount) return
-
-		// for (let i = 0; i < selection.rangeCount; i++) {
-		// 	const range = selection.getRangeAt(i)
-		// 	if (range.collapsed) {
-		// 		selection.modify('extend', direction, 'character')
-		// 		// range = selection.getRangeAt(0)
-		// 	}
-		// }
-
-		selection.modify('extend', direction, 'character')
-		// let range = selection.getRangeAt(0)
-		// selection.removeRange(range)
-		// if (range.collapsed) {
-		// 	range = selection.getRangeAt(0)
-		// }
-
-		// log('Range', range)
-		// selection.addRange(range)
-	}
-
 	insertText(text: string) {
 		const { inputNode } = this
 
@@ -586,16 +628,34 @@ export class InputController {
 
 		let range
 		if (selection.rangeCount) {
-			range = selection.getRangeAt(0)
-			range.deleteContents()
+			const { focusNode, focusOffset } = selection
+			const componentNode = focusNode?.parentElement as HTMLElement
 
-			this.adjustSelectionForceOutOfComponent(selection)
+			// Adjust the selection if the focus is inside a component
+			if (focusNode && componentNode && componentNode.classList.contains('ntv__input-component')) {
+				const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode)
+				if (focusNode.nextSibling) {
+					if (selection.isCollapsed) {
+						selection.setPosition(inputNode, componentIndex)
+					} else {
+						selection.extend(inputNode, componentIndex)
+					}
+				} else {
+					if (selection.isCollapsed) {
+						selection.setPosition(inputNode, componentIndex + 1)
+					} else {
+						selection.extend(inputNode, componentIndex + 1)
+					}
+				}
+			}
+
 			range = selection.getRangeAt(0)
 		} else {
-			range = document.createRange()
+			range = new Range()
 			range.setStart(inputNode, inputNode.childNodes.length)
 		}
 
+		range.deleteContents()
 		range.insertNode(document.createTextNode(text))
 		range.collapse()
 		selection.removeAllRanges()
@@ -616,19 +676,39 @@ export class InputController {
 			return
 		}
 
-		let range = selection.getRangeAt(0)
-		const { startContainer } = range
-		range.deleteContents()
+		const { inputNode } = this
+		const { focusNode, focusOffset } = selection
+		const componentNode = focusNode?.parentElement as HTMLElement
 
-		this.adjustSelectionForceOutOfComponent(selection)
-		range = selection.getRangeAt(0)
+		// Adjust the selection if the focus is inside a component
+		if (focusNode && componentNode && componentNode.classList.contains('ntv__input-component')) {
+			const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode)
+			if (focusNode.nextSibling) {
+				if (selection.isCollapsed) {
+					selection.setPosition(inputNode, componentIndex)
+				} else {
+					selection.extend(inputNode, componentIndex)
+				}
+			} else {
+				if (selection.isCollapsed) {
+					selection.setPosition(inputNode, componentIndex + 1)
+				} else {
+					selection.extend(inputNode, componentIndex + 1)
+				}
+			}
+		}
+
+		let range = selection.getRangeAt(0)
+		selection.removeRange(range)
+		range.deleteContents()
 
 		for (let i = nodes.length - 1; i >= 0; i--) {
 			range.insertNode(nodes[i])
 		}
 
-		selection.collapseToEnd()
-		this.inputNode.normalize
+		range.collapse()
+		selection.addRange(range)
+		inputNode.normalize()
 	}
 
 	insertComponent(component: HTMLElement) {
@@ -641,21 +721,49 @@ export class InputController {
 		}
 
 		if (!selection.rangeCount) {
-			inputNode.appendChild(component)
-			const spacer = document.createTextNode(' ')
-			inputNode.appendChild(spacer)
-			const range = document.createRange()
-			range.setStart(spacer, 1)
+			// inputNode.appendChild(component)
+			// const spacer = document.createTextNode(' ')
+			// inputNode.appendChild(spacer)
+			const range = new Range()
+			// range.setStart(spacer, 1)
+			range.setStart(inputNode, inputNode.childNodes.length)
+			range.insertNode(component)
+			range.collapse()
 			selection.addRange(range)
 			return
 		}
 
-		// If selection is inside a component make sure to push it out first
-		let range = selection.getRangeAt(0)
-		if (range.startContainer.parentElement?.classList.contains('ntv__input-component')) {
-			this.adjustSelectionForceOutOfComponent(selection)
-			range = selection.getRangeAt(0)
+		const { focusNode, focusOffset } = selection
+		const componentNode = focusNode?.parentElement as HTMLElement
+
+		log('FLAG_0')
+		// Adjust the selection if the focus is inside a component
+		if (focusNode && componentNode && componentNode.classList.contains('ntv__input-component')) {
+			log('FLAG_1')
+			const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode)
+			if (focusNode.nextSibling) {
+				log('FLAG_2')
+				if (selection.isCollapsed) {
+					log('FLAG_3')
+					selection.setPosition(inputNode, componentIndex)
+				} else {
+					log('FLAG_4')
+					selection.extend(inputNode, componentIndex)
+				}
+			} else {
+				log('FLAG_5')
+				if (selection.isCollapsed) {
+					log('FLAG_6')
+					selection.setPosition(inputNode, componentIndex + 1)
+				} else {
+					log('FLAG_7')
+					selection.extend(inputNode, componentIndex + 1)
+				}
+			}
 		}
+
+		const range = selection.getRangeAt(0)
+		range.deleteContents()
 
 		const { startContainer, startOffset } = range
 		const isFocusInInputNode = startContainer === inputNode
@@ -681,11 +789,7 @@ export class InputController {
 			return error('Encountered unexpected unprocessable node', component, startContainer, range)
 		}
 
-		maybeInsertSpaceCharacterBeforeComponent(component)
-		maybeInsertSpaceCharacterAfterComponent(component)
-
-		// It's always guaranteed that there is a space character after a new component insertion.
-		range.setEnd(component.nextSibling as Node, 1)
+		range.setEnd(component.childNodes[2], 1)
 		range.collapse()
 		selection.removeAllRanges()
 		selection.addRange(range)
@@ -711,12 +815,12 @@ export class InputController {
 
 		this.insertComponent(emoteComponent)
 
-		if (this.isInputEmpty) {
-			this.isInputEmpty = false
+		if (this.inputEmpty) {
+			this.inputEmpty = false
 			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
 		}
 
-		this.updateCharacterCountDebounce()
+		this.processMessageContentDebounce()
 
 		return emoteComponent
 	}
@@ -739,7 +843,7 @@ export class InputController {
 		emoteBox.innerHTML = emoteHTML
 		emoteBox.setAttribute('data-emote-hid', emoteHid)
 
-		this.updateCharacterCountDebounce()
+		this.processMessageContentDebounce()
 
 		return component
 	}
@@ -761,7 +865,7 @@ export class InputController {
 
 		inputNode.normalize()
 
-		this.updateCharacterCountDebounce()
+		this.processMessageContentDebounce()
 
 		return textNode
 	}

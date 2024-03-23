@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.2.17
+// @version 1.2.18
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-02e0f24c.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-df4a90f1.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -1501,7 +1501,7 @@
           newNode.setAttribute("contenteditable", "false");
           newNodes.push(newNode);
         } else if (token) {
-          textBuffer += " " + token;
+          textBuffer += token;
         }
       }
       if (textBuffer) {
@@ -1838,36 +1838,6 @@
   };
 
   // src/Classes/InputController.ts
-  function maybeInsertSpaceCharacterBeforeComponent(component) {
-    const prevSibling = component.previousSibling;
-    if (prevSibling && prevSibling.nodeType === Node.TEXT_NODE) {
-      const textNode = prevSibling;
-      const textContent = textNode.textContent;
-      if (textContent === null) {
-        component.before(document.createTextNode(" "));
-      } else if (textContent[textContent.length - 1] !== " ") {
-        textNode.textContent += " ";
-      }
-    } else if (prevSibling && prevSibling.nodeType === Node.ELEMENT_NODE) {
-      component.before(document.createTextNode(" "));
-    }
-  }
-  function maybeInsertSpaceCharacterAfterComponent(component) {
-    const nextSibling = component.nextSibling;
-    if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
-      const textNode = nextSibling;
-      const textContent = textNode.textContent;
-      if (textContent === null) {
-        component.after(document.createTextNode(" "));
-      } else if (textContent[0] !== " ") {
-        textNode.textContent = " " + textContent;
-      }
-    } else if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE) {
-      component.after(document.createTextNode(" "));
-    } else {
-      component.after(document.createTextNode(" "));
-    }
-  }
   function eventKeyIsVisibleCharacter(event) {
     if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey)
       return true;
@@ -1880,8 +1850,12 @@
     clipboard;
     inputNode;
     eventTarget = new PriorityEventTarget();
-    updateCharacterCountDebounce;
-    isInputEmpty = true;
+    processMessageContentDebounce;
+    inputEmpty = true;
+    characterCount = 0;
+    messageContent = "";
+    emotesInMessage = /* @__PURE__ */ new Set();
+    hasMouseDown = false;
     constructor({
       eventBus,
       emotesManager,
@@ -1893,7 +1867,23 @@
       this.messageHistory = messageHistory;
       this.clipboard = clipboard;
       this.inputNode = contentEditableEl;
-      this.updateCharacterCountDebounce = debounce(this.updateCharacterCount.bind(this), 50);
+      this.processMessageContentDebounce = debounce(this.processMessageContent.bind(this), 25);
+    }
+    getCharacterCount() {
+      return this.characterCount;
+    }
+    getMessageContent() {
+      return this.messageContent;
+    }
+    getEmotesInMessage() {
+      return this.emotesInMessage;
+    }
+    isInputEmpty() {
+      return this.inputEmpty;
+    }
+    clearInput() {
+      this.inputNode.innerHTML = "";
+      this.processMessageContent();
     }
     addEventListener(type, priority, listener, options) {
       this.eventTarget.addEventListener(type, priority, listener, options);
@@ -1933,8 +1923,8 @@
         }
         this.insertNodes(newNodes);
         const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
-        if (this.isInputEmpty && isNotEmpty) {
-          this.isInputEmpty = isNotEmpty;
+        if (this.inputEmpty && isNotEmpty) {
+          this.inputEmpty = isNotEmpty;
           this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
         }
       });
@@ -1942,6 +1932,8 @@
       inputNode.addEventListener("keydown", this.eventTarget.dispatchEvent.bind(this.eventTarget));
       this.eventTarget.addEventListener("keyup", 10, this.handleKeyUp.bind(this));
       inputNode.addEventListener("keyup", this.eventTarget.dispatchEvent.bind(this.eventTarget));
+      inputNode.addEventListener("mousedown", this.handleMouseDown.bind(this));
+      inputNode.addEventListener("mouseup", this.handleMouseUp.bind(this));
     }
     handleKeydown(event) {
       switch (event.key) {
@@ -1962,19 +1954,20 @@
           if (eventKeyIsVisibleCharacter(event)) {
             const selection = document.getSelection();
             if (selection && selection.rangeCount) {
-              const range = selection.getRangeAt(0);
-              if (range && range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
-                event.preventDefault();
-                this.insertText(event.key);
+              const focusNode = selection.focusNode;
+              if (focusNode && focusNode.parentElement?.classList.contains("ntv__input-component")) {
               }
             }
+            event.preventDefault();
+            this.insertText(event.key);
           }
       }
-      this.updateCharacterCountDebounce();
     }
-    updateCharacterCount() {
-      const [parsedString] = this.getEncodedContent();
-      this.eventBus.publish("ntv.input_controller.character_count", { value: parsedString.length });
+    handleMouseDown(event) {
+      this.hasMouseDown = true;
+    }
+    handleMouseUp(event) {
+      this.hasMouseDown = false;
     }
     handleKeyUp(event) {
       const { inputNode } = this;
@@ -1984,10 +1977,13 @@
       if (event.key === "Backspace" || event.key === "Delete") {
         this.normalizeComponents();
       }
+      if (eventKeyIsVisibleCharacter(event) || event.key === "Backspace" || event.key === "Delete") {
+        this.processMessageContentDebounce();
+      }
       const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
-      if (this.isInputEmpty === !isNotEmpty)
+      if (this.inputEmpty === !isNotEmpty)
         return;
-      this.isInputEmpty = !this.isInputEmpty;
+      this.inputEmpty = !this.inputEmpty;
       this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
     }
     handleSpaceKey(event) {
@@ -2006,10 +2002,6 @@
       Caret.moveCaretTo(node, start);
       this.insertEmote(emoteHid);
       event.preventDefault();
-    }
-    clearInput() {
-      this.inputNode.innerHTML = "";
-      this.updateCharacterCount();
     }
     normalize() {
       this.inputNode.normalize();
@@ -2032,20 +2024,21 @@
       const componentBody = document.createElement("span");
       componentBody.className = "ntv__input-component__body";
       componentBody.setAttribute("contenteditable", "false");
-      componentBody.appendChild(
-        jQuery.parseHTML(
-          `<span class="ntv__inline-emote-box" data-emote-hid="${emoteHID}" contenteditable="false">` + emoteHTML + "</span>"
-        )[0]
-      );
+      const inlineEmoteBox = document.createElement("span");
+      inlineEmoteBox.className = "ntv__inline-emote-box";
+      inlineEmoteBox.setAttribute("data-emote-hid", emoteHID);
+      inlineEmoteBox.innerHTML = emoteHTML;
+      componentBody.appendChild(inlineEmoteBox);
       component.appendChild(componentBody);
       component.appendChild(document.createTextNode(CHAR_ZWSP));
       return component;
     }
-    getEncodedContent() {
-      const { inputNode, emotesManager } = this;
+    processMessageContent() {
+      const { inputNode, eventBus, emotesManager } = this;
       const buffer = [];
       let bufferString = "";
-      let emotesInMessage = /* @__PURE__ */ new Set();
+      let emotesInMessage = this.emotesInMessage;
+      emotesInMessage.clear();
       for (const node of inputNode.childNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
           bufferString += node.textContent;
@@ -2060,7 +2053,7 @@
             const emoteHid = emoteBox.dataset.emoteHid;
             if (emoteHid) {
               if (bufferString)
-                buffer.push(bufferString);
+                buffer.push(bufferString.trim());
               bufferString = "";
               emotesInMessage.add(emoteHid);
               buffer.push(emotesManager.getEmoteEmbeddable(emoteHid));
@@ -2073,8 +2066,11 @@
         }
       }
       if (bufferString)
-        buffer.push(bufferString);
-      return [buffer.join(" "), emotesInMessage];
+        buffer.push(bufferString.trim());
+      this.messageContent = buffer.join(" ");
+      this.emotesInMessage = emotesInMessage;
+      this.characterCount = this.messageContent.length;
+      eventBus.publish("ntv.input_controller.character_count", { value: this.characterCount });
     }
     deleteBackwards(evt) {
       const { inputNode } = this;
@@ -2166,9 +2162,8 @@
       if (!selection || !selection.rangeCount)
         return;
       const { inputNode } = this;
-      const range = selection.getRangeAt(0);
-      const { startContainer, startOffset } = range;
       if (selection.isCollapsed) {
+        const { startContainer, startOffset } = selection.getRangeAt(0);
         if (!startContainer.parentElement?.classList.contains("ntv__input-component"))
           return;
         const nextSibling = startContainer.nextSibling;
@@ -2183,17 +2178,57 @@
             selection.collapse(nextZWSP, 1);
         }
       } else {
-        const focusNode = selection.focusNode;
-        if (!focusNode)
-          return;
-        const isFocusInComponent = focusNode.parentElement?.classList.contains("ntv__input-component");
+        const { focusNode, focusOffset, anchorNode, anchorOffset } = selection;
+        const { hasMouseDown } = this;
+        const isFocusInComponent = focusNode?.parentElement?.classList.contains("ntv__input-component");
+        const isAnchorInComponent = anchorNode?.parentElement?.classList.contains("ntv__input-component");
+        let adjustedFocusOffset = null, adjustedAnchorOffset = null;
         if (isFocusInComponent) {
-          const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode.parentElement);
-          if (selection.focusOffset === 0) {
-            selection.extend(inputNode, componentIndex);
+          const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode?.parentElement);
+          if (focusNode?.nextSibling) {
+            if (hasMouseDown) {
+              adjustedFocusOffset = componentIndex;
+            } else {
+              if (focusOffset === 0) {
+                adjustedFocusOffset = componentIndex;
+              } else {
+                adjustedFocusOffset = componentIndex + 1;
+              }
+            }
           } else {
-            selection.extend(inputNode, componentIndex + 1);
+            if (hasMouseDown) {
+              adjustedFocusOffset = componentIndex + 1;
+            } else {
+              if (focusOffset === 0) {
+                adjustedFocusOffset = componentIndex;
+              } else {
+                adjustedFocusOffset = componentIndex + 1;
+              }
+            }
           }
+        }
+        if (isAnchorInComponent) {
+          const componentIndex = Array.from(inputNode.childNodes).indexOf(
+            anchorNode?.parentElement
+          );
+          if (anchorNode?.nextSibling) {
+            if (anchorOffset === 0) {
+              adjustedAnchorOffset = componentIndex;
+            } else {
+              adjustedAnchorOffset = componentIndex + 1;
+            }
+          } else {
+            if (anchorOffset === 0) {
+              adjustedAnchorOffset = componentIndex;
+            } else {
+              adjustedAnchorOffset = componentIndex + 1;
+            }
+          }
+        }
+        if (adjustedFocusOffset !== null && adjustedAnchorOffset !== null) {
+          selection.setBaseAndExtent(inputNode, adjustedAnchorOffset, inputNode, adjustedFocusOffset);
+        } else if (adjustedFocusOffset !== null) {
+          selection.extend(inputNode, adjustedFocusOffset);
         }
       }
     }
@@ -2203,14 +2238,14 @@
         return;
       const { inputNode } = this;
       const { focusNode, focusOffset } = selection;
-      if (!focusNode || !focusNode.parentElement?.classList.contains("ntv__input-component")) {
+      const componentNode = focusNode?.parentElement;
+      if (!componentNode || !componentNode.classList.contains("ntv__input-component")) {
         return;
       }
       const range = selection.getRangeAt(0);
       const { startContainer } = range;
       const nextSibling = startContainer.nextSibling;
       if (selection.isCollapsed) {
-        const componentNode = focusNode.parentElement;
         log("Is collaped, adjusting", nextSibling, focusNode);
         if (nextSibling) {
           if (componentNode.previousSibling instanceof Text) {
@@ -2233,16 +2268,6 @@
         error("Unadjusted selection focus somehow reached inside component. This should never happen.");
       }
     }
-    extendSelection(direction) {
-      log("Text editor: Backspace key pressed");
-      const { inputNode } = this;
-      if (!inputNode.childNodes.length)
-        return;
-      const selection = window.getSelection();
-      if (!selection || !selection.rangeCount)
-        return;
-      selection.modify("extend", direction, "character");
-    }
     insertText(text) {
       const { inputNode } = this;
       const selection = window.getSelection();
@@ -2252,14 +2277,30 @@
       }
       let range;
       if (selection.rangeCount) {
-        range = selection.getRangeAt(0);
-        range.deleteContents();
-        this.adjustSelectionForceOutOfComponent(selection);
+        const { focusNode, focusOffset } = selection;
+        const componentNode = focusNode?.parentElement;
+        if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
+          const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
+          if (focusNode.nextSibling) {
+            if (selection.isCollapsed) {
+              selection.setPosition(inputNode, componentIndex);
+            } else {
+              selection.extend(inputNode, componentIndex);
+            }
+          } else {
+            if (selection.isCollapsed) {
+              selection.setPosition(inputNode, componentIndex + 1);
+            } else {
+              selection.extend(inputNode, componentIndex + 1);
+            }
+          }
+        }
         range = selection.getRangeAt(0);
       } else {
-        range = document.createRange();
+        range = new Range();
         range.setStart(inputNode, inputNode.childNodes.length);
       }
+      range.deleteContents();
       range.insertNode(document.createTextNode(text));
       range.collapse();
       selection.removeAllRanges();
@@ -2278,16 +2319,34 @@
         Caret.collapseToEndOfNode(this.inputNode.lastChild);
         return;
       }
+      const { inputNode } = this;
+      const { focusNode, focusOffset } = selection;
+      const componentNode = focusNode?.parentElement;
+      if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
+        if (focusNode.nextSibling) {
+          if (selection.isCollapsed) {
+            selection.setPosition(inputNode, componentIndex);
+          } else {
+            selection.extend(inputNode, componentIndex);
+          }
+        } else {
+          if (selection.isCollapsed) {
+            selection.setPosition(inputNode, componentIndex + 1);
+          } else {
+            selection.extend(inputNode, componentIndex + 1);
+          }
+        }
+      }
       let range = selection.getRangeAt(0);
-      const { startContainer } = range;
+      selection.removeRange(range);
       range.deleteContents();
-      this.adjustSelectionForceOutOfComponent(selection);
-      range = selection.getRangeAt(0);
       for (let i = nodes.length - 1; i >= 0; i--) {
         range.insertNode(nodes[i]);
       }
-      selection.collapseToEnd();
-      this.inputNode.normalize;
+      range.collapse();
+      selection.addRange(range);
+      inputNode.normalize();
     }
     insertComponent(component) {
       const { inputNode } = this;
@@ -2297,19 +2356,41 @@
         return error("Selection API is not available, please use a modern browser supports the Selection API.");
       }
       if (!selection.rangeCount) {
-        inputNode.appendChild(component);
-        const spacer = document.createTextNode(" ");
-        inputNode.appendChild(spacer);
-        const range2 = document.createRange();
-        range2.setStart(spacer, 1);
+        const range2 = new Range();
+        range2.setStart(inputNode, inputNode.childNodes.length);
+        range2.insertNode(component);
+        range2.collapse();
         selection.addRange(range2);
         return;
       }
-      let range = selection.getRangeAt(0);
-      if (range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
-        this.adjustSelectionForceOutOfComponent(selection);
-        range = selection.getRangeAt(0);
+      const { focusNode, focusOffset } = selection;
+      const componentNode = focusNode?.parentElement;
+      log("FLAG_0");
+      if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
+        log("FLAG_1");
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
+        if (focusNode.nextSibling) {
+          log("FLAG_2");
+          if (selection.isCollapsed) {
+            log("FLAG_3");
+            selection.setPosition(inputNode, componentIndex);
+          } else {
+            log("FLAG_4");
+            selection.extend(inputNode, componentIndex);
+          }
+        } else {
+          log("FLAG_5");
+          if (selection.isCollapsed) {
+            log("FLAG_6");
+            selection.setPosition(inputNode, componentIndex + 1);
+          } else {
+            log("FLAG_7");
+            selection.extend(inputNode, componentIndex + 1);
+          }
+        }
       }
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
       const { startContainer, startOffset } = range;
       const isFocusInInputNode = startContainer === inputNode;
       if (!isFocusInInputNode && startContainer.parentElement !== inputNode) {
@@ -2325,9 +2406,7 @@
       } else {
         return error("Encountered unexpected unprocessable node", component, startContainer, range);
       }
-      maybeInsertSpaceCharacterBeforeComponent(component);
-      maybeInsertSpaceCharacterAfterComponent(component);
-      range.setEnd(component.nextSibling, 1);
+      range.setEnd(component.childNodes[2], 1);
       range.collapse();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -2344,11 +2423,11 @@
       }
       const emoteComponent = this.createEmoteComponent(emoteHid, emoteHTML);
       this.insertComponent(emoteComponent);
-      if (this.isInputEmpty) {
-        this.isInputEmpty = false;
+      if (this.inputEmpty) {
+        this.inputEmpty = false;
         eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: false } }));
       }
-      this.updateCharacterCountDebounce();
+      this.processMessageContentDebounce();
       return emoteComponent;
     }
     replaceEmote(component, emoteHid) {
@@ -2365,7 +2444,7 @@
       }
       emoteBox.innerHTML = emoteHTML;
       emoteBox.setAttribute("data-emote-hid", emoteHid);
-      this.updateCharacterCountDebounce();
+      this.processMessageContentDebounce();
       return component;
     }
     replaceEmoteWithText(component, text) {
@@ -2381,7 +2460,7 @@
       selection.removeAllRanges();
       selection.addRange(range);
       inputNode.normalize();
-      this.updateCharacterCountDebounce();
+      this.processMessageContentDebounce();
       return textNode;
     }
   };
@@ -2418,7 +2497,7 @@
       const { inputController } = this;
       inputController.addEventListener("keydown", 8, this.handleKeydown.bind(this));
       inputController.addEventListener("keyup", 10, (event) => {
-        if (this.isShowingModal && inputController.isInputEmpty) {
+        if (this.isShowingModal && inputController.isInputEmpty()) {
           this.reset();
         }
       });
@@ -3064,13 +3143,15 @@
       });
     }
     loadChatHistoryBehaviour() {
-      const { settingsManager } = this;
-      if (!settingsManager.getSetting("shared.chat.input.history.enable"))
+      const { settingsManager, inputController } = this;
+      if (!settingsManager.getSetting("shared.chat.input.history.enabled"))
         return;
+      if (!inputController)
+        return error("Input controller not loaded for chat history");
       const textFieldEl = this.elm.textField;
       if (!textFieldEl)
         return error("Text field not loaded for chat history");
-      textFieldEl.addEventListener("keydown", (evt) => {
+      inputController.addEventListener("keydown", 4, (evt) => {
         if (this.tabCompletor?.isShowingModal)
           return;
         if (evt.key === "ArrowUp" || evt.key === "ArrowDown") {
@@ -3360,19 +3441,19 @@
       const originalTextFieldEl = this.elm.originalTextField;
       const originalSubmitButtonEl = this.elm.originalSubmitButton;
       const textFieldEl = this.elm.textField;
-      const [parsedString, emotesInMessage] = inputController.getEncodedContent();
-      if (parsedString.length > this.maxMessageLength) {
+      if (inputController.getCharacterCount() > this.maxMessageLength) {
         error(
-          `Message too long, it is ${parsedString.length} characters but max limit is ${this.maxMessageLength}.`
+          `Message too long, it is ${inputController.getCharacterCount()} characters but max limit is ${this.maxMessageLength}.`
         );
         return;
       }
       if (!suppressEngagementEvent) {
+        const emotesInMessage = inputController.getEmotesInMessage();
         for (const emoteHid of emotesInMessage) {
           emotesManager.registerEmoteEngagement(emoteHid);
         }
       }
-      originalTextFieldEl.innerHTML = parsedString;
+      originalTextFieldEl.innerHTML = inputController.getMessageContent();
       this.messageHistory.addMessage(textFieldEl.innerHTML);
       this.messageHistory.resetCursor();
       inputController.clearInput();
@@ -4483,7 +4564,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.2.17",
+      VERSION: "1.2.18",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

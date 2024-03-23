@@ -45,7 +45,7 @@ export class TabCompletor {
 		inputController.addEventListener('keydown', 8, this.handleKeydown.bind(this))
 
 		inputController.addEventListener('keyup', 10, (event: KeyboardEvent) => {
-			if (this.isShowingModal && inputController.isInputEmpty) {
+			if (this.isShowingModal && inputController.isInputEmpty()) {
 				this.reset()
 			}
 		})
