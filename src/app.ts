@@ -15,11 +15,10 @@ import { SevenTVProvider } from './Providers/SevenTVProvider'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, fetchJSON } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
-import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.2.19',
+		VERSION: '1.2.18',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
@@ -31,7 +30,6 @@ class NipahClient {
 		LOCAL_ENV: IS_LOCAL_ENV
 	}
 
-	userInterface: AbstractUserInterface | null = null
 	stylesLoaded = false
 	eventBus: Publisher | null = null
 	emotesManager: EmotesManager | null = null
@@ -125,8 +123,6 @@ class NipahClient {
 		} else {
 			userInterface.loadInterface()
 		}
-
-		this.userInterface = userInterface
 
 		emotesManager.registerProvider(KickProvider)
 		emotesManager.registerProvider(SevenTVProvider)

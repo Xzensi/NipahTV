@@ -3,7 +3,8 @@ import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderCompon
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
 import { AbstractUserInterface } from './AbstractUserInterface'
-import { InputController } from '../Managers/InputController'
+import { InputController } from '../Classes/InputController'
+import { TabCompletor } from '../Classes/TabCompletor'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
 
@@ -17,6 +18,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	emoteMenu: EmoteMenuComponent | null = null
 	emoteMenuButton: EmoteMenuButtonComponent | null = null
 	quickEmotesHolder: QuickEmotesHolderComponent | null = null
+	tabCompletor: TabCompletor | null = null
 
 	elm: {
 		originalTextField: HTMLElement | null
@@ -52,6 +54,8 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.loadShadowProxyElements()
 				this.loadEmoteMenu()
 				this.loadEmoteMenuButton()
+				this.loadChatHistoryBehaviour()
+				this.loadTabCompletionBehaviour()
 
 				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
 					$('#chatroom').addClass('ntv__hide-emote-menu-button')
@@ -108,18 +112,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		eventBus.subscribe(
 			'ntv.ui.emote.click',
 			({ emoteHid, sendImmediately }: { emoteHid: string; sendImmediately?: boolean }) => {
-				assertArgDefined(emoteHid)
-
 				if (sendImmediately) {
 					this.sendEmoteToChat(emoteHid)
 				} else {
-					this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+					this.insertEmoteInChat(emoteHid)
 				}
 			}
 		)
-
-		// Submit input to chat
-		eventBus.subscribe('ntv.input_controller.submit', this.submitInput.bind(this))
 
 		// Add alternating background color to chat messages
 		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.alternating_background', (value: boolean) => {
@@ -227,20 +226,31 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
-		// submitButtonEl.addEventListener('click', () => this.submitInput())
+		submitButtonEl.addEventListener('click', this.submitInput.bind(this, false))
 
-		this.inputController = new InputController(this, textFieldEl)
-		this.inputController.initialize()
-		this.inputController.loadTabCompletionBehaviour(textFieldEl.parentElement!.parentElement!)
-		this.inputController.loadChatHistoryBehaviour()
+		const inputController = (this.inputController = new InputController(this, textFieldEl))
+		inputController.attachEventListeners()
 
-		this.inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
+		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
 			if (event.detail.isEmpty) {
 				submitButtonEl.setAttribute('disabled', '')
 				submitButtonEl.classList.add('disabled')
 			} else {
 				submitButtonEl.removeAttribute('disabled')
 				submitButtonEl.classList.remove('disabled')
+			}
+		})
+
+		inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
+			// Typing any non-whitespace character means you commit to the selected history entry, so we reset the cursor
+			if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+				this.messageHistory.resetCursor()
+			}
+
+			if (event.key === 'Enter') {
+				event.preventDefault()
+				event.stopImmediatePropagation()
+				this.submitInput()
 			}
 		})
 
@@ -322,7 +332,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				evt.ctrlKey ||
 				evt.altKey ||
 				evt.metaKey ||
-				this.inputController!.isShowingTabCompletorModal() ||
+				this.tabCompletor?.isShowingModal ||
 				ignoredKeys[evt.key] ||
 				document.activeElement?.tagName === 'INPUT' ||
 				document.activeElement?.getAttribute('contenteditable')
@@ -331,6 +341,77 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			textFieldEl.focus()
+		})
+	}
+
+	loadChatHistoryBehaviour() {
+		const { settingsManager, inputController } = this
+		if (!settingsManager.getSetting('shared.chat.input.history.enabled')) return
+		if (!inputController) return error('Input controller not loaded for chat history')
+
+		const textFieldEl = this.elm.textField
+		if (!textFieldEl) return error('Text field not loaded for chat history')
+
+		inputController.addEventListener('keydown', 4, evt => {
+			if (this.tabCompletor?.isShowingModal) return
+
+			if (evt.key === 'ArrowUp' || evt.key === 'ArrowDown') {
+				// Check if caret is at the start of the text field
+				if (Caret.isCaretAtStartOfNode(textFieldEl) && evt.key === 'ArrowUp') {
+					evt.preventDefault()
+
+					if (!this.messageHistory.canMoveCursor(1)) return
+
+					// Store leftover html in case history traversal was accidental
+					const leftoverHTML = textFieldEl.innerHTML
+					if (this.messageHistory.isCursorAtStart() && leftoverHTML) {
+						this.messageHistory.addMessage(leftoverHTML)
+						this.messageHistory.moveCursor(2)
+					} else {
+						this.messageHistory.moveCursor(1)
+					}
+
+					textFieldEl.innerHTML = this.messageHistory.getMessage()
+				} else if (Caret.isCaretAtEndOfNode(textFieldEl) && evt.key === 'ArrowDown') {
+					evt.preventDefault()
+
+					// Reached most recent message traversing down history
+					if (this.messageHistory.canMoveCursor(-1)) {
+						this.messageHistory.moveCursor(-1)
+						textFieldEl.innerHTML = this.messageHistory.getMessage()
+					} else {
+						// Store leftover html in case history traversal was accidental
+						const leftoverHTML = textFieldEl.innerHTML
+						if (leftoverHTML) this.messageHistory.addMessage(leftoverHTML)
+
+						// Moved past most recent message, empty text field
+						this.messageHistory.resetCursor()
+						textFieldEl.innerHTML = ''
+					}
+				}
+			}
+		})
+	}
+
+	loadTabCompletionBehaviour() {
+		const { emotesManager, usersManager, inputController } = this
+
+		const textFieldEl = this.elm.textField
+		if (!textFieldEl) return error('Text field not loaded for chat history')
+
+		const tabCompletor = (this.tabCompletor = new TabCompletor({
+			emotesManager,
+			usersManager,
+			inputController
+		} as any))
+		tabCompletor.attachEventHandlers()
+		tabCompletor.createModal(textFieldEl.parentElement!.parentElement!)
+
+		// Hide tab completion modal when clicking outside of it by calling tabCompletor.reset()
+		document.addEventListener('click', evt => {
+			if (!evt.target) return
+			const isClickInsideModal = tabCompletor.isClickInsideModal(evt.target as Node)
+			if (!isClickInsideModal) tabCompletor.reset()
 		})
 	}
 
@@ -433,7 +514,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Can't track click events on kick emotes, because they kill the even with stopPropagation()
 		$chatMessagesContainer.on('click', '.ntv__inline-emote-box img', evt => {
 			const emoteHid = evt.target.getAttribute('data-emote-hid')
-			if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+			if (emoteHid) this.insertEmoteInChat(emoteHid)
 		})
 	}
 
@@ -641,6 +722,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderPinnedMessage(node: HTMLElement) {
+		const { emotesManager } = this
+
 		const chatEntryContentNode = node.querySelector('.chat-entry-content')
 		if (!chatEntryContentNode) return error('Pinned message content node not found', node)
 
@@ -648,36 +731,49 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	// Submits input to chat
-	submitInput(suppressEngagementEvent?: boolean) {
-		const { eventBus } = this
-		const contentEditableEditor = this.inputController?.contentEditableEditor
-		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
+	submitInput(suppressEngagementEvent = false) {
+		const { eventBus, emotesManager, inputController } = this
 
 		if (!this.elm.textField || !this.elm.originalTextField || !this.elm.originalSubmitButton) {
 			return error('Text field not loaded for submitting input')
+		}
+		if (!inputController) {
+			return error('Input controller not loaded for submitting input')
 		}
 
 		const originalTextFieldEl = this.elm.originalTextField
 		const originalSubmitButtonEl = this.elm.originalSubmitButton
 		const textFieldEl = this.elm.textField
 
-		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
+		if (inputController.getCharacterCount() > this.maxMessageLength) {
 			error(
-				`Message too long, it is ${contentEditableEditor.getCharacterCount()} characters but max limit is ${
+				`Message too long, it is ${inputController.getCharacterCount()} characters but max limit is ${
 					this.maxMessageLength
 				}.`
 			)
 			return
 		}
 
-		originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent()
-		originalSubmitButtonEl.dispatchEvent(new Event('click'))
+		if (!suppressEngagementEvent) {
+			const emotesInMessage = inputController.getEmotesInMessage()
+			for (const emoteHid of emotesInMessage) {
+				emotesManager.registerEmoteEngagement(emoteHid as string)
+			}
+		}
 
-		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-		contentEditableEditor.clearInput()
+		originalTextFieldEl.innerHTML = inputController.getMessageContent()
+
+		this.messageHistory.addMessage(textFieldEl.innerHTML)
+		this.messageHistory.resetCursor()
+
+		inputController.clearInput()
+
+		originalSubmitButtonEl.dispatchEvent(new Event('click'))
 
 		// Trigger input event to update submit button disabled state
 		textFieldEl.dispatchEvent(new Event('input'))
+
+		eventBus.publish('ntv.ui.submit_input')
 	}
 
 	// Sends emote to chat and restores previous message
@@ -688,29 +784,31 @@ export class KickUserInterface extends AbstractUserInterface {
 			return error('Text field not loaded for sending emote')
 		}
 
-		const { inputController } = this
-		const contentEditableEditor = inputController?.contentEditableEditor
-		if (!contentEditableEditor) return error('Content editable editor not loaded for sending emote')
-
 		const originalTextFieldEl = this.elm.originalTextField
-		const originalSubmitButtonEl = this.elm.originalSubmitButton
-		if (!originalSubmitButtonEl) return error('Original submit button not loaded for sending emote')
+		const textFieldEl = this.elm.textField
 
-		const oldMessage = contentEditableEditor.getInputHTML()
-		contentEditableEditor.clearInput()
+		const oldMessage = textFieldEl.innerHTML
+		textFieldEl.innerHTML = ''
 
-		contentEditableEditor.insertEmote(emoteHid)
-		originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent()
+		this.insertEmoteInChat(emoteHid)
+		this.submitInput(true)
 
-		originalTextFieldEl.dispatchEvent(new Event('input'))
-		originalSubmitButtonEl.dispatchEvent(new Event('click'))
-
-		this.eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent: true })
-
-		contentEditableEditor.setInputContent(oldMessage)
-
+		textFieldEl.innerHTML = oldMessage
 		originalTextFieldEl.innerHTML = oldMessage
 		originalTextFieldEl.dispatchEvent(new Event('input'))
+
+		if (oldMessage) {
+			this.elm.submitButton.removeAttribute('disabled')
+		}
+	}
+
+	insertEmoteInChat(emoteHid: string) {
+		assertArgDefined(emoteHid)
+		const { emotesManager, inputController } = this
+
+		if (!inputController) return error('Text editor not loaded yet for emote insertion')
+
+		inputController.insertEmote(emoteHid)
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {
@@ -781,6 +879,23 @@ export class KickUserInterface extends AbstractUserInterface {
 		textFieldEl.normalize()
 		textFieldEl.dispatchEvent(new Event('input'))
 		textFieldEl.focus()
+
+		// Manually merge adjecent text nodes
+		// let currentMergingTextNode = null
+		// for (let i=0; i<textFieldEl.childNodes.length; i++) {
+		//     const node = textFieldEl.childNodes[i]
+		//     if (node.nodeType === Node.TEXT_NODE) {
+		//         if (!currentMergingTextNode) {
+		//             currentMergingTextNode = node
+		//             continue
+		//         }
+		//
+		//         currentMergingTextNode.textContent += node.textContent
+		//         node.remove()
+		//         i--;
+		//     }
+		//     currentMergingTextNode = null
+		// }
 	}
 
 	destroy() {

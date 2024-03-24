@@ -60,7 +60,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		)
 
 		this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this)
-		this.eventBus.subscribe('ntv.ui.input_submitted', this.renderQuickEmotesCallback)
+		this.eventBus.subscribe('ntv.ui.submit_input', this.renderQuickEmotesCallback)
 	}
 
 	handleEmoteClick(emoteHid: string, sendImmediately = false) {
@@ -75,7 +75,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 	renderQuickEmotes() {
 		const { emotesManager } = this
-		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.history.changed" event to cache the emotes that are changed on "ntv.ui.input_submitted"
+		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.history.changed" event to cache the emotes that are changed on "ntv.ui.submit_input"
 		const emoteHistory = emotesManager.getEmoteHistory()
 
 		if (emoteHistory.size) {
@@ -144,6 +144,6 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	destroy() {
 		this.$element?.remove()
 		if (this.renderQuickEmotesCallback)
-			this.eventBus.unsubscribe('ntv.ui.input_submitted', this.renderQuickEmotesCallback)
+			this.eventBus.unsubscribe('ntv.ui.submit_input', this.renderQuickEmotesCallback)
 	}
 }
