@@ -184,6 +184,10 @@ export class InputController {
 	}
 
 	handleKeydown(event: KeyboardEvent) {
+		if (event.ctrlKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+			return this.handleCtrlArrowKeyDown(event)
+		}
+
 		switch (event.key) {
 			case 'Backspace':
 				this.deleteBackwards(event)
@@ -278,6 +282,117 @@ export class InputController {
 		this.insertEmote(emoteHid)
 
 		event.preventDefault()
+	}
+
+	handleCtrlArrowKeyDown(event: KeyboardEvent) {
+		event.preventDefault()
+
+		const selection = document.getSelection()
+		if (!selection || !selection.rangeCount) return
+
+		const { focusNode, focusOffset } = selection
+		const { inputNode } = this
+		const direction = event.key === 'ArrowRight'
+
+		const isFocusInComponent = selection.focusNode?.parentElement?.classList.contains('ntv__input-component')
+
+		// NOTE: selection.modify() will trigger selectionchange event, so no need for `this.adjustSelection()`
+
+		if (event.shiftKey) {
+			if (isFocusInComponent) {
+				const component = focusNode!.parentElement as HTMLElement
+				const isRightSideOfComp = !focusNode!.nextSibling
+
+				if ((!isRightSideOfComp && direction) || (isRightSideOfComp && !direction)) {
+					selection.modify('extend', direction ? 'forward' : 'backward', 'character')
+				} else if (isRightSideOfComp && direction) {
+					if (component.nextSibling instanceof Text) {
+						selection.extend(component.nextSibling, component.nextSibling.textContent?.length || 0)
+					} else if (
+						component.nextSibling instanceof HTMLElement &&
+						component.nextSibling.classList.contains('ntv__input-component')
+					) {
+						selection.extend(component.nextSibling.childNodes[2], 1)
+					}
+				} else if (!isRightSideOfComp && !direction) {
+					if (component.previousSibling instanceof Text) {
+						selection.extend(component.previousSibling, 0)
+					} else if (
+						component.previousSibling instanceof HTMLElement &&
+						component.previousSibling.classList.contains('ntv__input-component')
+					) {
+						selection.extend(component.previousSibling.childNodes[0], 0)
+					}
+				}
+			} else if (focusNode instanceof Text) {
+				if (direction) {
+					if (focusOffset === focusNode.textContent?.length) {
+						selection.modify('extend', 'forward', 'character')
+					} else {
+						selection.extend(focusNode, focusNode.textContent?.length || 0)
+					}
+				} else {
+					if (focusOffset === 0) {
+						selection.modify('extend', 'backward', 'character')
+					} else {
+						selection.extend(focusNode, 0)
+					}
+				}
+			} else {
+				if (direction && inputNode.childNodes[focusOffset]) {
+					selection.extend(inputNode, focusOffset + 1)
+				} else if (!direction && inputNode.childNodes[focusOffset - 1]) {
+					selection.extend(inputNode, focusOffset - 1)
+				}
+			}
+		} else {
+			if (isFocusInComponent) {
+				const component = focusNode!.parentElement as HTMLElement
+				const isRightSideOfComp = !focusNode!.nextSibling
+
+				if ((!isRightSideOfComp && direction) || (isRightSideOfComp && !direction)) {
+					selection.modify('move', direction ? 'forward' : 'backward', 'character')
+				} else if (isRightSideOfComp && direction) {
+					if (component.nextSibling instanceof Text) {
+						selection.setPosition(component.nextSibling, component.nextSibling.textContent?.length || 0)
+					} else if (
+						component.nextSibling instanceof HTMLElement &&
+						component.nextSibling.classList.contains('ntv__input-component')
+					) {
+						selection.setPosition(component.nextSibling.childNodes[2], 1)
+					}
+				} else if (!isRightSideOfComp && !direction) {
+					if (component.previousSibling instanceof Text) {
+						selection.setPosition(component.previousSibling, 0)
+					} else if (
+						component.previousSibling instanceof HTMLElement &&
+						component.previousSibling.classList.contains('ntv__input-component')
+					) {
+						selection.setPosition(component.previousSibling.childNodes[0], 0)
+					}
+				}
+			} else if (focusNode instanceof Text) {
+				if (direction) {
+					if (focusOffset === focusNode.textContent?.length) {
+						selection.modify('move', 'forward', 'character')
+					} else {
+						selection.setPosition(focusNode, focusNode.textContent?.length || 0)
+					}
+				} else {
+					if (focusOffset === 0) {
+						selection.modify('move', 'backward', 'character')
+					} else {
+						selection.setPosition(focusNode, 0)
+					}
+				}
+			} else {
+				if (direction && inputNode.childNodes[focusOffset]) {
+					selection.setPosition(inputNode, focusOffset + 1)
+				} else if (!direction && inputNode.childNodes[focusOffset - 1]) {
+					selection.setPosition(inputNode, focusOffset - 1)
+				}
+			}
+		}
 	}
 
 	normalize() {
