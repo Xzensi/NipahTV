@@ -7,7 +7,7 @@ export class Caret {
 
 		const range = document.createRange()
 		range.setStart(container, offset)
-		range.collapse(true)
+		// range.collapse(true)
 		selection.removeAllRanges()
 		selection.addRange(range)
 	}
