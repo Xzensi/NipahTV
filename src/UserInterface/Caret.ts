@@ -7,7 +7,7 @@ export class Caret {
 
 		const range = document.createRange()
 		range.setStart(container, offset)
-		range.collapse(true)
+		// range.collapse(true)
 		selection.removeAllRanges()
 		selection.addRange(range)
 	}
@@ -97,59 +97,46 @@ export class Caret {
 	// Checks if the caret is at the start of a node
 	static isCaretAtStartOfNode(node: Node) {
 		const selection = window.getSelection()
-		if (!selection || !selection.rangeCount) return false
-		const range = selection.getRangeAt(0)
+		if (!selection || !selection.rangeCount || !selection.isCollapsed) return false
 
-		// Find the first text node or child node
-		let firstRelevantNode = null
-		for (const child of node.childNodes) {
-			if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.ELEMENT_NODE) {
-				firstRelevantNode = child
-				break
-			}
-		}
+		if (!node.childNodes.length) return true
 
-		if (!firstRelevantNode) return true // Node has no relevant children
+		const { focusNode, focusOffset } = selection
+		if (focusNode === node && focusOffset === 0) return true
 
-		const nodeRange = document.createRange()
-		if (firstRelevantNode.nodeType === Node.TEXT_NODE) {
-			nodeRange.selectNodeContents(firstRelevantNode)
+		if (
+			focusNode?.parentElement?.classList.contains('ntv__input-component') &&
+			!focusNode?.previousSibling &&
+			focusOffset === 0
+		) {
+			return true
+		} else if (focusNode instanceof Text) {
+			return focusNode === node.firstChild && focusOffset === 0
 		} else {
-			// For element nodes
-			nodeRange.selectNode(firstRelevantNode)
+			return false
 		}
-		nodeRange.collapse(true)
-
-		return range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0
 	}
 
 	static isCaretAtEndOfNode(node: Node) {
 		const selection = window.getSelection()
-		if (!selection || !selection.rangeCount) return true
-		const range = selection.getRangeAt(0)
+		if (!selection || !selection.rangeCount || !selection.isCollapsed) return false
 
-		// Find the last text node or child node
-		let lastRelevantNode = null
-		for (let i = node.childNodes.length - 1; i >= 0; i--) {
-			const child = node.childNodes[i]
-			if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.ELEMENT_NODE) {
-				lastRelevantNode = child
-				break
-			}
-		}
+		if (!node.childNodes.length) return true
 
-		if (!lastRelevantNode) return true // Node has no relevant children
+		const { focusNode, focusOffset } = selection
+		if (focusNode === node && focusOffset === node.childNodes.length) return true
 
-		const nodeRange = document.createRange()
-		if (lastRelevantNode.nodeType === Node.TEXT_NODE) {
-			nodeRange.selectNodeContents(lastRelevantNode)
+		if (
+			focusNode?.parentElement?.classList.contains('ntv__input-component') &&
+			!focusNode?.nextSibling &&
+			focusOffset === 1
+		) {
+			return true
+		} else if (focusNode instanceof Text) {
+			return focusNode === node.lastChild && focusOffset === focusNode.textContent?.length
 		} else {
-			// For element nodes
-			nodeRange.selectNode(lastRelevantNode)
+			return false
 		}
-		nodeRange.collapse(false) // Collapse to the end of the node
-
-		return range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0
 	}
 
 	static getWordBeforeCaret() {
