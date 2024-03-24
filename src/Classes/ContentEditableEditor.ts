@@ -172,6 +172,7 @@ export class ContentEditableEditor {
 			}
 
 			this.insertNodes(newNodes)
+			this.processInputContent()
 
 			const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
 			if (this.inputEmpty && isNotEmpty) {
