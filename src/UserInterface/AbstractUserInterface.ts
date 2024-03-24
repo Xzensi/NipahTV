@@ -62,7 +62,7 @@ export class AbstractUserInterface {
 			if (emoteHid) {
 				if (textBuffer) {
 					const newNode = document.createElement('span')
-					newNode.appendChild(document.createTextNode(textBuffer))
+					newNode.appendChild(document.createTextNode(textBuffer.slice(0, -1)))
 					newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
 					newNodes.push(newNode)
 					textBuffer = ''
@@ -75,13 +75,13 @@ export class AbstractUserInterface {
 				newNode.setAttribute('contenteditable', 'false')
 				newNodes.push(newNode)
 			} else if (token) {
-				textBuffer += token
+				textBuffer += token + ' '
 			}
 		}
 
 		if (textBuffer) {
 			const newNode = document.createElement('span')
-			newNode.appendChild(document.createTextNode(textBuffer))
+			newNode.appendChild(document.createTextNode(textBuffer.slice(0, -1)))
 			newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
 			newNodes.push(newNode)
 		}

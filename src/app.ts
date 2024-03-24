@@ -19,7 +19,7 @@ import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.3.1',
+		VERSION: '1.3.2',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',

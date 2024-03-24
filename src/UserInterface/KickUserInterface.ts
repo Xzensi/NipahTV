@@ -227,7 +227,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
-		// submitButtonEl.addEventListener('click', () => this.submitInput())
+		submitButtonEl.addEventListener('click', () => this.submitInput())
 
 		this.inputController = new InputController(this, textFieldEl)
 		this.inputController.initialize()
