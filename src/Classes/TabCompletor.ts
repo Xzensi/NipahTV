@@ -1,8 +1,8 @@
+import { ContentEditableEditor } from './ContentEditableEditor'
 import { EmotesManager } from '../Managers/EmotesManager'
 import { UsersManager } from '../Managers/UsersManager'
 import { Caret } from '../UserInterface/Caret'
 import { error, log } from '../utils'
-import { InputController } from './InputController'
 
 export class TabCompletor {
 	private suggestions = []
@@ -24,28 +24,28 @@ export class TabCompletor {
 
 	private emotesManager: EmotesManager
 	private usersManager: UsersManager
-	private inputController: InputController
+	private contentEditableEditor: ContentEditableEditor
 
 	constructor({
+		contentEditableEditor,
 		emotesManager,
-		usersManager,
-		inputController
+		usersManager
 	}: {
+		contentEditableEditor: ContentEditableEditor
 		emotesManager: EmotesManager
 		usersManager: UsersManager
-		inputController: InputController
 	}) {
 		this.emotesManager = emotesManager
 		this.usersManager = usersManager
-		this.inputController = inputController
+		this.contentEditableEditor = contentEditableEditor
 	}
 
 	attachEventHandlers() {
-		const { inputController } = this
-		inputController.addEventListener('keydown', 8, this.handleKeydown.bind(this))
+		const { contentEditableEditor: contentEditableEditor } = this
+		contentEditableEditor.addEventListener('keydown', 8, this.handleKeydown.bind(this))
 
-		inputController.addEventListener('keyup', 10, (event: KeyboardEvent) => {
-			if (this.isShowingModal && inputController.isInputEmpty()) {
+		contentEditableEditor.addEventListener('keyup', 10, (event: KeyboardEvent) => {
+			if (this.isShowingModal && contentEditableEditor.isInputEmpty()) {
 				this.reset()
 			}
 		})
@@ -133,7 +133,7 @@ export class TabCompletor {
 			if (this.mode === 'emote') this.renderInlineEmote()
 			else if (this.mode === 'mention') {
 				Caret.moveCaretTo(this.node!, this.mentionEnd)
-				this.inputController.insertText(' ')
+				this.contentEditableEditor.insertText(' ')
 			}
 
 			this.hideModal()
@@ -242,7 +242,7 @@ export class TabCompletor {
 		if (this.mode === 'emote' && this.word) {
 			if (!this.emoteComponent) return error('Invalid embed node to restore original text')
 
-			this.inputController.replaceEmoteWithText(this.emoteComponent, this.word)
+			this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word)
 		} else if (this.mode === 'mention') {
 			if (!this.node) return error('Invalid node to restore original text')
 
@@ -256,15 +256,15 @@ export class TabCompletor {
 		if (!emoteHid) return
 
 		if (this.emoteComponent) {
-			this.inputController.replaceEmote(this.emoteComponent, emoteHid)
+			this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid)
 		} else {
 			if (!this.node) return error('Invalid node to restore original text')
 			const range = document.createRange()
 			range.setStart(this.node, this.start)
 			range.setEnd(this.node, this.end)
 			range.deleteContents()
-			this.inputController.normalize()
-			this.emoteComponent = this.inputController.insertEmote(emoteHid)
+			this.contentEditableEditor.normalize()
+			this.emoteComponent = this.contentEditableEditor.insertEmote(emoteHid)
 		}
 	}
 

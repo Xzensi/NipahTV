@@ -53,14 +53,14 @@ function eventKeyIsVisibleCharacter(event: KeyboardEvent) {
 	return false
 }
 
-export class InputController {
+export class ContentEditableEditor {
 	private eventBus: Publisher
 	private emotesManager: EmotesManager
 	private messageHistory: MessagesHistory
 	private clipboard: Clipboard2
 	private inputNode: HTMLElement
 	private eventTarget = new PriorityEventTarget()
-	private processMessageContentDebounce: () => void
+	private processInputContentDebounce: () => void
 	private inputEmpty = true
 	private characterCount = 0
 	private messageContent = ''
@@ -87,7 +87,11 @@ export class InputController {
 		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
 
-		this.processMessageContentDebounce = debounce(this.processMessageContent.bind(this), 25)
+		this.processInputContentDebounce = debounce(this.processInputContent.bind(this), 25)
+	}
+
+	getInputNode() {
+		return this.inputNode
 	}
 
 	getCharacterCount() {
@@ -96,6 +100,10 @@ export class InputController {
 
 	getMessageContent() {
 		return this.messageContent
+	}
+
+	getInputHTML() {
+		return this.inputNode.innerHTML
 	}
 
 	getEmotesInMessage() {
@@ -108,7 +116,7 @@ export class InputController {
 
 	clearInput() {
 		this.inputNode.innerHTML = ''
-		this.processMessageContent()
+		this.processInputContent()
 	}
 
 	addEventListener(
@@ -199,7 +207,10 @@ export class InputController {
 
 			case 'Enter':
 				event.preventDefault()
-				error('Enter key events should not be handled by the input controller.')
+				event.stopImmediatePropagation()
+				if (!this.inputEmpty) {
+					this.eventBus.publish('ntv.input_controller.submit')
+				}
 				break
 
 			case ' ': // Space character key
@@ -208,19 +219,6 @@ export class InputController {
 
 			default:
 				if (eventKeyIsVisibleCharacter(event)) {
-					// const selection = document.getSelection()
-					// if (selection && selection.rangeCount) {
-					// 	const focusNode = selection.focusNode
-					// 	if (focusNode && focusNode.parentElement?.classList.contains('ntv__input-component')) {
-					// 		// event.preventDefault()
-					// 		// this.adjustSelectionForceOutOfComponent(selection) // Already called in insertText()
-					// 		// This is necessary because a bug in browers seem to cause issues
-					// 		//  where appending text node to DOM during lifetime of this event
-					// 		//  causes the event's lifetime to expire and thus insert the
-					// 		//  keyDown event key before the text node was appended to the DOM.
-					// 		//  As solution we just insert the text ourselves instead.
-					// 	}
-					// }
 					event.preventDefault()
 					this.insertText(event.key)
 				}
@@ -254,7 +252,7 @@ export class InputController {
 		}
 
 		if (eventKeyIsVisibleCharacter(event) || event.key === 'Backspace' || event.key === 'Delete') {
-			this.processMessageContentDebounce()
+			this.processInputContentDebounce()
 		}
 
 		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
@@ -410,7 +408,12 @@ export class InputController {
 		return component
 	}
 
-	processMessageContent() {
+	setInputContent(content: string) {
+		this.inputNode.innerHTML = content
+		this.processInputContent()
+	}
+
+	processInputContent() {
 		const { inputNode, eventBus, emotesManager } = this
 		const buffer = []
 		let bufferString = ''
@@ -901,7 +904,7 @@ export class InputController {
 			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
 		}
 
-		this.processMessageContentDebounce()
+		this.processInputContent()
 
 		return emoteComponent
 	}
@@ -924,7 +927,7 @@ export class InputController {
 		emoteBox.innerHTML = emoteHTML
 		emoteBox.setAttribute('data-emote-hid', emoteHid)
 
-		this.processMessageContentDebounce()
+		this.processInputContentDebounce()
 
 		return component
 	}
@@ -946,7 +949,7 @@ export class InputController {
 
 		inputNode.normalize()
 
-		this.processMessageContentDebounce()
+		this.processInputContentDebounce()
 
 		return textNode
 	}
