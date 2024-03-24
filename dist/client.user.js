@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.3.2
+// @version 1.3.3
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1489,7 +1489,7 @@
         if (emoteHid) {
           if (textBuffer) {
             const newNode2 = document.createElement("span");
-            newNode2.appendChild(document.createTextNode(textBuffer.slice(0, -1)));
+            newNode2.appendChild(document.createTextNode(textBuffer.trim()));
             newNode2.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
             newNodes.push(newNode2);
             textBuffer = "";
@@ -1506,7 +1506,7 @@
       }
       if (textBuffer) {
         const newNode = document.createElement("span");
-        newNode.appendChild(document.createTextNode(textBuffer.slice(0, -1)));
+        newNode.appendChild(document.createTextNode(textBuffer.trim()));
         newNode.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
         newNodes.push(newNode);
       }
@@ -4643,7 +4643,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.3.2",
+      VERSION: "1.3.3",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
