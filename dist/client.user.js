@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.3.3
+// @version 1.3.4
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2692,6 +2692,7 @@
         return error("Invalid node to render inline user mention");
       this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
       Caret.moveCaretTo(this.node, this.mentionEnd);
+      this.contentEditableEditor.processInputContent();
     }
     restoreOriginalText() {
       if (this.mode === "emote" && this.word) {
@@ -2703,6 +2704,7 @@
           return error("Invalid node to restore original text");
         Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || "");
         Caret.moveCaretTo(this.node, this.end);
+        this.contentEditableEditor.processInputContent();
       }
     }
     renderInlineEmote() {
@@ -4643,7 +4645,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.3.3",
+      VERSION: "1.3.4",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

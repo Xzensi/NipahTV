@@ -236,6 +236,7 @@ export class TabCompletor {
 
 		this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention)
 		Caret.moveCaretTo(this.node, this.mentionEnd)
+		this.contentEditableEditor.processInputContent()
 	}
 
 	restoreOriginalText() {
@@ -248,6 +249,7 @@ export class TabCompletor {
 
 			Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || '')
 			Caret.moveCaretTo(this.node, this.end)
+			this.contentEditableEditor.processInputContent()
 		}
 	}
 
