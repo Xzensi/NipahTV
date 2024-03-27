@@ -484,7 +484,14 @@ export class KickUserInterface extends AbstractUserInterface {
 						const enableFirstMessageHighlight = this.settingsManager.getSetting(
 							'shared.chat.appearance.highlight_first_message'
 						)
-						if (enableFirstMessageHighlight) {
+						const highlightWhenModeratorOnly = this.settingsManager.getSetting(
+							'shared.chat.appearance.highlight_first_message_moderator'
+						)
+						if (
+							enableFirstMessageHighlight &&
+							(!highlightWhenModeratorOnly ||
+								(highlightWhenModeratorOnly && this.channelData.me.is_moderator))
+						) {
 							messageNode.classList.add('ntv__highlight-first-message')
 						}
 					}
