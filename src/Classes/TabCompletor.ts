@@ -308,10 +308,12 @@ export class TabCompletor {
 					evt.stopImmediatePropagation()
 				}
 
+				if (this.mode === 'mention') this.contentEditableEditor.insertText(' ')
+
 				this.hideModal()
 				this.reset()
 			} else if (evt.key === ' ') {
-				evt.preventDefault()
+				if (this.mode === 'emote') evt.preventDefault()
 				this.reset()
 			} else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') {
 				this.reset()

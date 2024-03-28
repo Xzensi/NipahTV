@@ -9,7 +9,8 @@ export class SettingsManager {
             = Appearance
                 (Appearance)
 				- Hide Kick's emote menu button
-                - Highlight first messages
+                - Highlight first user messages
+				- Highlight first user messages only for channels where you are a moderator
                 - Highlight Color	
                 - Display lines with alternating background colors
                 - Separators (dropdown)
@@ -74,8 +75,14 @@ export class SettingsManager {
 									type: 'checkbox'
 								},
 								{
-									label: 'Highlight first messages',
+									label: 'Highlight first user messages',
 									id: 'shared.chat.appearance.highlight_first_message',
+									default: false,
+									type: 'checkbox'
+								},
+								{
+									label: 'Highlight first user messages only for channels where you are a moderator',
+									id: 'shared.chat.appearance.highlight_first_message_moderator',
 									default: false,
 									type: 'checkbox'
 								},

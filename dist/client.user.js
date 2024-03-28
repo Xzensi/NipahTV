@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.3.4
+// @version 1.3.5
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2757,10 +2757,13 @@
             evt.preventDefault();
             evt.stopImmediatePropagation();
           }
+          if (this.mode === "mention")
+            this.contentEditableEditor.insertText(" ");
           this.hideModal();
           this.reset();
         } else if (evt.key === " ") {
-          evt.preventDefault();
+          if (this.mode === "emote")
+            evt.preventDefault();
           this.reset();
         } else if (evt.key === "ArrowLeft" || evt.key === "Escape") {
           this.reset();
@@ -3423,7 +3426,10 @@
               const enableFirstMessageHighlight = this.settingsManager.getSetting(
                 "shared.chat.appearance.highlight_first_message"
               );
-              if (enableFirstMessageHighlight) {
+              const highlightWhenModeratorOnly = this.settingsManager.getSetting(
+                "shared.chat.appearance.highlight_first_message_moderator"
+              );
+              if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && this.channelData.me.is_moderator)) {
                 messageNode.classList.add("ntv__highlight-first-message");
               }
             }
@@ -4201,7 +4207,8 @@
                = Appearance
                    (Appearance)
     			- Hide Kick's emote menu button
-                   - Highlight first messages
+                   - Highlight first user messages
+    			- Highlight first user messages only for channels where you are a moderator
                    - Highlight Color	
                    - Display lines with alternating background colors
                    - Separators (dropdown)
@@ -4265,8 +4272,14 @@
                     type: "checkbox"
                   },
                   {
-                    label: "Highlight first messages",
+                    label: "Highlight first user messages",
                     id: "shared.chat.appearance.highlight_first_message",
+                    default: false,
+                    type: "checkbox"
+                  },
+                  {
+                    label: "Highlight first user messages only for channels where you are a moderator",
+                    id: "shared.chat.appearance.highlight_first_message_moderator",
                     default: false,
                     type: "checkbox"
                   },
@@ -4645,7 +4658,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.3.4",
+      VERSION: "1.3.5",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",
