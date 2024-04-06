@@ -347,9 +347,12 @@ export class ContentEditableEditor {
 						? selection.modify('extend', 'forward', 'character')
 						: selection.modify('move', 'forward', 'character')
 				} else {
+					let nextSpaceIndex = focusNode.textContent?.indexOf(' ', focusOffset + 1)
+					if (nextSpaceIndex === -1) nextSpaceIndex = focusNode.textContent?.length
+
 					event.shiftKey
-						? selection.extend(focusNode, focusNode.textContent?.length || 0)
-						: selection.setPosition(focusNode, focusNode.textContent?.length || 0)
+						? selection.extend(focusNode, nextSpaceIndex || 0)
+						: selection.setPosition(focusNode, nextSpaceIndex || 0)
 				}
 			} else {
 				if (focusOffset === 0) {
@@ -357,9 +360,31 @@ export class ContentEditableEditor {
 						? selection.modify('extend', 'backward', 'character')
 						: selection.modify('move', 'backward', 'character')
 				} else {
-					event.shiftKey ? selection.extend(focusNode, 0) : selection.setPosition(focusNode, 0)
+					let prevSpaceIndex = focusNode.textContent?.lastIndexOf(' ', focusOffset - 1)
+					if (prevSpaceIndex === -1) prevSpaceIndex = 0
+
+					event.shiftKey
+						? selection.extend(focusNode, prevSpaceIndex)
+						: selection.setPosition(focusNode, prevSpaceIndex)
 				}
 			}
+		} else if (direction && inputNode.childNodes[focusOffset] instanceof Text) {
+			const nodeAtOffset = inputNode.childNodes[focusOffset]
+			const firstSpaceIndexInTextnode = nodeAtOffset.textContent?.indexOf(' ') || 0
+
+			event.shiftKey
+				? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode)
+				: selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode)
+		} else if (!direction && inputNode.childNodes[focusOffset - 1] instanceof Text) {
+			const nodeAtOffset = inputNode.childNodes[focusOffset - 1]
+			let firstSpaceIndexInTextnode = nodeAtOffset.textContent?.lastIndexOf(' ') || -1
+
+			if (firstSpaceIndexInTextnode === -1) firstSpaceIndexInTextnode = 0
+			else firstSpaceIndexInTextnode += 1
+
+			event.shiftKey
+				? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode)
+				: selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode)
 		} else {
 			if (direction && inputNode.childNodes[focusOffset]) {
 				event.shiftKey
