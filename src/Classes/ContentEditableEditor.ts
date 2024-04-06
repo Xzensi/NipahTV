@@ -871,7 +871,13 @@ export class ContentEditableEditor {
 			}
 		}
 
-		const range = selection.getRangeAt(0)
+		let range = selection.getRangeAt(0)
+		let { commonAncestorContainer } = range
+		if (commonAncestorContainer !== inputNode && commonAncestorContainer !== inputNode.parentElement) {
+			range = new Range()
+			range.setStart(inputNode, inputNode.childNodes.length)
+			commonAncestorContainer = range.commonAncestorContainer
+		}
 		range.deleteContents()
 		this.normalizeComponents()
 
