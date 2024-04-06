@@ -7,6 +7,13 @@ import { InputController } from '../Managers/InputController'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
 
+function getEmojiAttributes() {
+	return {
+		height: '30px',
+		width: '30px'
+	}
+}
+
 export class KickUserInterface extends AbstractUserInterface {
 	abortController = new AbortController()
 
@@ -642,6 +649,14 @@ export class KickUserInterface extends AbstractUserInterface {
 					else error('Unknown chat message component', componentNode)
 			}
 		}
+
+		if (twemoji)
+			twemoji.parse(messageNode, {
+				attributes: getEmojiAttributes,
+				className: 'ntv__inline-emoji'
+				// folder: 'svg',
+				// ext: '.svg',
+			})
 
 		// Adding this class removes the display: none from the chat message, causing a reflow
 		messageNode.classList.add('ntv__chat-message')

@@ -1,14 +1,15 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.3.5
+// @version 1.3.6
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @require https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-df4a90f1.min.css
+// @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7f16a31f.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
@@ -870,8 +871,8 @@
       const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
       this.$element = $(`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`);
       const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
-      $oldEmotesHolder.after(this.$element);
-      $oldEmotesHolder.hide();
+      $oldEmotesHolder.remove();
+      $("#chatroom-footer").prepend(this.$element);
     }
     attachEventHandlers() {
       this.$element?.on("click", "img", (evt) => {
@@ -2035,15 +2036,33 @@
           if (focusOffset === focusNode.textContent?.length) {
             event.shiftKey ? selection.modify("extend", "forward", "character") : selection.modify("move", "forward", "character");
           } else {
-            event.shiftKey ? selection.extend(focusNode, focusNode.textContent?.length || 0) : selection.setPosition(focusNode, focusNode.textContent?.length || 0);
+            let nextSpaceIndex = focusNode.textContent?.indexOf(" ", focusOffset + 1);
+            if (nextSpaceIndex === -1)
+              nextSpaceIndex = focusNode.textContent?.length;
+            event.shiftKey ? selection.extend(focusNode, nextSpaceIndex || 0) : selection.setPosition(focusNode, nextSpaceIndex || 0);
           }
         } else {
           if (focusOffset === 0) {
             event.shiftKey ? selection.modify("extend", "backward", "character") : selection.modify("move", "backward", "character");
           } else {
-            event.shiftKey ? selection.extend(focusNode, 0) : selection.setPosition(focusNode, 0);
+            let prevSpaceIndex = focusNode.textContent?.lastIndexOf(" ", focusOffset - 1);
+            if (prevSpaceIndex === -1)
+              prevSpaceIndex = 0;
+            event.shiftKey ? selection.extend(focusNode, prevSpaceIndex) : selection.setPosition(focusNode, prevSpaceIndex);
           }
         }
+      } else if (direction && inputNode.childNodes[focusOffset] instanceof Text) {
+        const nodeAtOffset = inputNode.childNodes[focusOffset];
+        const firstSpaceIndexInTextnode = nodeAtOffset.textContent?.indexOf(" ") || 0;
+        event.shiftKey ? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode) : selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode);
+      } else if (!direction && inputNode.childNodes[focusOffset - 1] instanceof Text) {
+        const nodeAtOffset = inputNode.childNodes[focusOffset - 1];
+        let firstSpaceIndexInTextnode = nodeAtOffset.textContent?.lastIndexOf(" ") || -1;
+        if (firstSpaceIndexInTextnode === -1)
+          firstSpaceIndexInTextnode = 0;
+        else
+          firstSpaceIndexInTextnode += 1;
+        event.shiftKey ? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode) : selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode);
       } else {
         if (direction && inputNode.childNodes[focusOffset]) {
           event.shiftKey ? selection.extend(inputNode, focusOffset + 1) : selection.setPosition(inputNode, focusOffset + 1);
@@ -2433,7 +2452,13 @@
           }
         }
       }
-      const range = selection.getRangeAt(0);
+      let range = selection.getRangeAt(0);
+      let { commonAncestorContainer } = range;
+      if (commonAncestorContainer !== inputNode && commonAncestorContainer !== inputNode.parentElement) {
+        range = new Range();
+        range.setStart(inputNode, inputNode.childNodes.length);
+        commonAncestorContainer = range.commonAncestorContainer;
+      }
       range.deleteContents();
       this.normalizeComponents();
       const { startContainer, startOffset } = range;
@@ -3053,6 +3078,12 @@
   };
 
   // src/UserInterface/KickUserInterface.ts
+  function getEmojiAttributes() {
+    return {
+      height: "30px",
+      width: "30px"
+    };
+  }
   var KickUserInterface = class extends AbstractUserInterface {
     abortController = new AbortController();
     clipboard = new Clipboard2();
@@ -3517,6 +3548,13 @@
               error("Unknown chat message component", componentNode);
         }
       }
+      if (twemoji)
+        twemoji.parse(messageNode, {
+          attributes: getEmojiAttributes,
+          className: "ntv__inline-emoji"
+          // folder: 'svg',
+          // ext: '.svg',
+        });
       messageNode.classList.add("ntv__chat-message");
     }
     renderPinnedMessage(node) {
@@ -4658,7 +4696,7 @@
   var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.3.5",
+      VERSION: "1.3.6",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000",

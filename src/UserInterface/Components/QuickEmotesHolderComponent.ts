@@ -41,9 +41,10 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		this.$element = $(`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`)
 
 		const $oldEmotesHolder = $('#chatroom-footer .quick-emotes-holder')
-		$oldEmotesHolder.after(this.$element)
-		$oldEmotesHolder.hide()
-		// $oldEmotesHolder.remove()
+		// $oldEmotesHolder.hide()
+		$oldEmotesHolder.remove()
+
+		$('#chatroom-footer').prepend(this.$element)
 	}
 
 	attachEventHandlers() {

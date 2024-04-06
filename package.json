@@ -22,6 +22,7 @@
 	},
 	"devDependencies": {
 		"@types/jquery": "^3.5.29",
+		"@types/twemoji-parser": "^13.1.4",
 		"concurrently": "^8.2.2",
 		"dexie": "^3.2.6",
 		"esbuild": "0.20.0",

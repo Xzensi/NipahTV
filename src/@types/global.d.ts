@@ -15,6 +15,7 @@ declare global {
 	var GM_xmlhttpRequest: Function
 	var GM_addStyle: Function
 	var GM_getResourceText: Function
+	var twemoji: Twemoji
 	var Dexie: Dexie
 	var Fuse: Fuse
 
@@ -24,6 +25,7 @@ declare global {
 		clipboardData: DataTransfer | null
 		IS_LOCAL_ENV?: boolean
 		NipahTV?: NipahClient
+		twemoji: Twemoji
 	}
 
 	type Dexie = {
