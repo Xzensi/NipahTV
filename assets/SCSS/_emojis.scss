@@ -1,0 +1,11 @@
+@use 'variables' as *;
+@use 'sass:math';
+
+.ntv__inline-emoji {
+	margin: 0 0.05em 0 0.2em;
+	vertical-align: middle;
+	$size: #{math.pow(1 + math.div(1, 3), 2)}em;
+	height: $size;
+	width: $size;
+	display: inline;
+}
