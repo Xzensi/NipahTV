@@ -11,6 +11,8 @@ declare global {
 	// 	var Dexie: Dexie
 
 	var unsafeWindow: Window
+	var wwindow: CustomWindow
+	var IS_USERSCRIPT: boolean
 	var IS_LOCAL_ENV: boolean
 	var GM_xmlhttpRequest: Function
 	var GM_addStyle: Function
@@ -19,13 +21,27 @@ declare global {
 	var Dexie: Dexie
 	var Fuse: Fuse
 
-	interface Window {
-		app_name: string
+	// interface Window {
+	// 	navigation: any
+	// 	clipboardData: DataTransfer | null
+	// 	IS_LOCAL_ENV?: boolean
+	// 	NipahTV?: NipahClient
+	// 	twemoji: Twemoji
+	// }
+
+	interface CustomWindow extends Window {
+		wwindow: CustomWindow
+		browser: browser
 		navigation: any
 		clipboardData: DataTransfer | null
+		IS_USERSCRIPT: boolean
 		IS_LOCAL_ENV?: boolean
 		NipahTV?: NipahClient
-		twemoji: Twemoji
+		jQuery: JQuery
+		$: JQuery
+		Dexie: Dexie
+		Fuse: Fuse
+		twemoji: any
 	}
 
 	type Dexie = {

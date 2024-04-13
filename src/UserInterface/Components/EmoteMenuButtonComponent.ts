@@ -30,7 +30,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 		// Delete any existing footer logo button, in case cached page got loaded somehow
 		$('.ntv__emote-menu-button').remove()
 
-		const basePath = this.ENV_VARS.RESOURCE_ROOT + '/assets/img/btn'
+		const basePath = this.ENV_VARS.RESOURCE_ROOT + 'assets/img/btn'
 		const filename = this.getFile()
 
 		this.$element = $(
@@ -48,7 +48,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 		this.eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
 			if (!this.$footerLogoBtn) return error('Footer logo button not found, unable to set logo src')
 			const filename = this.getFile()
-			this.$footerLogoBtn.attr('src', `${this.ENV_VARS.RESOURCE_ROOT}/assets/img/btn/${filename}.png`)
+			this.$footerLogoBtn.attr('src', this.ENV_VARS.RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
 			this.$footerLogoBtn.removeClass()
 			this.$footerLogoBtn.addClass(filename.toLowerCase())
 		})

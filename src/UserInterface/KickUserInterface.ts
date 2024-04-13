@@ -399,7 +399,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						}
 						if (this.stickyScroll) {
 							// We need to wait for the next frame paint call to render before scrolling to bottom
-							window.requestAnimationFrame(scrollToBottom)
+							wwindow.requestAnimationFrame(scrollToBottom)
 						}
 					}
 				})
@@ -741,7 +741,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const textFieldEl = this.elm.textField
 		if (!textFieldEl) return error('Text field not loaded for inserting node')
 
-		const selection = window.getSelection()
+		const selection = wwindow.getSelection()
 		if (selection && selection.rangeCount) {
 			const range = selection.getRangeAt(0)
 			const caretIsInTextField =
@@ -774,7 +774,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const textFieldEl = this.elm.textField
 		if (!textFieldEl) return error('Text field not loaded for inserting node')
 
-		const selection = window.getSelection()
+		const selection = wwindow.getSelection()
 		const range = selection?.anchorNode ? selection.getRangeAt(0) : null
 
 		if (range) {

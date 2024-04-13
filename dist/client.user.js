@@ -973,7 +973,7 @@
     }
     render() {
       $(".ntv__emote-menu-button").remove();
-      const basePath = this.ENV_VARS.RESOURCE_ROOT + "/assets/img/btn";
+      const basePath = this.ENV_VARS.RESOURCE_ROOT + "assets/img/btn";
       const filename = this.getFile();
       this.$element = $(
         cleanupHTML(`
@@ -990,7 +990,7 @@
         if (!this.$footerLogoBtn)
           return error("Footer logo button not found, unable to set logo src");
         const filename = this.getFile();
-        this.$footerLogoBtn.attr("src", `${this.ENV_VARS.RESOURCE_ROOT}/assets/img/btn/${filename}.png`);
+        this.$footerLogoBtn.attr("src", this.ENV_VARS.RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
         this.$footerLogoBtn.removeClass();
         this.$footerLogoBtn.addClass(filename.toLowerCase());
       });
@@ -1311,10 +1311,10 @@
           if ($searchInput)
             $searchInput[0].focus();
           this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this);
-          window.addEventListener("click", this.closeModalClickListenerHandle);
+          wwindow.addEventListener("click", this.closeModalClickListenerHandle);
         });
       } else {
-        window.removeEventListener("click", this.closeModalClickListenerHandle);
+        wwindow.removeEventListener("click", this.closeModalClickListenerHandle);
       }
       this.$container?.toggle(this.isShowing);
       this.scrollableHeight = this.$scrollable?.height() || 0;
@@ -1522,7 +1522,7 @@
   // src/UserInterface/Caret.ts
   var Caret = class {
     static moveCaretTo(container, offset) {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection || !selection.rangeCount)
         return;
       const range = document.createRange();
@@ -1531,7 +1531,7 @@
       selection.addRange(range);
     }
     static collapseToEndOfNode(node) {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection)
         return error("Unable to get selection, cannot collapse to end of node", node);
       const range = document.createRange();
@@ -1545,7 +1545,7 @@
       selection.addRange(range);
     }
     static hasNonWhitespaceCharacterBeforeCaret() {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection || !selection.rangeCount)
         return false;
       const range = selection.anchorNode ? selection.getRangeAt(0) : null;
@@ -1573,7 +1573,7 @@
       return leadingChar !== " " && leadingChar !== "\uFEFF";
     }
     static hasNonWhitespaceCharacterAfterCaret() {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection)
         return false;
       const range = selection.anchorNode ? selection.getRangeAt(0) : null;
@@ -1602,7 +1602,7 @@
     }
     // Checks if the caret is at the start of a node
     static isCaretAtStartOfNode(node) {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection || !selection.rangeCount || !selection.isCollapsed)
         return false;
       if (!node.childNodes.length)
@@ -1619,7 +1619,7 @@
       }
     }
     static isCaretAtEndOfNode(node) {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection || !selection.rangeCount || !selection.isCollapsed)
         return false;
       if (!node.childNodes.length)
@@ -1636,7 +1636,7 @@
       }
     }
     static getWordBeforeCaret() {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection || !selection.rangeCount)
         return {
           word: null,
@@ -2305,7 +2305,7 @@
       }
     }
     adjustSelectionForceOutOfComponent(selection) {
-      selection = selection || window.getSelection();
+      selection = selection || wwindow.getSelection();
       if (!selection || !selection.rangeCount)
         return;
       const { inputNode } = this;
@@ -2341,7 +2341,7 @@
     }
     insertText(text) {
       const { inputNode } = this;
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection) {
         inputNode.append(new Text(text));
         return;
@@ -2644,7 +2644,7 @@
         return;
       if (!this.$modal || !this.$list)
         return error("Tab completion modal not created");
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (selection) {
         const range = selection.getRangeAt(0);
         let startContainer = range.startContainer;
@@ -2997,7 +2997,7 @@
       selection.deleteFromDocument();
     }
     paste(text) {
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection || !selection.rangeCount)
         return;
       selection.deleteFromDocument();
@@ -3006,7 +3006,7 @@
     }
     pasteHTML(html) {
       const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (!selection || !selection.rangeCount)
         return;
       selection.deleteFromDocument();
@@ -3025,7 +3025,7 @@
       }
     }
     parsePastedMessage(evt) {
-      const clipboardData = evt.clipboardData || window.clipboardData;
+      const clipboardData = evt.clipboardData || wwindow.clipboardData;
       if (!clipboardData)
         return;
       const html = clipboardData.getData("text/html");
@@ -3376,7 +3376,7 @@
                 }
               }
               if (this.stickyScroll) {
-                window.requestAnimationFrame(scrollToBottom);
+                wwindow.requestAnimationFrame(scrollToBottom);
               }
             }
           });
@@ -3618,7 +3618,7 @@
       const textFieldEl = this.elm.textField;
       if (!textFieldEl)
         return error("Text field not loaded for inserting node");
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       if (selection && selection.rangeCount) {
         const range = selection.getRangeAt(0);
         const caretIsInTextField = range.commonAncestorContainer === textFieldEl || range.commonAncestorContainer?.parentElement === textFieldEl;
@@ -3645,7 +3645,7 @@
       const textFieldEl = this.elm.textField;
       if (!textFieldEl)
         return error("Text field not loaded for inserting node");
-      const selection = window.getSelection();
+      const selection = wwindow.getSelection();
       const range = selection?.anchorNode ? selection.getRangeAt(0) : null;
       if (range) {
         const caretIsInTextField = range.commonAncestorContainer === textFieldEl || range.commonAncestorContainer?.parentElement === textFieldEl;
@@ -4693,19 +4693,19 @@
   };
 
   // src/app.ts
-  var window2 = unsafeWindow;
   var NipahClient = class {
     ENV_VARS = {
       VERSION: "1.3.6",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
-      LOCAL_RESOURCE_ROOT: "http://localhost:3000",
+      LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
       // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
       // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
       GITHUB_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV",
       RELEASE_BRANCH: "master",
       DATABASE_NAME: "NipahTV",
-      LOCAL_ENV: false
+      LOCAL_ENV: false,
+      IS_USERSCRIPT
     };
     userInterface = null;
     stylesLoaded = false;
@@ -4716,21 +4716,27 @@
     initialize() {
       const { ENV_VARS } = this;
       info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
-      if (ENV_VARS.LOCAL_ENV) {
+      if (IS_USERSCRIPT && ENV_VARS.LOCAL_ENV) {
         info("Running in debug mode enabled..");
         ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
-        window2.NipahTV = this;
+        wwindow.NipahTV = this;
+      } else if (!IS_USERSCRIPT) {
+        info("Running in extension mode..");
+        ENV_VARS.RESOURCE_ROOT = browser.runtime.getURL("/");
       } else {
-        ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH;
+        ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
       }
-      if (window2.app_name === "Kick") {
-        this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
+      if (wwindow.location.host === "kick.com") {
+        ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
         info("Platform detected: Kick");
+      } else if (wwindow.location.host === "www.twitch.tv") {
+        ENV_VARS.PLATFORM = PLATFORM_ENUM.TWITCH;
+        info("Platform detected: Twitch");
       } else {
-        return error("Unsupported platform", window2.app_name);
+        return error("Unsupported platform", wwindow.location.host);
       }
-      this.setupDatabase();
       this.attachPageNavigationListener();
+      this.setupDatabase();
       this.setupClientEnvironment().catch((err) => error("Failed to setup client environment.", err.message));
     }
     setupDatabase() {
@@ -4791,12 +4797,14 @@
       emotesManager.loadProviderEmotes(channelData, providerLoadOrder);
     }
     loadStyles() {
+      if (!IS_USERSCRIPT)
+        return Promise.resolve();
       return new Promise((resolve, reject) => {
         info("Injecting styles..");
         if (this.ENV_VARS.LOCAL_ENV) {
           GM_xmlhttpRequest({
             method: "GET",
-            url: this.ENV_VARS.RESOURCE_ROOT + "/dist/css/kick.css",
+            url: this.ENV_VARS.RESOURCE_ROOT + "dist/css/kick.css",
             onerror: () => reject("Failed to load local stylesheet"),
             onload: function(response) {
               log("Loaded styles from local resource..");
@@ -4827,7 +4835,7 @@
     async loadChannelData() {
       if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
         const channelData = {};
-        const pathArr = window2.location.pathname.substring(1).split("/");
+        const pathArr = wwindow.location.pathname.substring(1).split("/");
         if (pathArr[0] === "video") {
           info("VOD video detected..");
           const videoId = pathArr[1];
@@ -4902,23 +4910,23 @@
       }
     }
     attachPageNavigationListener() {
-      info("Current URL:", window2.location.href);
-      let locationURL = window2.location.href;
-      if (window2.navigation) {
-        window2.navigation.addEventListener("navigate", (event) => {
+      info("Current URL:", wwindow.location.href);
+      let locationURL = wwindow.location.href;
+      if (wwindow.navigation) {
+        wwindow.navigation.addEventListener("navigate", (event) => {
           setTimeout(() => {
-            if (locationURL === window2.location.href)
+            if (locationURL === wwindow.location.href)
               return;
-            locationURL = window2.location.href;
-            info("Navigated to:", window2.location.href);
+            locationURL = wwindow.location.href;
+            info("Navigated to:", wwindow.location.href);
             this.cleanupOldClientEnvironment();
             this.setupClientEnvironment();
           }, 100);
         });
       } else {
         setInterval(() => {
-          if (locationURL !== window2.location.href) {
-            locationURL = window2.location.href;
+          if (locationURL !== wwindow.location.href) {
+            locationURL = wwindow.location.href;
             info("Navigated to:", locationURL);
             this.cleanupOldClientEnvironment();
             this.setupClientEnvironment();
@@ -4935,15 +4943,30 @@
       }
     }
   };
-  info("Running Nipah Client script.");
-  log("Waiting for platform to load..");
-  var awaitLoadInterval = setInterval(() => {
-    if (window2.app_name !== "Kick") {
-      return;
+  (async () => {
+    const IS_USERSCRIPT2 = typeof unsafeWindow !== "undefined";
+    const wwindow2 = IS_USERSCRIPT2 ? unsafeWindow : window;
+    wwindow2.wwindow = wwindow2;
+    wwindow2.IS_USERSCRIPT = IS_USERSCRIPT2;
+    if (IS_USERSCRIPT2) {
+      info("Running in userscript mode..");
     }
-    log("Platform loaded.");
-    clearInterval(awaitLoadInterval);
-    let nipahClient = new NipahClient();
+    if (!IS_USERSCRIPT2 && !wwindow2["browser"]) {
+      if (typeof chrome === "undefined") {
+        return error("Unsupported browser, please use a modern browser to run NipahTV.");
+      }
+      wwindow2.browser = chrome;
+    }
+    if (!Dexie) {
+      return error("Failed to import Dexie");
+    }
+    if (!Fuse) {
+      return error("Failed to import Fuse");
+    }
+    if (!twemoji) {
+      return error("Failed to import Twemoji");
+    }
+    const nipahClient = new NipahClient();
     nipahClient.initialize();
-  }, 100);
+  })();
 })();

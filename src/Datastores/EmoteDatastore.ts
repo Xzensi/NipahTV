@@ -142,7 +142,7 @@ export class EmoteDatastore {
 			providerEmoteNameMap.set(emote.name, emote.hid)
 
 			// const emoteHistoryWindow = this.emoteHistory.get(emote.id)
-			// if (emoteHistoryWindow) emote.weight = emoteHistoryWindow.getTotal()
+			// if (emoteHistoryWindow) emote.weight = emoteHistorywwindow.getTotal()
 
 			this.fuse.add(emote)
 		})

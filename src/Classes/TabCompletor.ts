@@ -145,7 +145,7 @@ export class TabCompletor {
 		if (this.isShowingModal || !this.suggestions.length) return
 		if (!this.$modal || !this.$list) return error('Tab completion modal not created')
 
-		const selection = window.getSelection()
+		const selection = wwindow.getSelection()
 		if (selection) {
 			const range = selection.getRangeAt(0)
 			let startContainer = range.startContainer as HTMLElement | null
