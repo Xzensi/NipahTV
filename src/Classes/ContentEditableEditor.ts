@@ -99,6 +99,7 @@ export class ContentEditableEditor {
 	}
 
 	getMessageContent() {
+		this.processInputContent()
 		return this.messageContent
 	}
 
@@ -270,9 +271,9 @@ export class ContentEditableEditor {
 
 		const { focusNode } = selection
 		if (focusNode?.parentElement?.classList.contains('ntv__input-component')) {
+			event.preventDefault()
 			return this.insertText(' ')
 		}
-
 		const { word, start, end, node } = Caret.getWordBeforeCaret()
 		if (!word) return
 

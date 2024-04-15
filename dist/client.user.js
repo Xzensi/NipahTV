@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.3.6
+// @version 1.3.9
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1863,6 +1863,7 @@
       return this.characterCount;
     }
     getMessageContent() {
+      this.processInputContent();
       return this.messageContent;
     }
     getInputHTML() {
@@ -1987,6 +1988,7 @@
         return;
       const { focusNode } = selection;
       if (focusNode?.parentElement?.classList.contains("ntv__input-component")) {
+        event.preventDefault();
         return this.insertText(" ");
       }
       const { word, start, end, node } = Caret.getWordBeforeCaret();
@@ -3558,10 +3560,12 @@
       messageNode.classList.add("ntv__chat-message");
     }
     renderPinnedMessage(node) {
-      const chatEntryContentNode = node.querySelector(".chat-entry-content");
-      if (!chatEntryContentNode)
+      const chatEntryContentNodes = node.querySelectorAll(".chat-entry-content");
+      if (!chatEntryContentNodes.length)
         return error("Pinned message content node not found", node);
-      this.renderEmotesInElement(chatEntryContentNode);
+      for (const chatEntryContentNode of chatEntryContentNodes) {
+        this.renderEmotesInElement(chatEntryContentNode);
+      }
     }
     // Submits input to chat
     submitInput(suppressEngagementEvent) {
@@ -4695,7 +4699,7 @@
   // src/app.ts
   var NipahClient = class {
     ENV_VARS = {
-      VERSION: "1.3.6",
+      VERSION: "1.3.9",
       PLATFORM: PLATFORM_ENUM.NULL,
       RESOURCE_ROOT: null,
       LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
