@@ -663,10 +663,12 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderPinnedMessage(node: HTMLElement) {
-		const chatEntryContentNode = node.querySelector('.chat-entry-content')
-		if (!chatEntryContentNode) return error('Pinned message content node not found', node)
+		const chatEntryContentNodes = node.querySelectorAll('.chat-entry-content')
+		if (!chatEntryContentNodes.length) return error('Pinned message content node not found', node)
 
-		this.renderEmotesInElement(chatEntryContentNode)
+		for (const chatEntryContentNode of chatEntryContentNodes) {
+			this.renderEmotesInElement(chatEntryContentNode)
+		}
 	}
 
 	// Submits input to chat
