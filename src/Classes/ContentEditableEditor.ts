@@ -99,6 +99,7 @@ export class ContentEditableEditor {
 	}
 
 	getMessageContent() {
+		this.processInputContent()
 		return this.messageContent
 	}
 
