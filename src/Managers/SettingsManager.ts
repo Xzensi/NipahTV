@@ -1,3 +1,4 @@
+import { DatabaseInterface } from '../Classes/DatabaseInterface'
 import { Publisher } from '../Classes/Publisher'
 import { SettingsModal } from '../UserInterface/Modals/SettingsModal'
 import { error, log } from '../utils'
@@ -382,11 +383,11 @@ export class SettingsManager {
 	isShowingModal = false
 	isLoaded = false
 
-	database: Dexie
+	database: DatabaseInterface
 	eventBus: Publisher
 	modal?: SettingsModal
 
-	constructor({ database, eventBus }: { database: Dexie; eventBus: Publisher }) {
+	constructor({ database, eventBus }: { database: DatabaseInterface; eventBus: Publisher }) {
 		this.database = database
 		this.eventBus = eventBus
 	}
@@ -413,7 +414,7 @@ export class SettingsManager {
 
 	async loadSettings() {
 		const { database } = this
-		const settingsRecords = await database.settings.toArray()
+		const settingsRecords = await database.getSettings()
 
 		for (const setting of settingsRecords) {
 			const { id, value } = setting
@@ -427,8 +428,8 @@ export class SettingsManager {
 		if (!key || typeof value === 'undefined') return error('Invalid setting key or value', key, value)
 		const { database } = this
 
-		database.settings
-			.put({ id: key, value })
+		database
+			.putSetting({ id: key, value })
 			.catch((err: Error) => error('Failed to save setting to database.', err.message))
 
 		this.settingsMap.set(key, value)

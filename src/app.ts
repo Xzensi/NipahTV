@@ -12,6 +12,8 @@ import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, fetchJSON } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
+import { Database } from './Classes/Database'
+import { DatabaseInterface } from './Classes/DatabaseInterface'
 
 class NipahClient {
 	ENV_VARS = {
@@ -23,16 +25,14 @@ class NipahClient {
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
 		RELEASE_BRANCH: 'master',
-		DATABASE_NAME: 'NipahTV',
-		LOCAL_ENV: IS_LOCAL_ENV,
-		IS_USERSCRIPT: IS_USERSCRIPT
+		DATABASE_NAME: 'NipahTV'
 	}
 
 	userInterface: AbstractUserInterface | null = null
-	stylesLoaded = false
+	stylesLoaded = !__USERSCRIPT__
 	eventBus: Publisher | null = null
 	emotesManager: EmotesManager | null = null
-	private database: Dexie | null = null
+	private database: DatabaseInterface | null = null
 	private channelData: ChannelData | null = null
 
 	initialize() {
@@ -40,11 +40,11 @@ class NipahClient {
 
 		info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`)
 
-		if (IS_USERSCRIPT && ENV_VARS.LOCAL_ENV) {
+		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
 			wwindow.NipahTV = this
-		} else if (!IS_USERSCRIPT) {
+		} else if (!__USERSCRIPT__) {
 			info('Running in extension mode..')
 			ENV_VARS.RESOURCE_ROOT = browser.runtime.getURL('/')
 		} else {
@@ -62,18 +62,41 @@ class NipahClient {
 		}
 
 		this.attachPageNavigationListener()
-		this.setupDatabase()
-		this.setupClientEnvironment().catch(err => error('Failed to setup client environment.', err.message))
+		this.setupDatabase().then(() => {
+			this.setupClientEnvironment().catch(err => error('Failed to setup client environment.\n\n', err.message))
+		})
 	}
 
 	setupDatabase() {
 		const { ENV_VARS } = this
 
-		// Open the database
-		const database = (this.database = new Dexie(ENV_VARS.DATABASE_NAME))
-		database.version(1).stores({
-			settings: '&id',
-			emoteHistory: '&[channelId+emoteHid]'
+		if (navigator.storage && navigator.storage.persist) {
+			navigator.storage.persist().then(persistent => {
+				if (persistent) {
+					info('Storage will not be cleared except by explicit user action')
+				} else {
+					info('Storage may be cleared by the UA under storage pressure.')
+				}
+			})
+		}
+
+		return new Promise((resolve, reject) => {
+			if (__USERSCRIPT__) {
+				const database = new Database({ ENV_VARS })
+				database
+					.checkCompatibility()
+					.then(() => {
+						this.database = new DatabaseInterface(database)
+						resolve(void 0)
+					})
+					.catch((err: Error) => {
+						error('Failed to open database because:', err)
+						reject()
+					})
+			} else {
+				this.database = new DatabaseInterface()
+				resolve(void 0)
+			}
 		})
 	}
 
@@ -92,12 +115,12 @@ class NipahClient {
 		const promises = []
 		promises.push(
 			settingsManager.loadSettings().catch(err => {
-				throw new Error(`Couldn't load settings. ${err}`)
+				throw new Error(`Couldn't load settings because: ${err}`)
 			})
 		)
 		promises.push(
 			this.loadChannelData().catch(err => {
-				throw new Error(`Couldn't load channel data. ${err}`)
+				throw new Error(`Couldn't load channel data because: ${err}`)
 			})
 		)
 		await Promise.all(promises)
@@ -142,12 +165,12 @@ class NipahClient {
 	}
 
 	loadStyles() {
-		if (!IS_USERSCRIPT) return Promise.resolve()
+		if (__EXTENSION__) return Promise.resolve()
 
 		return new Promise((resolve, reject) => {
 			info('Injecting styles..')
 
-			if (this.ENV_VARS.LOCAL_ENV) {
+			if (__LOCAL__) {
 				// * Add permission for GM_xmlhttpRequest to make
 				// *  requests to the resource root for development.
 				// * @grant GM.xmlHttpRequest
@@ -311,24 +334,26 @@ class NipahClient {
 	}
 }
 
-;(async () => {
-	const IS_USERSCRIPT = typeof unsafeWindow !== 'undefined'
-	const wwindow: CustomWindow = IS_USERSCRIPT ? (unsafeWindow as CustomWindow) : (window as any as CustomWindow)
+;(() => {
+	// const __USERSCRIPT__ = typeof unsafeWindow !== 'undefined'
+	const wwindow: CustomWindow = __USERSCRIPT__ ? (unsafeWindow as CustomWindow) : (window as any as CustomWindow)
 	wwindow.wwindow = wwindow
-	wwindow.IS_USERSCRIPT = IS_USERSCRIPT
+	wwindow.__USERSCRIPT__ = __USERSCRIPT__
 
-	if (IS_USERSCRIPT) {
+	if (__USERSCRIPT__) {
 		info('Running in userscript mode..')
 	}
 
-	if (!IS_USERSCRIPT && !wwindow['browser']) {
-		if (typeof chrome === 'undefined') {
-			return error('Unsupported browser, please use a modern browser to run NipahTV.')
+	if (!__USERSCRIPT__) {
+		if (!wwindow['browser']) {
+			if (typeof chrome === 'undefined') {
+				return error('Unsupported browser, please use a modern browser to run NipahTV.')
+			}
+			wwindow.browser = chrome
 		}
-		wwindow.browser = chrome
 	}
 
-	if (!Dexie) {
+	if (!(window as any)['Dexie']) {
 		return error('Failed to import Dexie')
 	}
 
@@ -342,46 +367,4 @@ class NipahClient {
 
 	const nipahClient = new NipahClient()
 	nipahClient.initialize()
-
-	// if (IS_USERSCRIPT) {
-	// 	nipahClient.initialize()
-	// } else {
-	// 	// Promise.allSettled([
-	// 	// 	import(chrome.runtime.getURL('dist/vendor/jquery.min.js')),
-	// 	// 	import(chrome.runtime.getURL('dist/vendor/dexie.min.js')),
-	// 	// 	import(chrome.runtime.getURL('dist/vendor/fuse.min.js')),
-	// 	// 	import(chrome.runtime.getURL('dist/vendor/twemoji.min.js'))
-	// 	// ])
-	// 	// 	.then(results => {
-	// 	// 		// Check if any import failed
-	// 	// 		const failedImports = results.filter(result => result.status === 'rejected')
-	// 	// 		if (failedImports.length > 0) {
-	// 	// 			const errors = failedImports.map((importResult: any) => importResult.reason)
-	// 	// 			// Reject the promise chain with an error containing the reasons for the failed imports
-	// 	// 			return Promise.reject(
-	// 	// 				new Error(`Failed to load one or more vendor scripts: \n\n${errors.join('\n\n')}`)
-	// 	// 			)
-	// 	// 		}
-
-	// 	// 		if (!wwindow.Dexie) {
-	// 	// 			throw new Error('Failed to import Dexie')
-	// 	// 		}
-
-	// 	// 		if (!wwindow.Fuse) {
-	// 	// 			throw new Error('Failed to import Fuse')
-	// 	// 		}
-
-	// 	// 		const TwemojiModule = results[3] as any
-	// 	// 		wwindow.twemoji = TwemojiModule.value.default
-
-	// 	// 		if (!wwindow.twemoji) {
-	// 	// 			throw new Error('Failed to import Twemoji')
-	// 	// 		}
-
-	// 	// 		nipahClient.initialize()
-	// 	// 	})
-	// 	// 	.catch(err => {
-	// 	// 		error('Failed to load vendor imports..', err)
-	// 	// 	})
-	// }
 })()

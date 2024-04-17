@@ -3,12 +3,13 @@ import { EmoteDatastore } from '../Datastores/EmoteDatastore'
 import { log, info, error, splitEmoteName } from '../utils'
 import { Publisher } from '../Classes/Publisher'
 import { SettingsManager } from './SettingsManager'
+import { DatabaseInterface } from '../Classes/DatabaseInterface'
 
 export class EmotesManager {
 	providers = new Map()
 	loaded = false
 
-	database: Dexie
+	database: DatabaseInterface
 	eventBus: Publisher
 	settingsManager: SettingsManager
 	datastore: EmoteDatastore
@@ -18,7 +19,7 @@ export class EmotesManager {
 			database,
 			eventBus,
 			settingsManager
-		}: { database: Dexie; eventBus: Publisher; settingsManager: SettingsManager },
+		}: { database: DatabaseInterface; eventBus: Publisher; settingsManager: SettingsManager },
 		channelId: string
 	) {
 		this.database = database

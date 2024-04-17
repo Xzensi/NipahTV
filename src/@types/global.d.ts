@@ -1,55 +1,33 @@
-import { Publisher } from '../Classes/Publisher'
-import { EmotesManager } from '../Managers/EmotesManager'
-import { SettingsManager } from '../Managers/SettingsManager'
+import type Twemoji from 'twemoji'
 
 declare global {
-	// 	var unsafeWindow: Window
-	// 	var IS_LOCAL_ENV: boolean
-	// 	var GM_xmlhttpRequest: Function
-	// 	var GM_addStyle: Function
-	// 	var GM_getResourceText: Function
-	// 	var Dexie: Dexie
+	var __LOCAL__: boolean
+	var __USERSCRIPT__: boolean
+	var __EXTENSION__: boolean
+	var __CHROMIUM_M2__: boolean
+	var __CHROMIUM_M3__: boolean
+	var __FIREFOX_MV2__: boolean
 
 	var unsafeWindow: Window
 	var wwindow: CustomWindow
-	var IS_USERSCRIPT: boolean
-	var IS_LOCAL_ENV: boolean
 	var GM_xmlhttpRequest: Function
 	var GM_addStyle: Function
 	var GM_getResourceText: Function
-	var twemoji: Twemoji
-	var Dexie: Dexie
+	var twemoji: typeof Twemoji
 	var Fuse: Fuse
-
-	// interface Window {
-	// 	navigation: any
-	// 	clipboardData: DataTransfer | null
-	// 	IS_LOCAL_ENV?: boolean
-	// 	NipahTV?: NipahClient
-	// 	twemoji: Twemoji
-	// }
 
 	interface CustomWindow extends Window {
 		wwindow: CustomWindow
-		browser: browser
+		browser: typeof browser | typeof chrome
 		navigation: any
 		clipboardData: DataTransfer | null
-		IS_USERSCRIPT: boolean
-		IS_LOCAL_ENV?: boolean
-		NipahTV?: NipahClient
+		__USERSCRIPT__: boolean
+		__LOCAL__?: boolean
+		NipahTV?: any // Export class NipahClient not allowed for Userscripts
 		jQuery: JQuery
 		$: JQuery
-		Dexie: Dexie
 		Fuse: Fuse
 		twemoji: any
-	}
-
-	type Dexie = {
-		new (name: string): any
-		version: Function
-		stores: Function
-		emoteHistory: any
-		settings: any
 	}
 
 	type Fuse = {
