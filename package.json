@@ -8,6 +8,7 @@
 		"serve-files": "node build-tasks/task-serve-files.js",
 		"sass": "node build-tasks/task-compile-sass.js",
 		"tsc": "tsc --noEmit",
+		"watch:build-ext": "nodemon --watch src -e ts --exec npm run build-chrome",
 		"watch:dev-esbuild": "nodemon --watch src -e ts --exec npm run dev-esbuild",
 		"watch:sass": "sass --watch assets/scss:dist/css --style=compressed",
 		"watch:tsc": "tsc --watch --noEmit",
@@ -36,6 +37,7 @@
 		"semver": "^7.6.0",
 		"serve-static": "^1.15.0",
 		"twemoji": "^14.0.2",
-		"typescript": "^5.4.2"
+		"typescript": "^5.4.2",
+		"web-ext": "^7.11.0"
 	}
 }

@@ -1,4 +1,5 @@
-import { DatabaseInterface } from '../Classes/DatabaseInterface'
+import { Database } from '../Classes/Database'
+import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import { Publisher } from '../Classes/Publisher'
 import { SlidingTimestampWindow } from '../Classes/SlidingTimestampWindow'
 import { PLATFORM_ENUM } from '../constants'
@@ -31,11 +32,11 @@ export class EmoteDatastore {
 		keys: [['name'], ['parts']]
 	})
 
-	database: DatabaseInterface
+	database: DatabaseProxy
 	eventBus: Publisher
 	channelId: string
 
-	constructor({ database, eventBus }: { database: DatabaseInterface; eventBus: Publisher }, channelId: string) {
+	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }, channelId: string) {
 		this.database = database
 		this.eventBus = eventBus
 		this.channelId = channelId

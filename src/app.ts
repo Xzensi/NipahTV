@@ -13,7 +13,7 @@ import { log, info, error, fetchJSON } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 import { Database } from './Classes/Database'
-import { DatabaseInterface } from './Classes/DatabaseInterface'
+import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 
 class NipahClient {
 	ENV_VARS = {
@@ -24,15 +24,14 @@ class NipahClient {
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
-		RELEASE_BRANCH: 'master',
-		DATABASE_NAME: 'NipahTV'
+		RELEASE_BRANCH: 'master'
 	}
 
 	userInterface: AbstractUserInterface | null = null
 	stylesLoaded = !__USERSCRIPT__
 	eventBus: Publisher | null = null
 	emotesManager: EmotesManager | null = null
-	private database: DatabaseInterface | null = null
+	private database: DatabaseProxy | null = null
 	private channelData: ChannelData | null = null
 
 	initialize() {
@@ -82,11 +81,11 @@ class NipahClient {
 
 		return new Promise((resolve, reject) => {
 			if (__USERSCRIPT__) {
-				const database = new Database({ ENV_VARS })
+				const database = new Database()
 				database
 					.checkCompatibility()
 					.then(() => {
-						this.database = new DatabaseInterface(database)
+						this.database = DatabaseProxyFactory.create(database)
 						resolve(void 0)
 					})
 					.catch((err: Error) => {
@@ -94,7 +93,7 @@ class NipahClient {
 						reject()
 					})
 			} else {
-				this.database = new DatabaseInterface()
+				this.database = DatabaseProxyFactory.create()
 				resolve(void 0)
 			}
 		})
@@ -336,16 +335,17 @@ class NipahClient {
 
 ;(() => {
 	// const __USERSCRIPT__ = typeof unsafeWindow !== 'undefined'
-	const wwindow: CustomWindow = __USERSCRIPT__ ? (unsafeWindow as CustomWindow) : (window as any as CustomWindow)
+	// const wwindow: CustomWindow = __USERSCRIPT__ ? (unsafeWindow as CustomWindow) : (window as any as CustomWindow)
+	// wwindow.__USERSCRIPT__ = __USERSCRIPT__
+	const wwindow: CustomWindow = window as any as CustomWindow
 	wwindow.wwindow = wwindow
-	wwindow.__USERSCRIPT__ = __USERSCRIPT__
 
 	if (__USERSCRIPT__) {
 		info('Running in userscript mode..')
 	}
 
 	if (!__USERSCRIPT__) {
-		if (!wwindow['browser']) {
+		if (!wwindow['browser'] && !globalThis['browser']) {
 			if (typeof chrome === 'undefined') {
 				return error('Unsupported browser, please use a modern browser to run NipahTV.')
 			}
@@ -353,15 +353,16 @@ class NipahClient {
 		}
 	}
 
-	if (!(window as any)['Dexie']) {
+	var Dexie: any
+	if (__USERSCRIPT__ && !Dexie && !(wwindow as any)['Dexie']) {
 		return error('Failed to import Dexie')
 	}
 
-	if (!Fuse) {
+	if (!Fuse && !wwindow['Fuse']) {
 		return error('Failed to import Fuse')
 	}
 
-	if (!twemoji) {
+	if (!twemoji && !wwindow['twemoji']) {
 		return error('Failed to import Twemoji')
 	}
 

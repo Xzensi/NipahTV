@@ -1,4 +1,4 @@
-import { DatabaseInterface } from '../Classes/DatabaseInterface'
+import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import { Publisher } from '../Classes/Publisher'
 import { SettingsModal } from '../UserInterface/Modals/SettingsModal'
 import { error, log } from '../utils'
@@ -383,11 +383,11 @@ export class SettingsManager {
 	isShowingModal = false
 	isLoaded = false
 
-	database: DatabaseInterface
+	database: DatabaseProxy
 	eventBus: Publisher
 	modal?: SettingsModal
 
-	constructor({ database, eventBus }: { database: DatabaseInterface; eventBus: Publisher }) {
+	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }) {
 		this.database = database
 		this.eventBus = eventBus
 	}

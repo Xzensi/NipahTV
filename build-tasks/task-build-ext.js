@@ -145,3 +145,22 @@ esbuild
 		error('Build failed:', err)
 		process.exit(1)
 	})
+
+esbuild
+	.build({
+		entryPoints: ['src/Background/service-worker.ts'],
+		outfile: outdir + 'service-worker.js',
+		bundle: true,
+		minify: false,
+		sourcemap: false,
+		format: 'esm',
+		tsconfig: 'tsconfig.json',
+		define: {}
+	})
+	.then(async () => {
+		log('\n⚡ Service worker build complete ⚡')
+	})
+	.catch(err => {
+		error('Service worker build failed:', err)
+		process.exit(1)
+	})

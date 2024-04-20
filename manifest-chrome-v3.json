@@ -3,11 +3,15 @@
 	"name": "NipahTV",
 	"description": "A Better Kick and 7TV Emote Integration for Kick.",
 	"version": "{{VERSION}}",
+	"minimum_chrome_version": "123",
 	"icons": {
 		"48": "assets/img/icons/border-48.png"
 	},
 	"permissions": [],
-	"host_permissions": ["https://kick.com/*"],
+	"host_permissions": [],
+	"background": {
+		"service_worker": "service-worker.js"
+	},
 	"content_scripts": [
 		{
 			"matches": ["https://kick.com/*"],
