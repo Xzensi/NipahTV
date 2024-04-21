@@ -7,6 +7,11 @@
 		"48": "assets/img/icons/border-48.png"
 	},
 	"permissions": ["https://7tv.io/*"],
+	"background": {
+		"scripts": ["service-worker.js"],
+		"persistent": false,
+		"type": "module"
+	},
 	"content_scripts": [
 		{
 			"matches": ["https://kick.com/*"],

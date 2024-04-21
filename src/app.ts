@@ -67,35 +67,32 @@ class NipahClient {
 	}
 
 	setupDatabase() {
-		const { ENV_VARS } = this
-
-		if (navigator.storage && navigator.storage.persist) {
-			navigator.storage.persist().then(persistent => {
-				if (persistent) {
-					info('Storage will not be cleared except by explicit user action')
-				} else {
-					info('Storage may be cleared by the UA under storage pressure.')
-				}
-			})
-		}
+		// Only ask for persistent storage when we low on of space
+		// if (navigator.storage && navigator.storage.persist) {
+		// 	navigator.storage.persist().then(persistent => {
+		// 		if (persistent) {
+		// 			info('Storage will not be cleared except by explicit user action')
+		// 		} else {
+		// 			info('Storage may be cleared by the UA under storage pressure.')
+		// 		}
+		// 	})
+		// }
 
 		return new Promise((resolve, reject) => {
-			if (__USERSCRIPT__) {
-				const database = new Database()
-				database
-					.checkCompatibility()
-					.then(() => {
-						this.database = DatabaseProxyFactory.create(database)
-						resolve(void 0)
-					})
-					.catch((err: Error) => {
-						error('Failed to open database because:', err)
-						reject()
-					})
-			} else {
-				this.database = DatabaseProxyFactory.create()
-				resolve(void 0)
-			}
+			const database: Database = __USERSCRIPT__
+				? DatabaseProxyFactory.create(new Database())
+				: DatabaseProxyFactory.create()
+
+			database
+				.checkCompatibility()
+				.then(() => {
+					this.database = database
+					resolve(void 0)
+				})
+				.catch((err: Error) => {
+					error('Failed to open database because:', err)
+					reject()
+				})
 		})
 	}
 
@@ -366,6 +363,8 @@ class NipahClient {
 		return error('Failed to import Twemoji')
 	}
 
+	// setTimeout(() => {
+	// }, 30 * 1000)
 	const nipahClient = new NipahClient()
 	nipahClient.initialize()
 })()

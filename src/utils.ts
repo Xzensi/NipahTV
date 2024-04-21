@@ -30,7 +30,10 @@ export const assertArgDefined = (arg: any) => {
 
 export async function fetchJSON(url: URL | RequestInfo) {
 	return new Promise((resolve, reject) => {
-		fetch(url)
+		fetch(url, {
+			credentials: 'include'
+			// headers: { Accept: 'application/json, text/plain, */*' }
+		})
 			.then(async res => {
 				if (res.redirected) {
 					reject('Request failed, redirected to ' + res.url)

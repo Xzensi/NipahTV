@@ -25,6 +25,8 @@ export class Database {
 
 	checkCompatibility() {
 		return new Promise((resolve, reject) => {
+			if (this.ready) return resolve(void 0)
+
 			this.idb
 				.open()
 				.then(async () => {
