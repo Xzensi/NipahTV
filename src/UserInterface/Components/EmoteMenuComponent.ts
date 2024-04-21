@@ -351,10 +351,10 @@ export class EmoteMenuComponent extends AbstractComponent {
 			setTimeout(() => {
 				if ($searchInput) $searchInput[0].focus()
 				this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this)
-				window.addEventListener('click', this.closeModalClickListenerHandle as any)
+				wwindow.addEventListener('click', this.closeModalClickListenerHandle as any)
 			})
 		} else {
-			window.removeEventListener('click', this.closeModalClickListenerHandle as any)
+			wwindow.removeEventListener('click', this.closeModalClickListenerHandle as any)
 		}
 
 		this.$container?.toggle(this.isShowing)

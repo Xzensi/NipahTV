@@ -1,7 +1,3 @@
-'use strict'
-
-const window: Window = unsafeWindow
-
 // Classes
 import { Publisher } from './Classes/Publisher'
 import { EmotesManager } from './Managers/EmotesManager'
@@ -16,26 +12,26 @@ import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, fetchJSON } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
+import { Database } from './Classes/Database'
+import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 
 class NipahClient {
 	ENV_VARS = {
 		VERSION: '1.3.9',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
-		LOCAL_RESOURCE_ROOT: 'http://localhost:3000',
+		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
-		RELEASE_BRANCH: 'master',
-		DATABASE_NAME: 'NipahTV',
-		LOCAL_ENV: IS_LOCAL_ENV
+		RELEASE_BRANCH: 'master'
 	}
 
 	userInterface: AbstractUserInterface | null = null
-	stylesLoaded = false
+	stylesLoaded = !__USERSCRIPT__
 	eventBus: Publisher | null = null
 	emotesManager: EmotesManager | null = null
-	private database: Dexie | null = null
+	private database: DatabaseProxy | null = null
 	private channelData: ChannelData | null = null
 
 	initialize() {
@@ -43,34 +39,60 @@ class NipahClient {
 
 		info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`)
 
-		if (ENV_VARS.LOCAL_ENV) {
+		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')
 			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
-			window.NipahTV = this
+			wwindow.NipahTV = this
+		} else if (!__USERSCRIPT__) {
+			info('Running in extension mode..')
+			ENV_VARS.RESOURCE_ROOT = browser.runtime.getURL('/')
 		} else {
-			ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH
+			ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
 		}
 
-		if (window.app_name === 'Kick') {
-			this.ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK
+		if (wwindow.location.host === 'kick.com') {
+			ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK
 			info('Platform detected: Kick')
+		} else if (wwindow.location.host === 'www.twitch.tv') {
+			ENV_VARS.PLATFORM = PLATFORM_ENUM.TWITCH
+			info('Platform detected: Twitch')
 		} else {
-			return error('Unsupported platform', window.app_name)
+			return error('Unsupported platform', wwindow.location.host)
 		}
 
-		this.setupDatabase()
 		this.attachPageNavigationListener()
-		this.setupClientEnvironment().catch(err => error('Failed to setup client environment.', err.message))
+		this.setupDatabase().then(() => {
+			this.setupClientEnvironment().catch(err => error('Failed to setup client environment.\n\n', err.message))
+		})
 	}
 
 	setupDatabase() {
-		const { ENV_VARS } = this
+		// Only ask for persistent storage when we low on of space
+		// if (navigator.storage && navigator.storage.persist) {
+		// 	navigator.storage.persist().then(persistent => {
+		// 		if (persistent) {
+		// 			info('Storage will not be cleared except by explicit user action')
+		// 		} else {
+		// 			info('Storage may be cleared by the UA under storage pressure.')
+		// 		}
+		// 	})
+		// }
 
-		// Open the database
-		const database = (this.database = new Dexie(ENV_VARS.DATABASE_NAME))
-		database.version(1).stores({
-			settings: '&id',
-			emoteHistory: '&[channelId+emoteHid]'
+		return new Promise((resolve, reject) => {
+			const database: Database = __USERSCRIPT__
+				? DatabaseProxyFactory.create(new Database())
+				: DatabaseProxyFactory.create()
+
+			database
+				.checkCompatibility()
+				.then(() => {
+					this.database = database
+					resolve(void 0)
+				})
+				.catch((err: Error) => {
+					error('Failed to open database because:', err)
+					reject()
+				})
 		})
 	}
 
@@ -89,12 +111,12 @@ class NipahClient {
 		const promises = []
 		promises.push(
 			settingsManager.loadSettings().catch(err => {
-				throw new Error(`Couldn't load settings. ${err}`)
+				throw new Error(`Couldn't load settings because: ${err}`)
 			})
 		)
 		promises.push(
 			this.loadChannelData().catch(err => {
-				throw new Error(`Couldn't load channel data. ${err}`)
+				throw new Error(`Couldn't load channel data because: ${err}`)
 			})
 		)
 		await Promise.all(promises)
@@ -134,21 +156,23 @@ class NipahClient {
 		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
 
-		// Test whether UI works correctly when data loading is delayed
+		// Test whether UI works correctly when loading is delayed
 		// setTimeout(() => userInterface.loadInterface(), 3000)
 	}
 
 	loadStyles() {
+		if (__EXTENSION__) return Promise.resolve()
+
 		return new Promise((resolve, reject) => {
 			info('Injecting styles..')
 
-			if (this.ENV_VARS.LOCAL_ENV) {
+			if (__LOCAL__) {
 				// * Add permission for GM_xmlhttpRequest to make
 				// *  requests to the resource root for development.
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: this.ENV_VARS.RESOURCE_ROOT + '/dist/css/kick.css',
+					url: this.ENV_VARS.RESOURCE_ROOT + 'dist/css/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
 						log('Loaded styles from local resource..')
@@ -183,7 +207,7 @@ class NipahClient {
 		if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
 			const channelData = {}
 
-			const pathArr = window.location.pathname.substring(1).split('/')
+			const pathArr = wwindow.location.pathname.substring(1).split('/')
 			if (pathArr[0] === 'video') {
 				info('VOD video detected..')
 
@@ -267,16 +291,16 @@ class NipahClient {
 	}
 
 	attachPageNavigationListener() {
-		info('Current URL:', window.location.href)
-		let locationURL = window.location.href
+		info('Current URL:', wwindow.location.href)
+		let locationURL = wwindow.location.href
 
-		if (window.navigation) {
-			window.navigation.addEventListener('navigate', (event: Event) => {
+		if (wwindow.navigation) {
+			wwindow.navigation.addEventListener('navigate', (event: Event) => {
 				setTimeout(() => {
-					if (locationURL === window.location.href) return
-					locationURL = window.location.href
+					if (locationURL === wwindow.location.href) return
+					locationURL = wwindow.location.href
 
-					info('Navigated to:', window.location.href)
+					info('Navigated to:', wwindow.location.href)
 
 					this.cleanupOldClientEnvironment()
 					this.setupClientEnvironment()
@@ -284,8 +308,8 @@ class NipahClient {
 			})
 		} else {
 			setInterval(() => {
-				if (locationURL !== window.location.href) {
-					locationURL = window.location.href
+				if (locationURL !== wwindow.location.href) {
+					locationURL = wwindow.location.href
 					info('Navigated to:', locationURL)
 
 					this.cleanupOldClientEnvironment()
@@ -306,15 +330,41 @@ class NipahClient {
 	}
 }
 
-info('Running Nipah Client script.')
-log('Waiting for platform to load..')
-const awaitLoadInterval = setInterval(() => {
-	if (window.app_name !== 'Kick') {
-		return
+;(() => {
+	// const __USERSCRIPT__ = typeof unsafeWindow !== 'undefined'
+	// const wwindow: CustomWindow = __USERSCRIPT__ ? (unsafeWindow as CustomWindow) : (window as any as CustomWindow)
+	// wwindow.__USERSCRIPT__ = __USERSCRIPT__
+	const wwindow: CustomWindow = window as any as CustomWindow
+	wwindow.wwindow = wwindow
+
+	if (__USERSCRIPT__) {
+		info('Running in userscript mode..')
 	}
 
-	log('Platform loaded.')
-	clearInterval(awaitLoadInterval)
-	let nipahClient = new NipahClient()
+	if (!__USERSCRIPT__) {
+		if (!wwindow['browser'] && !globalThis['browser']) {
+			if (typeof chrome === 'undefined') {
+				return error('Unsupported browser, please use a modern browser to run NipahTV.')
+			}
+			wwindow.browser = chrome
+		}
+	}
+
+	var Dexie: any
+	if (__USERSCRIPT__ && !Dexie && !(wwindow as any)['Dexie']) {
+		return error('Failed to import Dexie')
+	}
+
+	if (!Fuse && !wwindow['Fuse']) {
+		return error('Failed to import Fuse')
+	}
+
+	if (!twemoji && !wwindow['twemoji']) {
+		return error('Failed to import Twemoji')
+	}
+
+	// setTimeout(() => {
+	// }, 30 * 1000)
+	const nipahClient = new NipahClient()
 	nipahClient.initialize()
-}, 100)
+})()
