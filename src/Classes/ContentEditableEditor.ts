@@ -874,7 +874,7 @@ export class ContentEditableEditor {
 
 		let range = selection.getRangeAt(0)
 		let { commonAncestorContainer } = range
-		if (commonAncestorContainer !== inputNode && commonAncestorContainer !== inputNode.parentElement) {
+		if (commonAncestorContainer !== inputNode && commonAncestorContainer.parentElement !== inputNode) {
 			range = new Range()
 			range.setStart(inputNode, inputNode.childNodes.length)
 			commonAncestorContainer = range.commonAncestorContainer
@@ -932,12 +932,14 @@ export class ContentEditableEditor {
 
 		this.insertComponent(emoteComponent)
 
-		if (this.inputEmpty) {
-			this.inputEmpty = false
-			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
-		}
+		const wasNotEmpty = this.inputEmpty
+		if (wasNotEmpty) this.inputEmpty = false
 
 		this.processInputContent()
+
+		if (wasNotEmpty) {
+			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
+		}
 
 		return emoteComponent
 	}
