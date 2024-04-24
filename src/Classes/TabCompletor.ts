@@ -2,17 +2,12 @@ import { ContentEditableEditor } from './ContentEditableEditor'
 import { EmotesManager } from '../Managers/EmotesManager'
 import { UsersManager } from '../Managers/UsersManager'
 import { Caret } from '../UserInterface/Caret'
-import { error, log } from '../utils'
+import { error, log, parseHTML } from '../utils'
+import { NavigatableEntriesWindowComponent } from '../UserInterface/Components/NavigatableEntriesWindowComponent'
 
 export class TabCompletor {
-	private suggestions = []
-	private suggestionHids = []
-	private selectedIndex = 0
 	private mode = ''
-	private $list?: JQuery<HTMLElement>
-	private $modal?: JQuery<HTMLElement>
-
-	isShowingModal = false
+	private navWindow?: NavigatableEntriesWindowComponent
 
 	// Context
 	private start = 0
@@ -25,19 +20,24 @@ export class TabCompletor {
 	private emotesManager: EmotesManager
 	private usersManager: UsersManager
 	private contentEditableEditor: ContentEditableEditor
+	private containerEl: HTMLElement
 
-	constructor({
-		contentEditableEditor,
-		emotesManager,
-		usersManager
-	}: {
-		contentEditableEditor: ContentEditableEditor
-		emotesManager: EmotesManager
-		usersManager: UsersManager
-	}) {
+	constructor(
+		{
+			contentEditableEditor,
+			emotesManager,
+			usersManager
+		}: {
+			contentEditableEditor: ContentEditableEditor
+			emotesManager: EmotesManager
+			usersManager: UsersManager
+		},
+		containerEl: HTMLElement
+	) {
 		this.emotesManager = emotesManager
 		this.usersManager = usersManager
 		this.contentEditableEditor = contentEditableEditor
+		this.containerEl = containerEl
 	}
 
 	attachEventHandlers() {
@@ -45,7 +45,7 @@ export class TabCompletor {
 		contentEditableEditor.addEventListener('keydown', 8, this.handleKeydown.bind(this))
 
 		contentEditableEditor.addEventListener('keyup', 10, (event: KeyboardEvent) => {
-			if (this.isShowingModal && contentEditableEditor.isInputEmpty()) {
+			if (this.navWindow && contentEditableEditor.isInputEmpty()) {
 				this.reset()
 			}
 		})
@@ -64,27 +64,29 @@ export class TabCompletor {
 		this.end = end
 		this.node = node
 
+		if (!this.navWindow) return error('Tab completion window does not exist yet')
+
 		// @ User mention suggestions
 		if (word[0] === '@') {
 			this.mode = 'mention'
 
 			const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20)
-			this.suggestions = searchResults.map((result: any) => result.item.name)
-			this.suggestionHids = searchResults.map((result: any) => result.item.id)
+			const suggestions = searchResults.map((result: any) => result.item.name)
+			const suggestionHids = searchResults.map((result: any) => result.item.id)
 
-			if (!this.$list) return error('Tab completion list not created')
-			this.$list.empty()
+			if (suggestions.length) {
+				for (let i = 0; i < suggestions.length; i++) {
+					const userName = suggestions[i]
+					const userId = suggestionHids[i]
 
-			if (this.suggestions.length) {
-				for (let i = 0; i < this.suggestions.length; i++) {
-					const userName = this.suggestions[i]
-					const userId = this.suggestionHids[i]
-					this.$list.append(`<li data-user-id="${userId}"><span>@${userName}</span></li>`)
+					this.navWindow.addEntry(
+						{ userId, userName },
+						parseHTML(`<li data-user-id="${userId}"><span>@${userName}</span></li>`, true) as HTMLElement
+					)
 				}
 
-				this.$list.find('li').eq(this.selectedIndex).addClass('selected')
+				this.navWindow.setSelectedIndex(0)
 				this.renderInlineUserMention()
-				this.scrollSelectedIntoView()
 			}
 		}
 
@@ -94,146 +96,85 @@ export class TabCompletor {
 
 			const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20)
 			// log('Search results:', searchResults)
-			this.suggestions = searchResults.map((result: any) => result.item.name)
-			this.suggestionHids = searchResults.map((result: any) =>
+			const suggestions = searchResults.map((result: any) => result.item.name)
+			const suggestionHids = searchResults.map((result: any) =>
 				this.emotesManager.getEmoteHidByName(result.item.name)
 			)
 
-			if (!this.$list) return error('Tab completion list not created')
-			this.$list.empty()
-
-			if (this.suggestions.length) {
-				for (let i = 0; i < this.suggestions.length; i++) {
-					const emoteName = this.suggestions[i]
-					const emoteHid = this.suggestionHids[i]
+			if (suggestions.length) {
+				for (let i = 0; i < suggestions.length; i++) {
+					const emoteName = suggestions[i]
+					const emoteHid = suggestionHids[i]
 					const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')
-					this.$list.append(`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`)
+
+					this.navWindow.addEntry(
+						{ emoteHid },
+						parseHTML(
+							`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
+							true
+						) as HTMLElement
+					)
 				}
 
-				this.$list.find('li').eq(this.selectedIndex).addClass('selected')
-
-				// Render first suggestion as inline emote
+				this.navWindow.setSelectedIndex(0)
 				this.renderInlineEmote()
-				this.scrollSelectedIntoView()
 			}
 		}
 	}
 
-	createModal(containerEl: Node) {
-		const $modal = (this.$modal = $(
-			`<div class="ntv__tab-completion"><ul class="ntv__tab-completion__list"></ul></div>`
-		))
+	createModal() {
+		if (this.navWindow) return error('Tab completion window already exists')
 
-		this.$list = $modal.find('ul')
-		$(containerEl).append($modal)
+		const navWindow = new NavigatableEntriesWindowComponent(this.containerEl as HTMLElement, 'ntv__tab-completion')
+		this.navWindow = navWindow.init()
 
-		this.$list.on('click', 'li', e => {
-			// Get index of clicked element and update selectedIndex
-			this.selectedIndex = $(e.currentTarget).index()
+		this.navWindow.addEventListener('entry-click', (event: Event) => {
 			if (this.mode === 'emote') this.renderInlineEmote()
 			else if (this.mode === 'mention') {
 				Caret.moveCaretTo(this.node!, this.mentionEnd)
 				this.contentEditableEditor.insertText(' ')
 			}
 
-			this.hideModal()
+			this.destroyModal()
 			this.reset()
 		})
 	}
 
-	showModal() {
-		if (this.isShowingModal || !this.suggestions.length) return
-		if (!this.$modal || !this.$list) return error('Tab completion modal not created')
-
-		const selection = wwindow.getSelection()
-		if (selection) {
-			const range = selection.getRangeAt(0)
-			let startContainer = range.startContainer as HTMLElement | null
-			if (startContainer && startContainer.nodeType === Node.TEXT_NODE) {
-				startContainer = startContainer.parentElement
-			}
-		}
-
-		// const rect = startContainer.getBoundingClientRect()
-		// this.$modal.css({
-		// 	left: rect.left + 'px',
-		// 	top: rect.top - 15 + 'px'
-		// })
-
-		this.$modal.show()
-		this.$list[0].scrollTop = 9999
-		this.isShowingModal = true
-	}
-
-	hideModal() {
-		if (!this.$modal) return error('Tab completion modal not created')
-		this.$modal.hide()
-		this.isShowingModal = false
-	}
-
-	scrollSelectedIntoView() {
-		if (!this.$list) return error('Tab completion list not created')
-
-		// Scroll selected element into middle of the list which has max height set and is scrollable
-		const $selected = this.$list.find('li.selected')
-		const $list = this.$list
-		const listHeight = $list.height() || 0
-		const selectedTop = $selected.position().top
-		const selectedHeight = $selected.height() || 0
-		const selectedCenter = selectedTop + selectedHeight / 2
-		const middleOfList = listHeight / 2
-		const scroll = selectedCenter - middleOfList + ($list.scrollTop() || 0)
-
-		$list.scrollTop(scroll)
+	destroyModal() {
+		if (!this.navWindow) return error('Tab completion window does not exist yet')
+		this.navWindow.destroy()
+		delete this.navWindow
 	}
 
 	moveSelectorUp() {
-		if (this.selectedIndex < this.suggestions.length - 1) {
-			this.selectedIndex++
-		} else if (this.selectedIndex === this.suggestions.length - 1) {
-			this.selectedIndex = 0
-		}
-		this.$list?.find('li.selected').removeClass('selected')
-		this.$list?.find('li').eq(this.selectedIndex).addClass('selected')
+		this.navWindow!.moveSelectorUp()
 
 		if (this.mode === 'emote') this.renderInlineEmote()
 		else if (this.mode === 'mention') {
 			this.restoreOriginalText()
 			this.renderInlineUserMention()
 		}
-
-		this.scrollSelectedIntoView()
 	}
 
 	moveSelectorDown() {
-		this.$list?.find('li.selected').removeClass('selected')
-
-		if (this.selectedIndex > 0) {
-			this.selectedIndex--
-		} else {
-			this.selectedIndex = this.suggestions.length - 1
-		}
-
-		this.$list?.find('li').eq(this.selectedIndex).addClass('selected')
+		this.navWindow!.moveSelectorDown()
 
 		if (this.mode === 'emote') this.renderInlineEmote()
 		else if (this.mode === 'mention') {
 			this.restoreOriginalText()
 			this.renderInlineUserMention()
 		}
-
-		this.scrollSelectedIntoView()
 	}
 
 	renderInlineUserMention() {
-		const userId = this.suggestionHids[this.selectedIndex]
-		if (!userId) return
-
-		const userName = this.suggestions[this.selectedIndex]
-		const userMention = `@${userName}`
-
+		if (!this.navWindow) return error('Tab completion window does not exist yet')
 		if (!this.node) return error('Invalid node to render inline user mention')
 
+		const entry = this.navWindow.getSelectedEntry()
+		if (!entry) return error('No selected entry to render inline user mention')
+
+		const { userId, userName } = entry
+		const userMention = `@${userName}`
 		this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention)
 		Caret.moveCaretTo(this.node, this.mentionEnd)
 		this.contentEditableEditor.processInputContent()
@@ -254,16 +195,29 @@ export class TabCompletor {
 	}
 
 	renderInlineEmote() {
-		const emoteHid = this.suggestionHids[this.selectedIndex]
-		if (!emoteHid) return
+		if (!this.navWindow) return error('Tab completion window does not exist')
+
+		const selectedEntry = this.navWindow.getSelectedEntry()
+		if (!selectedEntry) return error('No selected entry to render inline emote')
+
+		const emoteHid = selectedEntry.emoteHid as string
+		if (!emoteHid) return error('No emote hid to render inline emote')
 
 		if (this.emoteComponent) {
 			this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid)
 		} else {
 			if (!this.node) return error('Invalid node to restore original text')
+
 			const range = document.createRange()
 			range.setStart(this.node, this.start)
 			range.setEnd(this.node, this.end)
+
+			const selection = window.getSelection()
+			if (selection) {
+				selection.removeAllRanges()
+				selection.addRange(range)
+			}
+
 			range.deleteContents()
 			this.contentEditableEditor.normalize()
 			this.emoteComponent = this.contentEditableEditor.insertEmote(emoteHid)
@@ -271,30 +225,32 @@ export class TabCompletor {
 	}
 
 	isClickInsideModal(target: Node) {
-		if (!this.$modal) return false
-		return this.$modal[0]?.contains(target)
+		return this.navWindow?.containsNode(target) || false
+	}
+
+	isShowingModal() {
+		return !!this.navWindow
+	}
+
+	maybeCloseWindowClick(node: Node) {
+		if (this.navWindow && !this.navWindow.containsNode(node)) {
+			this.destroyModal()
+			this.reset()
+		}
 	}
 
 	handleKeydown(evt: KeyboardEvent) {
-		if (evt.key === 'Tab') {
-			evt.preventDefault()
+		if (this.navWindow) {
+			if (evt.key === 'Tab') {
+				evt.preventDefault()
 
-			if (this.isShowingModal) {
 				// Traverse tab completion suggestions up/down depending on whether shift is held with tab
 				if (evt.shiftKey) {
 					this.moveSelectorDown()
 				} else {
 					this.moveSelectorUp()
 				}
-			} else {
-				// Show tab completion modal
-				this.updateSuggestions()
-
-				if (this.suggestions.length) this.showModal()
-				else this.reset()
-			}
-		} else if (this.isShowingModal) {
-			if (evt.key === 'ArrowUp') {
+			} else if (evt.key === 'ArrowUp') {
 				evt.preventDefault()
 
 				this.moveSelectorUp()
@@ -305,15 +261,18 @@ export class TabCompletor {
 			} else if (evt.key === 'ArrowRight' || evt.key === 'Enter') {
 				if (evt.key === 'Enter') {
 					evt.preventDefault()
-					evt.stopImmediatePropagation()
+					evt.stopPropagation()
 				}
 
 				if (this.mode === 'mention') this.contentEditableEditor.insertText(' ')
 
-				this.hideModal()
+				this.destroyModal()
 				this.reset()
 			} else if (evt.key === ' ') {
-				if (this.mode === 'emote') evt.preventDefault()
+				if (this.mode === 'emote') {
+					evt.preventDefault()
+					evt.stopPropagation()
+				}
 				this.reset()
 			} else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') {
 				this.reset()
@@ -322,14 +281,22 @@ export class TabCompletor {
 				evt.stopImmediatePropagation()
 
 				this.restoreOriginalText()
-				this.hideModal()
+				this.destroyModal()
 				this.reset()
 			} else if (evt.key === 'Shift') {
 				// Ignore shift key press
 			} else {
-				this.hideModal()
+				this.destroyModal()
 				this.reset()
 			}
+		} else if (evt.key === 'Tab') {
+			evt.preventDefault()
+
+			// Show tab completion modal
+			this.createModal()
+			this.updateSuggestions()
+
+			if (!this.navWindow!.getEntriesCount()) this.reset()
 		}
 	}
 
@@ -337,16 +304,14 @@ export class TabCompletor {
 
 	reset() {
 		this.mode = ''
-		this.suggestions = []
-		this.selectedIndex = 0
-		this.$list?.empty()
-		this.$modal?.hide()
-		this.isShowingModal = false
 		this.start = 0
 		this.end = 0
 		this.mentionEnd = 0
 		this.node = null
 		this.word = null
 		this.emoteComponent = null
+
+		if (this.navWindow) this.destroyModal()
+		delete this.navWindow
 	}
 }

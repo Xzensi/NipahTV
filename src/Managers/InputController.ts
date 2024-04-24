@@ -44,11 +44,14 @@ export class InputController {
 			{ eventBus, emotesManager, messageHistory: this.messageHistory, clipboard },
 			textFieldEl
 		)
-		this.tabCompletor = new TabCompletor({
-			emotesManager,
-			usersManager,
-			contentEditableEditor: this.contentEditableEditor
-		})
+		this.tabCompletor = new TabCompletor(
+			{
+				emotesManager,
+				usersManager,
+				contentEditableEditor: this.contentEditableEditor
+			},
+			textFieldEl.parentElement as HTMLElement
+		)
 	}
 
 	initialize() {
@@ -81,7 +84,7 @@ export class InputController {
 	}
 
 	isShowingTabCompletorModal() {
-		return this.tabCompletor.isShowingModal
+		return this.tabCompletor.isShowingModal()
 	}
 
 	addEventListener(
@@ -93,23 +96,12 @@ export class InputController {
 		this.contentEditableEditor.addEventListener(type, priority, listener, options)
 	}
 
-	loadTabCompletionBehaviour(container: HTMLElement) {
-		const { emotesManager, usersManager, contentEditableEditor } = this
+	loadTabCompletionBehaviour() {
+		this.tabCompletor.attachEventHandlers()
 
-		const tabCompletor = (this.tabCompletor = new TabCompletor({
-			contentEditableEditor,
-			emotesManager,
-			usersManager
-		} as any))
-
-		tabCompletor.attachEventHandlers()
-		tabCompletor.createModal(container)
-
-		// Hide tab completion modal when clicking outside of it by calling tabCompletor.reset()
-		document.addEventListener('click', evt => {
-			if (!evt.target) return
-			const isClickInsideModal = tabCompletor.isClickInsideModal(evt.target as Node)
-			if (!isClickInsideModal) tabCompletor.reset()
+		// Hide tab completion modal when clicking outside of it
+		document.addEventListener('click', (e: MouseEvent) => {
+			this.tabCompletor.maybeCloseWindowClick(e.target as Node)
 		})
 	}
 
@@ -118,7 +110,7 @@ export class InputController {
 		if (!settingsManager.getSetting('shared.chat.input.history.enabled')) return
 
 		contentEditableEditor.addEventListener('keydown', 4, event => {
-			if (this.tabCompletor?.isShowingModal) return
+			if (this.tabCompletor.isShowingModal()) return
 
 			const textFieldEl = contentEditableEditor.getInputNode()
 

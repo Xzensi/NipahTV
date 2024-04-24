@@ -100,7 +100,7 @@ class NipahClient {
 		const { ENV_VARS, database } = this
 		if (!database) throw new Error('Database is not initialized.')
 
-		log('Setting up client environment..')
+		info('Setting up client environment..')
 
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
@@ -363,8 +363,6 @@ class NipahClient {
 		return error('Failed to import Twemoji')
 	}
 
-	// setTimeout(() => {
-	// }, 30 * 1000)
 	const nipahClient = new NipahClient()
 	nipahClient.initialize()
 })()

@@ -115,6 +115,16 @@ export function waitForElements(selectors: Array<string>, timeout = 10000, signa
 	})
 }
 
+export function parseHTML(html: string, firstElement = false) {
+	const template = document.createElement('template')
+	template.innerHTML = html
+	if (firstElement) {
+		return template.content.childNodes[0] as HTMLElement
+	} else {
+		return template.content
+	}
+}
+
 export function cleanupHTML(html: string) {
 	return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
 }

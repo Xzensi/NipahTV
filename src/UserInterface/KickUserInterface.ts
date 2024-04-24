@@ -238,7 +238,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		this.inputController = new InputController(this, textFieldEl)
 		this.inputController.initialize()
-		this.inputController.loadTabCompletionBehaviour(textFieldEl.parentElement!.parentElement!)
+		this.inputController.loadTabCompletionBehaviour()
 		this.inputController.loadChatHistoryBehaviour()
 
 		this.inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
