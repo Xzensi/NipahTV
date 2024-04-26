@@ -1,31 +1,37 @@
+import type { AbstractNetworkInterface } from '../NetworkInterfaces/AbstractNetworkInterface'
+import type { SettingsManager } from './SettingsManager'
+import type { Clipboard2 } from '../Classes/Clipboard'
+import type { Publisher } from '../Classes/Publisher'
+import type { EmotesManager } from './EmotesManager'
+import type { UsersManager } from './UsersManager'
+
 import { ContentEditableEditor } from '../Classes/ContentEditableEditor'
 import { MessagesHistory } from '../Classes/MessagesHistory'
-import { TabCompletor } from '../Classes/TabCompletor'
-import { SettingsManager } from './SettingsManager'
-import { Clipboard2 } from '../Classes/Clipboard'
-import { Publisher } from '../Classes/Publisher'
-import { EmotesManager } from './EmotesManager'
-import { UsersManager } from './UsersManager'
-import { error, log } from '../utils'
+import { InputCompletor } from '../Classes/InputCompletor'
 import { Caret } from '../UserInterface/Caret'
+import { error, log } from '../utils'
 
 export class InputController {
+	private networkInterface: AbstractNetworkInterface
+	private settingsManager: SettingsManager
+	private messageHistory: MessagesHistory
+	private emotesManager: EmotesManager
+	private usersManager: UsersManager
+	private tabCompletor: InputCompletor
+	private eventBus: Publisher
+
 	contentEditableEditor: ContentEditableEditor
-	settingsManager: SettingsManager
-	messageHistory: MessagesHistory
-	emotesManager: EmotesManager
-	usersManager: UsersManager
-	tabCompletor: TabCompletor
-	eventBus: Publisher
 
 	constructor(
 		{
 			settingsManager,
 			eventBus,
+			networkInterface,
 			emotesManager,
 			usersManager,
 			clipboard
 		}: {
+			networkInterface: AbstractNetworkInterface
 			settingsManager: SettingsManager
 			emotesManager: EmotesManager
 			usersManager: UsersManager
@@ -35,6 +41,7 @@ export class InputController {
 		textFieldEl: HTMLElement
 	) {
 		this.settingsManager = settingsManager
+		this.networkInterface = networkInterface
 		this.emotesManager = emotesManager
 		this.usersManager = usersManager
 		this.eventBus = eventBus
@@ -44,8 +51,9 @@ export class InputController {
 			{ eventBus, emotesManager, messageHistory: this.messageHistory, clipboard },
 			textFieldEl
 		)
-		this.tabCompletor = new TabCompletor(
+		this.tabCompletor = new InputCompletor(
 			{
+				networkInterface,
 				emotesManager,
 				usersManager,
 				contentEditableEditor: this.contentEditableEditor

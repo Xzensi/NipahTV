@@ -28,12 +28,19 @@ export const assertArgDefined = (arg: any) => {
 	}
 }
 
-export async function fetchJSON(url: URL | RequestInfo) {
+export async function fetchJSON(url: URL | RequestInfo, options: RequestInit = {}) {
 	return new Promise((resolve, reject) => {
-		fetch(url, {
-			credentials: 'include'
-			// headers: { Accept: 'application/json, text/plain, */*' }
-		})
+		options.credentials = 'include'
+		if (options.body) {
+			options.headers = Object.assign(options.headers || {}, { 'Content-Type': 'application/json' })
+		}
+
+		const XSRFToken = getCookie('XSRF')
+		if (XSRFToken) {
+			options.headers = Object.assign(options.headers || {}, { 'X-XSRF-TOKEN': XSRFToken })
+		}
+
+		fetch(url, options)
 			.then(async res => {
 				if (res.redirected) {
 					reject('Request failed, redirected to ' + res.url)
@@ -53,11 +60,56 @@ export async function fetchJSON(url: URL | RequestInfo) {
 	}) as Promise<any | void>
 }
 
+export class REST {
+	static get(url: string) {
+		return fetchJSON(url)
+	}
+	static post(url: string, data: object) {
+		return fetchJSON(url, {
+			method: 'POST',
+			body: JSON.stringify(data)
+		})
+	}
+	static put(url: string, data: object) {
+		return fetchJSON(url, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		})
+	}
+	static delete(url: string) {
+		return fetchJSON(url, {
+			method: 'DELETE'
+		})
+	}
+}
+
 export function isEmpty(obj: object) {
 	for (var x in obj) {
 		return false
 	}
 	return true
+}
+
+export function getCookies() {
+	return Object.fromEntries(document.cookie.split('; ').map(v => v.split(/=(.*)/s).map(decodeURIComponent)))
+}
+
+export function getCookie(name: string) {
+	const c = document.cookie
+		.split('; ')
+		.find(v => v.startsWith(name))
+		?.split(/=(.*)/s)
+	return c && c[1] ? decodeURIComponent(c[1]) : null
+}
+
+export function eventKeyIsLetterDigitPuncSpaceChar(event: KeyboardEvent) {
+	if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) return true
+	return false
+}
+
+export function eventKeyIsLetterDigitPuncChar(event: KeyboardEvent) {
+	if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.altKey && !event.metaKey) return true
+	return false
 }
 
 export function debounce(fn: Function, delay: number) {
@@ -127,6 +179,17 @@ export function parseHTML(html: string, firstElement = false) {
 
 export function cleanupHTML(html: string) {
 	return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+}
+
+export function countStringOccurrences(str: string, substr: string) {
+	let count = 0,
+		sl = substr.length,
+		post = str.indexOf(substr)
+	while (post !== -1) {
+		count++
+		post = str.indexOf(substr, post + sl)
+	}
+	return count
 }
 
 // Split emote name into parts for more relevant search results

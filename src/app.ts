@@ -9,11 +9,13 @@ import { SevenTVProvider } from './Providers/SevenTVProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error, fetchJSON } from './utils'
+import { log, info, error, fetchJSON, REST } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 import { Database } from './Classes/Database'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
+import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
+import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
 
 class NipahClient {
 	ENV_VARS = {
@@ -30,6 +32,7 @@ class NipahClient {
 	userInterface: AbstractUserInterface | null = null
 	stylesLoaded = !__USERSCRIPT__
 	eventBus: Publisher | null = null
+	networkInterface: KickNetworkInterface | null = null
 	emotesManager: EmotesManager | null = null
 	private database: DatabaseProxy | null = null
 	private channelData: ChannelData | null = null
@@ -67,7 +70,7 @@ class NipahClient {
 	}
 
 	setupDatabase() {
-		// Only ask for persistent storage when we low on of space
+		// TODO Only ask for persistent storage when we low on of space
 		// if (navigator.storage && navigator.storage.persist) {
 		// 	navigator.storage.persist().then(persistent => {
 		// 		if (persistent) {
@@ -105,6 +108,15 @@ class NipahClient {
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
 
+		if ((ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK)) {
+			this.networkInterface = new KickNetworkInterface()
+		} else if (ENV_VARS.PLATFORM === PLATFORM_ENUM.TWITCH) {
+			this.networkInterface = new TwitchNetworkInterface()
+		} else {
+			throw new Error('Unsupported platform')
+		}
+		const networkInterface = this.networkInterface
+
 		const settingsManager = new SettingsManager({ database, eventBus })
 		settingsManager.initialize()
 
@@ -115,14 +127,14 @@ class NipahClient {
 			})
 		)
 		promises.push(
-			this.loadChannelData().catch(err => {
+			networkInterface.loadChannelData().catch(err => {
 				throw new Error(`Couldn't load channel data because: ${err}`)
 			})
 		)
-		await Promise.all(promises)
+		await Promise.allSettled(promises)
 
-		const channelData = this.channelData
-		if (!channelData) throw new Error('Channel data has not loaded yet.')
+		if (!networkInterface.channelData) throw new Error('Channel data has not loaded yet.')
+		const channelData = (this.channelData = networkInterface.channelData)
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
@@ -132,7 +144,14 @@ class NipahClient {
 
 		let userInterface: KickUserInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-			userInterface = new KickUserInterface({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager })
+			userInterface = new KickUserInterface({
+				ENV_VARS,
+				channelData,
+				eventBus,
+				networkInterface,
+				settingsManager,
+				emotesManager
+			})
 		} else {
 			return error('Platform has no user interface implemented..', ENV_VARS.PLATFORM)
 		}
@@ -155,9 +174,6 @@ class NipahClient {
 
 		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
-
-		// Test whether UI works correctly when loading is delayed
-		// setTimeout(() => userInterface.loadInterface(), 3000)
 	}
 
 	loadStyles() {
@@ -203,93 +219,6 @@ class NipahClient {
 		})
 	}
 
-	async loadChannelData() {
-		if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-			const channelData = {}
-
-			const pathArr = wwindow.location.pathname.substring(1).split('/')
-			if (pathArr[0] === 'video') {
-				info('VOD video detected..')
-
-				// We are on a VOD page
-				const videoId = pathArr[1]
-				if (!videoId) throw new Error('Failed to extract video ID from URL')
-
-				// We extract channel data from the Kick API
-				const responseChannelData = await fetchJSON(`https://kick.com/api/v1/video/${videoId}`).catch(() => {})
-				if (!responseChannelData) {
-					throw new Error('Failed to fetch VOD data')
-				}
-				if (!responseChannelData.livestream) {
-					throw new Error('Invalid VOD data, missing property "livestream"')
-				}
-
-				const { id, user_id, slug, user } = responseChannelData.livestream.channel
-				if (!id) {
-					throw new Error('Invalid VOD data, missing property "id"')
-				}
-				if (!user_id) {
-					throw new Error('Invalid VOD data, missing property "user_id"')
-				}
-				if (!user) {
-					throw new Error('Invalid VOD data, missing property "user"')
-				}
-
-				Object.assign(channelData, {
-					user_id,
-					channel_id: id,
-					channel_name: user.username,
-					is_vod: true,
-					me: {}
-				})
-			} else {
-				// We extract channel name from the URL
-				const channelName = pathArr[0]
-				if (!channelName) throw new Error('Failed to extract channel name from URL')
-
-				// We extract channel data from the Kick API
-				const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)
-				if (!responseChannelData) {
-					throw new Error('Failed to fetch channel data')
-				}
-				if (!responseChannelData.id) {
-					throw new Error('Invalid channel data, missing property "id"')
-				}
-				if (!responseChannelData.user_id) {
-					throw new Error('Invalid channel data, missing property "user_id"')
-				}
-
-				Object.assign(channelData, {
-					user_id: responseChannelData.user_id,
-					channel_id: responseChannelData.id,
-					channel_name: channelName,
-					me: {}
-				})
-			}
-
-			const channelName = (channelData as any).channel_name as string
-			const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
-				() => {}
-			)
-			if (responseChannelMeData) {
-				Object.assign(channelData, {
-					me: {
-						is_subscribed: !!responseChannelMeData.subscription,
-						is_following: !!responseChannelMeData.is_following,
-						is_super_admin: !!responseChannelMeData.is_super_admin,
-						is_broadcaster: !!responseChannelMeData.is_broadcaster,
-						is_moderator: !!responseChannelMeData.is_moderator,
-						is_banned: !!responseChannelMeData.banned
-					}
-				})
-			} else {
-				info('User is not logged in.')
-			}
-
-			this.channelData = channelData as ChannelData
-		}
-	}
-
 	attachPageNavigationListener() {
 		info('Current URL:', wwindow.location.href)
 		let locationURL = wwindow.location.href
@@ -310,6 +239,7 @@ class NipahClient {
 			setInterval(() => {
 				if (locationURL !== wwindow.location.href) {
 					locationURL = wwindow.location.href
+
 					info('Navigated to:', locationURL)
 
 					this.cleanupOldClientEnvironment()

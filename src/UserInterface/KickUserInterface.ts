@@ -61,11 +61,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.loadEmoteMenuButton()
 
 				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
-					$('#chatroom').addClass('ntv__hide-emote-menu-button')
+					document.getElementById('chatroom')?.classList.add('ntv__hide-emote-menu-button')
 				}
 
 				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
-					$('#chatroom').addClass('ntv__smooth-scrolling')
+					document.getElementById('chatroom')?.classList.add('ntv__smooth-scrolling')
 				}
 			})
 			.catch(() => {})
@@ -88,13 +88,13 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				// Add alternating background color to chat messages
 				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
-					$('#chatroom').addClass('ntv__alternating-background')
+					document.getElementById('chatroom')?.classList.add('ntv__alternating-background')
 				}
 
 				// Add seperator lines to chat messages
 				const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
 				if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-					$('#chatroom').addClass(`ntv__seperators-${seperatorSettingVal}`)
+					document.getElementById('chatroom')?.classList.add(`ntv__seperators-${seperatorSettingVal}`)
 				}
 
 				// Render emotes in chat when providers are loaded
@@ -130,16 +130,17 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Add alternating background color to chat messages
 		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.alternating_background', (value: boolean) => {
-			$('#chatroom').toggleClass('ntv__alternating-background', value)
+			document.getElementById('chatroom')?.classList.toggle('ntv__alternating-background', value)
 		})
 
 		// Add seperator lines to chat messages
 		eventBus.subscribe(
 			'ntv.settings.change.shared.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
-				if (prevValue !== 'none') $('#chatroom').removeClass(`ntv__seperators-${prevValue}`)
+				if (prevValue !== 'none')
+					document.getElementById('chatroom')?.classList.remove(`ntv__seperators-${prevValue}`)
 				if (!value || value === 'none') return
-				$('#chatroom').addClass(`ntv__seperators-${value}`)
+				document.getElementById('chatroom')?.classList.add(`ntv__seperators-${value}`)
 			}
 		)
 
@@ -207,6 +208,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadShadowProxyElements() {
+		if (!this.channelData.me.is_logged_in) return
+
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
 		const originalSubmitButtonEl = (this.elm.originalSubmitButton = $('#chatroom-footer button.base-button')[0])
@@ -232,11 +235,23 @@ export class KickUserInterface extends AbstractUserInterface {
 		const $moderatorChatIdentityBadgeIcon = $('.chat-input-wrapper .chat-input-icon')
 		if ($moderatorChatIdentityBadgeIcon.length) $(textFieldEl).before($moderatorChatIdentityBadgeIcon)
 
+		document.getElementById('chatroom')?.classList.add('ntv__hide-chat-input')
+
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
 		submitButtonEl.addEventListener('click', () => this.submitInput())
 
-		this.inputController = new InputController(this, textFieldEl)
+		this.inputController = new InputController(
+			{
+				settingsManager: this.settingsManager,
+				eventBus: this.eventBus,
+				networkInterface: this.networkInterface,
+				emotesManager: this.emotesManager,
+				usersManager: this.usersManager,
+				clipboard: this.clipboard
+			},
+			textFieldEl
+		)
 		this.inputController.initialize()
 		this.inputController.loadTabCompletionBehaviour()
 		this.inputController.loadChatHistoryBehaviour()
@@ -677,13 +692,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
-		if (!this.elm.textField || !this.elm.originalTextField || !this.elm.originalSubmitButton) {
+		if (!this.elm.textField) {
 			return error('Text field not loaded for submitting input')
 		}
-
-		const originalTextFieldEl = this.elm.originalTextField
-		const originalSubmitButtonEl = this.elm.originalSubmitButton
-		const textFieldEl = this.elm.textField
 
 		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
 			error(
@@ -694,14 +705,13 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
-		originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent()
-		originalSubmitButtonEl.dispatchEvent(new Event('click'))
+		this.networkInterface.sendMessage(contentEditableEditor.getMessageContent())
 
 		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
 		contentEditableEditor.clearInput()
 
 		// Trigger input event to update submit button disabled state
-		textFieldEl.dispatchEvent(new Event('input'))
+		this.elm.textField.dispatchEvent(new Event('input'))
 	}
 
 	// Sends emote to chat and restores previous message

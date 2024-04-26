@@ -52,7 +52,7 @@ export class NavigatableEntriesWindowComponent extends AbstractComponent {
 		const entry = this.entriesMap.get(targetEntry)
 		if (entry) {
 			this.setSelectedIndex(this.entries.indexOf(entry))
-			this.eventTarget.dispatchEvent(new CustomEvent('entry-click', { detail: { entry } }))
+			this.eventTarget.dispatchEvent(new CustomEvent('entry-click', { detail: entry }))
 		}
 	}
 
@@ -64,14 +64,17 @@ export class NavigatableEntriesWindowComponent extends AbstractComponent {
 		return this.entries.length
 	}
 
-	addEntry(entry: {}, element: HTMLElement) {
-		this.entries.push(entry)
-		this.entriesMap.set(element, entry)
+	addEntry(data: {}, element: HTMLElement) {
+		this.entries.push(data)
+		this.entriesMap.set(element, data)
 		this.listEl.appendChild(element)
 	}
 
-	getSelectedEntry() {
-		return this.entries[this.selectedIndex]
+	addEntries(entries: { [key: string]: unknown }[]) {
+		entries.forEach(entry => {
+			const element = entry.element as HTMLElement
+			this.addEntry(entry, element)
+		})
 	}
 
 	setEntries(entries: HTMLElement[]) {
@@ -81,6 +84,17 @@ export class NavigatableEntriesWindowComponent extends AbstractComponent {
 		entries.forEach(el => {
 			this.addEntry({}, el)
 		})
+	}
+
+	clearEntries() {
+		this.selectedIndex = 0
+		this.entries = []
+		this.entriesMap.clear()
+		this.listEl.innerHTML = ''
+	}
+
+	getSelectedEntry() {
+		return this.entries[this.selectedIndex]
 	}
 
 	setSelectedIndex(index: number) {

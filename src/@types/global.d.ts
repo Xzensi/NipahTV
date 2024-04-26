@@ -40,7 +40,12 @@ declare global {
 		channel_name: string
 		user_id: string
 		is_vod?: boolean
+		chatroom: {
+			id: string | number
+			message_interval: number
+		}
 		me: {
+			is_logged_in: boolean
 			is_subscribed?: boolean
 			is_following?: boolean
 			is_super_admin?: boolean

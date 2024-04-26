@@ -1,5 +1,5 @@
 import { EmotesManager } from '../Managers/EmotesManager'
-import { log, error, assertArgDefined, CHAR_ZWSP, debounce } from '../utils'
+import { log, error, assertArgDefined, CHAR_ZWSP, debounce, eventKeyIsLetterDigitPuncSpaceChar } from '../utils'
 import { MessagesHistory } from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
 import { PriorityEventTarget } from './PriorityEventTarget'
@@ -48,11 +48,6 @@ function maybeInsertSpaceCharacterAfterComponent(component: HTMLElement) {
 	}
 }
 
-function eventKeyIsVisibleCharacter(event: KeyboardEvent) {
-	if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) return true
-	return false
-}
-
 export class ContentEditableEditor {
 	private eventBus: Publisher
 	private emotesManager: EmotesManager
@@ -66,6 +61,7 @@ export class ContentEditableEditor {
 	private messageContent = ''
 	private emotesInMessage: Set<string> = new Set()
 	private hasMouseDown = false
+	private hasUnprocessedContentChanges = false
 
 	constructor(
 		{
@@ -98,6 +94,12 @@ export class ContentEditableEditor {
 		return this.characterCount
 	}
 
+	getFirstCharacter() {
+		const firstChild = this.inputNode.firstChild
+		if (firstChild instanceof Text) return firstChild.data[0]
+		return null
+	}
+
 	getMessageContent() {
 		this.processInputContent()
 		return this.messageContent
@@ -117,6 +119,7 @@ export class ContentEditableEditor {
 
 	clearInput() {
 		this.inputNode.innerHTML = ''
+		this.hasUnprocessedContentChanges = true
 		this.processInputContent()
 	}
 
@@ -220,7 +223,7 @@ export class ContentEditableEditor {
 				break
 
 			default:
-				if (eventKeyIsVisibleCharacter(event)) {
+				if (eventKeyIsLetterDigitPuncSpaceChar(event)) {
 					event.preventDefault()
 					this.insertText(event.key)
 				}
@@ -253,7 +256,7 @@ export class ContentEditableEditor {
 			this.normalizeComponents()
 		}
 
-		if (eventKeyIsVisibleCharacter(event) || event.key === 'Backspace' || event.key === 'Delete') {
+		if (this.hasUnprocessedContentChanges) {
 			this.processInputContentDebounce()
 		}
 
@@ -272,16 +275,27 @@ export class ContentEditableEditor {
 		const { focusNode } = selection
 		if (focusNode?.parentElement?.classList.contains('ntv__input-component')) {
 			event.preventDefault()
+			this.hasUnprocessedContentChanges = true
 			return this.insertText(' ')
 		}
+
 		const { word, start, end, node } = Caret.getWordBeforeCaret()
-		if (!word) return
+		if (!word) {
+			event.preventDefault()
+			return this.insertText(' ')
+		}
 
 		const emoteHid = this.emotesManager.getEmoteHidByName(word)
-		if (!emoteHid) return
+		if (!emoteHid) {
+			event.preventDefault()
+			return this.insertText(' ')
+		}
 
 		const textContent = node.textContent
-		if (!textContent) return
+		if (!textContent) {
+			event.preventDefault()
+			return this.insertText(' ')
+		}
 
 		node.textContent = textContent.slice(0, start) + textContent.slice(end)
 		inputNode.normalize()
@@ -290,6 +304,7 @@ export class ContentEditableEditor {
 		this.insertEmote(emoteHid)
 
 		event.preventDefault()
+		this.hasUnprocessedContentChanges = true
 	}
 
 	handleCtrlArrowKeyDown(event: KeyboardEvent) {
@@ -441,6 +456,8 @@ export class ContentEditableEditor {
 	}
 
 	processInputContent() {
+		if (!this.hasUnprocessedContentChanges) return
+
 		const { inputNode, eventBus, emotesManager } = this
 		const buffer = []
 		let bufferString = ''
@@ -481,6 +498,7 @@ export class ContentEditableEditor {
 		this.emotesInMessage = emotesInMessage
 
 		this.characterCount = this.messageContent.length
+		this.hasUnprocessedContentChanges = false
 		eventBus.publish('ntv.input_controller.character_count', { value: this.characterCount })
 	}
 
@@ -553,6 +571,8 @@ export class ContentEditableEditor {
 			selection.addRange(range)
 			inputNode.normalize()
 		}
+
+		this.hasUnprocessedContentChanges = true
 	}
 
 	deleteForwards(evt: KeyboardEvent) {
@@ -605,6 +625,8 @@ export class ContentEditableEditor {
 			selection.addRange(range)
 			inputNode.normalize()
 		}
+
+		this.hasUnprocessedContentChanges = true
 	}
 
 	/**
@@ -745,12 +767,14 @@ export class ContentEditableEditor {
 		const selection = wwindow.getSelection()
 		if (!selection) {
 			inputNode.append(new Text(text))
+			inputNode.normalize()
+			this.hasUnprocessedContentChanges = true
 			return
 		}
 
 		let range
 		if (selection.rangeCount) {
-			const { focusNode } = selection
+			const { focusNode, anchorNode } = selection
 			const componentNode = focusNode?.parentElement as HTMLElement
 
 			// Adjust the selection if the focus is inside a component
@@ -769,6 +793,18 @@ export class ContentEditableEditor {
 						selection.extend(inputNode, componentIndex + 1)
 					}
 				}
+			} else if (focusNode?.parentElement !== inputNode || anchorNode?.parentElement !== inputNode) {
+				inputNode.append(new Text(text))
+				inputNode.normalize()
+				this.hasUnprocessedContentChanges = true
+
+				if (inputNode.lastChild) {
+					const range = document.createRange()
+					range.setStartAfter(inputNode.lastChild!)
+					selection.removeAllRanges()
+					selection.addRange(range)
+				}
+				return
 			}
 
 			range = selection.getRangeAt(0)
@@ -784,6 +820,8 @@ export class ContentEditableEditor {
 		selection.addRange(range)
 		this.normalizeComponents()
 		inputNode.normalize()
+
+		this.hasUnprocessedContentChanges = true
 	}
 
 	insertNodes(nodes: Node[]) {
@@ -795,6 +833,7 @@ export class ContentEditableEditor {
 				this.inputNode.appendChild(nodes[i])
 			}
 			Caret.collapseToEndOfNode(this.inputNode.lastChild!)
+			this.hasUnprocessedContentChanges = true
 			return
 		}
 
@@ -831,6 +870,8 @@ export class ContentEditableEditor {
 		range.collapse()
 		selection.addRange(range)
 		inputNode.normalize()
+
+		this.hasUnprocessedContentChanges = true
 	}
 
 	insertComponent(component: HTMLElement) {
@@ -839,6 +880,7 @@ export class ContentEditableEditor {
 		const selection = document.getSelection()
 		if (!selection) {
 			inputNode.appendChild(component)
+			this.hasUnprocessedContentChanges = true
 			return error('Selection API is not available, please use a modern browser supports the Selection API.')
 		}
 
@@ -848,6 +890,8 @@ export class ContentEditableEditor {
 			range.insertNode(component)
 			range.collapse()
 			selection.addRange(range)
+
+			this.hasUnprocessedContentChanges = true
 			return
 		}
 
@@ -911,6 +955,8 @@ export class ContentEditableEditor {
 		selection.removeAllRanges()
 		selection.addRange(range)
 
+		this.hasUnprocessedContentChanges = true
+
 		// inputNode.normalize()
 		inputNode.dispatchEvent(new Event('input'))
 	}
@@ -962,6 +1008,7 @@ export class ContentEditableEditor {
 		emoteBox.innerHTML = emoteHTML
 		emoteBox.setAttribute('data-emote-hid', emoteHid)
 
+		this.hasUnprocessedContentChanges = true
 		this.processInputContentDebounce()
 
 		return component
@@ -984,6 +1031,7 @@ export class ContentEditableEditor {
 
 		inputNode.normalize()
 
+		this.hasUnprocessedContentChanges = true
 		this.processInputContentDebounce()
 
 		return textNode

@@ -43,8 +43,22 @@
 	}
 
 	&.ntv__hide-emote-menu-button {
-		.chat-input-wrapper > div:not(#ntv__message-input) {
+		.chat-input-wrapper > div:not(#ntv__message-input):not(#message-input) {
 			display: none;
+		}
+
+		#chatroom-footer .send-row > button:not(.ntv__submit-button) {
+			display: none;
+		}
+	}
+
+	&.ntv__hide-chat-input {
+		.chat-input-wrapper {
+			display: none !important;
+
+			#message-input {
+				display: none !important;
+			}
 		}
 	}
 
@@ -62,14 +76,6 @@
 
 		&:hover {
 			background-color: rgba(128, 128, 128, 0.09);
-		}
-	}
-
-	.chat-input-wrapper {
-		display: none !important;
-
-		#message-input {
-			display: none !important;
 		}
 	}
 }
@@ -200,10 +206,6 @@
 		outline: 2px solid transparent;
 		outline-offset: 2px;
 	}
-}
-
-#chatroom-footer .send-row > button:not(.ntv__submit-button) {
-	display: none;
 }
 
 .ntv__submit-button {

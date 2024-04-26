@@ -1,19 +1,21 @@
-import { SettingsManager } from '../Managers/SettingsManager'
+import type { AbstractNetworkInterface } from '../NetworkInterfaces/AbstractNetworkInterface'
+import type { SettingsManager } from '../Managers/SettingsManager'
+import type { EmotesManager } from '../Managers/EmotesManager'
+import type { Publisher } from '../Classes/Publisher'
 import { MessagesHistory } from '../Classes/MessagesHistory'
-import { EmotesManager } from '../Managers/EmotesManager'
 import { UsersManager } from '../Managers/UsersManager'
-import { Publisher } from '../Classes/Publisher'
 import { assertArgDefined, log } from '../utils'
 
 export class AbstractUserInterface {
-	messageHistory = new MessagesHistory()
+	protected ENV_VARS: any
+	protected channelData: ChannelData
+	protected eventBus: Publisher
+	protected networkInterface: AbstractNetworkInterface
+	protected settingsManager: SettingsManager
+	protected emotesManager: EmotesManager
+	protected usersManager: UsersManager
 
-	ENV_VARS: any
-	channelData: ChannelData
-	eventBus: Publisher
-	settingsManager: SettingsManager
-	emotesManager: EmotesManager
-	usersManager: UsersManager
+	protected messageHistory = new MessagesHistory()
 
 	/**
 	 * @param {EventBus} eventBus
@@ -23,24 +25,28 @@ export class AbstractUserInterface {
 		ENV_VARS,
 		channelData,
 		eventBus,
+		networkInterface,
 		settingsManager,
 		emotesManager
 	}: {
 		ENV_VARS: any
 		channelData: ChannelData
 		eventBus: Publisher
+		networkInterface: AbstractNetworkInterface
 		settingsManager: SettingsManager
 		emotesManager: EmotesManager
 	}) {
 		assertArgDefined(ENV_VARS)
 		assertArgDefined(channelData)
 		assertArgDefined(eventBus)
+		assertArgDefined(networkInterface)
 		assertArgDefined(settingsManager)
 		assertArgDefined(emotesManager)
 
 		this.ENV_VARS = ENV_VARS
 		this.channelData = channelData
 		this.eventBus = eventBus
+		this.networkInterface = networkInterface
 		this.settingsManager = settingsManager
 		this.emotesManager = emotesManager
 		this.usersManager = new UsersManager({ eventBus, settingsManager })
