@@ -116,47 +116,51 @@ var assertArgDefined = (arg) => {
     throw new Error("Invalid argument, expected defined value");
   }
 };
-async function fetchJSON(url, options = {}) {
-  return new Promise((resolve, reject) => {
-    options.credentials = "include";
-    if (options.body) {
-      options.headers = Object.assign(options.headers || {}, { "Content-Type": "application/json" });
-    }
-    const XSRFToken = getCookie("XSRF");
-    if (XSRFToken) {
-      options.headers = Object.assign(options.headers || {}, { "X-XSRF-TOKEN": XSRFToken });
-    }
-    fetch(url, options).then(async (res) => {
-      if (res.redirected) {
-        reject("Request failed, redirected to " + res.url);
-      } else if (res.status !== 200 && res.status !== 304) {
-        await res.json().then(reject).catch(() => {
-          reject("Request failed with status code " + res.status);
-        });
-      }
-      return res;
-    }).then((res) => res.json()).then(resolve).catch(reject);
-  });
-}
 var REST = class {
   static get(url) {
-    return fetchJSON(url);
+    return this.fetch(url);
   }
   static post(url, data) {
-    return fetchJSON(url, {
+    return this.fetch(url, {
       method: "POST",
       body: JSON.stringify(data)
     });
   }
   static put(url, data) {
-    return fetchJSON(url, {
+    return this.fetch(url, {
       method: "PUT",
       body: JSON.stringify(data)
     });
   }
   static delete(url) {
-    return fetchJSON(url, {
+    return this.fetch(url, {
       method: "DELETE"
+    });
+  }
+  static fetch(url, options = {}) {
+    return new Promise((resolve, reject) => {
+      if (options.body) {
+        options.headers = Object.assign(options.headers || {}, { "Content-Type": "application/json" });
+      }
+      const currentDomain = window.location.host.split(".").slice(-2).join(".");
+      const urlDomain = new URL(url).host.split(".").slice(-2).join(".");
+      if (currentDomain === urlDomain) {
+        options.credentials = "include";
+        const XSRFToken = getCookie("XSRF");
+        if (XSRFToken) {
+          options.headers = Object.assign(options.headers || {}, { "X-XSRF-TOKEN": XSRFToken });
+        }
+      }
+      fetch(url, options).then(async (res) => {
+        if (res.redirected) {
+          reject("Request failed, redirected to " + res.url);
+        } else if (res.status !== 200 && res.status !== 304) {
+          await res.json().then(reject).catch(() => {
+            reject("Request failed with status code " + res.status);
+          });
+        }
+        return res;
+      }).then((res) => res.json()).then(resolve).catch(reject);
     });
   }
 };
@@ -4480,7 +4484,7 @@ var KickProvider = class extends AbstractProvider {
     );
     const includeEmojiEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_emojis");
     info("Fetching emote data from Kick..");
-    const data = await fetchJSON(`https://kick.com/emotes/${channel_name}`);
+    const data = await REST.get(`https://kick.com/emotes/${channel_name}`);
     let dataFiltered = data;
     if (!includeGlobalEmoteSet) {
       dataFiltered = dataFiltered.filter((entry) => entry.id !== "Global");
@@ -4567,7 +4571,7 @@ var SevenTVProvider = class extends AbstractProvider {
     info("Fetching emote data from SevenTV..");
     if (!user_id)
       return error("Missing Kick channel id for SevenTV provider.");
-    const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`).catch((err) => {
+    const data = await REST.get(`https://7tv.io/v3/users/KICK/${user_id}`).catch((err) => {
       error("Failed to fetch SevenTV emotes.", err);
       this.status = "connection_failed";
       return [];
