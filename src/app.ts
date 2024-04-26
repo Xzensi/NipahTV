@@ -9,7 +9,7 @@ import { SevenTVProvider } from './Providers/SevenTVProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error, fetchJSON, REST } from './utils'
+import { log, info, error } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 import { Database } from './Classes/Database'

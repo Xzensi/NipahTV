@@ -28,58 +28,62 @@ export const assertArgDefined = (arg: any) => {
 	}
 }
 
-export async function fetchJSON(url: URL | RequestInfo, options: RequestInit = {}) {
-	return new Promise((resolve, reject) => {
-		options.credentials = 'include'
-		if (options.body) {
-			options.headers = Object.assign(options.headers || {}, { 'Content-Type': 'application/json' })
-		}
-
-		const XSRFToken = getCookie('XSRF')
-		if (XSRFToken) {
-			options.headers = Object.assign(options.headers || {}, { 'X-XSRF-TOKEN': XSRFToken })
-		}
-
-		fetch(url, options)
-			.then(async res => {
-				if (res.redirected) {
-					reject('Request failed, redirected to ' + res.url)
-				} else if (res.status !== 200 && res.status !== 304) {
-					await res
-						.json()
-						.then(reject)
-						.catch(() => {
-							reject('Request failed with status code ' + res.status)
-						})
-				}
-				return res
-			})
-			.then(res => res.json())
-			.then(resolve)
-			.catch(reject)
-	}) as Promise<any | void>
-}
-
 export class REST {
 	static get(url: string) {
-		return fetchJSON(url)
+		return this.fetch(url)
 	}
 	static post(url: string, data: object) {
-		return fetchJSON(url, {
+		return this.fetch(url, {
 			method: 'POST',
 			body: JSON.stringify(data)
 		})
 	}
 	static put(url: string, data: object) {
-		return fetchJSON(url, {
+		return this.fetch(url, {
 			method: 'PUT',
 			body: JSON.stringify(data)
 		})
 	}
 	static delete(url: string) {
-		return fetchJSON(url, {
+		return this.fetch(url, {
 			method: 'DELETE'
 		})
+	}
+	static fetch(url: URL | RequestInfo, options: RequestInit = {}) {
+		return new Promise((resolve, reject) => {
+			if (options.body) {
+				options.headers = Object.assign(options.headers || {}, { 'Content-Type': 'application/json' })
+			}
+
+			const currentDomain = window.location.host.split('.').slice(-2).join('.')
+			const urlDomain = new URL(url as string).host.split('.').slice(-2).join('.')
+			if (currentDomain === urlDomain) {
+				options.credentials = 'include'
+
+				const XSRFToken = getCookie('XSRF')
+				if (XSRFToken) {
+					options.headers = Object.assign(options.headers || {}, { 'X-XSRF-TOKEN': XSRFToken })
+				}
+			}
+
+			fetch(url, options)
+				.then(async res => {
+					if (res.redirected) {
+						reject('Request failed, redirected to ' + res.url)
+					} else if (res.status !== 200 && res.status !== 304) {
+						await res
+							.json()
+							.then(reject)
+							.catch(() => {
+								reject('Request failed with status code ' + res.status)
+							})
+					}
+					return res
+				})
+				.then(res => res.json())
+				.then(resolve)
+				.catch(reject)
+		}) as Promise<any | void>
 	}
 }
 
