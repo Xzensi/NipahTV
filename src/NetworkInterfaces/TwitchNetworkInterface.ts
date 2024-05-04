@@ -25,4 +25,13 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 	async sendCommand(command: { name: string; args: string[] }) {
 		throw new Error('Method not implemented.')
 	}
+
+	async getUserInfo(username: string) {
+		throw new Error('Method not implemented.')
+		return {
+			username,
+			usernameSlug: username,
+			isFollowing: false
+		}
+	}
 }

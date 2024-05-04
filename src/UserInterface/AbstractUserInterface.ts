@@ -5,6 +5,7 @@ import type { Publisher } from '../Classes/Publisher'
 import { MessagesHistory } from '../Classes/MessagesHistory'
 import { UsersManager } from '../Managers/UsersManager'
 import { assertArgDefined, log } from '../utils'
+import { UserInfoModal } from './Modals/UserInfoModal'
 
 export class AbstractUserInterface {
 	protected ENV_VARS: any
@@ -53,7 +54,12 @@ export class AbstractUserInterface {
 	}
 
 	loadInterface() {
-		throw new Error('loadInterface() not implemented')
+		const { eventBus } = this
+
+		eventBus.subscribe('ntv.ui.show_modal.user_info', (data: { username: string }) => {
+			assertArgDefined(data.username)
+			this.showUserInfoModal(data.username)
+		})
 	}
 
 	renderEmotesInElement(textElement: Element, appendTo?: Element) {
@@ -95,5 +101,13 @@ export class AbstractUserInterface {
 		if (appendTo) appendTo.append(...newNodes)
 		else textElement.after(...newNodes)
 		textElement.remove()
+	}
+
+	showUserInfoModal(username: string) {
+		log('Showing user info modal..')
+		const modal = new UserInfoModal(
+			{ ENV_VARS: this.ENV_VARS, eventBus: this.eventBus, networkInterface: this.networkInterface },
+			username
+		).init()
 	}
 }

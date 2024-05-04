@@ -123,7 +123,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 
 		if (command.name === 'ban') {
 			const data = {
-				banned_usernam: args[0],
+				banned_username: args[0],
 				permanent: true
 			} as any
 			if (args[1]) data.reason = args[1]
@@ -187,5 +187,42 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 				username: args[0]
 			})
 		}
+	}
+
+	// TODO separate this into getUserInfo and getUserChannelInfo
+	async getUserInfo(username: string) {
+		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
+
+		const { channelData } = this
+		const { channel_name } = channelData
+		const [res1, res2] = await Promise.allSettled([
+			REST.get(`https://kick.com/api/v2/channels/${channel_name}/users/${username}`),
+			// The reason underscores are replaced with dashes is likely because it's a slug
+			REST.get(`https://kick.com/api/v2/channels/${username.replace('_', '-')}/me`)
+		])
+		if (res1.status === 'rejected' || res2.status === 'rejected') {
+			throw new Error('Failed to fetch user data')
+		}
+
+		const channelUserInfo = res1.value
+		const userMeInfo = res2.value
+
+		const userInfo = {
+			username: channelUserInfo.username,
+			usernameSlug: channelUserInfo.slug,
+			profilePic: channelUserInfo.profile_pic,
+			createdAt: 'Unknown',
+			banned: channelUserInfo.banned
+				? {
+						reason: channelUserInfo.banned?.reason || 'No reason provided',
+						createdAt: channelUserInfo.banned?.created_at || 'Unknown',
+						expiresAt: channelUserInfo.banned?.expires_at || 'Unknown',
+						permanent: channelUserInfo.banned?.permanent || false
+				  }
+				: void 0,
+			isFollowing: userMeInfo.is_following
+		}
+
+		return userInfo
 	}
 }

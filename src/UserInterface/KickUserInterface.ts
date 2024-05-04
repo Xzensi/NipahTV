@@ -48,6 +48,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	async loadInterface() {
 		info('Creating user interface..')
 
+		super.loadInterface()
+
 		const { eventBus, settingsManager, abortController } = this
 		const abortSignal = abortController.signal
 
@@ -148,6 +150,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		eventBus.subscribe('ntv.session.destroy', this.destroy.bind(this))
 	}
 
+	// TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
 	async loadEmoteMenu() {
 		const { channelData, eventBus, settingsManager, emotesManager } = this
 		if (!this.elm.textField) return error('Text field not loaded for emote menu')
@@ -197,13 +200,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		const firstMessageHighlightColor = settingsManager.getSetting('shared.chat.appearance.highlight_color')
 		if (firstMessageHighlightColor) {
 			const rgb = hex2rgb(firstMessageHighlightColor)
-			document.documentElement.style.setProperty('--color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
+			document.documentElement.style.setProperty('--ntv-color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
 		}
 
 		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.highlight_color', (data: { value: string }) => {
 			if (!data.value) return
 			const rgb = hex2rgb(data.value)
-			document.documentElement.style.setProperty('--color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
+			document.documentElement.style.setProperty('--ntv-color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
 		})
 	}
 
@@ -730,21 +733,21 @@ export class KickUserInterface extends AbstractUserInterface {
 		const originalSubmitButtonEl = this.elm.originalSubmitButton
 		if (!originalSubmitButtonEl) return error('Original submit button not loaded for sending emote')
 
-		const oldMessage = contentEditableEditor.getInputHTML()
-		contentEditableEditor.clearInput()
+		// const oldMessage = contentEditableEditor.getInputHTML()
+		// contentEditableEditor.clearInput()
 
-		contentEditableEditor.insertEmote(emoteHid)
-		originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent()
+		// contentEditableEditor.insertEmote(emoteHid)
+		// originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent()
 
-		originalTextFieldEl.dispatchEvent(new Event('input'))
-		originalSubmitButtonEl.dispatchEvent(new Event('click'))
+		// originalTextFieldEl.dispatchEvent(new Event('input'))
+		// originalSubmitButtonEl.dispatchEvent(new Event('click'))
 
-		this.eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent: true })
+		// this.eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent: true })
 
-		contentEditableEditor.setInputContent(oldMessage)
+		// contentEditableEditor.setInputContent(oldMessage)
 
-		originalTextFieldEl.innerHTML = oldMessage
-		originalTextFieldEl.dispatchEvent(new Event('input'))
+		// originalTextFieldEl.innerHTML = oldMessage
+		// originalTextFieldEl.dispatchEvent(new Event('input'))
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {

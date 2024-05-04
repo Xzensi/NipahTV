@@ -111,7 +111,8 @@ class NipahClient {
 		if ((ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK)) {
 			this.networkInterface = new KickNetworkInterface()
 		} else if (ENV_VARS.PLATFORM === PLATFORM_ENUM.TWITCH) {
-			this.networkInterface = new TwitchNetworkInterface()
+			// this.networkInterface = new TwitchNetworkInterface()
+			throw new Error('Twitch platform is not supported yet.')
 		} else {
 			throw new Error('Unsupported platform')
 		}

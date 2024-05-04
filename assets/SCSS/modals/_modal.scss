@@ -1,0 +1,45 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+@use '../functions' as *;
+
+.ntv__modal {
+	background-color: var(--ntv-background-color);
+	transform: translate(-50%, -50%);
+	box-shadow: shadow_elevation(4);
+	font-size: $root_font_size;
+	flex-direction: column;
+	border-radius: 0.25em;
+	position: absolute;
+	display: flex;
+	z-index: 1003;
+
+	min-height: 17em;
+	min-width: 13em;
+
+	&__header {
+		border-bottom: 0.1em solid var(--ntv-border-transparent-2);
+		justify-content: flex-end;
+		display: flex;
+		padding: 2px;
+		width: 100%;
+
+		@include user_select;
+	}
+
+	&__close-btn {
+		padding: 0.382em 0.618em;
+		font-size: 1.618em;
+		font-weight: 100;
+		cursor: pointer;
+
+		&:hover {
+			background: hsla(0, 0%, 50%, 0.2);
+		}
+	}
+
+	&__body {
+		overflow: auto;
+		flex: 1 1 100%;
+		display: flex;
+	}
+}

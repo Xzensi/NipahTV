@@ -1,5 +1,7 @@
 import type { AbstractNetworkInterface } from '../../NetworkInterfaces/AbstractNetworkInterface'
 import type { ContentEditableEditor } from '../ContentEditableEditor'
+import type { Publisher } from '../Publisher'
+
 import { countStringOccurrences, error, eventKeyIsLetterDigitPuncSpaceChar, log, parseHTML } from '../../utils'
 import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 
@@ -173,16 +175,21 @@ const commandsMap = [
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		}
 	},
-	// {
-	// 	name: 'user',
-	// 	command: 'user <username>',
-	// 	minAllowedRole: 'moderator',
-	// 	description: 'Display user information.',
-	// 	argValidators: {
-	// 		'<username>': (arg: string) =>
-	// 			!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
-	// 	}
-	// },
+	{
+		name: 'user',
+		command: 'user <username>',
+		minAllowedRole: 'moderator',
+		description: 'Display user information.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		},
+		execute: (deps: any, args: string[]) => {
+			log('User command executed with args:', args)
+			const { eventBus } = deps
+			eventBus.publish('ntv.ui.show_modal.user_info', { username: args[0] })
+		}
+	},
 	{
 		name: 'vip',
 		command: 'vip <username>',
@@ -198,16 +205,23 @@ const commandsMap = [
 export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 	private contentEditableEditor: ContentEditableEditor
 	private networkInterface: AbstractNetworkInterface
+	private eventBus: Publisher
 
 	constructor(
 		{
+			eventBus,
 			networkInterface,
 			contentEditableEditor
-		}: { networkInterface: AbstractNetworkInterface; contentEditableEditor: ContentEditableEditor },
+		}: {
+			eventBus: Publisher
+			networkInterface: AbstractNetworkInterface
+			contentEditableEditor: ContentEditableEditor
+		},
 		containerEl: HTMLElement
 	) {
 		super(containerEl)
 
+		this.eventBus = eventBus
 		this.networkInterface = networkInterface
 		this.contentEditableEditor = contentEditableEditor
 	}
@@ -336,28 +350,38 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		})
 	}
 
-	getParsedInputCommand(inputString: string) {
+	getParsedInputCommand(
+		inputString: string
+	): [{ name: string; args: string[] }, (typeof commandsMap)[number]] | [void] {
 		const inputParts = inputString.split(' ').filter(v => v !== '')
 		const inputCommandName = inputParts[0]
 
 		const availableCommands = this.getAvailableCommands()
-		const commandEntry = availableCommands.find(commandEntry => commandEntry.name === inputCommandName)
-		if (!commandEntry) return error('Command not found.')
+		const commandEntry = availableCommands.find(
+			commandEntry => commandEntry.name === inputCommandName
+		) as (typeof commandsMap)[number]
+		if (!commandEntry) return [error('Command not found.')]
 
 		const argCount = countStringOccurrences(commandEntry.command, '<')
 		if (inputParts.length - 1 > argCount) {
 			const start = inputParts.slice(1, argCount + 1)
 			const rest = inputParts.slice(argCount + 1).join(' ')
-			return {
-				name: inputCommandName,
-				args: start.concat(rest)
-			}
+			return [
+				{
+					name: inputCommandName,
+					args: start.concat(rest)
+				},
+				commandEntry
+			]
 		}
 
-		return {
-			name: inputCommandName,
-			args: inputParts.slice(1, argCount + 1)
-		}
+		return [
+			{
+				name: inputCommandName,
+				args: inputParts.slice(1, argCount + 1)
+			},
+			commandEntry
+		]
 	}
 
 	moveSelectorUp() {
@@ -413,7 +437,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		if (event.key === 'Enter') {
 			// TODO implement it as settings option whether to validate and block invalid commands, might be useful for custom commands
 			const isInvalid = this.validateInputCommand(nodeData.substring(1))
-			const commandData = this.getParsedInputCommand(nodeData.substring(1))
+			const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1))
 
 			event.stopPropagation()
 			event.preventDefault()
@@ -422,7 +446,13 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 				return
 			}
 
-			this.networkInterface.sendCommand(commandData)
+			const { networkInterface, eventBus } = this
+			if (commandEntry && typeof commandEntry.execute === 'function') {
+				commandEntry.execute({ eventBus, networkInterface }, commandData.args)
+			} else {
+				networkInterface.sendCommand(commandData)
+			}
+
 			contentEditableEditor.clearInput()
 		}
 	}

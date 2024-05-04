@@ -1,7 +1,39 @@
 @use '../variables' as *;
 
 .ntv__settings-modal {
-	outline: 0.1em solid var(--border-transparent-2);
+	max-width: 100%;
+
+	// min-width: 64rem;
+	min-height: 33rem;
+	max-width: 900px;
+	max-height: 650px;
+
+	--width: min(75vw, 128rem);
+	--height: min(75vh, calc(0.75 * var(--width)));
+	width: 75vw;
+	width: var(--width);
+	height: 50vh;
+	height: var(--height);
+	margin: 25px;
+
+	top: 25%;
+	left: 25%;
+	top: calc(calc(100vh - var(--height)) / 2);
+	left: calc(calc(100vw - var(--width)) / 2);
+
+	outline: 0.1em solid var(--ntv-border-transparent-2);
+
+	@media (max-width: 768px) {
+		left: 0 !important;
+		top: 0 !important;
+		max-height: none;
+		max-width: none;
+		transform: none;
+		position: fixed;
+		height: 100vh;
+		width: 100vw;
+		margin: 0;
+	}
 
 	&__sidebar {
 		margin-right: 1.618em;
@@ -12,7 +44,7 @@
 		}
 
 		span {
-			// border-bottom: 0.1em solid var(--border-transparent-2);
+			// border-bottom: 0.1em solid var(--ntv-border-transparent-2);
 			display: inline-block;
 			padding: 0.618em 1.618em;
 			cursor: pointer;

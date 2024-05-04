@@ -2,6 +2,7 @@ import type { AbstractNetworkInterface } from '../NetworkInterfaces/AbstractNetw
 import type { EmotesManager } from '../Managers/EmotesManager'
 import type { ContentEditableEditor } from './ContentEditableEditor'
 import type { UsersManager } from '../Managers/UsersManager'
+import type { Publisher } from './Publisher'
 import { CommandCompletionStrategy } from './CompletionStrategies/CommandCompletionStrategy'
 import { MentionCompletionStrategy } from './CompletionStrategies/MentionCompletionStrategy'
 import { EmoteCompletionStrategy } from './CompletionStrategies/EmoteCompletionStrategy'
@@ -15,18 +16,21 @@ export class InputCompletor {
 	private emotesManager: EmotesManager
 	private usersManager: UsersManager
 	private containerEl: HTMLElement
+	private eventBus: Publisher
 
 	constructor(
 		{
 			contentEditableEditor,
 			networkInterface,
 			emotesManager,
-			usersManager
+			usersManager,
+			eventBus
 		}: {
 			contentEditableEditor: ContentEditableEditor
 			networkInterface: AbstractNetworkInterface
 			emotesManager: EmotesManager
 			usersManager: UsersManager
+			eventBus: Publisher
 		},
 		containerEl: HTMLElement
 	) {
@@ -35,6 +39,7 @@ export class InputCompletor {
 		this.emotesManager = emotesManager
 		this.usersManager = usersManager
 		this.containerEl = containerEl
+		this.eventBus = eventBus
 	}
 
 	attachEventHandlers() {
@@ -57,6 +62,7 @@ export class InputCompletor {
 			if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
 				this.currentActiveStrategy = new CommandCompletionStrategy(
 					{
+						eventBus: this.eventBus,
 						networkInterface: this.networkInterface,
 						contentEditableEditor: this.contentEditableEditor
 					},

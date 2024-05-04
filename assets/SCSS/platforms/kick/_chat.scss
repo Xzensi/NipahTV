@@ -1,5 +1,5 @@
-@use '../variables' as *;
-@use '../mixins' as *;
+@use '../../variables' as *;
+@use '../../mixins' as *;
 @use 'sass:math';
 
 #chatroom {
@@ -15,7 +15,7 @@
 	&.ntv__seperators {
 		&-basic {
 			[data-chat-entry] {
-				border-bottom: 1px solid var(--border-transparent-2);
+				border-bottom: 1px solid var(--ntv-border-transparent-2);
 			}
 		}
 
@@ -35,8 +35,8 @@
 
 		&-wide {
 			[data-chat-entry] {
-				border-bottom: 2px solid var(--border-transparent-2);
-				border-top: 2px solid var(--border-transparent-2);
+				border-bottom: 2px solid var(--ntv-border-transparent-2);
+				border-top: 2px solid var(--ntv-border-transparent-2);
 				padding: 0.1em;
 			}
 		}
@@ -118,7 +118,7 @@
 }
 
 .ntv__highlight-first-message {
-	background-color: var(--background-highlight-accent-1);
+	background-color: var(--ntv-background-highlight-accent-1);
 }
 
 .ntv__message-input__wrapper {
@@ -138,7 +138,7 @@
 	width: 100%;
 
 	&:hover {
-		border-color: var(--border-transparent-2);
+		border-color: var(--ntv-border-transparent-2);
 	}
 
 	&[data-char-count]:after {

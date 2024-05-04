@@ -1,10 +1,10 @@
-@use '../variables' as *;
-@use '../functions' as *;
-@use '../mixins' as *;
+@use '../../variables' as *;
+@use '../../functions' as *;
+@use '../../mixins' as *;
 
 .ntv__emote-menu {
-	outline: 0.1em solid var(--border-transparent-2);
-	background-color: var(--background-color);
+	outline: 0.1em solid var(--ntv-border-transparent-2);
+	background-color: var(--ntv-background-color);
 	box-shadow: shadow_elevation(4);
 	transform: translateY(-100%);
 	font-size: $root_font_size;
@@ -22,7 +22,7 @@
 	top: -1.618em;
 
 	&__header {
-		border-bottom: 0.1em solid var(--border-transparent-2);
+		border-bottom: 0.1em solid var(--ntv-border-transparent-2);
 		justify-content: flex-end;
 		display: flex;
 		padding: 2px;
@@ -39,7 +39,7 @@
 		width: 100%;
 
 		&__icon {
-			color: var(--border-transparent-2);
+			color: var(--ntv-border-transparent-2);
 			-webkit-user-select: none;
 			pointer-events: none;
 			place-items: center;
@@ -71,11 +71,11 @@
 			width: 100%;
 
 			&::placeholder {
-				color: var(--text-color-low-emphasis);
+				color: var(--ntv-text-color-low-emphasis);
 			}
 
 			&:focus {
-				background-color: var(--background-color-shade-1);
+				background-color: var(--ntv-background-color-shade-1);
 			}
 		}
 	}
@@ -87,8 +87,8 @@
 	}
 
 	&__sidebar {
-		background-color: var(--background-color-tint-1);
-		border-left: 1px solid var(--border-transparent-2);
+		background-color: var(--ntv-background-color-tint-1);
+		border-left: 1px solid var(--ntv-border-transparent-2);
 		// background: hsla(0, 0%, 50%, 0.06);
 		justify-content: space-between;
 		flex: 0 0 $sidebar_width;
@@ -107,7 +107,7 @@
 				padding: 0.618em 0;
 
 				&:hover {
-					background-color: var(--background-highlight-2) !important;
+					background-color: var(--ntv-background-highlight-2) !important;
 				}
 			}
 		}
@@ -126,7 +126,7 @@
 			width: 100%;
 
 			&:hover {
-				background-color: var(--background-highlight-2);
+				background-color: var(--ntv-background-highlight-2);
 			}
 
 			&--settings {
@@ -155,7 +155,7 @@
 	}
 
 	&__scrollable {
-		scrollbar-color: var(--background-color-tint-3) transparent;
+		scrollbar-color: var(--ntv-background-color-tint-3) transparent;
 		scroll-behavior: smooth;
 		flex: 1 1 $emote_size;
 		scrollbar-width: thin;
@@ -186,8 +186,8 @@
 
 .ntv__emote-set {
 	&__header {
-		background-color: var(--background-color-tint-1);
-		outline: 0.1em solid var(--border-transparent-1);
+		background-color: var(--ntv-background-color-tint-1);
+		outline: 0.1em solid var(--ntv-border-transparent-1);
 		grid-template-columns: auto 1fr 2.5em;
 		box-shadow: shadow_elevation(1);
 		align-items: center;
@@ -259,7 +259,7 @@
 	width: 2.5em;
 
 	&:hover {
-		background-color: var(--background-highlight-1);
+		background-color: var(--ntv-background-highlight-1);
 	}
 
 	svg {
@@ -269,8 +269,8 @@
 }
 
 .ntv__emote-tooltip {
-	outline: 0.1em solid var(--border-transparent-2);
-	background-color: var(--background-color-tint-1);
+	outline: 0.1em solid var(--ntv-border-transparent-2);
+	background-color: var(--ntv-background-color-tint-1);
 	padding: 0.618em 0.618em 0.333em 0.618em;
 	transform: translate(-50%, -45%);
 	box-shadow: shadow_elevation(2);
@@ -322,7 +322,7 @@
 	}
 
 	&:after {
-		border-top: solid var(--background-color-tint-1) 11px;
+		border-top: solid var(--ntv-background-color-tint-1) 11px;
 		border-right: solid transparent 14px;
 		border-left: solid transparent 14px;
 		margin-left: -14px;

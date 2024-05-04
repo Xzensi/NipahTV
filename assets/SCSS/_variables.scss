@@ -1,7 +1,9 @@
 @use '_functions' as *;
+@use 'sass:color';
 
 $golden_ratio: 1.61803398875;
 $golden_ratio_inverse: 0.61803398875;
+$golden_ratio_inverse_half: $golden_ratio_inverse * $golden_ratio_inverse;
 
 $root_font_size: 14px;
 $emote_size: 2.8em;
@@ -18,7 +20,7 @@ $opacity-6: 0.28;
 $opacity-7: 0.4;
 
 // Base Color Palette
-$color-primary: #fd61a2;
+$color-primary: #78249e;
 $color-secondary: #66bb6a;
 $color-accent: #29b6f6;
 $color-warning: #df4545;
@@ -28,25 +30,30 @@ $color-muted: #999;
 $dark-theme-background-color: #1b1b1d;
 
 :root {
-	--color-accent: 41, 182, 246;
+	// --ntv-color-accent: 120, 36, 158;
+	// --ntv-color-accent: #78249e;
 
-	--background-color: #{$dark-theme-background-color};
-	--background-color-tint-1: #{tint($dark-theme-background-color, 3%)};
-	--background-color-tint-2: #{tint($dark-theme-background-color, 7%)};
-	--background-color-tint-3: #{tint($dark-theme-background-color, 10%)};
-	--background-color-shade-1: #{shade($dark-theme-background-color, 20%)};
-	--background-color-shade-2: #{shade($dark-theme-background-color, 40%)};
+	--ntv-background-color: #{$dark-theme-background-color};
+	--ntv-background-color-tint-1: #{tint($dark-theme-background-color, 3%)};
+	--ntv-background-color-tint-2: #{tint($dark-theme-background-color, 7%)};
+	--ntv-background-color-tint-3: #{tint($dark-theme-background-color, 10%)};
+	--ntv-background-color-shade-1: #{shade($dark-theme-background-color, 20%)};
+	--ntv-background-color-shade-2: #{shade($dark-theme-background-color, 40%)};
 
-	--background-highlight-1: hsla(0, 0%, 50%, 0.125);
-	--background-highlight-2: hsla(0, 0%, 50%, 0.202);
+	--ntv-background-color-accent: #{$color-primary};
+	--ntv-background-color-accent-tint-1: #{tint($color-primary, 3%)};
+	--ntv-background-color-accent-tint-2: #{tint($color-primary, 7%)};
 
-	--background-highlight-accent-1: rgba(var(--color-accent), 0.125);
+	--ntv-background-highlight-1: hsla(0, 0%, 50%, 0.125);
+	--ntv-background-highlight-2: hsla(0, 0%, 50%, 0.202);
 
-	--border-transparent-1: #ffffff0e;
-	--border-transparent-2: #ffffff1a;
+	--ntv-background-highlight-accent-1: #{rgba($color-primary, 0.125)};
 
-	--text-color: rgba(255, 255, 255, 0.87);
-	--text-color-medium-emphasis: rgba(255, 255, 255, 0.6);
-	--text-color-low-emphasis: rgba(255, 255, 255, 0.4);
-	--text-color-disabled-emphasis: rgba(255, 255, 255, 0.38);
+	--ntv-border-transparent-1: #ffffff0e;
+	--ntv-border-transparent-2: #ffffff1a;
+
+	--ntv-text-color: rgba(255, 255, 255, 0.87);
+	--ntv-text-color-medium-emphasis: rgba(255, 255, 255, 0.6);
+	--ntv-text-color-low-emphasis: rgba(255, 255, 255, 0.4);
+	--ntv-text-color-disabled-emphasis: rgba(255, 255, 255, 0.38);
 }

@@ -3,6 +3,31 @@
 
 $spacing: 1em;
 
+.ntv__button {
+	padding: $golden_ratio_inverse_half * 1em $golden_ratio_inverse * 1em;
+	background-color: var(--ntv-background-color-accent);
+	transition: 120ms background-color ease-in-out;
+	border-radius: 0.25em;
+	cursor: pointer;
+	font-size: 1em;
+
+	&:hover {
+		background-color: var(--ntv-background-color-accent-tint-2);
+	}
+}
+
+.ntv__icon-button {
+	transition: 120ms opacity ease-in-out;
+	border-radius: 0.1em;
+	padding: 0.333em;
+
+	&--disabled {
+		cursor: not-allowed;
+		user-select: none;
+		opacity: 0.38;
+	}
+}
+
 .ntv__checkbox {
 	white-space: nowrap;
 	margin: $spacing 0;
@@ -59,7 +84,7 @@ $spacing: 1em;
 	}
 
 	input {
-		background-color: var(--background-color-shade-2);
+		background-color: var(--ntv-background-color-shade-2);
 		padding: 0.618em 1.333em;
 		appearance: auto;
 		width: 7em;
@@ -75,14 +100,14 @@ $spacing: 1em;
 	}
 
 	select {
-		border: 0.2em solid var(--border-transparent-2);
+		border: 0.2em solid var(--ntv-border-transparent-2);
 		padding: 0.382em 0.618em;
 		background: transparent;
 		border-radius: 0.25em;
 		margin-right: 1em;
 
 		option {
-			background-color: var(--background-color-shade-1);
+			background-color: var(--ntv-background-color-shade-1);
 		}
 	}
 }
@@ -101,8 +126,8 @@ $spacing: 1em;
 }
 
 .ntv__nav-window {
-	background-color: var(--background-color);
-	outline: 0.1em solid var(--border-transparent-2);
+	background-color: var(--ntv-background-color);
+	outline: 0.1em solid var(--ntv-border-transparent-2);
 	box-shadow: shadow_elevation(3);
 	// transform: translateY(-100%);
 	font-size: $root_font_size;
@@ -123,7 +148,7 @@ $spacing: 1em;
 		display: flex;
 
 		li {
-			border-bottom: 1px solid var(--border-transparent-2);
+			border-bottom: 1px solid var(--ntv-border-transparent-2);
 			padding: 0.333em 0.618em;
 			line-height: 1.618em;
 			white-space: nowrap;
@@ -151,11 +176,11 @@ $spacing: 1em;
 			}
 
 			&.selected {
-				background-color: var(--background-color-tint-2);
+				background-color: var(--ntv-background-color-tint-2);
 			}
 
 			&:hover {
-				background-color: var(--background-color-tint-3);
+				background-color: var(--ntv-background-color-tint-3);
 			}
 
 			img {

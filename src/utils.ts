@@ -51,8 +51,11 @@ export class REST {
 	}
 	static fetch(url: URL | RequestInfo, options: RequestInit = {}) {
 		return new Promise((resolve, reject) => {
-			if (options.body) {
-				options.headers = Object.assign(options.headers || {}, { 'Content-Type': 'application/json' })
+			if (options.body || options.method !== 'GET') {
+				options.headers = Object.assign(options.headers || {}, {
+					'Content-Type': 'application/json',
+					Accept: 'application/json, text/plain, */*'
+				})
 			}
 
 			const currentDomain = window.location.host.split('.').slice(-2).join('.')
@@ -62,15 +65,19 @@ export class REST {
 
 				const XSRFToken = getCookie('XSRF')
 				if (XSRFToken) {
-					options.headers = Object.assign(options.headers || {}, { 'X-XSRF-TOKEN': XSRFToken })
+					options.headers = Object.assign(options.headers || {}, {
+						'X-XSRF-TOKEN': XSRFToken
+						// Authorization: 'Bearer ' + XSRFToken
+					})
 				}
 			}
 
 			fetch(url, options)
 				.then(async res => {
+					const statusString = res.status.toString()
 					if (res.redirected) {
 						reject('Request failed, redirected to ' + res.url)
-					} else if (res.status !== 200 && res.status !== 304) {
+					} else if (statusString[0] !== '2' && res.status !== 304) {
 						await res
 							.json()
 							.then(reject)
@@ -182,7 +189,7 @@ export function parseHTML(html: string, firstElement = false) {
 }
 
 export function cleanupHTML(html: string) {
-	return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+	return html.trim().replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
 }
 
 export function countStringOccurrences(str: string, substr: string) {

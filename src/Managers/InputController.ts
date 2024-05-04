@@ -53,6 +53,7 @@ export class InputController {
 		)
 		this.tabCompletor = new InputCompletor(
 			{
+				eventBus,
 				networkInterface,
 				emotesManager,
 				usersManager,
