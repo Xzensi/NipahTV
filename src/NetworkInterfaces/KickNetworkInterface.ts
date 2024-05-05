@@ -2,8 +2,8 @@ import { REST, assertArgDefined, error, info, log } from '../utils'
 import { AbstractNetworkInterface, UserMessage } from './AbstractNetworkInterface'
 
 export class KickNetworkInterface extends AbstractNetworkInterface {
-	constructor() {
-		super()
+	constructor(deps: any) {
+		super(deps)
 	}
 
 	async connect() {
@@ -189,17 +189,29 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		}
 	}
 
+	async followUser(username: string) {
+		const slug = username.replace('_', '-').toLowerCase()
+		return REST.post(`https://kick.com/api/v2/channels/${slug}/follow`)
+	}
+
+	async unfollowUser(username: string) {
+		const slug = username.replace('_', '-').toLowerCase()
+		return REST.delete(`https://kick.com/api/v2/channels/${slug}/follow`)
+	}
+
 	// TODO separate this into getUserInfo and getUserChannelInfo
 	async getUserInfo(username: string) {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
 		const { channelData } = this
 		const { channel_name } = channelData
+		const slug = username.replace('_', '-').toLowerCase()
+
 		const [res1, res2, res3] = await Promise.allSettled([
 			REST.get(`https://kick.com/api/v2/channels/${channel_name}/users/${username}`),
 			// The reason underscores are replaced with dashes is likely because it's a slug
-			REST.get(`https://kick.com/api/v2/channels/${username.replace('_', '-')}/me`),
-			REST.get(`https://kick.com/api/v2/channels/${channel_name}`)
+			REST.get(`https://kick.com/api/v2/channels/${slug}/me`),
+			REST.get(`https://kick.com/api/v2/channels/${slug}`)
 		])
 		if (res1.status === 'rejected' || res2.status === 'rejected' || res3.status === 'rejected') {
 			throw new Error('Failed to fetch user data')
@@ -209,13 +221,15 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		const userMeInfo = res2.value
 		const userOwnChannelInfo = res3.value
 
-		log(userOwnChannelInfo)
+		log('asdasd', userOwnChannelInfo)
 
 		// TODO rename to channelUserInfo, because channel specific data is mixed with user data
 		const userInfo = {
 			id: channelUserInfo.id,
 			username: channelUserInfo.username,
-			profilePic: userOwnChannelInfo.user.profile_pic,
+			profilePic:
+				userOwnChannelInfo.user.profile_pic ||
+				this.ENV_VARS.RESOURCE_ROOT + 'assets/img/kick/default-user-profile.png',
 			bannerImg: userOwnChannelInfo?.banner_image?.url || '',
 			createdAt: userOwnChannelInfo?.chatroom?.created_at || 'Unknown',
 			banned: channelUserInfo.banned

@@ -32,15 +32,20 @@ export type Badge = {
 }
 
 export abstract class AbstractNetworkInterface {
+	ENV_VARS: any
 	channelData?: ChannelData
 
-	constructor() {}
+	constructor({ ENV_VARS }: { ENV_VARS: any }) {
+		this.ENV_VARS = ENV_VARS
+	}
 
 	abstract connect(): Promise<any>
 	abstract disconnect(): Promise<any>
 	abstract loadChannelData(): Promise<any>
 	abstract sendMessage(message: string): Promise<any>
 	abstract sendCommand(command: { name: string; args: string[] }): Promise<any>
+	abstract followUser(username: string): Promise<any>
+	abstract unfollowUser(username: string): Promise<any>
 	abstract getUserInfo(username: string): Promise<UserInfo>
 	abstract getUserMessages(channelId: string, userId: string): Promise<UserMessage[]>
 }

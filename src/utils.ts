@@ -32,11 +32,17 @@ export class REST {
 	static get(url: string) {
 		return this.fetch(url)
 	}
-	static post(url: string, data: object) {
-		return this.fetch(url, {
-			method: 'POST',
-			body: JSON.stringify(data)
-		})
+	static post(url: string, data?: object) {
+		if (data) {
+			return this.fetch(url, {
+				method: 'POST',
+				body: JSON.stringify(data)
+			})
+		} else {
+			return this.fetch(url, {
+				method: 'POST'
+			})
+		}
 	}
 	static put(url: string, data: object) {
 		return this.fetch(url, {
@@ -354,4 +360,28 @@ async function tryPersistWithoutPromtingUser() {
 		return 'prompt'
 	}
 	return 'never'
+}
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+	numeric: 'auto'
+})
+const RELATIVE_TIME_DIVISIONS = [
+	{ amount: 60, name: 'seconds' },
+	{ amount: 60, name: 'minutes' },
+	{ amount: 24, name: 'hours' },
+	{ amount: 7, name: 'days' },
+	{ amount: 4.34524, name: 'weeks' },
+	{ amount: 12, name: 'months' },
+	{ amount: Number.POSITIVE_INFINITY, name: 'years' }
+]
+export function formatRelativeTime(date: Date) {
+	let duration = (+date - Date.now()) / 1000
+
+	for (let i = 0; i < RELATIVE_TIME_DIVISIONS.length; i++) {
+		const division = RELATIVE_TIME_DIVISIONS[i]
+		if (Math.abs(duration) < division.amount) {
+			return relativeTimeFormatter.format(Math.round(duration), division.name as Intl.RelativeTimeFormatUnit)
+		}
+		duration /= division.amount
+	}
 }

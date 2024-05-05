@@ -2,8 +2,8 @@ import { REST, info } from '../utils'
 import { AbstractNetworkInterface } from './AbstractNetworkInterface'
 
 export class TwitchNetworkInterface extends AbstractNetworkInterface {
-	constructor() {
-		super()
+	constructor(deps: any) {
+		super(deps)
 	}
 
 	async connect() {
@@ -23,6 +23,14 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 	}
 
 	async sendCommand(command: { name: string; args: string[] }) {
+		throw new Error('Method not implemented.')
+	}
+
+	async followUser(username: string) {
+		throw new Error('Method not implemented.')
+	}
+
+	async unfollowUser(username: string) {
 		throw new Error('Method not implemented.')
 	}
 

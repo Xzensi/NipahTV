@@ -11,6 +11,13 @@ $spacing: 1em;
 	cursor: pointer;
 	font-size: 1em;
 
+	&--disabled {
+		pointer-events: none;
+		cursor: not-allowed;
+		user-select: none;
+		opacity: 0.38;
+	}
+
 	&:hover {
 		background-color: var(--ntv-background-color-accent-tint-2);
 	}
@@ -22,6 +29,7 @@ $spacing: 1em;
 	padding: 0.333em;
 
 	&--disabled {
+		pointer-events: none;
 		cursor: not-allowed;
 		user-select: none;
 		opacity: 0.38;
@@ -194,5 +202,11 @@ $spacing: 1em;
 				overflow: hidden;
 			}
 		}
+	}
+}
+
+.ntv__stepped-input-slider {
+	input {
+		width: 100%;
 	}
 }

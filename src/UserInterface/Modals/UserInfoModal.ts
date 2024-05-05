@@ -1,8 +1,9 @@
 import type { AbstractNetworkInterface, UserInfo, UserMessage } from '../../NetworkInterfaces/AbstractNetworkInterface'
 import type { AbstractUserInterface } from '../AbstractUserInterface'
 import type { Publisher } from '../../Classes/Publisher'
+import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
+import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
 import { AbstractModal } from './AbstractModal'
-import { log, error, REST, parseHTML, cleanupHTML } from '../../utils'
 
 export class UserInfoModal extends AbstractModal {
 	ENV_VARS: any
@@ -10,9 +11,15 @@ export class UserInfoModal extends AbstractModal {
 	networkInterface: AbstractNetworkInterface
 	userInterface: AbstractUserInterface
 
-	channelId: string
+	channelData: ChannelData
 	username: string
 	userInfo?: UserInfo
+
+	actionFollowEl?: HTMLElement
+	actionMuteEl?: HTMLElement
+	actionReportEl?: HTMLElement
+	timeoutPageEl?: HTMLElement
+	statusPageEl?: HTMLElement
 
 	modActionButtonBanEl?: HTMLElement
 	modActionButtonTimeoutEl?: HTMLElement
@@ -20,6 +27,8 @@ export class UserInfoModal extends AbstractModal {
 	modActionButtonModEl?: HTMLElement
 	modLogsMessagesEl?: HTMLElement
 	modLogsPageEl?: HTMLElement
+
+	timeoutSliderComponent?: SteppedInputSliderComponent
 
 	constructor(
 		{
@@ -43,7 +52,7 @@ export class UserInfoModal extends AbstractModal {
 		this.networkInterface = networkInterface
 		this.userInterface = userInterface
 		this.username = username
-		this.channelId = channelData.channel_id
+		this.channelData = channelData
 	}
 
 	init() {
@@ -54,10 +63,8 @@ export class UserInfoModal extends AbstractModal {
 	async render() {
 		super.render()
 
-		const { username } = this
-
-		log('Rendering UserInfo modal..')
-		log('username:', username)
+		const is_moderator =
+			this.channelData.me.is_super_admin || this.channelData.me.is_moderator || this.channelData.me.is_broadcaster
 
 		// TODO override the modal position and size to top of chat? Keep in mind other platforms
 
@@ -72,9 +79,13 @@ export class UserInfoModal extends AbstractModal {
 			bannerImg: ''
 		}
 
-		log('userInfo:', userInfo)
-
 		const createdDate = new Date(userInfo.createdAt).toLocaleDateString()
+		const createdDateUnix = +new Date(createdDate)
+
+		let formattedDate = createdDate
+		const today = +new Date(new Date().toLocaleDateString())
+		if (+createdDateUnix === today) formattedDate = 'Today'
+		else if (+createdDateUnix === today - 24 * 60 * 60 * 1000) formattedDate = 'Yesterday'
 
 		const element = parseHTML(
 			cleanupHTML(`
@@ -93,33 +104,48 @@ export class UserInfoModal extends AbstractModal {
 								<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
 							</g>
 							<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
-						</svg> Account Created: ${createdDate}</p>
+						</svg> Account Created: ${formattedDate}</p>
 					</div>
 				</div>
 				<div class="ntv__user-info-modal__actions">
-					<button class="ntv__button">Follow</button>
+					<button class="ntv__button">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
 					<button class="ntv__button">Mute</button>
 					<button class="ntv__button">Report</button>
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
+				<div class="ntv__user-info-modal__timeout-page"></div>
+				<div class="ntv__user-info-modal__status-page"></div>
 				<div class="ntv__user-info-modal__mod-logs"></div>
 				<div class="ntv__user-info-modal__mod-logs-page"></div>
 			`)
 		)
 
-		this.modActionButtonBanEl = parseHTML(
-			cleanupHTML(`
+		if (is_moderator) {
+			this.actionFollowEl = element.querySelector(
+				'.ntv__user-info-modal__actions .ntv__button:nth-child(1)'
+			) as HTMLElement
+			this.actionMuteEl = element.querySelector(
+				'.ntv__user-info-modal__actions .ntv__button:nth-child(2)'
+			) as HTMLElement
+			this.actionReportEl = element.querySelector(
+				'.ntv__user-info-modal__actions .ntv__button:nth-child(3)'
+			) as HTMLElement
+			this.timeoutPageEl = element.querySelector('.ntv__user-info-modal__timeout-page') as HTMLElement
+			this.statusPageEl = element.querySelector('.ntv__user-info-modal__status-page') as HTMLElement
+
+			this.modActionButtonBanEl = parseHTML(
+				cleanupHTML(`
 			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userInfo.banned ? 'active' : ''}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-1.9 0-3.6.6-4.9 1.7l11.2 11.2c1-1.4 1.7-3.1 1.7-4.9c0-4.4-3.6-8-8-8m4.9 14.3L5.7 7.1C4.6 8.4 4 10.1 4 12c0 4.4 3.6 8 8 8c1.9 0 3.6-.6 4.9-1.7" />
 				</svg>
 			</button>
 		`),
-			true
-		) as HTMLElement
+				true
+			) as HTMLElement
 
-		this.modActionButtonTimeoutEl = parseHTML(
-			cleanupHTML(`
+			this.modActionButtonTimeoutEl = parseHTML(
+				cleanupHTML(`
 			<button class="ntv__icon-button" alt="Timeout ${userInfo.username}">
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<g fill="none">
@@ -129,44 +155,47 @@ export class UserInfoModal extends AbstractModal {
 				</svg>
 			</button>
 		`),
-			true
-		) as HTMLElement
+				true
+			) as HTMLElement
 
-		this.modActionButtonVIPEl = parseHTML(
-			cleanupHTML(`
+			this.modActionButtonVIPEl = parseHTML(
+				cleanupHTML(`
 			<button class="ntv__icon-button" alt="VIP ${userInfo.username}">
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h18M3 19h18M4 9l2 6h1l2-6m3 0v6m4 0V9h2a2 2 0 1 1 0 4h-2" />
 				</svg>
 			</button>
 		`),
-			true
-		) as HTMLElement
+				true
+			) as HTMLElement
 
-		this.modActionButtonModEl = parseHTML(
-			cleanupHTML(`
+			this.modActionButtonModEl = parseHTML(
+				cleanupHTML(`
 			<button class="ntv__icon-button" alt="Mod ${userInfo.username}">
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
 				</svg>
 			</button>
 		`),
-			true
-		) as HTMLElement
+				true
+			) as HTMLElement
 
-		const modActionsEl = element.querySelector('.ntv__user-info-modal__mod-actions') as HTMLElement
-		modActionsEl.append(
-			this.modActionButtonBanEl,
-			this.modActionButtonTimeoutEl,
-			this.modActionButtonVIPEl,
-			this.modActionButtonModEl
-		)
+			this.updateModStatusPage()
 
-		this.modLogsPageEl = element.querySelector('.ntv__user-info-modal__mod-logs-page') as HTMLElement
-		this.modLogsMessagesEl = parseHTML(`<button>Messages</button>`, true) as HTMLElement
+			const modActionsEl = element.querySelector('.ntv__user-info-modal__mod-actions') as HTMLElement
+			modActionsEl.append(
+				this.modActionButtonBanEl,
+				this.modActionButtonTimeoutEl,
+				this.modActionButtonVIPEl,
+				this.modActionButtonModEl
+			)
 
-		const modLogsEl = element.querySelector('.ntv__user-info-modal__mod-logs') as HTMLElement
-		modLogsEl.appendChild(this.modLogsMessagesEl)
+			this.modLogsPageEl = element.querySelector('.ntv__user-info-modal__mod-logs-page') as HTMLElement
+			this.modLogsMessagesEl = parseHTML(`<button>Messages</button>`, true) as HTMLElement
+
+			const modLogsEl = element.querySelector('.ntv__user-info-modal__mod-logs') as HTMLElement
+			modLogsEl.appendChild(this.modLogsMessagesEl)
+		}
 
 		this.modalBodyEl.appendChild(element)
 	}
@@ -174,11 +203,47 @@ export class UserInfoModal extends AbstractModal {
 	attachEventHandlers() {
 		super.attachEventHandlers()
 
-		this.modActionButtonBanEl?.addEventListener('click', this.clickBanHandler.bind(this))
+		this.actionFollowEl?.addEventListener('click', async () => {
+			log('Follow button clicked')
 
-		this.modActionButtonTimeoutEl?.addEventListener('click', () => {
-			log('Timeout button clicked')
+			const { userInfo } = this
+			if (!userInfo) return
+
+			this.actionFollowEl!.classList.add('ntv__button--disabled')
+
+			if (userInfo.isFollowing) {
+				try {
+					await this.networkInterface.unfollowUser(this.username)
+					userInfo.isFollowing = false
+					this.actionFollowEl!.textContent = 'Follow'
+				} catch (err) {
+					// TODO show error message toast
+					error('Failed to unfollow user:', err)
+				}
+			} else {
+				try {
+					await this.networkInterface.followUser(this.username)
+					userInfo.isFollowing = true
+					this.actionFollowEl!.textContent = 'Unfollow'
+				} catch (err) {
+					// TODO show error message toast
+					error('Failed to follow user:', err)
+				}
+			}
+
+			this.actionFollowEl!.classList.remove('ntv__button--disabled')
 		})
+
+		this.actionMuteEl?.addEventListener('click', () => {
+			log('Mute button clicked')
+		})
+
+		this.actionReportEl?.addEventListener('click', () => {
+			log('Report button clicked')
+		})
+
+		this.modActionButtonBanEl?.addEventListener('click', this.clickBanHandler.bind(this))
+		this.modActionButtonTimeoutEl?.addEventListener('click', this.clickTimeoutHandler.bind(this))
 
 		this.modActionButtonVIPEl?.addEventListener('click', () => {
 			log('BIP button clicked')
@@ -189,6 +254,76 @@ export class UserInfoModal extends AbstractModal {
 		})
 
 		this.modLogsMessagesEl?.addEventListener('click', this.clickMessagesHandler.bind(this))
+	}
+
+	async clickTimeoutHandler() {
+		log('Timeout button clicked')
+
+		const { timeoutPageEl } = this
+		if (!timeoutPageEl) return
+
+		timeoutPageEl.innerHTML = ''
+
+		if (this.timeoutSliderComponent) {
+			delete this.timeoutSliderComponent
+			return
+		}
+
+		// Stepped input slider for timeout duration increasing time in steps (5 minutes, 15 minutes, 1 hour, 1day, 1week)
+		const timeoutWrapperEl = parseHTML(
+			cleanupHTML(`
+			<div class="ntv__user-info-modal__timeout-page__wrapper">
+				<div></div>
+				<button class="ntv__button">></button>
+				<textarea placeholder="Reason" capture-focus></textarea>
+			</div>`),
+			true
+		) as HTMLElement
+
+		timeoutPageEl.appendChild(timeoutWrapperEl)
+
+		const rangeWrapperEl = timeoutWrapperEl.querySelector(
+			'.ntv__user-info-modal__timeout-page__wrapper div'
+		) as HTMLElement
+
+		this.timeoutSliderComponent = new SteppedInputSliderComponent(
+			rangeWrapperEl,
+			['5 minutes', '15 minutes', '1 hour', '1 day', '1 week'],
+			[5, 15, 60, 60 * 24, 60 * 24 * 7]
+		).init()
+
+		const buttonEl = timeoutWrapperEl.querySelector('button') as HTMLElement
+		buttonEl.addEventListener('click', async () => {
+			if (!this.timeoutSliderComponent) return
+
+			const duration = this.timeoutSliderComponent.getValue()
+			const reason = (timeoutWrapperEl.querySelector('textarea') as HTMLTextAreaElement).value
+
+			timeoutPageEl.setAttribute('disabled', '')
+
+			try {
+				await this.networkInterface.sendCommand({
+					name: 'timeout',
+					args: [this.username, duration, reason]
+				})
+				await this.updateUserInfo()
+			} catch (err: any) {
+				// TODO show error message toast
+				error('Failed to timeout user:', err)
+				timeoutPageEl.removeAttribute('disabled')
+				return
+			}
+
+			this.modActionButtonBanEl!.setAttribute('active', '')
+
+			timeoutPageEl.innerHTML = ''
+			timeoutPageEl.removeAttribute('disabled')
+			delete this.timeoutSliderComponent
+
+			this.updateModStatusPage()
+
+			log(`Successfully timed out user: ${this.username} for ${duration} minutes`)
+		})
 	}
 
 	async clickBanHandler() {
@@ -233,6 +368,7 @@ export class UserInfoModal extends AbstractModal {
 			await this.updateUserInfo()
 		}
 
+		this.updateModStatusPage()
 		this.modActionButtonBanEl!.classList.remove('ntv__icon-button--disabled')
 	}
 
@@ -251,7 +387,7 @@ export class UserInfoModal extends AbstractModal {
 		let messages
 		try {
 			log(`Getting user messages of ${userInfo.username}..`)
-			messages = await networkInterface.getUserMessages(this.channelId, userInfo.id)
+			messages = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id)
 			log('Successfully received user messages')
 		} catch (err) {
 			// TODO show error message toast
@@ -292,6 +428,23 @@ export class UserInfoModal extends AbstractModal {
 		} catch (err) {
 			// TODO show error message toast
 			error('Failed to get user info:', err)
+		}
+	}
+
+	updateModStatusPage() {
+		const { userInfo, statusPageEl } = this
+		if (!userInfo || !statusPageEl) return
+
+		if (userInfo.banned) {
+			statusPageEl.innerHTML = cleanupHTML(`
+				<div class="ntv__user-info-modal__status-page__banned">
+					<span><b>Banned</b></span>
+					<span>Reason: ${userInfo.banned.reason}</span>
+					<span>Expires: ${formatRelativeTime(new Date(userInfo.banned.expiresAt))}</span>
+				</div>
+			`)
+		} else {
+			statusPageEl.innerHTML = ''
 		}
 	}
 }

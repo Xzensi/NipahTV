@@ -350,7 +350,8 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.inputController!.isShowingTabCompletorModal() ||
 				ignoredKeys[evt.key] ||
 				document.activeElement?.tagName === 'INPUT' ||
-				document.activeElement?.getAttribute('contenteditable')
+				document.activeElement?.getAttribute('contenteditable') ||
+				evt.target.hasAttribute('capture-focus')
 			) {
 				return
 			}
