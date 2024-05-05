@@ -29,9 +29,15 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 	async getUserInfo(username: string) {
 		throw new Error('Method not implemented.')
 		return {
+			id: '',
 			username,
 			usernameSlug: username,
 			isFollowing: false
 		}
+	}
+
+	async getUserMessages(channelId: string, userId: string) {
+		throw new Error('Method not implemented.')
+		return []
 	}
 }

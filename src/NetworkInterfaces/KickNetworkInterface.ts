@@ -1,5 +1,5 @@
-import { REST, info, log } from '../utils'
-import { AbstractNetworkInterface } from './AbstractNetworkInterface'
+import { REST, assertArgDefined, error, info, log } from '../utils'
+import { AbstractNetworkInterface, UserMessage } from './AbstractNetworkInterface'
 
 export class KickNetworkInterface extends AbstractNetworkInterface {
 	constructor() {
@@ -207,9 +207,10 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		const channelUserInfo = res1.value
 		const userMeInfo = res2.value
 
+		// TODO rename to channelUserInfo, because channel specific data is mixed with user data
 		const userInfo = {
+			id: channelUserInfo.id,
 			username: channelUserInfo.username,
-			usernameSlug: channelUserInfo.slug,
 			profilePic: channelUserInfo.profile_pic,
 			createdAt: 'Unknown',
 			banned: channelUserInfo.banned
@@ -224,5 +225,31 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		}
 
 		return userInfo
+	}
+
+	async getUserMessages(channelId: string, userId: string) {
+		const res = await REST.get(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages`)
+		log(res)
+		const { data, status } = res
+		if (status.error) {
+			error('Failed to fetch user messages', status)
+			throw new Error('Failed to fetch user messages')
+		}
+
+		const messages = data.messages
+
+		return messages.map((message: any) => {
+			return {
+				id: message.id,
+				content: message.content,
+				createdAt: message.created_at,
+				sender: {
+					id: message.sender?.id || 'Unknown',
+					username: message.sender?.username || 'Unknown',
+					badges: message.sender?.identity?.badges || [],
+					color: message.sender?.identity?.color || '#dec859'
+				}
+			}
+		}) as UserMessage[]
 	}
 }

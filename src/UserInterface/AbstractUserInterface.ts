@@ -107,6 +107,7 @@ export class AbstractUserInterface {
 		log('Showing user info modal..')
 		const modal = new UserInfoModal(
 			{ ENV_VARS: this.ENV_VARS, eventBus: this.eventBus, networkInterface: this.networkInterface },
+			this.channelData,
 			username
 		).init()
 	}

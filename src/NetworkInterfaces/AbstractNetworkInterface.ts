@@ -1,6 +1,6 @@
 export type UserInfo = {
+	id: string
 	username: string
-	usernameSlug: string
 	profilePic?: string
 	createdAt?: string
 	banned?: {
@@ -10,6 +10,24 @@ export type UserInfo = {
 		permanent: boolean
 	}
 	isFollowing: boolean
+}
+
+export type UserMessage = {
+	id: string
+	content: string
+	createdAt: string
+	sender: {
+		id: string
+		username: string
+		badges: Badge[]
+		color: string
+	}
+}
+
+export type Badge = {
+	type: string
+	label: string
+	active: boolean
 }
 
 export abstract class AbstractNetworkInterface {
@@ -23,4 +41,5 @@ export abstract class AbstractNetworkInterface {
 	abstract sendMessage(message: string): Promise<any>
 	abstract sendCommand(command: { name: string; args: string[] }): Promise<any>
 	abstract getUserInfo(username: string): Promise<UserInfo>
+	abstract getUserMessages(channelId: string, userId: string): Promise<UserMessage[]>
 }

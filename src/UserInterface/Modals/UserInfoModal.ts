@@ -1,4 +1,4 @@
-import type { AbstractNetworkInterface, UserInfo } from '../../NetworkInterfaces/AbstractNetworkInterface'
+import type { AbstractNetworkInterface, UserInfo, UserMessage } from '../../NetworkInterfaces/AbstractNetworkInterface'
 import type { Publisher } from '../../Classes/Publisher'
 import { AbstractModal } from './AbstractModal'
 import { log, error, REST, parseHTML, cleanupHTML } from '../../utils'
@@ -8,6 +8,7 @@ export class UserInfoModal extends AbstractModal {
 	eventBus: Publisher
 	networkInterface: AbstractNetworkInterface
 
+	channelId: string
 	username: string
 	userInfo?: UserInfo
 
@@ -15,6 +16,8 @@ export class UserInfoModal extends AbstractModal {
 	modActionButtonTimeoutEl?: HTMLElement
 	modActionButtonVIPEl?: HTMLElement
 	modActionButtonModEl?: HTMLElement
+	modLogsMessagesEl?: HTMLElement
+	modLogsPageEl?: HTMLElement
 
 	constructor(
 		{
@@ -22,6 +25,7 @@ export class UserInfoModal extends AbstractModal {
 			eventBus,
 			networkInterface
 		}: { ENV_VARS: any; eventBus: Publisher; networkInterface: AbstractNetworkInterface },
+		channelData: ChannelData,
 		username: string
 	) {
 		super('user-info')
@@ -30,21 +34,12 @@ export class UserInfoModal extends AbstractModal {
 		this.eventBus = eventBus
 		this.networkInterface = networkInterface
 		this.username = username
+		this.channelId = channelData.channel_id
 	}
 
 	init() {
 		super.init()
 		return this
-	}
-
-	async updateUserInfo() {
-		try {
-			delete this.userInfo
-			this.userInfo = await this.networkInterface.getUserInfo(this.username)
-		} catch (err) {
-			// TODO show error message toast
-			error('Failed to get user info:', err)
-		}
 	}
 
 	async render() {
@@ -60,16 +55,13 @@ export class UserInfoModal extends AbstractModal {
 		await this.updateUserInfo()
 
 		const userInfo: UserInfo = this.userInfo || {
+			id: '',
 			username: 'Error',
-			usernameSlug: 'error',
 			createdAt: 'Error',
 			isFollowing: false
 		}
 
 		log('userInfo:', userInfo)
-
-		const RESOURCE_ROOT = this.ENV_VARS.RESOURCE_ROOT
-		const iconsPath = RESOURCE_ROOT + 'assets/img/icons/'
 
 		const element = parseHTML(
 			cleanupHTML(`
@@ -97,9 +89,8 @@ export class UserInfoModal extends AbstractModal {
 					<button class="ntv__button">Report</button>
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
-				<div class="ntv__user-info-modal__mod-logs">
-					<button>Messages</button>
-				</div>
+				<div class="ntv__user-info-modal__mod-logs"></div>
+				<div class="ntv__user-info-modal__mod-logs-page"></div>
 			`)
 		)
 
@@ -143,7 +134,7 @@ export class UserInfoModal extends AbstractModal {
 			cleanupHTML(`
 			<button class="ntv__icon-button" alt="Mod ${userInfo.username}">
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-					<path fill="currentColor" d="M1.05 21v-2.8q0-.825.425-1.55t1.175-1.1q1.275-.65 2.875-1.1T9.05 14t3.525.45t2.875 1.1q.75.375 1.175 1.1t.425 1.55V21zm2-2h12v-.8q0-.275-.137-.5t-.363-.35q-.9-.45-2.312-.9T9.05 16t-3.187.45t-2.313.9q-.225.125-.362.35t-.138.5zm6-6q-1.65 0-2.825-1.175T5.05 9H4.8q-.225 0-.362-.137T4.3 8.5t.138-.363T4.8 8h.25q0-1.125.55-2.025T7.05 4.55v.95q0 .225.138.363T7.55 6t.363-.137t.137-.363V4.15q.225-.075.475-.112T9.05 4t.525.038t.475.112V5.5q0 .225.138.363T10.55 6t.363-.137t.137-.363v-.95q.9.525 1.45 1.425T13.05 8h.25q.225 0 .363.138t.137.362t-.137.363T13.3 9h-.25q0 1.65-1.175 2.825T9.05 13m0-2q.825 0 1.413-.587T11.05 9h-4q0 .825.588 1.413T9.05 11m7.5 4l-.15-.75q-.15-.05-.287-.112t-.263-.188l-.7.25l-.5-.9l.55-.5v-.6l-.55-.5l.5-.9l.7.25q.1-.1.25-.175t.3-.125l.15-.75h1l.15.75q.15.05.3.125t.25.175l.7-.25l.5.9l-.55.5v.6l.55.5l-.5.9l-.7-.25q-.125.125-.262.188t-.288.112l-.15.75zm.5-1.75q.3 0 .525-.225t.225-.525t-.225-.525t-.525-.225t-.525.225t-.225.525t.225.525t.525.225m1.8-3.25l-.2-1.05q-.225-.075-.412-.187T17.9 8.5l-1.05.35l-.7-1.2l.85-.75q-.05-.125-.05-.2v-.4q0-.075.05-.2l-.85-.75l.7-1.2l1.05.35q.15-.15.338-.263t.412-.187l.2-1.05h1.4l.2 1.05q.225.075.413.188t.337.262l1.05-.35l.7 1.2l-.85.75q.05.125.05.2v.4q0 .075-.05.2l.85.75l-.7 1.2l-1.05-.35q-.15.15-.337.263t-.413.187l-.2 1.05zm.7-2.25q.525 0 .888-.363T20.8 6.5t-.363-.888t-.887-.362t-.888.363t-.362.887t.363.888t.887.362M9.05 19" />
+					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
 				</svg>
 			</button>
 		`),
@@ -158,10 +149,14 @@ export class UserInfoModal extends AbstractModal {
 			this.modActionButtonModEl
 		)
 
+		this.modLogsPageEl = element.querySelector('.ntv__user-info-modal__mod-logs-page') as HTMLElement
+		this.modLogsMessagesEl = parseHTML(`<button>Messages</button>`, true) as HTMLElement
+
+		const modLogsEl = element.querySelector('.ntv__user-info-modal__mod-logs') as HTMLElement
+		modLogsEl.appendChild(this.modLogsMessagesEl)
+
 		this.modalBodyEl.appendChild(element)
 	}
-
-	getSettingElement(setting: string) {}
 
 	attachEventHandlers() {
 		super.attachEventHandlers()
@@ -179,6 +174,8 @@ export class UserInfoModal extends AbstractModal {
 		this.modActionButtonModEl?.addEventListener('click', () => {
 			log('Mod button clicked')
 		})
+
+		this.modLogsMessagesEl?.addEventListener('click', this.clickMessagesHandler.bind(this))
 	}
 
 	async clickBanHandler() {
@@ -190,10 +187,11 @@ export class UserInfoModal extends AbstractModal {
 		if (!userInfo) return
 
 		if (userInfo.banned) {
-			log('Unbanning user:', userInfo.username)
+			log(`Attempting to unban user: ${userInfo.username}..`)
 
 			try {
 				await networkInterface.sendCommand({ name: 'unban', args: [userInfo.username] })
+				log('Successfully unbanned user:', userInfo.username)
 			} catch (err) {
 				// TODO show error message toast
 				error('Failed to unban user:', err)
@@ -204,10 +202,11 @@ export class UserInfoModal extends AbstractModal {
 			delete userInfo.banned
 			this.modActionButtonBanEl!.removeAttribute('active')
 		} else {
-			log('Banning user:', userInfo.username)
+			log(`Attempting to ban user: ${userInfo.username}..`)
 
 			try {
 				await networkInterface.sendCommand({ name: 'ban', args: [userInfo.username] })
+				log('Successfully banned user:', userInfo.username)
 			} catch (err: any) {
 				// TODO show error message toast
 				error('Failed to ban user:', err)
@@ -222,5 +221,59 @@ export class UserInfoModal extends AbstractModal {
 		}
 
 		this.modActionButtonBanEl!.classList.remove('ntv__icon-button--disabled')
+	}
+
+	async clickMessagesHandler() {
+		const { networkInterface, userInfo, modLogsPageEl } = this
+		if (!userInfo || !modLogsPageEl) return
+
+		modLogsPageEl.innerHTML = ''
+		const messagesEl = parseHTML(
+			`<div class="ntv__user-info-modal__mod-logs-page__messages" loading></div>`,
+			true
+		) as HTMLElement
+
+		modLogsPageEl.appendChild(messagesEl)
+
+		let messages
+		try {
+			log(`Getting user messages of ${userInfo.username}..`)
+			messages = await networkInterface.getUserMessages(this.channelId, userInfo.id)
+			log('Successfully received user messages')
+		} catch (err) {
+			// TODO show error message toast
+			error('Failed to get user messages:', err)
+			return
+		}
+
+		messagesEl.removeAttribute('loading')
+		messagesEl.innerHTML = messages
+			.map(message => {
+				const d = new Date(message.createdAt)
+				const time = ('' + d.getHours()).padStart(2, '0') + ':' + ('' + d.getMinutes()).padStart(2, '0')
+				return cleanupHTML(`
+					<div class="ntv__chat-message">
+						<span class="ntv__chat-message__identity">
+							<span class="ntv__chat-message__timestamp">${time} </span>
+							<span class="ntv__chat-message__badges"></span>
+							<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
+							<span class="ntv__chat-message__separator">: </span>
+						</span>
+						<span class="ntv__chat-message__part">${message.content}</span>
+					</div>`)
+			})
+			.join('')
+
+		messagesEl.scrollTop = 9999
+	}
+
+	async updateUserInfo() {
+		try {
+			delete this.userInfo
+			this.userInfo = await this.networkInterface.getUserInfo(this.username)
+		} catch (err) {
+			// TODO show error message toast
+			error('Failed to get user info:', err)
+		}
 	}
 }
