@@ -6,6 +6,7 @@ import { MessagesHistory } from '../Classes/MessagesHistory'
 import { UsersManager } from '../Managers/UsersManager'
 import { assertArgDefined, log } from '../utils'
 import { UserInfoModal } from './Modals/UserInfoModal'
+import { Toaster } from '../Classes/Toaster'
 
 export abstract class AbstractUserInterface {
 	protected ENV_VARS: any
@@ -16,6 +17,7 @@ export abstract class AbstractUserInterface {
 	protected emotesManager: EmotesManager
 	protected usersManager: UsersManager
 
+	protected toaster = new Toaster()
 	protected messageHistory = new MessagesHistory()
 
 	/**
@@ -110,6 +112,7 @@ export abstract class AbstractUserInterface {
 				ENV_VARS: this.ENV_VARS,
 				eventBus: this.eventBus,
 				networkInterface: this.networkInterface,
+				toaster: this.toaster,
 				userInterface: this
 			},
 			this.channelData,

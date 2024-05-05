@@ -6,6 +6,7 @@ import { AbstractUserInterface } from './AbstractUserInterface'
 import { InputController } from '../Managers/InputController'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
+import { Toaster } from '../Classes/Toaster'
 
 function getEmojiAttributes() {
 	return {

@@ -1,45 +1,49 @@
 import type { AbstractNetworkInterface, UserInfo, UserMessage } from '../../NetworkInterfaces/AbstractNetworkInterface'
 import type { AbstractUserInterface } from '../AbstractUserInterface'
 import type { Publisher } from '../../Classes/Publisher'
+import type { Toaster } from '../../Classes/Toaster'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
 
 export class UserInfoModal extends AbstractModal {
-	ENV_VARS: any
-	eventBus: Publisher
-	networkInterface: AbstractNetworkInterface
-	userInterface: AbstractUserInterface
+	private ENV_VARS: any
+	private eventBus: Publisher
+	private networkInterface: AbstractNetworkInterface
+	private userInterface: AbstractUserInterface
 
-	channelData: ChannelData
-	username: string
-	userInfo?: UserInfo
+	private channelData: ChannelData
+	private toaster: Toaster
+	private username: string
+	private userInfo?: UserInfo
 
-	actionFollowEl?: HTMLElement
-	actionMuteEl?: HTMLElement
-	actionReportEl?: HTMLElement
-	timeoutPageEl?: HTMLElement
-	statusPageEl?: HTMLElement
+	private actionFollowEl?: HTMLElement
+	private actionMuteEl?: HTMLElement
+	private actionReportEl?: HTMLElement
+	private timeoutPageEl?: HTMLElement
+	private statusPageEl?: HTMLElement
 
-	modActionButtonBanEl?: HTMLElement
-	modActionButtonTimeoutEl?: HTMLElement
-	modActionButtonVIPEl?: HTMLElement
-	modActionButtonModEl?: HTMLElement
-	modLogsMessagesEl?: HTMLElement
-	modLogsPageEl?: HTMLElement
+	private modActionButtonBanEl?: HTMLElement
+	private modActionButtonTimeoutEl?: HTMLElement
+	private modActionButtonVIPEl?: HTMLElement
+	private modActionButtonModEl?: HTMLElement
+	private modLogsMessagesEl?: HTMLElement
+	private modLogsPageEl?: HTMLElement
 
-	timeoutSliderComponent?: SteppedInputSliderComponent
+	private timeoutSliderComponent?: SteppedInputSliderComponent
 
 	constructor(
 		{
 			ENV_VARS,
 			eventBus,
 			networkInterface,
+			toaster,
 			userInterface
 		}: {
 			ENV_VARS: any
 			eventBus: Publisher
 			networkInterface: AbstractNetworkInterface
+			toaster: Toaster
 			userInterface: AbstractUserInterface
 		},
 		channelData: ChannelData,
@@ -56,6 +60,7 @@ export class UserInfoModal extends AbstractModal {
 		this.eventBus = eventBus
 		this.networkInterface = networkInterface
 		this.userInterface = userInterface
+		this.toaster = toaster
 		this.username = username
 		this.channelData = channelData
 	}
@@ -223,18 +228,24 @@ export class UserInfoModal extends AbstractModal {
 					await this.networkInterface.unfollowUser(this.username)
 					userInfo.isFollowing = false
 					this.actionFollowEl!.textContent = 'Follow'
-				} catch (err) {
-					// TODO show error message toast
-					error('Failed to unfollow user:', err)
+				} catch (err: any) {
+					if (err.message) {
+						this.toaster.addToast('Failed to follow user: ' + err.message, 6_000, 'error')
+					} else {
+						this.toaster.addToast('Failed to follow user, reason unknown', 6_000, 'error')
+					}
 				}
 			} else {
 				try {
 					await this.networkInterface.followUser(this.username)
 					userInfo.isFollowing = true
 					this.actionFollowEl!.textContent = 'Unfollow'
-				} catch (err) {
-					// TODO show error message toast
-					error('Failed to follow user:', err)
+				} catch (err: any) {
+					if (err.message) {
+						this.toaster.addToast('Failed to unfollow user: ' + err.message, 6_000, 'error')
+					} else {
+						this.toaster.addToast('Failed to unfollow user, reason unknown', 6_000, 'error')
+					}
 				}
 			}
 
@@ -315,8 +326,12 @@ export class UserInfoModal extends AbstractModal {
 				})
 				await this.updateUserInfo()
 			} catch (err: any) {
-				// TODO show error message toast
-				error('Failed to timeout user:', err)
+				if (err.message) {
+					this.toaster.addToast('Failed to timeout user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to timeout user, reason unknown', 6_000, 'error')
+				}
+
 				timeoutPageEl.removeAttribute('disabled')
 				return
 			}
@@ -347,9 +362,13 @@ export class UserInfoModal extends AbstractModal {
 			try {
 				await networkInterface.sendCommand({ name: 'unban', args: [userInfo.username] })
 				log('Successfully unbanned user:', userInfo.username)
-			} catch (err) {
-				// TODO show error message toast
-				error('Failed to unban user:', err)
+			} catch (err: any) {
+				if (err.message) {
+					this.toaster.addToast('Failed to unban user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to unban user, reason unknown', 6_000, 'error')
+				}
+
 				this.modActionButtonBanEl!.classList.remove('ntv__icon-button--disabled')
 				return
 			}
@@ -363,8 +382,12 @@ export class UserInfoModal extends AbstractModal {
 				await networkInterface.sendCommand({ name: 'ban', args: [userInfo.username] })
 				log('Successfully banned user:', userInfo.username)
 			} catch (err: any) {
-				// TODO show error message toast
-				error('Failed to ban user:', err)
+				if (err.message) {
+					this.toaster.addToast('Failed to ban user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to ban user, reason unknown', 6_000, 'error')
+				}
+
 				// const message = err.message || 'Failed to ban user.'
 				this.modActionButtonBanEl!.classList.remove('ntv__icon-button--disabled')
 				return
@@ -396,9 +419,12 @@ export class UserInfoModal extends AbstractModal {
 			log(`Getting user messages of ${userInfo.username}..`)
 			messages = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id)
 			log('Successfully received user messages')
-		} catch (err) {
-			// TODO show error message toast
-			error('Failed to get user messages:', err)
+		} catch (err: any) {
+			if (err.message) {
+				this.toaster.addToast('Failed to load user message history: ' + err.message, 6_000, 'error')
+			} else {
+				this.toaster.addToast('Failed to load user message history, reason unknown', 6_000, 'error')
+			}
 			return
 		}
 
@@ -432,9 +458,12 @@ export class UserInfoModal extends AbstractModal {
 		try {
 			delete this.userInfo
 			this.userInfo = await this.networkInterface.getUserInfo(this.username)
-		} catch (err) {
-			// TODO show error message toast
-			error('Failed to get user info:', err)
+		} catch (err: any) {
+			if (err.message) {
+				this.toaster.addToast('Failed to get user info: ' + err.message, 6_000, 'error')
+			} else {
+				this.toaster.addToast('Failed to get user info, reason unknown', 6_000, 'error')
+			}
 		}
 	}
 
