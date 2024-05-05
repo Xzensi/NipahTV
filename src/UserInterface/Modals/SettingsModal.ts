@@ -3,7 +3,7 @@ import { CheckboxComponent } from '../Components/CheckboxComponent'
 import { DropdownComponent } from '../Components/DropdownComponent'
 import { NumberComponent } from '../Components/NumberComponent'
 import { ColorComponent } from '../Components/ColorComponent'
-import { AbstractModal } from './AbstractModal'
+import { AbstractModal, ModalGeometry } from './AbstractModal'
 import { log, error, parseHTML, cleanupHTML } from '../../utils'
 
 export class SettingsModal extends AbstractModal {
@@ -14,7 +14,11 @@ export class SettingsModal extends AbstractModal {
 	sidebarEl?: HTMLElement
 
 	constructor(eventBus: Publisher, settingsOpts: any) {
-		super('settings')
+		const geometry: ModalGeometry = {
+			position: 'center'
+		}
+
+		super('settings', geometry)
 
 		this.eventBus = eventBus
 		this.settingsOpts = settingsOpts

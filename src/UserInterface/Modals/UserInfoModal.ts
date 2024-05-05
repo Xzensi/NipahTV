@@ -3,7 +3,7 @@ import type { AbstractUserInterface } from '../AbstractUserInterface'
 import type { Publisher } from '../../Classes/Publisher'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
-import { AbstractModal } from './AbstractModal'
+import { AbstractModal, ModalGeometry } from './AbstractModal'
 
 export class UserInfoModal extends AbstractModal {
 	ENV_VARS: any
@@ -45,7 +45,12 @@ export class UserInfoModal extends AbstractModal {
 		channelData: ChannelData,
 		username: string
 	) {
-		super('user-info')
+		const geometry: ModalGeometry = {
+			width: '340px',
+			position: 'chat-top'
+		}
+
+		super('user-info', geometry)
 
 		this.ENV_VARS = ENV_VARS
 		this.eventBus = eventBus
@@ -89,7 +94,9 @@ export class UserInfoModal extends AbstractModal {
 
 		const element = parseHTML(
 			cleanupHTML(`
-				<div class="ntv__user-info-modal__header">
+				<div class="ntv__user-info-modal__header" ${
+					userInfo.bannerImg ? `style="--background: url('${userInfo.bannerImg}')"` : ''
+				}>
 					<div class="ntv__user-info-modal__header__actions">
 					
 					</div>
@@ -275,7 +282,7 @@ export class UserInfoModal extends AbstractModal {
 			<div class="ntv__user-info-modal__timeout-page__wrapper">
 				<div></div>
 				<button class="ntv__button">></button>
-				<textarea placeholder="Reason" capture-focus></textarea>
+				<textarea placeholder="Reason" rows="1" capture-focus></textarea>
 			</div>`),
 			true
 		) as HTMLElement

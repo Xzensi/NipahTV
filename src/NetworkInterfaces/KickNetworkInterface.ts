@@ -221,8 +221,6 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		const userMeInfo = res2.value
 		const userOwnChannelInfo = res3.value
 
-		log('asdasd', userOwnChannelInfo)
-
 		// TODO rename to channelUserInfo, because channel specific data is mixed with user data
 		const userInfo = {
 			id: channelUserInfo.id,

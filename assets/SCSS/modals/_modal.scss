@@ -4,7 +4,6 @@
 
 .ntv__modal {
 	background-color: var(--ntv-background-color);
-	transform: translate(-50%, -50%);
 	box-shadow: shadow_elevation(4);
 	font-size: $root_font_size;
 	flex-direction: column;
