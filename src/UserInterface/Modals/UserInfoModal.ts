@@ -1,4 +1,5 @@
 import type { AbstractNetworkInterface, UserInfo, UserMessage } from '../../NetworkInterfaces/AbstractNetworkInterface'
+import type { AbstractUserInterface } from '../AbstractUserInterface'
 import type { Publisher } from '../../Classes/Publisher'
 import { AbstractModal } from './AbstractModal'
 import { log, error, REST, parseHTML, cleanupHTML } from '../../utils'
@@ -7,6 +8,7 @@ export class UserInfoModal extends AbstractModal {
 	ENV_VARS: any
 	eventBus: Publisher
 	networkInterface: AbstractNetworkInterface
+	userInterface: AbstractUserInterface
 
 	channelId: string
 	username: string
@@ -23,8 +25,14 @@ export class UserInfoModal extends AbstractModal {
 		{
 			ENV_VARS,
 			eventBus,
-			networkInterface
-		}: { ENV_VARS: any; eventBus: Publisher; networkInterface: AbstractNetworkInterface },
+			networkInterface,
+			userInterface
+		}: {
+			ENV_VARS: any
+			eventBus: Publisher
+			networkInterface: AbstractNetworkInterface
+			userInterface: AbstractUserInterface
+		},
 		channelData: ChannelData,
 		username: string
 	) {
@@ -33,6 +41,7 @@ export class UserInfoModal extends AbstractModal {
 		this.ENV_VARS = ENV_VARS
 		this.eventBus = eventBus
 		this.networkInterface = networkInterface
+		this.userInterface = userInterface
 		this.username = username
 		this.channelId = channelData.channel_id
 	}
@@ -252,6 +261,7 @@ export class UserInfoModal extends AbstractModal {
 
 		messagesEl.removeAttribute('loading')
 		messagesEl.innerHTML = messages
+			.reverse()
 			.map(message => {
 				const d = new Date(message.createdAt)
 				const time = ('' + d.getHours()).padStart(2, '0') + ':' + ('' + d.getMinutes()).padStart(2, '0')
@@ -269,6 +279,10 @@ export class UserInfoModal extends AbstractModal {
 			.join('')
 
 		messagesEl.scrollTop = 9999
+
+		messagesEl.querySelectorAll('.ntv__chat-message__part').forEach((messageEl: Element) => {
+			this.userInterface.renderEmotesInElement(messageEl as HTMLElement)
+		})
 	}
 
 	async updateUserInfo() {

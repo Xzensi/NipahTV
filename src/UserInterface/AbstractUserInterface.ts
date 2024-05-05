@@ -7,7 +7,7 @@ import { UsersManager } from '../Managers/UsersManager'
 import { assertArgDefined, log } from '../utils'
 import { UserInfoModal } from './Modals/UserInfoModal'
 
-export class AbstractUserInterface {
+export abstract class AbstractUserInterface {
 	protected ENV_VARS: any
 	protected channelData: ChannelData
 	protected eventBus: Publisher
@@ -106,9 +106,16 @@ export class AbstractUserInterface {
 	showUserInfoModal(username: string) {
 		log('Showing user info modal..')
 		const modal = new UserInfoModal(
-			{ ENV_VARS: this.ENV_VARS, eventBus: this.eventBus, networkInterface: this.networkInterface },
+			{
+				ENV_VARS: this.ENV_VARS,
+				eventBus: this.eventBus,
+				networkInterface: this.networkInterface,
+				userInterface: this
+			},
 			this.channelData,
 			username
 		).init()
 	}
+
+	abstract renderChatMessage(messageNode: HTMLElement): void
 }
