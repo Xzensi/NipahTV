@@ -195,24 +195,29 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 
 		const { channelData } = this
 		const { channel_name } = channelData
-		const [res1, res2] = await Promise.allSettled([
+		const [res1, res2, res3] = await Promise.allSettled([
 			REST.get(`https://kick.com/api/v2/channels/${channel_name}/users/${username}`),
 			// The reason underscores are replaced with dashes is likely because it's a slug
-			REST.get(`https://kick.com/api/v2/channels/${username.replace('_', '-')}/me`)
+			REST.get(`https://kick.com/api/v2/channels/${username.replace('_', '-')}/me`),
+			REST.get(`https://kick.com/api/v2/channels/${channel_name}`)
 		])
-		if (res1.status === 'rejected' || res2.status === 'rejected') {
+		if (res1.status === 'rejected' || res2.status === 'rejected' || res3.status === 'rejected') {
 			throw new Error('Failed to fetch user data')
 		}
 
 		const channelUserInfo = res1.value
 		const userMeInfo = res2.value
+		const userOwnChannelInfo = res3.value
+
+		log(userOwnChannelInfo)
 
 		// TODO rename to channelUserInfo, because channel specific data is mixed with user data
 		const userInfo = {
 			id: channelUserInfo.id,
 			username: channelUserInfo.username,
-			profilePic: channelUserInfo.profile_pic,
-			createdAt: 'Unknown',
+			profilePic: userOwnChannelInfo.user.profile_pic,
+			bannerImg: userOwnChannelInfo?.banner_image?.url || '',
+			createdAt: userOwnChannelInfo?.chatroom?.created_at || 'Unknown',
 			banned: channelUserInfo.banned
 				? {
 						reason: channelUserInfo.banned?.reason || 'No reason provided',

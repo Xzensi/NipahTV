@@ -58,10 +58,14 @@ export class UserInfoModal extends AbstractModal {
 			id: '',
 			username: 'Error',
 			createdAt: 'Error',
-			isFollowing: false
+			isFollowing: false,
+			profilePic: '',
+			bannerImg: ''
 		}
 
 		log('userInfo:', userInfo)
+
+		const createdDate = new Date(userInfo.createdAt).toLocaleDateString()
 
 		const element = parseHTML(
 			cleanupHTML(`
@@ -70,7 +74,7 @@ export class UserInfoModal extends AbstractModal {
 					
 					</div>
 					<div class="ntv__user-info-modal__header__banner">
-						<img src="https://dbxmjjzl5pc1g.cloudfront.net/8a7b0639-c818-44fe-9626-63fbcd0fa30f/images/user-profile-pic.png">
+						<img src="${userInfo.profilePic}">
 						<h4>${userInfo.username}</h4>
 						<p><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 							<g fill="none" stroke="currentColor" stroke-width="1.5">
@@ -80,7 +84,7 @@ export class UserInfoModal extends AbstractModal {
 								<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
 							</g>
 							<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
-						</svg> Account Created: ${userInfo.createdAt}</p>
+						</svg> Account Created: ${createdDate}</p>
 					</div>
 				</div>
 				<div class="ntv__user-info-modal__actions">

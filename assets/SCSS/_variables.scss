@@ -20,7 +20,7 @@ $opacity-6: 0.28;
 $opacity-7: 0.4;
 
 // Base Color Palette
-$color-primary: #78249e;
+$color-primary: #1e65b1;
 $color-secondary: #66bb6a;
 $color-accent: #29b6f6;
 $color-warning: #df4545;
@@ -30,9 +30,6 @@ $color-muted: #999;
 $dark-theme-background-color: #1b1b1d;
 
 :root {
-	// --ntv-color-accent: 120, 36, 158;
-	// --ntv-color-accent: #78249e;
-
 	--ntv-background-color: #{$dark-theme-background-color};
 	--ntv-background-color-tint-1: #{tint($dark-theme-background-color, 3%)};
 	--ntv-background-color-tint-2: #{tint($dark-theme-background-color, 7%)};

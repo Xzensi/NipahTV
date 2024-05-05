@@ -32,7 +32,10 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 			id: '',
 			username,
 			usernameSlug: username,
-			isFollowing: false
+			isFollowing: false,
+			profilePic: '',
+			bannerImg: '',
+			createdAt: ''
 		}
 	}
 

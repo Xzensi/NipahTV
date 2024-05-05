@@ -1,8 +1,9 @@
 export type UserInfo = {
 	id: string
 	username: string
-	profilePic?: string
-	createdAt?: string
+	profilePic: string
+	bannerImg: string
+	createdAt: string
 	banned?: {
 		reason: string
 		createdAt: string
