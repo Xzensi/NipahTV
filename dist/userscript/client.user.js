@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-52af169f.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-029472b0.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/userscript/client.user.js
@@ -121,10 +121,16 @@ var REST = class {
     return this.fetch(url);
   }
   static post(url, data) {
-    return this.fetch(url, {
-      method: "POST",
-      body: JSON.stringify(data)
-    });
+    if (data) {
+      return this.fetch(url, {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+    } else {
+      return this.fetch(url, {
+        method: "POST"
+      });
+    }
   }
   static put(url, data) {
     return this.fetch(url, {
@@ -139,8 +145,11 @@ var REST = class {
   }
   static fetch(url, options = {}) {
     return new Promise((resolve, reject) => {
-      if (options.body) {
-        options.headers = Object.assign(options.headers || {}, { "Content-Type": "application/json" });
+      if (options.body || options.method !== "GET") {
+        options.headers = Object.assign(options.headers || {}, {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/plain, */*"
+        });
       }
       const currentDomain = window.location.host.split(".").slice(-2).join(".");
       const urlDomain = new URL(url).host.split(".").slice(-2).join(".");
@@ -148,13 +157,17 @@ var REST = class {
         options.credentials = "include";
         const XSRFToken = getCookie("XSRF");
         if (XSRFToken) {
-          options.headers = Object.assign(options.headers || {}, { "X-XSRF-TOKEN": XSRFToken });
+          options.headers = Object.assign(options.headers || {}, {
+            "X-XSRF-TOKEN": XSRFToken
+            // Authorization: 'Bearer ' + XSRFToken
+          });
         }
       }
       fetch(url, options).then(async (res) => {
+        const statusString = res.status.toString();
         if (res.redirected) {
           reject("Request failed, redirected to " + res.url);
-        } else if (res.status !== 200 && res.status !== 304) {
+        } else if (statusString[0] !== "2" && res.status !== 304) {
           await res.json().then(reject).catch(() => {
             reject("Request failed with status code " + res.status);
           });
@@ -231,7 +244,7 @@ function parseHTML(html, firstElement = false) {
   }
 }
 function cleanupHTML(html) {
-  return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, "");
+  return html.trim().replaceAll(/\s\s|\r\n|\r|\n|	/gm, "");
 }
 function countStringOccurrences(str, substr) {
   let count = 0, sl = substr.length, post = str.indexOf(substr);
@@ -394,6 +407,28 @@ function md5(inputString) {
     d = ad(d, oldd);
   }
   return rh(a) + rh(b) + rh(c) + rh(d);
+}
+var relativeTimeFormatter = new Intl.RelativeTimeFormat(void 0, {
+  numeric: "auto"
+});
+var RELATIVE_TIME_DIVISIONS = [
+  { amount: 60, name: "seconds" },
+  { amount: 60, name: "minutes" },
+  { amount: 24, name: "hours" },
+  { amount: 7, name: "days" },
+  { amount: 4.34524, name: "weeks" },
+  { amount: 12, name: "months" },
+  { amount: Number.POSITIVE_INFINITY, name: "years" }
+];
+function formatRelativeTime(date) {
+  let duration = (+date - Date.now()) / 1e3;
+  for (let i = 0; i < RELATIVE_TIME_DIVISIONS.length; i++) {
+    const division = RELATIVE_TIME_DIVISIONS[i];
+    if (Math.abs(duration) < division.amount) {
+      return relativeTimeFormatter.format(Math.round(duration), division.name);
+    }
+    duration /= division.amount;
+  }
 }
 
 // src/Classes/DTO.ts
@@ -911,8 +946,13 @@ var AbstractComponent = class {
   }
   // Method to initialize the component
   init() {
-    this.render();
-    this.attachEventHandlers();
+    if (this.render.constructor.name === "AsyncFunction") {
+      ;
+      this.render().then(this.attachEventHandlers.bind(this));
+    } else {
+      this.render();
+      this.attachEventHandlers();
+    }
     return this;
   }
 };
@@ -1515,6 +1555,575 @@ var UsersManager = class {
   }
 };
 
+// src/UserInterface/Components/SteppedInputSliderComponent.ts
+var SteppedInputSliderComponent = class extends AbstractComponent {
+  container;
+  labels;
+  steps;
+  eventTarget = new EventTarget();
+  element;
+  constructor(container, labels, steps) {
+    super();
+    this.container = container;
+    this.labels = labels;
+    this.steps = steps;
+  }
+  render() {
+    this.element = parseHTML(
+      cleanupHTML(`
+            <div class="ntv__stepped-input-slider">
+                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="0">
+                <div>${this.labels[0]}</div>
+            </div>
+        `),
+      true
+    );
+    this.container.appendChild(this.element);
+  }
+  attachEventHandlers() {
+    if (!this.element)
+      return;
+    const input = this.element.querySelector("input");
+    const label = this.element.querySelector("div");
+    input.addEventListener("input", () => {
+      label.textContent = this.labels[parseInt(input.value)];
+      this.eventTarget.dispatchEvent(new Event("change"));
+    });
+  }
+  addEventListener(event, callback) {
+    this.eventTarget.addEventListener(event, callback);
+  }
+  getValue() {
+    if (!this.element)
+      return;
+    const input = this.element.querySelector("input");
+    return this.steps[parseInt(input.value)] || this.steps[0];
+  }
+};
+
+// src/UserInterface/Modals/AbstractModal.ts
+var AbstractModal = class extends AbstractComponent {
+  event = new EventTarget();
+  className;
+  geometry;
+  element;
+  modalHeaderEl;
+  modalBodyEl;
+  modalCloseBtn;
+  constructor(className, geometry) {
+    super();
+    this.className = className;
+    this.geometry = geometry;
+    const widthStyle = this.geometry?.width ? `width:${this.geometry.width}` : "";
+    const positionStyle = this.geometry?.position === "chat-top" ? `right:0;top:43px;` : "";
+    const styleAttribute = `style="${widthStyle};${positionStyle}"`;
+    this.element = parseHTML(
+      cleanupHTML(
+        `<div class="ntv__modal ${this.className ? `ntv__${this.className}-modal` : ""}" ${styleAttribute}>
+								<div class="ntv__modal__header">
+									<h3 class="ntv__modal__title"></h3>
+									<button class="ntv__modal__close-btn">\u{1F7A8}</button>
+								</div>
+								<div class="ntv__modal__body"></div>
+							</div>`
+      ),
+      true
+    );
+    this.modalHeaderEl = this.element.querySelector(".ntv__modal__header");
+    this.modalBodyEl = this.element.querySelector(".ntv__modal__body");
+    this.modalCloseBtn = this.element.querySelector(".ntv__modal__close-btn");
+  }
+  init() {
+    super.init();
+    return this;
+  }
+  // Renders the modal container, header and body
+  render() {
+    document.body.appendChild(this.element);
+    if (this.geometry?.position === "center")
+      this.centerModal();
+  }
+  // Attaches event handlers for the modal
+  attachEventHandlers() {
+    this.modalCloseBtn.addEventListener("click", () => {
+      this.destroy();
+      this.event.dispatchEvent(new Event("close"));
+    });
+    this.modalHeaderEl.addEventListener("mousedown", this.handleModalDrag.bind(this));
+    if (this.geometry?.position === "center") {
+      window.addEventListener("resize", this.centerModal.bind(this));
+    }
+  }
+  destroy() {
+    this.element.remove();
+  }
+  centerModal() {
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+    this.element.style.left = windowWidth / 2 + "px";
+    this.element.style.top = windowHeight / 2 + "px";
+    this.element.style.removeProperty("right");
+    this.element.style.removeProperty("bottom");
+    this.element.style.transform = "translate(-50%, -50%)";
+  }
+  handleModalDrag(event) {
+    const modal = this.element;
+    const modalOffset = modal.getBoundingClientRect();
+    const cursorOffsetX = event.pageX - modalOffset.left;
+    const cursorOffsetY = event.pageY - modalOffset.top;
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+    const modalWidth = modal.clientWidth;
+    const modalHeight = modal.clientHeight;
+    const handleDrag = (evt) => {
+      let x = evt.pageX - cursorOffsetX;
+      let y = evt.pageY - cursorOffsetY;
+      if (x < 0)
+        x = 0;
+      if (y < 0)
+        y = 0;
+      if (x + modalWidth > windowWidth)
+        x = windowWidth - modalWidth;
+      if (y + modalHeight > windowHeight)
+        y = windowHeight - modalHeight;
+      modal.style.left = `${x}px`;
+      modal.style.top = `${y}px`;
+      this.element.style.removeProperty("transform");
+    };
+    const handleDragEnd = () => {
+      document.removeEventListener("mousemove", handleDrag);
+      document.removeEventListener("mouseup", handleDragEnd);
+    };
+    document.addEventListener("mousemove", handleDrag);
+    document.addEventListener("mouseup", handleDragEnd);
+  }
+};
+
+// src/UserInterface/Modals/UserInfoModal.ts
+var UserInfoModal = class extends AbstractModal {
+  ENV_VARS;
+  eventBus;
+  networkInterface;
+  userInterface;
+  channelData;
+  toaster;
+  username;
+  userInfo;
+  actionFollowEl;
+  actionMuteEl;
+  actionReportEl;
+  timeoutPageEl;
+  statusPageEl;
+  modActionButtonBanEl;
+  modActionButtonTimeoutEl;
+  modActionButtonVIPEl;
+  modActionButtonModEl;
+  modLogsMessagesEl;
+  modLogsPageEl;
+  timeoutSliderComponent;
+  constructor({
+    ENV_VARS,
+    eventBus,
+    networkInterface,
+    toaster,
+    userInterface
+  }, channelData, username) {
+    const geometry = {
+      width: "340px",
+      position: "chat-top"
+    };
+    super("user-info", geometry);
+    this.ENV_VARS = ENV_VARS;
+    this.eventBus = eventBus;
+    this.networkInterface = networkInterface;
+    this.userInterface = userInterface;
+    this.toaster = toaster;
+    this.username = username;
+    this.channelData = channelData;
+  }
+  init() {
+    super.init();
+    return this;
+  }
+  async render() {
+    super.render();
+    const is_moderator = this.channelData.me.is_super_admin || this.channelData.me.is_moderator || this.channelData.me.is_broadcaster;
+    await this.updateUserInfo();
+    const userInfo = this.userInfo || {
+      id: "",
+      username: "Error",
+      createdAt: "Error",
+      isFollowing: false,
+      profilePic: "",
+      bannerImg: ""
+    };
+    const createdDate = new Date(userInfo.createdAt).toLocaleDateString();
+    const createdDateUnix = +new Date(createdDate);
+    let formattedDate = createdDate;
+    const today = +new Date((/* @__PURE__ */ new Date()).toLocaleDateString());
+    if (+createdDateUnix === today)
+      formattedDate = "Today";
+    else if (+createdDateUnix === today - 24 * 60 * 60 * 1e3)
+      formattedDate = "Yesterday";
+    const element = parseHTML(
+      cleanupHTML(`
+				<div class="ntv__user-info-modal__header" ${userInfo.bannerImg ? `style="--background: url('${userInfo.bannerImg}')"` : ""}>
+					<div class="ntv__user-info-modal__header__actions">
+					
+					</div>
+					<div class="ntv__user-info-modal__header__banner">
+						<img src="${userInfo.profilePic}">
+						<h4>${userInfo.username}</h4>
+						<p><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+							<g fill="none" stroke="currentColor" stroke-width="1.5">
+								<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
+								<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
+								<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
+							</g>
+							<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
+						</svg> Account Created: ${formattedDate}</p>
+					</div>
+				</div>
+				<div class="ntv__user-info-modal__actions">
+					<button class="ntv__button">${userInfo.isFollowing ? "Unfollow" : "Follow"}</button>
+					<button class="ntv__button">Mute</button>
+					<button class="ntv__button">Report</button>
+				</div>
+				<div class="ntv__user-info-modal__mod-actions"></div>
+				<div class="ntv__user-info-modal__timeout-page"></div>
+				<div class="ntv__user-info-modal__status-page"></div>
+				<div class="ntv__user-info-modal__mod-logs"></div>
+				<div class="ntv__user-info-modal__mod-logs-page"></div>
+			`)
+    );
+    if (is_moderator) {
+      this.actionFollowEl = element.querySelector(
+        ".ntv__user-info-modal__actions .ntv__button:nth-child(1)"
+      );
+      this.actionMuteEl = element.querySelector(
+        ".ntv__user-info-modal__actions .ntv__button:nth-child(2)"
+      );
+      this.actionReportEl = element.querySelector(
+        ".ntv__user-info-modal__actions .ntv__button:nth-child(3)"
+      );
+      this.timeoutPageEl = element.querySelector(".ntv__user-info-modal__timeout-page");
+      this.statusPageEl = element.querySelector(".ntv__user-info-modal__status-page");
+      this.modActionButtonBanEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userInfo.banned ? "active" : ""}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-1.9 0-3.6.6-4.9 1.7l11.2 11.2c1-1.4 1.7-3.1 1.7-4.9c0-4.4-3.6-8-8-8m4.9 14.3L5.7 7.1C4.6 8.4 4 10.1 4 12c0 4.4 3.6 8 8 8c1.9 0 3.6-.6 4.9-1.7" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonTimeoutEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Timeout ${userInfo.username}">
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<g fill="none">
+						<path d="M24 0v24H0V0zM12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093c.012.004.023 0 .029-.008l.004-.014l-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014l-.034.614c0 .012.007.02.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z" />
+						<path fill="currentColor" d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16m0 2a1 1 0 0 1 .993.883L13 7v4.586l2.707 2.707a1 1 0 0 1-1.32 1.497l-.094-.083l-3-3a1 1 0 0 1-.284-.576L11 12V7a1 1 0 0 1 1-1" />
+					</g>
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonVIPEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="VIP ${userInfo.username}">
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h18M3 19h18M4 9l2 6h1l2-6m3 0v6m4 0V9h2a2 2 0 1 1 0 4h-2" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonModEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Mod ${userInfo.username}">
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.updateModStatusPage();
+      const modActionsEl = element.querySelector(".ntv__user-info-modal__mod-actions");
+      modActionsEl.append(
+        this.modActionButtonBanEl,
+        this.modActionButtonTimeoutEl,
+        this.modActionButtonVIPEl,
+        this.modActionButtonModEl
+      );
+      this.modLogsPageEl = element.querySelector(".ntv__user-info-modal__mod-logs-page");
+      this.modLogsMessagesEl = parseHTML(`<button>Messages</button>`, true);
+      const modLogsEl = element.querySelector(".ntv__user-info-modal__mod-logs");
+      modLogsEl.appendChild(this.modLogsMessagesEl);
+    }
+    this.modalBodyEl.appendChild(element);
+  }
+  attachEventHandlers() {
+    super.attachEventHandlers();
+    this.actionFollowEl?.addEventListener("click", async () => {
+      log("Follow button clicked");
+      const { userInfo } = this;
+      if (!userInfo)
+        return;
+      this.actionFollowEl.classList.add("ntv__button--disabled");
+      if (userInfo.isFollowing) {
+        try {
+          await this.networkInterface.unfollowUser(this.username);
+          userInfo.isFollowing = false;
+          this.actionFollowEl.textContent = "Follow";
+        } catch (err) {
+          if (err.message) {
+            this.toaster.addToast("Failed to follow user: " + err.message, 6e3, "error");
+          } else {
+            this.toaster.addToast("Failed to follow user, reason unknown", 6e3, "error");
+          }
+        }
+      } else {
+        try {
+          await this.networkInterface.followUser(this.username);
+          userInfo.isFollowing = true;
+          this.actionFollowEl.textContent = "Unfollow";
+        } catch (err) {
+          if (err.message) {
+            this.toaster.addToast("Failed to unfollow user: " + err.message, 6e3, "error");
+          } else {
+            this.toaster.addToast("Failed to unfollow user, reason unknown", 6e3, "error");
+          }
+        }
+      }
+      this.actionFollowEl.classList.remove("ntv__button--disabled");
+    });
+    this.actionMuteEl?.addEventListener("click", () => {
+      log("Mute button clicked");
+    });
+    this.actionReportEl?.addEventListener("click", () => {
+      log("Report button clicked");
+    });
+    this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
+    this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
+    this.modActionButtonVIPEl?.addEventListener("click", () => {
+      log("BIP button clicked");
+    });
+    this.modActionButtonModEl?.addEventListener("click", () => {
+      log("Mod button clicked");
+    });
+    this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHandler.bind(this));
+  }
+  async clickTimeoutHandler() {
+    log("Timeout button clicked");
+    const { timeoutPageEl } = this;
+    if (!timeoutPageEl)
+      return;
+    timeoutPageEl.innerHTML = "";
+    if (this.timeoutSliderComponent) {
+      delete this.timeoutSliderComponent;
+      return;
+    }
+    const timeoutWrapperEl = parseHTML(
+      cleanupHTML(`
+			<div class="ntv__user-info-modal__timeout-page__wrapper">
+				<div></div>
+				<button class="ntv__button">></button>
+				<textarea placeholder="Reason" rows="1" capture-focus></textarea>
+			</div>`),
+      true
+    );
+    timeoutPageEl.appendChild(timeoutWrapperEl);
+    const rangeWrapperEl = timeoutWrapperEl.querySelector(
+      ".ntv__user-info-modal__timeout-page__wrapper div"
+    );
+    this.timeoutSliderComponent = new SteppedInputSliderComponent(
+      rangeWrapperEl,
+      ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week"],
+      [5, 15, 60, 60 * 24, 60 * 24 * 7]
+    ).init();
+    const buttonEl = timeoutWrapperEl.querySelector("button");
+    buttonEl.addEventListener("click", async () => {
+      if (!this.timeoutSliderComponent)
+        return;
+      const duration = this.timeoutSliderComponent.getValue();
+      const reason = timeoutWrapperEl.querySelector("textarea").value;
+      timeoutPageEl.setAttribute("disabled", "");
+      try {
+        await this.networkInterface.sendCommand({
+          name: "timeout",
+          args: [this.username, duration, reason]
+        });
+        await this.updateUserInfo();
+      } catch (err) {
+        if (err.message) {
+          this.toaster.addToast("Failed to timeout user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to timeout user, reason unknown", 6e3, "error");
+        }
+        timeoutPageEl.removeAttribute("disabled");
+        return;
+      }
+      this.modActionButtonBanEl.setAttribute("active", "");
+      timeoutPageEl.innerHTML = "";
+      timeoutPageEl.removeAttribute("disabled");
+      delete this.timeoutSliderComponent;
+      this.updateModStatusPage();
+      log(`Successfully timed out user: ${this.username} for ${duration} minutes`);
+    });
+  }
+  async clickBanHandler() {
+    if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled"))
+      return;
+    this.modActionButtonBanEl.classList.add("ntv__icon-button--disabled");
+    const { networkInterface, userInfo } = this;
+    if (!userInfo)
+      return;
+    if (userInfo.banned) {
+      log(`Attempting to unban user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "unban", args: [userInfo.username] });
+        log("Successfully unbanned user:", userInfo.username);
+      } catch (err) {
+        if (err.message) {
+          this.toaster.addToast("Failed to unban user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to unban user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      delete userInfo.banned;
+      this.modActionButtonBanEl.removeAttribute("active");
+    } else {
+      log(`Attempting to ban user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "ban", args: [userInfo.username] });
+        log("Successfully banned user:", userInfo.username);
+      } catch (err) {
+        if (err.message) {
+          this.toaster.addToast("Failed to ban user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to ban user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.modActionButtonBanEl.setAttribute("active", "");
+      await this.updateUserInfo();
+    }
+    this.updateModStatusPage();
+    this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+  }
+  async clickMessagesHandler() {
+    const { networkInterface, userInfo, modLogsPageEl } = this;
+    if (!userInfo || !modLogsPageEl)
+      return;
+    modLogsPageEl.innerHTML = "";
+    const messagesEl = parseHTML(
+      `<div class="ntv__user-info-modal__mod-logs-page__messages" loading></div>`,
+      true
+    );
+    modLogsPageEl.appendChild(messagesEl);
+    let messages;
+    try {
+      log(`Getting user messages of ${userInfo.username}..`);
+      messages = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id);
+      log("Successfully received user messages");
+    } catch (err) {
+      if (err.message) {
+        this.toaster.addToast("Failed to load user message history: " + err.message, 6e3, "error");
+      } else {
+        this.toaster.addToast("Failed to load user message history, reason unknown", 6e3, "error");
+      }
+      return;
+    }
+    messagesEl.removeAttribute("loading");
+    messagesEl.innerHTML = messages.reverse().map((message) => {
+      const d = new Date(message.createdAt);
+      const time = ("" + d.getHours()).padStart(2, "0") + ":" + ("" + d.getMinutes()).padStart(2, "0");
+      return cleanupHTML(`
+					<div class="ntv__chat-message">
+						<span class="ntv__chat-message__identity">
+							<span class="ntv__chat-message__timestamp">${time} </span>
+							<span class="ntv__chat-message__badges"></span>
+							<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
+							<span class="ntv__chat-message__separator">: </span>
+						</span>
+						<span class="ntv__chat-message__part">${message.content}</span>
+					</div>`);
+    }).join("");
+    messagesEl.scrollTop = 9999;
+    messagesEl.querySelectorAll(".ntv__chat-message__part").forEach((messageEl) => {
+      this.userInterface.renderEmotesInElement(messageEl);
+    });
+  }
+  async updateUserInfo() {
+    try {
+      delete this.userInfo;
+      this.userInfo = await this.networkInterface.getUserInfo(this.username);
+    } catch (err) {
+      if (err.message) {
+        this.toaster.addToast("Failed to get user info: " + err.message, 6e3, "error");
+      } else {
+        this.toaster.addToast("Failed to get user info, reason unknown", 6e3, "error");
+      }
+    }
+  }
+  updateModStatusPage() {
+    const { userInfo, statusPageEl } = this;
+    if (!userInfo || !statusPageEl)
+      return;
+    if (userInfo.banned) {
+      statusPageEl.innerHTML = cleanupHTML(`
+				<div class="ntv__user-info-modal__status-page__banned">
+					<span><b>Banned</b></span>
+					<span>Reason: ${userInfo.banned.reason}</span>
+					<span>Expires: ${formatRelativeTime(new Date(userInfo.banned.expiresAt))}</span>
+				</div>
+			`);
+    } else {
+      statusPageEl.innerHTML = "";
+    }
+  }
+};
+
+// src/Classes/Toaster.ts
+var Toaster = class {
+  toasts = [];
+  addToast(message, duration, type = "info") {
+    const toastEl = parseHTML(
+      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
+      true
+    );
+    const timeout = Date.now() + duration;
+    const toast = { message, type, timeout, element: toastEl };
+    this.toasts.push(toast);
+    document.body.appendChild(toastEl);
+    setTimeout(() => {
+      const index = this.toasts.indexOf(toast);
+      if (index !== -1) {
+        this.toasts[index].element.remove();
+        this.toasts.splice(index, 1);
+      }
+    }, duration);
+    this.moveToasts();
+  }
+  moveToasts() {
+    const spacing = 20;
+    let y = 20;
+    const toasts = this.toasts.toReversed();
+    for (const toast of toasts) {
+      toast.element.style.top = `${y}px`;
+      y += toast.element.clientHeight + spacing;
+    }
+  }
+};
+
 // src/UserInterface/AbstractUserInterface.ts
 var AbstractUserInterface = class {
   ENV_VARS;
@@ -1524,6 +2133,7 @@ var AbstractUserInterface = class {
   settingsManager;
   emotesManager;
   usersManager;
+  toaster = new Toaster();
   messageHistory = new MessagesHistory();
   /**
    * @param {EventBus} eventBus
@@ -1552,7 +2162,11 @@ var AbstractUserInterface = class {
     this.usersManager = new UsersManager({ eventBus, settingsManager });
   }
   loadInterface() {
-    throw new Error("loadInterface() not implemented");
+    const { eventBus } = this;
+    eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
+      assertArgDefined(data.username);
+      this.showUserInfoModal(data.username);
+    });
   }
   renderEmotesInElement(textElement, appendTo) {
     const { emotesManager } = this;
@@ -1591,6 +2205,20 @@ var AbstractUserInterface = class {
     else
       textElement.after(...newNodes);
     textElement.remove();
+  }
+  showUserInfoModal(username) {
+    log("Showing user info modal..");
+    const modal = new UserInfoModal(
+      {
+        ENV_VARS: this.ENV_VARS,
+        eventBus: this.eventBus,
+        networkInterface: this.networkInterface,
+        toaster: this.toaster,
+        userInterface: this
+      },
+      this.channelData,
+      username
+    ).init();
   }
 };
 
@@ -2976,16 +3604,20 @@ var commandsMap = [
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     }
   },
-  // {
-  // 	name: 'user',
-  // 	command: 'user <username>',
-  // 	minAllowedRole: 'moderator',
-  // 	description: 'Display user information.',
-  // 	argValidators: {
-  // 		'<username>': (arg: string) =>
-  // 			!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
-  // 	}
-  // },
+  {
+    name: "user",
+    command: "user <username>",
+    minAllowedRole: "moderator",
+    description: "Display user information.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      log("User command executed with args:", args);
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.show_modal.user_info", { username: args[0] });
+    }
+  },
   {
     name: "vip",
     command: "vip <username>",
@@ -2999,11 +3631,14 @@ var commandsMap = [
 var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
   contentEditableEditor;
   networkInterface;
+  eventBus;
   constructor({
+    eventBus,
     networkInterface,
     contentEditableEditor
   }, containerEl) {
     super(containerEl);
+    this.eventBus = eventBus;
     this.networkInterface = networkInterface;
     this.contentEditableEditor = contentEditableEditor;
   }
@@ -3115,22 +3750,30 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     const inputParts = inputString.split(" ").filter((v) => v !== "");
     const inputCommandName = inputParts[0];
     const availableCommands = this.getAvailableCommands();
-    const commandEntry = availableCommands.find((commandEntry2) => commandEntry2.name === inputCommandName);
+    const commandEntry = availableCommands.find(
+      (commandEntry2) => commandEntry2.name === inputCommandName
+    );
     if (!commandEntry)
-      return error("Command not found.");
+      return [error("Command not found.")];
     const argCount = countStringOccurrences(commandEntry.command, "<");
     if (inputParts.length - 1 > argCount) {
       const start = inputParts.slice(1, argCount + 1);
       const rest = inputParts.slice(argCount + 1).join(" ");
-      return {
-        name: inputCommandName,
-        args: start.concat(rest)
-      };
+      return [
+        {
+          name: inputCommandName,
+          args: start.concat(rest)
+        },
+        commandEntry
+      ];
     }
-    return {
-      name: inputCommandName,
-      args: inputParts.slice(1, argCount + 1)
-    };
+    return [
+      {
+        name: inputCommandName,
+        args: inputParts.slice(1, argCount + 1)
+      },
+      commandEntry
+    ];
   }
   moveSelectorUp() {
     if (!this.navWindow)
@@ -3178,13 +3821,18 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     }
     if (event.key === "Enter") {
       const isInvalid = this.validateInputCommand(nodeData.substring(1));
-      const commandData = this.getParsedInputCommand(nodeData.substring(1));
+      const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1));
       event.stopPropagation();
       event.preventDefault();
       if (isInvalid || !commandData) {
         return;
       }
-      this.networkInterface.sendCommand(commandData);
+      const { networkInterface, eventBus } = this;
+      if (commandEntry && typeof commandEntry.execute === "function") {
+        commandEntry.execute({ eventBus, networkInterface }, commandData.args);
+      } else {
+        networkInterface.sendCommand(commandData);
+      }
       contentEditableEditor.clearInput();
     }
   }
@@ -3511,17 +4159,20 @@ var InputCompletor = class {
   emotesManager;
   usersManager;
   containerEl;
+  eventBus;
   constructor({
     contentEditableEditor,
     networkInterface,
     emotesManager,
-    usersManager
+    usersManager,
+    eventBus
   }, containerEl) {
     this.contentEditableEditor = contentEditableEditor;
     this.networkInterface = networkInterface;
     this.emotesManager = emotesManager;
     this.usersManager = usersManager;
     this.containerEl = containerEl;
+    this.eventBus = eventBus;
   }
   attachEventHandlers() {
     this.contentEditableEditor.addEventListener("keydown", 8, this.handleKeyDown.bind(this));
@@ -3540,6 +4191,7 @@ var InputCompletor = class {
       if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
         this.currentActiveStrategy = new CommandCompletionStrategy(
           {
+            eventBus: this.eventBus,
             networkInterface: this.networkInterface,
             contentEditableEditor: this.contentEditableEditor
           },
@@ -3619,6 +4271,7 @@ var InputController = class {
     );
     this.tabCompletor = new InputCompletor(
       {
+        eventBus,
         networkInterface,
         emotesManager,
         usersManager,
@@ -3869,6 +4522,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   async loadInterface() {
     info("Creating user interface..");
+    super.loadInterface();
     const { eventBus, settingsManager, abortController } = this;
     const abortSignal = abortController.signal;
     this.loadSettings();
@@ -3934,6 +4588,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     );
     eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
   }
+  // TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
   async loadEmoteMenu() {
     const { channelData, eventBus, settingsManager, emotesManager } = this;
     if (!this.elm.textField)
@@ -3976,13 +4631,13 @@ var KickUserInterface = class extends AbstractUserInterface {
     const firstMessageHighlightColor = settingsManager.getSetting("shared.chat.appearance.highlight_color");
     if (firstMessageHighlightColor) {
       const rgb = hex2rgb(firstMessageHighlightColor);
-      document.documentElement.style.setProperty("--color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+      document.documentElement.style.setProperty("--ntv-color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
     }
     eventBus.subscribe("ntv.settings.change.shared.chat.appearance.highlight_color", (data) => {
       if (!data.value)
         return;
       const rgb = hex2rgb(data.value);
-      document.documentElement.style.setProperty("--color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+      document.documentElement.style.setProperty("--ntv-color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
     });
   }
   loadShadowProxyElements() {
@@ -4097,7 +4752,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       NumLock: true
     };
     $(document.body).on("keydown", (evt) => {
-      if (evt.ctrlKey || evt.altKey || evt.metaKey || this.inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable")) {
+      if (evt.ctrlKey || evt.altKey || evt.metaKey || this.inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target.hasAttribute("capture-focus")) {
         return;
       }
       textFieldEl.focus();
@@ -4374,16 +5029,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     const originalSubmitButtonEl = this.elm.originalSubmitButton;
     if (!originalSubmitButtonEl)
       return error("Original submit button not loaded for sending emote");
-    const oldMessage = contentEditableEditor.getInputHTML();
-    contentEditableEditor.clearInput();
-    contentEditableEditor.insertEmote(emoteHid);
-    originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent();
-    originalTextFieldEl.dispatchEvent(new Event("input"));
-    originalSubmitButtonEl.dispatchEvent(new Event("click"));
-    this.eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent: true });
-    contentEditableEditor.setInputContent(oldMessage);
-    originalTextFieldEl.innerHTML = oldMessage;
-    originalTextFieldEl.dispatchEvent(new Event("input"));
   }
   insertNodesInChat(embedNodes) {
     if (!embedNodes.length)
@@ -4775,101 +5420,17 @@ var ColorComponent = class extends AbstractComponent {
   }
 };
 
-// src/UserInterface/Modals/AbstractModal.ts
-var AbstractModal = class extends AbstractComponent {
-  event = new EventTarget();
-  className;
-  $modal;
-  $modalHeader;
-  $modalBody;
-  $modalClose;
-  constructor(className) {
-    super();
-    this.className = className;
-  }
-  init() {
-    super.init();
-    return this;
-  }
-  // Renders the modal container, header and body
-  render() {
-    this.$modal = $(`
-            <div class="ntv__modal ${this.className ? `ntv__${this.className}-modal` : ""}">
-                <div class="ntv__modal__header">
-                    <h3 class="ntv__modal__title"></h3>
-                    <button class="ntv__modal__close-btn">\u{1F7A8}</button>
-                </div>
-                <div class="ntv__modal__body"></div>
-            </div>
-        `);
-    this.$modalHeader = this.$modal.find(".ntv__modal__header");
-    this.$modalBody = this.$modal.find(".ntv__modal__body");
-    this.$modalClose = this.$modalHeader.find(".ntv__modal__close-btn");
-    $("body").append(this.$modal);
-    this.centerModal();
-  }
-  // Attaches event handlers for the modal
-  attachEventHandlers() {
-    this.$modalClose?.on("click", () => {
-      this.destroy();
-      this.event.dispatchEvent(new Event("close"));
-    });
-    this.$modalHeader?.on("mousedown", this.handleModalDrag.bind(this));
-    $(window).on("resize", this.centerModal.bind(this));
-  }
-  destroy() {
-    this.$modal?.remove();
-  }
-  centerModal() {
-    const windowHeight = $(window).height();
-    const windowWidth = $(window).width();
-    this.$modal?.css({
-      left: windowWidth / 2,
-      top: windowHeight / 2
-    });
-  }
-  handleModalDrag(evt) {
-    const $modal = this.$modal;
-    const modalOffset = $modal.offset();
-    const offsetX = evt.pageX - modalOffset.left;
-    const offsetY = evt.pageY - modalOffset.top;
-    const windowHeight = $(window).height();
-    const windowWidth = $(window).width();
-    const modalWidth = $modal.width();
-    const modalHeight = $modal.height();
-    const handleDrag = (evt2) => {
-      let x = evt2.pageX - offsetX;
-      let y = evt2.pageY - offsetY;
-      if (x < 0)
-        x = 0;
-      if (y < 0)
-        y = 0;
-      if (x + modalWidth > windowWidth)
-        x = windowWidth - modalWidth;
-      if (y + modalHeight > windowHeight)
-        y = windowHeight - modalHeight;
-      $modal.offset({
-        left: x,
-        top: y
-      });
-    };
-    const handleDragEnd = () => {
-      $(document).off("mousemove", handleDrag);
-      $(document).off("mouseup", handleDragEnd);
-    };
-    $(document).on("mousemove", handleDrag);
-    $(document).on("mouseup", handleDragEnd);
-  }
-};
-
 // src/UserInterface/Modals/SettingsModal.ts
 var SettingsModal = class extends AbstractModal {
   eventBus;
   settingsOpts;
-  $panels;
-  $sidebar;
+  panelsEl;
+  sidebarEl;
   constructor(eventBus, settingsOpts) {
-    super("settings");
+    const geometry = {
+      position: "center"
+    };
+    super("settings", geometry);
     this.eventBus = eventBus;
     this.settingsOpts = settingsOpts;
   }
@@ -4882,52 +5443,61 @@ var SettingsModal = class extends AbstractModal {
     log("Rendering settings modal..");
     const sharedSettings = this.settingsOpts.sharedSettings;
     const settingsMap = this.settingsOpts.settingsMap;
-    const $modalBody = this.$modalBody;
-    const $panels = $(`<div class="ntv__settings-modal__panels"></div>`);
-    this.$panels = $panels;
-    const $sidebar = $(`
-			<div class="ntv__settings-modal__sidebar">
-				<ul></ul>
-			</div>
-		`);
-    this.$sidebar = $sidebar;
-    const $sidebarList = $sidebar.find("ul");
+    const modalBodyEl = this.modalBodyEl;
+    this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true);
+    this.sidebarEl = parseHTML(
+      cleanupHTML(`<div class="ntv__settings-modal__sidebar">
+							<ul></ul>
+						</div>`),
+      true
+    );
+    const sidebarList = this.sidebarEl.querySelector("ul");
     for (const category of sharedSettings) {
-      const $category = $(`
+      const categoryEl = parseHTML(
+        cleanupHTML(`
 				<li class="ntv__settings-modal__category">
 					<span>${category.label}</span>
 					<ul></ul>
 				</li>
-			`);
-      const $categoryList = $category.find("ul");
-      $sidebarList.append($category);
+			`),
+        true
+      );
+      const categoryListEl = categoryEl.querySelector("ul");
+      sidebarList.appendChild(categoryEl);
       for (const subCategory of category.children) {
         const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`;
-        const $subCategory = $(`
-					<li data-panel="${categoryId}" class="ntv__settings-modal__sub-category">
+        const subCategoryEl = parseHTML(
+          cleanupHTML(
+            `<li data-panel="${categoryId}" class="ntv__settings-modal__sub-category">
 						<span>${subCategory.label}</span>
-					</li>
-				`);
-        $categoryList.append($subCategory);
+					</li>`
+          ),
+          true
+        );
+        categoryListEl.appendChild(subCategoryEl);
       }
     }
     for (const category of sharedSettings) {
       for (const subCategory of category.children) {
         const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`;
-        const $subCategoryPanel = $(
-          `<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`
+        const subCategoryPanelEl = parseHTML(
+          `<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`,
+          true
         );
-        $panels.append($subCategoryPanel);
+        this.panelsEl.appendChild(subCategoryPanelEl);
         for (const group of subCategory.children) {
-          const $group = $(
-            `<div class="ntv__settings-modal__group">
+          const groupEl = parseHTML(
+            cleanupHTML(
+              `<div class="ntv__settings-modal__group">
 							<div class="ntv__settings-modal__group-header">
 								<h4>${group.label}</h4>
 								${group.description ? `<p>${group.description}</p>` : ""}
 							</div>
 						</div>`
+            ),
+            true
           );
-          $subCategoryPanel.append($group);
+          subCategoryPanelEl.append(groupEl);
           for (const setting of group.children) {
             let settingComponent;
             let settingValue = settingsMap.get(setting.id);
@@ -4964,7 +5534,7 @@ var SettingsModal = class extends AbstractModal {
                 continue;
             }
             settingComponent?.init();
-            $group.append(settingComponent.$element);
+            groupEl.append(settingComponent.$element[0]);
             settingComponent.event.addEventListener("change", () => {
               const value = settingComponent.getValue();
               this.event.dispatchEvent(
@@ -4976,23 +5546,32 @@ var SettingsModal = class extends AbstractModal {
       }
     }
     const defaultPanel = "chat.appearance";
-    $panels.find(`[data-panel="${defaultPanel}]"`).show();
-    $sidebar.find(`[data-panel="${defaultPanel}"]`).addClass("ntv__settings-modal__sub-category--active");
-    $modalBody?.append($sidebar);
-    $modalBody?.append($panels);
+    this.panelsEl.querySelector(`[data-panel="${defaultPanel}"]`)?.setAttribute("style", "display: block");
+    this.sidebarEl.querySelector(`[data-panel="${defaultPanel}"]`)?.classList.add("ntv__settings-modal__sub-category--active");
+    modalBodyEl.appendChild(this.sidebarEl);
+    modalBodyEl.appendChild(this.panelsEl);
   }
   getSettingElement(setting) {
   }
   attachEventHandlers() {
     super.attachEventHandlers();
-    $(".ntv__settings-modal__sub-category", this.$sidebar).on("click", (evt) => {
-      const panelId = $(evt.currentTarget).data("panel");
-      $(".ntv__settings-modal__sub-category", this.$sidebar).removeClass(
-        "ntv__settings-modal__sub-category--active"
-      );
-      $(evt.currentTarget).addClass("ntv__settings-modal__sub-category--active");
-      $(".ntv__settings-modal__panel", this.$panels).hide();
-      $(`[data-panel="${panelId}"]`, this.$panels).show();
+    if (!this.panelsEl || !this.sidebarEl) {
+      error("SettingsModal: panelsEl or sidebarEl not found");
+      return;
+    }
+    this.sidebarEl.querySelectorAll(".ntv__settings-modal__sub-category").forEach((el1) => {
+      el1.addEventListener("click", (evt) => {
+        const panelId = el1.dataset.panel;
+        this.sidebarEl.querySelectorAll(".ntv__settings-modal__sub-category").forEach((el2) => {
+          el2.classList.remove("ntv__settings-modal__sub-category--active");
+        });
+        el1.classList.add("ntv__settings-modal__sub-category--active");
+        this.panelsEl.querySelectorAll(".ntv__settings-modal__panel").forEach((el2) => {
+          ;
+          el2.style.display = "none";
+        });
+        this.panelsEl.querySelector(`[data-panel="${panelId}"]`)?.setAttribute("style", "display: block");
+      });
     });
   }
 };
@@ -5522,15 +6101,17 @@ var DatabaseProxyFactory = class {
 
 // src/NetworkInterfaces/AbstractNetworkInterface.ts
 var AbstractNetworkInterface = class {
+  ENV_VARS;
   channelData;
-  constructor() {
+  constructor({ ENV_VARS }) {
+    this.ENV_VARS = ENV_VARS;
   }
 };
 
 // src/NetworkInterfaces/KickNetworkInterface.ts
 var KickNetworkInterface = class extends AbstractNetworkInterface {
-  constructor() {
-    super();
+  constructor(deps) {
+    super(deps);
   }
   async connect() {
     return Promise.resolve();
@@ -5635,7 +6216,7 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     const args = command.args;
     if (command.name === "ban") {
       const data = {
-        banned_usernam: args[0],
+        banned_username: args[0],
         permanent: true
       };
       if (args[1])
@@ -5700,27 +6281,71 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
       });
     }
   }
-};
-
-// src/NetworkInterfaces/TwitchNetworkInterface.ts
-var TwitchNetworkInterface = class extends AbstractNetworkInterface {
-  constructor() {
-    super();
+  async followUser(username) {
+    const slug = username.replace("_", "-").toLowerCase();
+    return REST.post(`https://kick.com/api/v2/channels/${slug}/follow`);
   }
-  async connect() {
-    return Promise.resolve();
+  async unfollowUser(username) {
+    const slug = username.replace("_", "-").toLowerCase();
+    return REST.delete(`https://kick.com/api/v2/channels/${slug}/follow`);
   }
-  async disconnect() {
-    return Promise.resolve();
+  // TODO separate this into getUserInfo and getUserChannelInfo
+  async getUserInfo(username) {
+    if (!this.channelData)
+      throw new Error("Channel data is not loaded yet.");
+    const { channelData } = this;
+    const { channel_name } = channelData;
+    const slug = username.replace("_", "-").toLowerCase();
+    const [res1, res2, res3] = await Promise.allSettled([
+      REST.get(`https://kick.com/api/v2/channels/${channel_name}/users/${username}`),
+      // The reason underscores are replaced with dashes is likely because it's a slug
+      REST.get(`https://kick.com/api/v2/channels/${slug}/me`),
+      REST.get(`https://kick.com/api/v2/channels/${slug}`)
+    ]);
+    if (res1.status === "rejected" || res2.status === "rejected" || res3.status === "rejected") {
+      throw new Error("Failed to fetch user data");
+    }
+    const channelUserInfo = res1.value;
+    const userMeInfo = res2.value;
+    const userOwnChannelInfo = res3.value;
+    const userInfo = {
+      id: channelUserInfo.id,
+      username: channelUserInfo.username,
+      profilePic: userOwnChannelInfo.user.profile_pic || this.ENV_VARS.RESOURCE_ROOT + "assets/img/kick/default-user-profile.png",
+      bannerImg: userOwnChannelInfo?.banner_image?.url || "",
+      createdAt: userOwnChannelInfo?.chatroom?.created_at || "Unknown",
+      banned: channelUserInfo.banned ? {
+        reason: channelUserInfo.banned?.reason || "No reason provided",
+        createdAt: channelUserInfo.banned?.created_at || "Unknown",
+        expiresAt: channelUserInfo.banned?.expires_at || "Unknown",
+        permanent: channelUserInfo.banned?.permanent || false
+      } : void 0,
+      isFollowing: userMeInfo.is_following
+    };
+    return userInfo;
   }
-  async loadChannelData() {
-    throw new Error("Method not implemented.");
-  }
-  async sendMessage(message) {
-    throw new Error("Method not implemented.");
-  }
-  async sendCommand(command) {
-    throw new Error("Method not implemented.");
+  async getUserMessages(channelId, userId) {
+    const res = await REST.get(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages`);
+    log(res);
+    const { data, status } = res;
+    if (status.error) {
+      error("Failed to fetch user messages", status);
+      throw new Error("Failed to fetch user messages");
+    }
+    const messages = data.messages;
+    return messages.map((message) => {
+      return {
+        id: message.id,
+        content: message.content,
+        createdAt: message.created_at,
+        sender: {
+          id: message.sender?.id || "Unknown",
+          username: message.sender?.username || "Unknown",
+          badges: message.sender?.identity?.badges || [],
+          color: message.sender?.identity?.color || "#dec859"
+        }
+      };
+    });
   }
 };
 
@@ -5790,9 +6415,9 @@ var NipahClient = class {
     const eventBus = new Publisher();
     this.eventBus = eventBus;
     if (ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK) {
-      this.networkInterface = new KickNetworkInterface();
+      this.networkInterface = new KickNetworkInterface({ ENV_VARS });
     } else if (ENV_VARS.PLATFORM === PLATFORM_ENUM.TWITCH) {
-      this.networkInterface = new TwitchNetworkInterface();
+      throw new Error("Twitch platform is not supported yet.");
     } else {
       throw new Error("Unsupported platform");
     }
