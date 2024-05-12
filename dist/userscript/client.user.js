@@ -2651,7 +2651,7 @@ var AbstractUserInterface = class {
       return error("Input controller not loaded for reply behaviour");
     if (!this.elm.replyMessageWrapper)
       return error("Unable to load reply message, reply message wrapper not found");
-    if (this.replyMessageComponent) {
+    if (this.replyMessageData) {
       this.destroyReplyMessageContext();
     }
     this.replyMessageData = {
@@ -4991,12 +4991,12 @@ var KickUserInterface = class extends AbstractUserInterface {
     });
     observer.observe(chatMessagesContainerWrapperEl, { childList: true });
     inputController.addEventListener("keydown", 9, (event) => {
-      if (event.key === "Escape" && this.replyMessageData && this.replyMessageComponent) {
+      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
         this.destroyReplyMessageContext();
       }
     });
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && this.replyMessageData && this.replyMessageComponent) {
+      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
         this.destroyReplyMessageContext();
       }
     });

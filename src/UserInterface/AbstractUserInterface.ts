@@ -214,7 +214,7 @@ export abstract class AbstractUserInterface {
 		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
 		if (!this.elm.replyMessageWrapper) return error('Unable to load reply message, reply message wrapper not found')
 
-		if (this.replyMessageComponent) {
+		if (this.replyMessageData) {
 			this.destroyReplyMessageContext()
 		}
 

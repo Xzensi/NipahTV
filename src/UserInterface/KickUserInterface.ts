@@ -536,13 +536,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		observer.observe(chatMessagesContainerWrapperEl, { childList: true })
 
 		inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && this.replyMessageData && this.replyMessageComponent) {
+			if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
 				this.destroyReplyMessageContext()
 			}
 		})
 
 		document.addEventListener('keydown', (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && this.replyMessageData && this.replyMessageComponent) {
+			if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
 				this.destroyReplyMessageContext()
 			}
 		})
