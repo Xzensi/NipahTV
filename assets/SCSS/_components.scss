@@ -25,14 +25,18 @@ $spacing: 1em;
 
 .ntv__icon-button {
 	transition: 120ms opacity ease-in-out;
-	border-radius: 0.1em;
-	padding: 0.333em;
+	border-radius: 0.128em;
+	cursor: pointer;
 
 	&--disabled {
 		pointer-events: none;
 		cursor: not-allowed;
 		user-select: none;
 		opacity: 0.38;
+	}
+
+	&:hover {
+		background-color: var(--ntv-background-color-tint-2);
 	}
 }
 
@@ -208,5 +212,32 @@ $spacing: 1em;
 .ntv__stepped-input-slider {
 	input {
 		width: 100%;
+	}
+}
+
+.ntv__reply-message {
+	font-size: $root_font_size;
+
+	&__header {
+		margin-bottom: $golden_ratio_inverse * 1em;
+		align-items: center;
+		display: flex;
+
+		svg {
+			height: $golden_ratio * 1em;
+			width: $golden_ratio * 1em;
+			flex: 0 0 max-content;
+		}
+
+		span {
+			padding: 0 $golden_ratio_inverse * 1em;
+			font-size: 1.128em;
+			flex: 1 1 auto;
+		}
+	}
+
+	&__content {
+		padding: $golden_ratio_inverse * 1em $golden_ratio * 1em;
+		background-color: var(--ntv-background-color-shade-1);
 	}
 }

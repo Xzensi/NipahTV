@@ -22,6 +22,16 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 		throw new Error('Method not implemented.')
 	}
 
+	async sendReply(
+		message: string,
+		originalMessageId: string,
+		originalMessageContent: string,
+		originalSenderId: string,
+		originalSenderUsername: string
+	) {
+		throw new Error('Method not implemented.')
+	}
+
 	async sendCommand(command: { name: string; args: string[] }) {
 		throw new Error('Method not implemented.')
 	}

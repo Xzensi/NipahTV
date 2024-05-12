@@ -215,42 +215,7 @@ export class UserInfoModal extends AbstractModal {
 	attachEventHandlers() {
 		super.attachEventHandlers()
 
-		this.actionFollowEl?.addEventListener('click', async () => {
-			log('Follow button clicked')
-
-			const { userInfo } = this
-			if (!userInfo) return
-
-			this.actionFollowEl!.classList.add('ntv__button--disabled')
-
-			if (userInfo.isFollowing) {
-				try {
-					await this.networkInterface.unfollowUser(this.username)
-					userInfo.isFollowing = false
-					this.actionFollowEl!.textContent = 'Follow'
-				} catch (err: any) {
-					if (err.message) {
-						this.toaster.addToast('Failed to follow user: ' + err.message, 6_000, 'error')
-					} else {
-						this.toaster.addToast('Failed to follow user, reason unknown', 6_000, 'error')
-					}
-				}
-			} else {
-				try {
-					await this.networkInterface.followUser(this.username)
-					userInfo.isFollowing = true
-					this.actionFollowEl!.textContent = 'Unfollow'
-				} catch (err: any) {
-					if (err.message) {
-						this.toaster.addToast('Failed to unfollow user: ' + err.message, 6_000, 'error')
-					} else {
-						this.toaster.addToast('Failed to unfollow user, reason unknown', 6_000, 'error')
-					}
-				}
-			}
-
-			this.actionFollowEl!.classList.remove('ntv__button--disabled')
-		})
+		this.actionFollowEl?.addEventListener('click', this.clickFollowHandler.bind(this))
 
 		this.actionMuteEl?.addEventListener('click', () => {
 			log('Mute button clicked')
@@ -272,6 +237,47 @@ export class UserInfoModal extends AbstractModal {
 		})
 
 		this.modLogsMessagesEl?.addEventListener('click', this.clickMessagesHandler.bind(this))
+	}
+
+	async clickFollowHandler() {
+		log('Follow button clicked')
+
+		const { userInfo } = this
+		if (!userInfo) return
+
+		this.actionFollowEl!.classList.add('ntv__button--disabled')
+
+		if (userInfo.isFollowing) {
+			try {
+				await this.networkInterface.unfollowUser(this.username)
+				userInfo.isFollowing = false
+				this.actionFollowEl!.textContent = 'Follow'
+			} catch (err: any) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast('Failed to follow user: ' + err.errors.join(' '), 6_000, 'error')
+				} else if (err.message) {
+					this.toaster.addToast('Failed to follow user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to follow user, reason unknown', 6_000, 'error')
+				}
+			}
+		} else {
+			try {
+				await this.networkInterface.followUser(this.username)
+				userInfo.isFollowing = true
+				this.actionFollowEl!.textContent = 'Unfollow'
+			} catch (err: any) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast('Failed to unfollow user: ' + err.errors.join(' '), 6_000, 'error')
+				} else if (err.message) {
+					this.toaster.addToast('Failed to unfollow user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to unfollow user, reason unknown', 6_000, 'error')
+				}
+			}
+		}
+
+		this.actionFollowEl!.classList.remove('ntv__button--disabled')
 	}
 
 	async clickTimeoutHandler() {
@@ -326,7 +332,9 @@ export class UserInfoModal extends AbstractModal {
 				})
 				await this.updateUserInfo()
 			} catch (err: any) {
-				if (err.message) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast('Failed to timeout user: ' + err.errors.join(' '), 6_000, 'error')
+				} else if (err.message) {
 					this.toaster.addToast('Failed to timeout user: ' + err.message, 6_000, 'error')
 				} else {
 					this.toaster.addToast('Failed to timeout user, reason unknown', 6_000, 'error')
@@ -363,7 +371,9 @@ export class UserInfoModal extends AbstractModal {
 				await networkInterface.sendCommand({ name: 'unban', args: [userInfo.username] })
 				log('Successfully unbanned user:', userInfo.username)
 			} catch (err: any) {
-				if (err.message) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast('Failed to unban user: ' + err.errors.join(' '), 6_000, 'error')
+				} else if (err.message) {
 					this.toaster.addToast('Failed to unban user: ' + err.message, 6_000, 'error')
 				} else {
 					this.toaster.addToast('Failed to unban user, reason unknown', 6_000, 'error')
@@ -382,7 +392,9 @@ export class UserInfoModal extends AbstractModal {
 				await networkInterface.sendCommand({ name: 'ban', args: [userInfo.username] })
 				log('Successfully banned user:', userInfo.username)
 			} catch (err: any) {
-				if (err.message) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast('Failed to ban user: ' + err.errors.join(' '), 6_000, 'error')
+				} else if (err.message) {
 					this.toaster.addToast('Failed to ban user: ' + err.message, 6_000, 'error')
 				} else {
 					this.toaster.addToast('Failed to ban user, reason unknown', 6_000, 'error')
@@ -420,7 +432,9 @@ export class UserInfoModal extends AbstractModal {
 			messages = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id)
 			log('Successfully received user messages')
 		} catch (err: any) {
-			if (err.message) {
+			if (err.errors && err.errors.length > 0) {
+				this.toaster.addToast('Failed to load user message history: ' + err.errors.join(' '), 6_000, 'error')
+			} else if (err.message) {
 				this.toaster.addToast('Failed to load user message history: ' + err.message, 6_000, 'error')
 			} else {
 				this.toaster.addToast('Failed to load user message history, reason unknown', 6_000, 'error')
@@ -459,7 +473,9 @@ export class UserInfoModal extends AbstractModal {
 			delete this.userInfo
 			this.userInfo = await this.networkInterface.getUserInfo(this.username)
 		} catch (err: any) {
-			if (err.message) {
+			if (err.errors && err.errors.length > 0) {
+				this.toaster.addToast('Failed to get user info: ' + err.errors.join(' '), 6_000, 'error')
+			} else if (err.message) {
 				this.toaster.addToast('Failed to get user info: ' + err.message, 6_000, 'error')
 			} else {
 				this.toaster.addToast('Failed to get user info, reason unknown', 6_000, 'error')

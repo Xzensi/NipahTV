@@ -17,6 +17,10 @@ export class UsersManager {
 		this.datastore.registerUser(id, name)
 	}
 
+	getUserById(id: string) {
+		return this.datastore.getUserById(id)
+	}
+
 	searchUsers(searchVal: string, limit = 20) {
 		return this.datastore.searchUsers(searchVal).slice(0, limit)
 	}

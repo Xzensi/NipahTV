@@ -43,6 +43,13 @@ export abstract class AbstractNetworkInterface {
 	abstract disconnect(): Promise<any>
 	abstract loadChannelData(): Promise<any>
 	abstract sendMessage(message: string): Promise<any>
+	abstract sendReply(
+		message: string,
+		originalMessageId: string,
+		originalMessageContent: string,
+		originalSenderId: string,
+		originalSenderUsername: string
+	): Promise<any>
 	abstract sendCommand(command: { name: string; args: string[] }): Promise<any>
 	abstract followUser(username: string): Promise<any>
 	abstract unfollowUser(username: string): Promise<any>

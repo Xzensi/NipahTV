@@ -1,12 +1,21 @@
-import { log, info, error, assertArgDefined, waitForElements, cleanupHTML, md5, hex2rgb, logNow } from '../utils'
+import {
+	log,
+	info,
+	error,
+	assertArgDefined,
+	waitForElements,
+	cleanupHTML,
+	md5,
+	hex2rgb,
+	logNow,
+	parseHTML
+} from '../utils'
 import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
 import { AbstractUserInterface } from './AbstractUserInterface'
-import { InputController } from '../Managers/InputController'
-import { Clipboard2 } from '../Classes/Clipboard'
 import { Caret } from './Caret'
-import { Toaster } from '../Classes/Toaster'
+import { InputController } from '../Managers/InputController'
 
 function getEmojiAttributes() {
 	return {
@@ -16,31 +25,34 @@ function getEmojiAttributes() {
 }
 
 export class KickUserInterface extends AbstractUserInterface {
-	abortController = new AbortController()
+	private abortController = new AbortController()
 
-	clipboard = new Clipboard2()
-	inputController: InputController | null = null
-	chatObserver: MutationObserver | null = null
-	pinnedMessageObserver: MutationObserver | null = null
-	emoteMenu: EmoteMenuComponent | null = null
-	emoteMenuButton: EmoteMenuButtonComponent | null = null
-	quickEmotesHolder: QuickEmotesHolderComponent | null = null
+	private chatObserver: MutationObserver | null = null
+	private replyObserver: MutationObserver | null = null
+	private pinnedMessageObserver: MutationObserver | null = null
+	private emoteMenu: EmoteMenuComponent | null = null
+	private emoteMenuButton: EmoteMenuButtonComponent | null = null
+	private quickEmotesHolder: QuickEmotesHolderComponent | null = null
 
-	elm: {
+	protected elm: {
 		originalTextField: HTMLElement | null
 		originalSubmitButton: HTMLElement | null
 		chatMessagesContainer: HTMLElement | null
+		replyMessageWrapper: HTMLElement | null
+		replyMessageComponent?: HTMLElement
 		submitButton: HTMLElement | null
 		textField: HTMLElement | null
 	} = {
 		originalTextField: null,
 		originalSubmitButton: null,
 		chatMessagesContainer: null,
+		replyMessageWrapper: null,
 		submitButton: null,
 		textField: null
 	}
-	stickyScroll = true
-	maxMessageLength = 500
+
+	private stickyScroll = true
+	protected maxMessageLength = 500
 
 	constructor(deps: any) {
 		super(deps)
@@ -62,6 +74,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.loadShadowProxyElements()
 				this.loadEmoteMenu()
 				this.loadEmoteMenuButton()
+				this.loadQuickEmotesHolder()
 
 				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
 					document.getElementById('chatroom')?.classList.add('ntv__hide-emote-menu-button')
@@ -70,13 +83,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
 					document.getElementById('chatroom')?.classList.add('ntv__smooth-scrolling')
 				}
-			})
-			.catch(() => {})
-
-		// Wait for quick emotes holder to load
-		waitForElements(['#chatroom-footer .quick-emotes-holder'], 5_000, abortSignal)
-			.then(() => {
-				this.loadQuickEmotesHolder()
 			})
 			.catch(() => {})
 
@@ -105,6 +111,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				this.observeChatMessages()
 				this.loadScrollingBehaviour()
+				this.loadReplyBehaviour()
 			})
 			.catch(() => {})
 
@@ -172,27 +179,43 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async loadQuickEmotesHolder() {
 		const { eventBus, settingsManager, emotesManager } = this
-
 		const quickEmotesHolderEnabled = settingsManager.getSetting('shared.chat.quick_emote_holder.enabled')
 		if (quickEmotesHolderEnabled) {
-			this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init()
+			const placeholder = document.createElement('div')
+			document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
+			this.quickEmotesHolder = new QuickEmotesHolderComponent(
+				{ eventBus, settingsManager, emotesManager },
+				placeholder
+			).init()
 		}
 
 		eventBus.subscribe(
 			'ntv.settings.change.shared.chat.quick_emote_holder.enabled',
 			({ value, prevValue }: any) => {
 				if (value) {
-					this.quickEmotesHolder = new QuickEmotesHolderComponent({
-						eventBus,
-						settingsManager,
-						emotesManager
-					}).init()
+					const placeholder = document.createElement('div')
+					document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
+					this.quickEmotesHolder = new QuickEmotesHolderComponent(
+						{
+							eventBus,
+							settingsManager,
+							emotesManager
+						},
+						placeholder
+					).init()
 				} else {
 					this.quickEmotesHolder?.destroy()
 					this.quickEmotesHolder = null
 				}
 			}
 		)
+
+		// Wait for native quick emotes holder to load and remove it
+		waitForElements(['#chatroom-footer .quick-emotes-holder'], 7_000, this.abortController.signal)
+			.then(() => {
+				document.querySelector('#chatroom-footer .quick-emotes-holder')?.remove()
+			})
+			.catch(() => {})
 	}
 
 	loadSettings() {
@@ -245,7 +268,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		//====// Proxy Element Event Listeners //====//
 		submitButtonEl.addEventListener('click', () => this.submitInput())
 
-		this.inputController = new InputController(
+		const inputController = (this.inputController = new InputController(
 			{
 				settingsManager: this.settingsManager,
 				eventBus: this.eventBus,
@@ -255,12 +278,12 @@ export class KickUserInterface extends AbstractUserInterface {
 				clipboard: this.clipboard
 			},
 			textFieldEl
-		)
-		this.inputController.initialize()
-		this.inputController.loadTabCompletionBehaviour()
-		this.inputController.loadChatHistoryBehaviour()
+		))
+		inputController.initialize()
+		inputController.loadTabCompletionBehaviour()
+		inputController.loadChatHistoryBehaviour()
 
-		this.inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
+		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
 			if (event.detail.isEmpty) {
 				submitButtonEl.setAttribute('disabled', '')
 				submitButtonEl.classList.add('disabled')
@@ -348,7 +371,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				evt.ctrlKey ||
 				evt.altKey ||
 				evt.metaKey ||
-				this.inputController!.isShowingTabCompletorModal() ||
+				inputController.isShowingTabCompletorModal() ||
 				ignoredKeys[evt.key] ||
 				document.activeElement?.tagName === 'INPUT' ||
 				document.activeElement?.getAttribute('contenteditable') ||
@@ -398,6 +421,132 @@ export class KickUserInterface extends AbstractUserInterface {
 			},
 			{ passive: true }
 		)
+	}
+
+	getMessageContentString(chatMessageEl: HTMLElement) {
+		const messageNodes = Array.from(
+			chatMessageEl.querySelectorAll('.chat-entry .chat-message-identity + span ~ span')
+		)
+		let messageContent = []
+		for (const messageNode of messageNodes) {
+			if (messageNode.textContent) messageContent.push(messageNode.textContent)
+			else if (messageNode.querySelector('img')) {
+				const emoteName = messageNode.querySelector('img')?.getAttribute('data-emote-name')
+				if (emoteName) messageContent.push(emoteName)
+			}
+		}
+
+		return messageContent.join(' ')
+	}
+
+	loadReplyBehaviour() {
+		const { channelData, inputController } = this
+		if (!inputController) return error('Input controller not loaded for reply behaviour')
+
+		const chatMessagesContainerEl = this.elm.chatMessagesContainer
+		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for reply behaviour')
+		const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement!
+
+		const replyMessageWrapperEl = document.createElement('div')
+		replyMessageWrapperEl.classList.add('ntv__reply-message__wrapper')
+		document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(replyMessageWrapperEl)
+		this.elm.replyMessageWrapper = replyMessageWrapperEl
+
+		const replyMessageButtonCallback = (event: Event) => {
+			event.preventDefault()
+			event.stopPropagation()
+
+			if (!this.inputController) return error('Input controller not loaded for reply behaviour')
+
+			const targetMessage = chatMessagesContainerEl.querySelector(
+				'.chat-entry.bg-secondary-lighter'
+			)?.parentElement
+			if (!targetMessage) return error('Reply target message not found')
+			const messageNodes = Array.from(
+				// targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
+				targetMessage.querySelectorAll('.chat-entry > span')
+			)
+
+			const chatEntryContentString = this.getMessageContentString(targetMessage)
+
+			const chatEntryId = targetMessage.getAttribute('data-chat-entry')
+			if (!chatEntryId) return error('Reply target message ID not found')
+
+			const chatEntryUsernameEl = targetMessage.querySelector('.chat-entry-username')
+			const chatEntryUserId = chatEntryUsernameEl?.getAttribute('data-chat-entry-user-id')
+			if (!chatEntryUserId) return error('Reply target message user ID not found')
+
+			const chatEntryUsername = chatEntryUsernameEl?.textContent
+			if (!chatEntryUsername) return error('Reply target message username not found')
+
+			this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
+		}
+
+		const observer = (this.replyObserver = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.addedNodes.length) {
+					for (const messageNode of mutation.addedNodes) {
+						if (
+							messageNode instanceof HTMLElement &&
+							messageNode.classList.contains('fixed') &&
+							messageNode.classList.contains('z-10')
+						) {
+							messageNode.querySelector
+
+							let replyBtnEl: HTMLElement | null = null
+
+							if (channelData.me.is_moderator) {
+								replyBtnEl = messageNode.querySelector('div:nth-child(2)')
+							} else {
+								replyBtnEl = messageNode.querySelector('div')
+							}
+
+							if (!replyBtnEl) return //error('Reply button element not found', messageNode)
+
+							// The only way to remove Kick's event listeners from the button is to replace it with a new button
+							const newButtonEl = replyBtnEl.cloneNode(true)
+							replyBtnEl.replaceWith(newButtonEl)
+
+							newButtonEl.addEventListener('click', replyMessageButtonCallback)
+						}
+					}
+				} else if (mutation.removedNodes.length) {
+					for (const messageNode of mutation.removedNodes) {
+						if (messageNode instanceof HTMLElement) {
+							if (
+								messageNode instanceof HTMLElement &&
+								messageNode.classList.contains('fixed') &&
+								messageNode.classList.contains('z-10')
+							) {
+								let replyBtnEl: HTMLElement | null = null
+
+								if (channelData.me.is_moderator) {
+									replyBtnEl = messageNode.querySelector('div:nth-child(2)')
+								} else {
+									replyBtnEl = messageNode.querySelector('div')
+								}
+
+								replyBtnEl?.removeEventListener('click', replyMessageButtonCallback)
+							}
+						}
+					}
+				}
+			})
+		}))
+
+		observer.observe(chatMessagesContainerWrapperEl, { childList: true })
+
+		inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && this.replyMessageData && this.elm.replyMessageComponent) {
+				this.elm.replyMessageComponent.remove()
+			}
+		})
+
+		document.addEventListener('keydown', (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && this.replyMessageData && this.elm.replyMessageComponent) {
+				this.elm.replyMessageComponent.remove()
+			}
+		})
 	}
 
 	observeChatMessages() {
@@ -571,6 +720,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			// TODO Sometimes Kick decides to just not load messages. Attach another observer to the message to wait for when the message will actually load..
 			return error('Message has no content loaded yet..', messageNode)
 		}
+		chatEntryNode.classList.add('ntv__chat-message')
 
 		let messageWrapperNode
 
@@ -691,34 +841,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 	}
 
-	// Submits input to chat
-	submitInput(suppressEngagementEvent?: boolean) {
-		const { eventBus } = this
-		const contentEditableEditor = this.inputController?.contentEditableEditor
-		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
-
-		if (!this.elm.textField) {
-			return error('Text field not loaded for submitting input')
-		}
-
-		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
-			error(
-				`Message too long, it is ${contentEditableEditor.getCharacterCount()} characters but max limit is ${
-					this.maxMessageLength
-				}.`
-			)
-			return
-		}
-
-		this.networkInterface.sendMessage(contentEditableEditor.getMessageContent())
-
-		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-		contentEditableEditor.clearInput()
-
-		// Trigger input event to update submit button disabled state
-		this.elm.textField.dispatchEvent(new Event('input'))
-	}
-
 	// Sends emote to chat and restores previous message
 	sendEmoteToChat(emoteHid: string) {
 		assertArgDefined(emoteHid)
@@ -825,6 +947,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	destroy() {
 		if (this.abortController) this.abortController.abort()
 		if (this.chatObserver) this.chatObserver.disconnect()
+		if (this.replyObserver) this.replyObserver.disconnect()
 		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()

@@ -16,6 +16,7 @@ import { Database } from './Classes/Database'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
 import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
+import { UsersManager } from './Managers/UsersManager'
 
 class NipahClient {
 	ENV_VARS = {
@@ -143,6 +144,8 @@ class NipahClient {
 		))
 		emotesManager.initialize()
 
+		const usersManager = new UsersManager({ eventBus, settingsManager })
+
 		let userInterface: KickUserInterface
 		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface({
@@ -151,7 +154,8 @@ class NipahClient {
 				eventBus,
 				networkInterface,
 				settingsManager,
-				emotesManager
+				emotesManager,
+				usersManager
 			})
 		} else {
 			return error('Platform has no user interface implemented..', ENV_VARS.PLATFORM)

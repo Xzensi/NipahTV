@@ -114,6 +114,32 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		return REST.post('https://kick.com/api/v2/messages/send/' + chatroomId, { content: message, type: 'message' })
 	}
 
+	async sendReply(
+		message: string,
+		originalMessageId: string,
+		originalMessageContent: string,
+		originalSenderId: string,
+		originalSenderUsername: string
+	) {
+		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
+
+		const chatroomId = this.channelData.chatroom.id
+		return REST.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
+			content: message,
+			type: 'reply',
+			metadata: {
+				original_message: {
+					id: originalMessageId
+					// content: originalMessageContent
+				},
+				original_sender: {
+					id: +originalSenderId
+					// username: originalSenderUsername
+				}
+			}
+		})
+	}
+
 	async sendCommand(command: { name: string; args: string[] }) {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
