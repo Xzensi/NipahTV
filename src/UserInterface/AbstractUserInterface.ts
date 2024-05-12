@@ -34,8 +34,9 @@ export abstract class AbstractUserInterface {
 
 	protected abstract elm: {
 		replyMessageWrapper: HTMLElement | null
-		replyMessageComponent?: HTMLElement
 	}
+
+	protected replyMessageComponent?: ReplyMessageComponent
 
 	protected maxMessageLength = 500
 
@@ -175,6 +176,8 @@ export abstract class AbstractUserInterface {
 					this.toaster.addToast('Failed to send reply message.', 4_000, 'error')
 					error('Failed to send reply message:', err)
 				})
+
+			this.destroyReplyMessageContext()
 		} else {
 			this.networkInterface
 				.sendMessage(replyContent)
@@ -198,9 +201,6 @@ export abstract class AbstractUserInterface {
 
 		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
 		contentEditableEditor.clearInput()
-
-		this.elm.replyMessageComponent?.remove()
-		delete this.replyMessageData
 	}
 
 	replyMessage(
@@ -214,9 +214,8 @@ export abstract class AbstractUserInterface {
 		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
 		if (!this.elm.replyMessageWrapper) return error('Unable to load reply message, reply message wrapper not found')
 
-		if (this.replyMessageData) {
-			this.elm.replyMessageComponent?.remove()
-			delete this.replyMessageData
+		if (this.replyMessageComponent) {
+			this.destroyReplyMessageContext()
 		}
 
 		this.replyMessageData = {
@@ -226,40 +225,17 @@ export abstract class AbstractUserInterface {
 			chatEntryUserId
 		}
 
-		const replyMessageEl = (this.elm.replyMessageComponent = parseHTML(
-			cleanupHTML(`
-			<div class="ntv__reply-message">
-				<div class="ntv__reply-message__header">
-					<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-						<path fill="currentColor" d="M9 16h7.2l-2.6 2.6L15 20l5-5l-5-5l-1.4 1.4l2.6 2.6H9c-2.2 0-4-1.8-4-4s1.8-4 4-4h2V4H9c-3.3 0-6 2.7-6 6s2.7 6 6 6" />
-					</svg>
-					<span>Replying to:</span>
-					<svg class="ntv__reply-message__close-btn ntv__icon-button" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
-						<path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
-						<path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
-					</svg>
-				</div>
-				<div class="ntv__reply-message__content">
-				</div>
-			</div>
-		`),
-			true
-		) as HTMLElement)
+		this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init()
 
-		const closeBtn = replyMessageEl.querySelector('.ntv__reply-message__close-btn')!
-		closeBtn.addEventListener('click', () => {
-			replyMessageEl.remove()
-			delete this.elm.replyMessageComponent
-			delete this.replyMessageData
+		this.replyMessageComponent.addEventListener('close', () => {
+			this.destroyReplyMessageContext()
 		})
+	}
 
-		const contentEl = replyMessageEl.querySelector('.ntv__reply-message__content')!
-
-		for (const messageNode of messageNodes) {
-			contentEl.append(messageNode.cloneNode(true))
-		}
-
-		this.elm.replyMessageWrapper.append(replyMessageEl)
+	destroyReplyMessageContext() {
+		this.replyMessageComponent?.destroy()
+		delete this.replyMessageComponent
+		delete this.replyMessageData
 	}
 
 	abstract renderChatMessage(messageNode: HTMLElement): void

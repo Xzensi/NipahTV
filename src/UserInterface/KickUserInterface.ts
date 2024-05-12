@@ -39,7 +39,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		originalSubmitButton: HTMLElement | null
 		chatMessagesContainer: HTMLElement | null
 		replyMessageWrapper: HTMLElement | null
-		replyMessageComponent?: HTMLElement
 		submitButton: HTMLElement | null
 		textField: HTMLElement | null
 	} = {
@@ -537,14 +536,14 @@ export class KickUserInterface extends AbstractUserInterface {
 		observer.observe(chatMessagesContainerWrapperEl, { childList: true })
 
 		inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && this.replyMessageData && this.elm.replyMessageComponent) {
-				this.elm.replyMessageComponent.remove()
+			if (event.key === 'Escape' && this.replyMessageData && this.replyMessageComponent) {
+				this.destroyReplyMessageContext()
 			}
 		})
 
 		document.addEventListener('keydown', (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && this.replyMessageData && this.elm.replyMessageComponent) {
-				this.elm.replyMessageComponent.remove()
+			if (event.key === 'Escape' && this.replyMessageData && this.replyMessageComponent) {
+				this.destroyReplyMessageContext()
 			}
 		})
 	}
