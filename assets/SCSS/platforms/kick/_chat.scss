@@ -43,10 +43,6 @@
 	}
 
 	&.ntv__hide-emote-menu-button {
-		.chat-input-wrapper > div:not(#ntv__message-input):not(#message-input) {
-			display: none;
-		}
-
 		#chatroom-footer .send-row > button:not(.ntv__submit-button) {
 			display: none;
 		}
@@ -60,6 +56,10 @@
 				display: none !important;
 			}
 		}
+	}
+
+	.chat-input-wrapper > div:not(#ntv__message-input):not(#message-input) {
+		display: none;
 	}
 
 	> .ntv__sticky-scroll {
