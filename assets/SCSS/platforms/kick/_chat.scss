@@ -42,11 +42,11 @@
 		}
 	}
 
-	&.ntv__hide-emote-menu-button {
-		#chatroom-footer .send-row > button:not(.ntv__submit-button) {
-			display: none;
-		}
-	}
+	// &.ntv__hide-emote-menu-button {
+	// 	.chat-input-wrapper > div:not(#ntv__message-input):not(#message-input) {
+	// 		display: none;
+	// 	}
+	// }
 
 	&.ntv__hide-chat-input {
 		.chat-input-wrapper {
@@ -58,7 +58,7 @@
 		}
 	}
 
-	.chat-input-wrapper > div:not(#ntv__message-input):not(#message-input) {
+	#chatroom-footer .send-row > button:not(.ntv__submit-button) {
 		display: none;
 	}
 
