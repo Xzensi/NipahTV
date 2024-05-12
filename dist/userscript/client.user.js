@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-029472b0.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-b7c0b8f4.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/userscript/client.user.js
@@ -964,30 +964,38 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   eventBus;
   settingsManager;
   emotesManager;
-  $element;
-  $emote;
+  element;
+  emote;
+  placeholder;
   renderQuickEmotesCallback;
   constructor({
     eventBus,
     settingsManager,
     emotesManager
-  }) {
+  }, placeholder) {
     super();
     this.eventBus = eventBus;
     this.settingsManager = settingsManager;
     this.emotesManager = emotesManager;
+    this.placeholder = placeholder;
   }
   render() {
-    $(".ntv__client_quick_emotes_holder").remove();
+    const oldEls = document.getElementsByClassName("ntv__client_quick_emotes_holder");
+    for (const el of oldEls)
+      el.remove();
     const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
-    this.$element = $(`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`);
-    const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
-    $oldEmotesHolder.remove();
-    $("#chatroom-footer").prepend(this.$element);
+    this.element = parseHTML(
+      `<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`,
+      true
+    );
+    this.placeholder.replaceWith(this.element);
   }
   attachEventHandlers() {
-    this.$element?.on("click", "img", (evt) => {
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    this.element?.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG")
+        return;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
         return error("Invalid emote hid");
       this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
@@ -1028,26 +1036,29 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.hid === emoteHid);
     if (emoteInSortingListIndex !== -1) {
       const emoteToSort = this.sortingList[emoteInSortingListIndex];
-      const $emote = emoteToSort.$emote;
-      $emote.remove();
+      const emoteEl = emoteToSort.emoteEl;
+      emoteEl.remove();
       this.sortingList.splice(emoteInSortingListIndex, 1);
       const insertIndex = this.getSortedEmoteIndex(emoteHid);
       if (insertIndex !== -1) {
         this.sortingList.splice(insertIndex, 0, emoteToSort);
-        this.$element?.children().eq(insertIndex).before($emote);
+        this.element?.children[insertIndex].before(emoteEl);
       } else {
         this.sortingList.push(emoteToSort);
-        this.$element?.append($emote);
+        this.element?.append(emoteEl);
       }
     } else {
-      const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote"));
+      const emotePartialEl = parseHTML(
+        emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote"),
+        true
+      );
       const insertIndex = this.getSortedEmoteIndex(emoteHid);
       if (insertIndex !== -1) {
-        this.sortingList.splice(insertIndex, 0, { hid: emoteHid, $emote: $emotePartial });
-        this.$element?.children().eq(insertIndex).before($emotePartial);
+        this.sortingList.splice(insertIndex, 0, { hid: emoteHid, emoteEl: emotePartialEl });
+        this.element?.children[insertIndex].before(emotePartialEl);
       } else {
-        this.sortingList.push({ hid: emoteHid, $emote: $emotePartial });
-        this.$element?.append($emotePartial);
+        this.sortingList.push({ hid: emoteHid, emoteEl: emotePartialEl });
+        this.element?.append(emotePartialEl);
       }
     }
   }
@@ -1059,7 +1070,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     });
   }
   destroy() {
-    this.$element?.remove();
+    this.element?.remove();
     if (this.renderQuickEmotesCallback)
       this.eventBus.unsubscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
   }
@@ -1435,6 +1446,57 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
 };
 
+// src/UserInterface/Components/ReplyMessageComponent.ts
+var ReplyMessageComponent = class extends AbstractComponent {
+  element;
+  containerEl;
+  eventTarget = new EventTarget();
+  constructor(containerEl, messageNodes) {
+    super();
+    this.containerEl = containerEl;
+    this.element = parseHTML(
+      cleanupHTML(`
+			<div class="ntv__reply-message">
+				<div class="ntv__reply-message__header">
+					<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+						<path fill="currentColor" d="M9 16h7.2l-2.6 2.6L15 20l5-5l-5-5l-1.4 1.4l2.6 2.6H9c-2.2 0-4-1.8-4-4s1.8-4 4-4h2V4H9c-3.3 0-6 2.7-6 6s2.7 6 6 6" />
+					</svg>
+					<span>Replying to:</span>
+					<svg class="ntv__reply-message__close-btn ntv__icon-button" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
+						<path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
+						<path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
+					</svg>
+				</div>
+				<div class="ntv__reply-message__content">
+				</div>
+			</div>
+		`),
+      true
+    );
+    const contentEl = this.element.querySelector(".ntv__reply-message__content");
+    for (const messageNode of messageNodes) {
+      contentEl.append(messageNode.cloneNode(true));
+    }
+  }
+  render() {
+    this.containerEl.append(this.element);
+  }
+  // Method to attach event handlers
+  attachEventHandlers() {
+    const closeBtn = this.element.querySelector(".ntv__reply-message__close-btn");
+    closeBtn.addEventListener("click", () => {
+      this.element.remove();
+      this.eventTarget.dispatchEvent(new Event("close"));
+    });
+  }
+  addEventListener(event, callback) {
+    this.eventTarget.addEventListener(event, callback);
+  }
+  destroy() {
+    this.element.remove();
+  }
+};
+
 // src/Classes/MessagesHistory.ts
 var MessagesHistory = class {
   messages;
@@ -1488,70 +1550,6 @@ var MessagesHistory = class {
   }
   resetCursor() {
     this.cursorIndex = -1;
-  }
-};
-
-// src/Datastores/UsersDatastore.ts
-var UsersDatastore = class {
-  usersNameMap = /* @__PURE__ */ new Map();
-  usersIdMap = /* @__PURE__ */ new Map();
-  users = [];
-  usersCount = 0;
-  maxUsers = 5e4;
-  fuse = new Fuse([], {
-    includeScore: true,
-    shouldSort: true,
-    includeMatches: true,
-    // isCaseSensitive: true,
-    findAllMatches: true,
-    threshold: 0.4,
-    keys: [["name"]]
-  });
-  eventBus;
-  constructor({ eventBus }) {
-    this.eventBus = eventBus;
-    eventBus.subscribe("ntv.session.destroy", () => {
-      delete this.users;
-      delete this.usersIdMap;
-      delete this.usersNameMap;
-    });
-  }
-  hasUser(name) {
-    return this.usersNameMap.has(name);
-  }
-  registerUser(id, name) {
-    if (this.usersIdMap.has(id))
-      return;
-    if (this.usersCount >= this.maxUsers) {
-      error(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`);
-      return;
-    }
-    const user = { id, name };
-    this.usersNameMap.set(name, user);
-    this.usersIdMap.set(id, user);
-    this.users.push(user);
-    this.fuse.add(user);
-    this.usersCount++;
-  }
-  searchUsers(searchVal) {
-    return this.fuse.search(searchVal);
-  }
-};
-
-// src/Managers/UsersManager.ts
-var UsersManager = class {
-  datastore;
-  constructor({ eventBus, settingsManager }) {
-    this.datastore = new UsersDatastore({ eventBus });
-  }
-  hasSeenUser(name) {
-    return this.datastore.hasUser(name);
-  }
-  registerUser(id, name) {
-    this.datastore.registerUser(id, name);
-  }
-  searchUsers(searchVal, limit = 20) {
-    return this.datastore.searchUsers(searchVal).slice(0, limit);
   }
 };
 
@@ -1869,39 +1867,7 @@ var UserInfoModal = class extends AbstractModal {
   }
   attachEventHandlers() {
     super.attachEventHandlers();
-    this.actionFollowEl?.addEventListener("click", async () => {
-      log("Follow button clicked");
-      const { userInfo } = this;
-      if (!userInfo)
-        return;
-      this.actionFollowEl.classList.add("ntv__button--disabled");
-      if (userInfo.isFollowing) {
-        try {
-          await this.networkInterface.unfollowUser(this.username);
-          userInfo.isFollowing = false;
-          this.actionFollowEl.textContent = "Follow";
-        } catch (err) {
-          if (err.message) {
-            this.toaster.addToast("Failed to follow user: " + err.message, 6e3, "error");
-          } else {
-            this.toaster.addToast("Failed to follow user, reason unknown", 6e3, "error");
-          }
-        }
-      } else {
-        try {
-          await this.networkInterface.followUser(this.username);
-          userInfo.isFollowing = true;
-          this.actionFollowEl.textContent = "Unfollow";
-        } catch (err) {
-          if (err.message) {
-            this.toaster.addToast("Failed to unfollow user: " + err.message, 6e3, "error");
-          } else {
-            this.toaster.addToast("Failed to unfollow user, reason unknown", 6e3, "error");
-          }
-        }
-      }
-      this.actionFollowEl.classList.remove("ntv__button--disabled");
-    });
+    this.actionFollowEl?.addEventListener("click", this.clickFollowHandler.bind(this));
     this.actionMuteEl?.addEventListener("click", () => {
       log("Mute button clicked");
     });
@@ -1917,6 +1883,43 @@ var UserInfoModal = class extends AbstractModal {
       log("Mod button clicked");
     });
     this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHandler.bind(this));
+  }
+  async clickFollowHandler() {
+    log("Follow button clicked");
+    const { userInfo } = this;
+    if (!userInfo)
+      return;
+    this.actionFollowEl.classList.add("ntv__button--disabled");
+    if (userInfo.isFollowing) {
+      try {
+        await this.networkInterface.unfollowUser(this.username);
+        userInfo.isFollowing = false;
+        this.actionFollowEl.textContent = "Follow";
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to follow user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to follow user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to follow user, reason unknown", 6e3, "error");
+        }
+      }
+    } else {
+      try {
+        await this.networkInterface.followUser(this.username);
+        userInfo.isFollowing = true;
+        this.actionFollowEl.textContent = "Unfollow";
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to unfollow user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to unfollow user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to unfollow user, reason unknown", 6e3, "error");
+        }
+      }
+    }
+    this.actionFollowEl.classList.remove("ntv__button--disabled");
   }
   async clickTimeoutHandler() {
     log("Timeout button clicked");
@@ -1960,7 +1963,9 @@ var UserInfoModal = class extends AbstractModal {
         });
         await this.updateUserInfo();
       } catch (err) {
-        if (err.message) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to timeout user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
           this.toaster.addToast("Failed to timeout user: " + err.message, 6e3, "error");
         } else {
           this.toaster.addToast("Failed to timeout user, reason unknown", 6e3, "error");
@@ -1989,7 +1994,9 @@ var UserInfoModal = class extends AbstractModal {
         await networkInterface.sendCommand({ name: "unban", args: [userInfo.username] });
         log("Successfully unbanned user:", userInfo.username);
       } catch (err) {
-        if (err.message) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to unban user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
           this.toaster.addToast("Failed to unban user: " + err.message, 6e3, "error");
         } else {
           this.toaster.addToast("Failed to unban user, reason unknown", 6e3, "error");
@@ -2005,7 +2012,9 @@ var UserInfoModal = class extends AbstractModal {
         await networkInterface.sendCommand({ name: "ban", args: [userInfo.username] });
         log("Successfully banned user:", userInfo.username);
       } catch (err) {
-        if (err.message) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to ban user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
           this.toaster.addToast("Failed to ban user: " + err.message, 6e3, "error");
         } else {
           this.toaster.addToast("Failed to ban user, reason unknown", 6e3, "error");
@@ -2035,7 +2044,9 @@ var UserInfoModal = class extends AbstractModal {
       messages = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id);
       log("Successfully received user messages");
     } catch (err) {
-      if (err.message) {
+      if (err.errors && err.errors.length > 0) {
+        this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
+      } else if (err.message) {
         this.toaster.addToast("Failed to load user message history: " + err.message, 6e3, "error");
       } else {
         this.toaster.addToast("Failed to load user message history, reason unknown", 6e3, "error");
@@ -2067,7 +2078,9 @@ var UserInfoModal = class extends AbstractModal {
       delete this.userInfo;
       this.userInfo = await this.networkInterface.getUserInfo(this.username);
     } catch (err) {
-      if (err.message) {
+      if (err.errors && err.errors.length > 0) {
+        this.toaster.addToast("Failed to get user info: " + err.errors.join(" "), 6e3, "error");
+      } else if (err.message) {
         this.toaster.addToast("Failed to get user info: " + err.message, 6e3, "error");
       } else {
         this.toaster.addToast("Failed to get user info, reason unknown", 6e3, "error");
@@ -2089,136 +2102,6 @@ var UserInfoModal = class extends AbstractModal {
     } else {
       statusPageEl.innerHTML = "";
     }
-  }
-};
-
-// src/Classes/Toaster.ts
-var Toaster = class {
-  toasts = [];
-  addToast(message, duration, type = "info") {
-    const toastEl = parseHTML(
-      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
-      true
-    );
-    const timeout = Date.now() + duration;
-    const toast = { message, type, timeout, element: toastEl };
-    this.toasts.push(toast);
-    document.body.appendChild(toastEl);
-    setTimeout(() => {
-      const index = this.toasts.indexOf(toast);
-      if (index !== -1) {
-        this.toasts[index].element.remove();
-        this.toasts.splice(index, 1);
-      }
-    }, duration);
-    this.moveToasts();
-  }
-  moveToasts() {
-    const spacing = 20;
-    let y = 20;
-    const toasts = this.toasts.toReversed();
-    for (const toast of toasts) {
-      toast.element.style.top = `${y}px`;
-      y += toast.element.clientHeight + spacing;
-    }
-  }
-};
-
-// src/UserInterface/AbstractUserInterface.ts
-var AbstractUserInterface = class {
-  ENV_VARS;
-  channelData;
-  eventBus;
-  networkInterface;
-  settingsManager;
-  emotesManager;
-  usersManager;
-  toaster = new Toaster();
-  messageHistory = new MessagesHistory();
-  /**
-   * @param {EventBus} eventBus
-   * @param {object} deps
-   */
-  constructor({
-    ENV_VARS,
-    channelData,
-    eventBus,
-    networkInterface,
-    settingsManager,
-    emotesManager
-  }) {
-    assertArgDefined(ENV_VARS);
-    assertArgDefined(channelData);
-    assertArgDefined(eventBus);
-    assertArgDefined(networkInterface);
-    assertArgDefined(settingsManager);
-    assertArgDefined(emotesManager);
-    this.ENV_VARS = ENV_VARS;
-    this.channelData = channelData;
-    this.eventBus = eventBus;
-    this.networkInterface = networkInterface;
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
-    this.usersManager = new UsersManager({ eventBus, settingsManager });
-  }
-  loadInterface() {
-    const { eventBus } = this;
-    eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
-      assertArgDefined(data.username);
-      this.showUserInfoModal(data.username);
-    });
-  }
-  renderEmotesInElement(textElement, appendTo) {
-    const { emotesManager } = this;
-    const text = textElement.textContent || "";
-    const tokens = text.split(" ");
-    const newNodes = [];
-    let textBuffer = "";
-    for (const token of tokens) {
-      const emoteHid = emotesManager.getEmoteHidByName(token);
-      if (emoteHid) {
-        if (textBuffer) {
-          const newNode2 = document.createElement("span");
-          newNode2.appendChild(document.createTextNode(textBuffer.trim()));
-          newNode2.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
-          newNodes.push(newNode2);
-          textBuffer = "";
-        }
-        const newNode = document.createElement("span");
-        newNode.innerHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
-        newNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
-        newNode.setAttribute("data-emote-hid", emoteHid);
-        newNode.setAttribute("contenteditable", "false");
-        newNodes.push(newNode);
-      } else if (token) {
-        textBuffer += token + " ";
-      }
-    }
-    if (textBuffer) {
-      const newNode = document.createElement("span");
-      newNode.appendChild(document.createTextNode(textBuffer.trim()));
-      newNode.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
-      newNodes.push(newNode);
-    }
-    if (appendTo)
-      appendTo.append(...newNodes);
-    else
-      textElement.after(...newNodes);
-    textElement.remove();
-  }
-  showUserInfoModal(username) {
-    log("Showing user info modal..");
-    const modal = new UserInfoModal(
-      {
-        ENV_VARS: this.ENV_VARS,
-        eventBus: this.eventBus,
-        networkInterface: this.networkInterface,
-        toaster: this.toaster,
-        userInterface: this
-      },
-      this.channelData,
-      username
-    ).init();
   }
 };
 
@@ -2433,6 +2316,359 @@ var Caret = class {
     const after = text.slice(end);
     container.textContent = before;
     container.after(replacement, document.createTextNode(after));
+  }
+};
+
+// src/Classes/Clipboard.ts
+function flattenNestedElement(node) {
+  const result = [];
+  function traverse(node2) {
+    if (node2.nodeType === Node.TEXT_NODE) {
+      result.push(node2);
+    } else if (node2.nodeType === Node.ELEMENT_NODE && node2.nodeName === "IMG") {
+      result.push(node2);
+    } else {
+      for (var i = 0; i < node2.childNodes.length; i++) {
+        traverse(node2.childNodes[i]);
+      }
+    }
+  }
+  traverse(node);
+  return result;
+}
+var Clipboard2 = class {
+  domParser = new DOMParser();
+  handleCopyEvent(event) {
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount)
+      return error("Selection is null");
+    event.preventDefault();
+    const range = selection.getRangeAt(0);
+    if (!range)
+      return;
+    range.startContainer.parentElement?.normalize();
+    const buffer = [];
+    const nodes = range.cloneContents().childNodes;
+    for (const node of nodes) {
+      if (node instanceof Text) {
+        buffer.push(node.textContent?.trim());
+      } else if (node instanceof HTMLElement) {
+        const emoteImg = node.querySelector("img");
+        if (emoteImg) {
+          buffer.push(emoteImg.dataset.emoteName || "UNSET_EMOTE");
+        }
+      }
+    }
+    const copyString = buffer.join(" ").replaceAll(CHAR_ZWSP, "");
+    event.clipboardData?.setData("text/plain", copyString);
+    log(`Copied: "${copyString}"`);
+  }
+  handleCutEvent(event) {
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount)
+      return;
+    const range = selection.getRangeAt(0);
+    if (!range)
+      return;
+    const commonAncestorContainer = range.commonAncestorContainer;
+    if (!(commonAncestorContainer instanceof HTMLElement) && !commonAncestorContainer.isContentEditable && !commonAncestorContainer.parentElement.isContentEditable) {
+      return;
+    }
+    event.preventDefault();
+    this.handleCopyEvent(event);
+    selection.deleteFromDocument();
+  }
+  paste(text) {
+    const selection = wwindow.getSelection();
+    if (!selection || !selection.rangeCount)
+      return;
+    selection.deleteFromDocument();
+    selection.getRangeAt(0).insertNode(document.createTextNode(text));
+    selection.collapseToEnd();
+  }
+  pasteHTML(html) {
+    const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
+    const selection = wwindow.getSelection();
+    if (!selection || !selection.rangeCount)
+      return;
+    selection.deleteFromDocument();
+    const range = selection.getRangeAt(0);
+    for (const node of nodes) {
+      Caret.insertNodeAtCaret(range, node);
+    }
+    const lastNode = nodes[nodes.length - 1];
+    if (lastNode) {
+      if (lastNode.nodeType === Node.TEXT_NODE) {
+        selection.collapse(lastNode, lastNode.length);
+        selection.collapseToEnd();
+      } else if (lastNode.nodeType === Node.ELEMENT_NODE) {
+        selection.collapse(lastNode, lastNode.childNodes.length);
+      }
+    }
+  }
+  parsePastedMessage(evt) {
+    const clipboardData = evt.clipboardData || wwindow.clipboardData;
+    if (!clipboardData)
+      return;
+    const html = clipboardData.getData("text/html");
+    if (html) {
+      const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
+      const childNodes = doc.body.childNodes;
+      if (childNodes.length === 0) {
+        return;
+      }
+      let startFragmentComment = null, endFragmentComment = null;
+      for (let i = 0; i < childNodes.length; i++) {
+        const node = childNodes[i];
+        if (node.nodeType === Node.COMMENT_NODE) {
+          if (node.textContent === "StartFragment") {
+            startFragmentComment = i;
+          } else if (node.textContent === "EndFragment") {
+            endFragmentComment = i;
+          }
+          if (startFragmentComment && endFragmentComment) {
+            break;
+          }
+        }
+      }
+      if (startFragmentComment === null || endFragmentComment === null) {
+        error("Failed to find fragment markers, clipboard data seems to be corrupted.");
+        return;
+      }
+      const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
+      const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
+      const parsedNodes = [];
+      for (const node of flattenedNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent) {
+          parsedNodes.push(node.textContent);
+        } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
+          const emoteName = node.dataset.emoteName;
+          if (emoteName) {
+            parsedNodes.push(emoteName);
+          }
+        }
+      }
+      if (parsedNodes.length)
+        return parsedNodes;
+    } else {
+      const text = clipboardData.getData("text/plain");
+      if (!text)
+        return;
+      return [text.replaceAll(CHAR_ZWSP, "")];
+    }
+  }
+};
+
+// src/Classes/Toaster.ts
+var Toaster = class {
+  toasts = [];
+  addToast(message, duration, type = "info") {
+    const toastEl = parseHTML(
+      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
+      true
+    );
+    const timeout = Date.now() + duration;
+    const toast = { message, type, timeout, element: toastEl };
+    this.toasts.push(toast);
+    document.body.appendChild(toastEl);
+    setTimeout(() => {
+      const index = this.toasts.indexOf(toast);
+      if (index !== -1) {
+        this.toasts[index].element.remove();
+        this.toasts.splice(index, 1);
+      }
+    }, duration);
+    this.moveToasts();
+  }
+  moveToasts() {
+    const spacing = 20;
+    let y = 20;
+    const toasts = this.toasts.toReversed();
+    for (const toast of toasts) {
+      toast.element.style.top = `${y}px`;
+      y += toast.element.clientHeight + spacing;
+    }
+  }
+};
+
+// src/UserInterface/AbstractUserInterface.ts
+var AbstractUserInterface = class {
+  ENV_VARS;
+  channelData;
+  eventBus;
+  networkInterface;
+  settingsManager;
+  emotesManager;
+  usersManager;
+  inputController = null;
+  clipboard = new Clipboard2();
+  toaster = new Toaster();
+  messageHistory = new MessagesHistory();
+  replyMessageData;
+  replyMessageComponent;
+  maxMessageLength = 500;
+  /**
+   * @param {EventBus} eventBus
+   * @param {object} deps
+   */
+  constructor({
+    ENV_VARS,
+    channelData,
+    eventBus,
+    networkInterface,
+    settingsManager,
+    emotesManager,
+    usersManager
+  }) {
+    this.ENV_VARS = ENV_VARS;
+    this.channelData = channelData;
+    this.eventBus = eventBus;
+    this.networkInterface = networkInterface;
+    this.settingsManager = settingsManager;
+    this.emotesManager = emotesManager;
+    this.usersManager = usersManager;
+  }
+  loadInterface() {
+    const { eventBus } = this;
+    eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
+      assertArgDefined(data.username);
+      this.showUserInfoModal(data.username);
+    });
+  }
+  getRenderedMessageLine() {
+  }
+  renderEmotesInElement(textElement, appendTo) {
+    const { emotesManager } = this;
+    const text = textElement.textContent || "";
+    const tokens = text.split(" ");
+    const newNodes = [];
+    let textBuffer = "";
+    for (const token of tokens) {
+      const emoteHid = emotesManager.getEmoteHidByName(token);
+      if (emoteHid) {
+        if (textBuffer) {
+          const newNode2 = document.createElement("span");
+          newNode2.appendChild(document.createTextNode(textBuffer.trim()));
+          newNode2.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
+          newNodes.push(newNode2);
+          textBuffer = "";
+        }
+        const newNode = document.createElement("span");
+        newNode.innerHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
+        newNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
+        newNode.setAttribute("data-emote-hid", emoteHid);
+        newNode.setAttribute("contenteditable", "false");
+        newNodes.push(newNode);
+      } else if (token) {
+        textBuffer += token + " ";
+      }
+    }
+    if (textBuffer) {
+      const newNode = document.createElement("span");
+      newNode.appendChild(document.createTextNode(textBuffer.trim()));
+      newNode.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
+      newNodes.push(newNode);
+    }
+    if (appendTo)
+      appendTo.append(...newNodes);
+    else
+      textElement.after(...newNodes);
+    textElement.remove();
+  }
+  showUserInfoModal(username) {
+    log("Showing user info modal..");
+    const modal = new UserInfoModal(
+      {
+        ENV_VARS: this.ENV_VARS,
+        eventBus: this.eventBus,
+        networkInterface: this.networkInterface,
+        toaster: this.toaster,
+        userInterface: this
+      },
+      this.channelData,
+      username
+    ).init();
+  }
+  // Submits input to chat
+  submitInput(suppressEngagementEvent) {
+    const { eventBus } = this;
+    const contentEditableEditor = this.inputController?.contentEditableEditor;
+    if (!contentEditableEditor)
+      return error("Unable to submit input, the input controller is not loaded yet.");
+    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
+      error(
+        `Message too long, it is ${contentEditableEditor.getCharacterCount()} characters but max limit is ${this.maxMessageLength}.`
+      );
+      this.toaster.addToast("Message is too long to send.", 4e3, "error");
+      return;
+    }
+    const replyContent = contentEditableEditor.getMessageContent();
+    if (!replyContent.length)
+      return;
+    if (this.replyMessageData) {
+      const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData;
+      this.networkInterface.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername).then((res) => {
+        if (res.status.error) {
+          if (res.status.message)
+            this.toaster.addToast(
+              "Failed to send reply message because: " + res.status.message,
+              5e3,
+              "error"
+            );
+          else
+            this.toaster.addToast("Failed to send reply message.", 4e3, "error");
+          error("Failed to send reply message:", res.status);
+        }
+      }).catch((err) => {
+        this.toaster.addToast("Failed to send reply message.", 4e3, "error");
+        error("Failed to send reply message:", err);
+      });
+      this.destroyReplyMessageContext();
+    } else {
+      this.networkInterface.sendMessage(replyContent).then((res) => {
+        if (res.status.error) {
+          if (res.status.message)
+            this.toaster.addToast(
+              "Failed to send message because: " + res.status.message,
+              5e3,
+              "error"
+            );
+          else
+            this.toaster.addToast("Failed to send message.", 4e3, "error");
+          error("Failed to send message:", res.status);
+        }
+      }).catch((err) => {
+        this.toaster.addToast("Failed to send message.", 4e3, "error");
+        error("Failed to send message:", err);
+      });
+    }
+    eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent });
+    contentEditableEditor.clearInput();
+  }
+  replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername) {
+    log(`Replying to message ${chatEntryId} of user ${chatEntryUsername} with ID ${chatEntryUserId}..`);
+    if (!this.inputController)
+      return error("Input controller not loaded for reply behaviour");
+    if (!this.elm.replyMessageWrapper)
+      return error("Unable to load reply message, reply message wrapper not found");
+    if (this.replyMessageComponent) {
+      this.destroyReplyMessageContext();
+    }
+    this.replyMessageData = {
+      chatEntryId,
+      chatEntryContentString,
+      chatEntryUsername,
+      chatEntryUserId
+    };
+    this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init();
+    this.replyMessageComponent.addEventListener("close", () => {
+      this.destroyReplyMessageContext();
+    });
+  }
+  destroyReplyMessageContext() {
+    this.replyMessageComponent?.destroy();
+    delete this.replyMessageComponent;
+    delete this.replyMessageData;
   }
 };
 
@@ -4352,146 +4588,6 @@ var InputController = class {
   }
 };
 
-// src/Classes/Clipboard.ts
-function flattenNestedElement(node) {
-  const result = [];
-  function traverse(node2) {
-    if (node2.nodeType === Node.TEXT_NODE) {
-      result.push(node2);
-    } else if (node2.nodeType === Node.ELEMENT_NODE && node2.nodeName === "IMG") {
-      result.push(node2);
-    } else {
-      for (var i = 0; i < node2.childNodes.length; i++) {
-        traverse(node2.childNodes[i]);
-      }
-    }
-  }
-  traverse(node);
-  return result;
-}
-var Clipboard2 = class {
-  domParser = new DOMParser();
-  handleCopyEvent(event) {
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount)
-      return error("Selection is null");
-    event.preventDefault();
-    const range = selection.getRangeAt(0);
-    if (!range)
-      return;
-    range.startContainer.parentElement?.normalize();
-    const buffer = [];
-    const nodes = range.cloneContents().childNodes;
-    for (const node of nodes) {
-      if (node instanceof Text) {
-        buffer.push(node.textContent?.trim());
-      } else if (node instanceof HTMLElement) {
-        const emoteImg = node.querySelector("img");
-        if (emoteImg) {
-          buffer.push(emoteImg.dataset.emoteName || "UNSET_EMOTE");
-        }
-      }
-    }
-    const copyString = buffer.join(" ").replaceAll(CHAR_ZWSP, "");
-    event.clipboardData?.setData("text/plain", copyString);
-    log(`Copied: "${copyString}"`);
-  }
-  handleCutEvent(event) {
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount)
-      return;
-    const range = selection.getRangeAt(0);
-    if (!range)
-      return;
-    const commonAncestorContainer = range.commonAncestorContainer;
-    if (!(commonAncestorContainer instanceof HTMLElement) && !commonAncestorContainer.isContentEditable && !commonAncestorContainer.parentElement.isContentEditable) {
-      return;
-    }
-    event.preventDefault();
-    this.handleCopyEvent(event);
-    selection.deleteFromDocument();
-  }
-  paste(text) {
-    const selection = wwindow.getSelection();
-    if (!selection || !selection.rangeCount)
-      return;
-    selection.deleteFromDocument();
-    selection.getRangeAt(0).insertNode(document.createTextNode(text));
-    selection.collapseToEnd();
-  }
-  pasteHTML(html) {
-    const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
-    const selection = wwindow.getSelection();
-    if (!selection || !selection.rangeCount)
-      return;
-    selection.deleteFromDocument();
-    const range = selection.getRangeAt(0);
-    for (const node of nodes) {
-      Caret.insertNodeAtCaret(range, node);
-    }
-    const lastNode = nodes[nodes.length - 1];
-    if (lastNode) {
-      if (lastNode.nodeType === Node.TEXT_NODE) {
-        selection.collapse(lastNode, lastNode.length);
-        selection.collapseToEnd();
-      } else if (lastNode.nodeType === Node.ELEMENT_NODE) {
-        selection.collapse(lastNode, lastNode.childNodes.length);
-      }
-    }
-  }
-  parsePastedMessage(evt) {
-    const clipboardData = evt.clipboardData || wwindow.clipboardData;
-    if (!clipboardData)
-      return;
-    const html = clipboardData.getData("text/html");
-    if (html) {
-      const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
-      const childNodes = doc.body.childNodes;
-      if (childNodes.length === 0) {
-        return;
-      }
-      let startFragmentComment = null, endFragmentComment = null;
-      for (let i = 0; i < childNodes.length; i++) {
-        const node = childNodes[i];
-        if (node.nodeType === Node.COMMENT_NODE) {
-          if (node.textContent === "StartFragment") {
-            startFragmentComment = i;
-          } else if (node.textContent === "EndFragment") {
-            endFragmentComment = i;
-          }
-          if (startFragmentComment && endFragmentComment) {
-            break;
-          }
-        }
-      }
-      if (startFragmentComment === null || endFragmentComment === null) {
-        error("Failed to find fragment markers, clipboard data seems to be corrupted.");
-        return;
-      }
-      const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
-      const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
-      const parsedNodes = [];
-      for (const node of flattenedNodes) {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent) {
-          parsedNodes.push(node.textContent);
-        } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
-          const emoteName = node.dataset.emoteName;
-          if (emoteName) {
-            parsedNodes.push(emoteName);
-          }
-        }
-      }
-      if (parsedNodes.length)
-        return parsedNodes;
-    } else {
-      const text = clipboardData.getData("text/plain");
-      if (!text)
-        return;
-      return [text.replaceAll(CHAR_ZWSP, "")];
-    }
-  }
-};
-
 // src/UserInterface/KickUserInterface.ts
 function getEmojiAttributes() {
   return {
@@ -4501,9 +4597,8 @@ function getEmojiAttributes() {
 }
 var KickUserInterface = class extends AbstractUserInterface {
   abortController = new AbortController();
-  clipboard = new Clipboard2();
-  inputController = null;
   chatObserver = null;
+  replyObserver = null;
   pinnedMessageObserver = null;
   emoteMenu = null;
   emoteMenuButton = null;
@@ -4512,6 +4607,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     originalTextField: null,
     originalSubmitButton: null,
     chatMessagesContainer: null,
+    replyMessageWrapper: null,
     submitButton: null,
     textField: null
   };
@@ -4530,16 +4626,13 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.loadShadowProxyElements();
       this.loadEmoteMenu();
       this.loadEmoteMenuButton();
+      this.loadQuickEmotesHolder();
       if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
         document.getElementById("chatroom")?.classList.add("ntv__hide-emote-menu-button");
       }
       if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
         document.getElementById("chatroom")?.classList.add("ntv__smooth-scrolling");
       }
-    }).catch(() => {
-    });
-    waitForElements(["#chatroom-footer .quick-emotes-holder"], 5e3, abortSignal).then(() => {
-      this.loadQuickEmotesHolder();
     }).catch(() => {
     });
     const chatMessagesContainerSelector = this.channelData.is_vod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
@@ -4555,6 +4648,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
       this.observeChatMessages();
       this.loadScrollingBehaviour();
+      this.loadReplyBehaviour();
     }).catch(() => {
     });
     waitForElements(["#chatroom-top"], 5e3).then(() => {
@@ -4608,23 +4702,37 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { eventBus, settingsManager, emotesManager } = this;
     const quickEmotesHolderEnabled = settingsManager.getSetting("shared.chat.quick_emote_holder.enabled");
     if (quickEmotesHolderEnabled) {
-      this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init();
+      const placeholder = document.createElement("div");
+      document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
+      this.quickEmotesHolder = new QuickEmotesHolderComponent(
+        { eventBus, settingsManager, emotesManager },
+        placeholder
+      ).init();
     }
     eventBus.subscribe(
       "ntv.settings.change.shared.chat.quick_emote_holder.enabled",
       ({ value, prevValue }) => {
         if (value) {
-          this.quickEmotesHolder = new QuickEmotesHolderComponent({
-            eventBus,
-            settingsManager,
-            emotesManager
-          }).init();
+          const placeholder = document.createElement("div");
+          document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
+          this.quickEmotesHolder = new QuickEmotesHolderComponent(
+            {
+              eventBus,
+              settingsManager,
+              emotesManager
+            },
+            placeholder
+          ).init();
         } else {
           this.quickEmotesHolder?.destroy();
           this.quickEmotesHolder = null;
         }
       }
     );
+    waitForElements(["#chatroom-footer .quick-emotes-holder"], 7e3, this.abortController.signal).then(() => {
+      document.querySelector("#chatroom-footer .quick-emotes-holder")?.remove();
+    }).catch(() => {
+    });
   }
   loadSettings() {
     const { eventBus, settingsManager } = this;
@@ -4663,7 +4771,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       $(textFieldEl).before($moderatorChatIdentityBadgeIcon);
     document.getElementById("chatroom")?.classList.add("ntv__hide-chat-input");
     submitButtonEl.addEventListener("click", () => this.submitInput());
-    this.inputController = new InputController(
+    const inputController = this.inputController = new InputController(
       {
         settingsManager: this.settingsManager,
         eventBus: this.eventBus,
@@ -4674,10 +4782,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       },
       textFieldEl
     );
-    this.inputController.initialize();
-    this.inputController.loadTabCompletionBehaviour();
-    this.inputController.loadChatHistoryBehaviour();
-    this.inputController.addEventListener("is_empty", 10, (event) => {
+    inputController.initialize();
+    inputController.loadTabCompletionBehaviour();
+    inputController.loadChatHistoryBehaviour();
+    inputController.addEventListener("is_empty", 10, (event) => {
       if (event.detail.isEmpty) {
         submitButtonEl.setAttribute("disabled", "");
         submitButtonEl.classList.add("disabled");
@@ -4752,7 +4860,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       NumLock: true
     };
     $(document.body).on("keydown", (evt) => {
-      if (evt.ctrlKey || evt.altKey || evt.metaKey || this.inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target.hasAttribute("capture-focus")) {
+      if (evt.ctrlKey || evt.altKey || evt.metaKey || inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target.hasAttribute("capture-focus")) {
         return;
       }
       textFieldEl.focus();
@@ -4789,6 +4897,109 @@ var KickUserInterface = class extends AbstractUserInterface {
       },
       { passive: true }
     );
+  }
+  getMessageContentString(chatMessageEl) {
+    const messageNodes = Array.from(
+      chatMessageEl.querySelectorAll(".chat-entry .chat-message-identity + span ~ span")
+    );
+    let messageContent = [];
+    for (const messageNode of messageNodes) {
+      if (messageNode.textContent)
+        messageContent.push(messageNode.textContent);
+      else if (messageNode.querySelector("img")) {
+        const emoteName = messageNode.querySelector("img")?.getAttribute("data-emote-name");
+        if (emoteName)
+          messageContent.push(emoteName);
+      }
+    }
+    return messageContent.join(" ");
+  }
+  loadReplyBehaviour() {
+    const { channelData, inputController } = this;
+    if (!inputController)
+      return error("Input controller not loaded for reply behaviour");
+    const chatMessagesContainerEl = this.elm.chatMessagesContainer;
+    if (!chatMessagesContainerEl)
+      return error("Chat messages container not loaded for reply behaviour");
+    const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement;
+    const replyMessageWrapperEl = document.createElement("div");
+    replyMessageWrapperEl.classList.add("ntv__reply-message__wrapper");
+    document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(replyMessageWrapperEl);
+    this.elm.replyMessageWrapper = replyMessageWrapperEl;
+    const replyMessageButtonCallback = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!this.inputController)
+        return error("Input controller not loaded for reply behaviour");
+      const targetMessage = chatMessagesContainerEl.querySelector(
+        ".chat-entry.bg-secondary-lighter"
+      )?.parentElement;
+      if (!targetMessage)
+        return error("Reply target message not found");
+      const messageNodes = Array.from(
+        // targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
+        targetMessage.querySelectorAll(".chat-entry > span")
+      );
+      const chatEntryContentString = this.getMessageContentString(targetMessage);
+      const chatEntryId = targetMessage.getAttribute("data-chat-entry");
+      if (!chatEntryId)
+        return error("Reply target message ID not found");
+      const chatEntryUsernameEl = targetMessage.querySelector(".chat-entry-username");
+      const chatEntryUserId = chatEntryUsernameEl?.getAttribute("data-chat-entry-user-id");
+      if (!chatEntryUserId)
+        return error("Reply target message user ID not found");
+      const chatEntryUsername = chatEntryUsernameEl?.textContent;
+      if (!chatEntryUsername)
+        return error("Reply target message username not found");
+      this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername);
+    };
+    const observer = this.replyObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length) {
+          for (const messageNode of mutation.addedNodes) {
+            if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
+              messageNode.querySelector;
+              let replyBtnEl = null;
+              if (channelData.me.is_moderator) {
+                replyBtnEl = messageNode.querySelector("div:nth-child(2)");
+              } else {
+                replyBtnEl = messageNode.querySelector("div");
+              }
+              if (!replyBtnEl)
+                return;
+              const newButtonEl = replyBtnEl.cloneNode(true);
+              replyBtnEl.replaceWith(newButtonEl);
+              newButtonEl.addEventListener("click", replyMessageButtonCallback);
+            }
+          }
+        } else if (mutation.removedNodes.length) {
+          for (const messageNode of mutation.removedNodes) {
+            if (messageNode instanceof HTMLElement) {
+              if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
+                let replyBtnEl = null;
+                if (channelData.me.is_moderator) {
+                  replyBtnEl = messageNode.querySelector("div:nth-child(2)");
+                } else {
+                  replyBtnEl = messageNode.querySelector("div");
+                }
+                replyBtnEl?.removeEventListener("click", replyMessageButtonCallback);
+              }
+            }
+          }
+        }
+      });
+    });
+    observer.observe(chatMessagesContainerWrapperEl, { childList: true });
+    inputController.addEventListener("keydown", 9, (event) => {
+      if (event.key === "Escape" && this.replyMessageData && this.replyMessageComponent) {
+        this.destroyReplyMessageContext();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && this.replyMessageData && this.replyMessageComponent) {
+        this.destroyReplyMessageContext();
+      }
+    });
   }
   observeChatMessages() {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
@@ -4904,6 +5115,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (!chatEntryNode) {
       return error("Message has no content loaded yet..", messageNode);
     }
+    chatEntryNode.classList.add("ntv__chat-message");
     let messageWrapperNode;
     if (messageNode.querySelector('[title*="Replying to"]')) {
       messageWrapperNode = chatEntryNode.children[1];
@@ -4995,26 +5207,6 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.renderEmotesInElement(chatEntryContentNode);
     }
   }
-  // Submits input to chat
-  submitInput(suppressEngagementEvent) {
-    const { eventBus } = this;
-    const contentEditableEditor = this.inputController?.contentEditableEditor;
-    if (!contentEditableEditor)
-      return error("Unable to submit input, the input controller is not loaded yet.");
-    if (!this.elm.textField) {
-      return error("Text field not loaded for submitting input");
-    }
-    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
-      error(
-        `Message too long, it is ${contentEditableEditor.getCharacterCount()} characters but max limit is ${this.maxMessageLength}.`
-      );
-      return;
-    }
-    this.networkInterface.sendMessage(contentEditableEditor.getMessageContent());
-    eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent });
-    contentEditableEditor.clearInput();
-    this.elm.textField.dispatchEvent(new Event("input"));
-  }
   // Sends emote to chat and restores previous message
   sendEmoteToChat(emoteHid) {
     assertArgDefined(emoteHid);
@@ -5085,6 +5277,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.abortController.abort();
     if (this.chatObserver)
       this.chatObserver.disconnect();
+    if (this.replyObserver)
+      this.replyObserver.disconnect();
     if (this.pinnedMessageObserver)
       this.pinnedMessageObserver.disconnect();
     if (this.emoteMenu)
@@ -6208,6 +6402,25 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     const chatroomId = this.channelData.chatroom.id;
     return REST.post("https://kick.com/api/v2/messages/send/" + chatroomId, { content: message, type: "message" });
   }
+  async sendReply(message, originalMessageId, originalMessageContent, originalSenderId, originalSenderUsername) {
+    if (!this.channelData)
+      throw new Error("Channel data is not loaded yet.");
+    const chatroomId = this.channelData.chatroom.id;
+    return REST.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
+      content: message,
+      type: "reply",
+      metadata: {
+        original_message: {
+          id: originalMessageId
+          // content: originalMessageContent
+        },
+        original_sender: {
+          id: +originalSenderId
+          // username: originalSenderUsername
+        }
+      }
+    });
+  }
   async sendCommand(command) {
     if (!this.channelData)
       throw new Error("Channel data is not loaded yet.");
@@ -6349,6 +6562,76 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
   }
 };
 
+// src/Datastores/UsersDatastore.ts
+var UsersDatastore = class {
+  usersNameMap = /* @__PURE__ */ new Map();
+  usersIdMap = /* @__PURE__ */ new Map();
+  users = [];
+  usersCount = 0;
+  maxUsers = 5e4;
+  fuse = new Fuse([], {
+    includeScore: true,
+    shouldSort: true,
+    includeMatches: true,
+    // isCaseSensitive: true,
+    findAllMatches: true,
+    threshold: 0.4,
+    keys: [["name"]]
+  });
+  eventBus;
+  constructor({ eventBus }) {
+    this.eventBus = eventBus;
+    eventBus.subscribe("ntv.session.destroy", () => {
+      delete this.users;
+      delete this.usersIdMap;
+      delete this.usersNameMap;
+    });
+  }
+  hasUser(name) {
+    return this.usersNameMap.has(name);
+  }
+  registerUser(id, name) {
+    if (this.usersIdMap.has(id))
+      return;
+    if (this.usersCount >= this.maxUsers) {
+      error(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`);
+      return;
+    }
+    const user = { id, name };
+    this.usersNameMap.set(name, user);
+    this.usersIdMap.set(id, user);
+    this.users.push(user);
+    this.fuse.add(user);
+    this.usersCount++;
+  }
+  getUserById(id) {
+    return this.usersIdMap.get(id);
+  }
+  searchUsers(searchVal) {
+    return this.fuse.search(searchVal);
+  }
+};
+
+// src/Managers/UsersManager.ts
+var UsersManager = class {
+  datastore;
+  constructor({ eventBus, settingsManager }) {
+    this.datastore = new UsersDatastore({ eventBus });
+  }
+  hasSeenUser(name) {
+    return this.datastore.hasUser(name);
+  }
+  registerUser(id, name) {
+    this.datastore.registerUser(id, name);
+  }
+  getUserById(id) {
+    return this.datastore.getUserById(id);
+  }
+  searchUsers(searchVal, limit = 20) {
+    return this.datastore.searchUsers(searchVal).slice(0, limit);
+  }
+};
+
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
@@ -6444,6 +6727,7 @@ var NipahClient = class {
       channelData.channel_id
     );
     emotesManager.initialize();
+    const usersManager = new UsersManager({ eventBus, settingsManager });
     let userInterface;
     if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
       userInterface = new KickUserInterface({
@@ -6452,7 +6736,8 @@ var NipahClient = class {
         eventBus,
         networkInterface,
         settingsManager,
-        emotesManager
+        emotesManager,
+        usersManager
       });
     } else {
       return error("Platform has no user interface implemented..", ENV_VARS.PLATFORM);

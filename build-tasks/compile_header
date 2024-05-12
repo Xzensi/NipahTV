@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/{{BRANCH}}/dist/css/kick-029472b0.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/{{BRANCH}}/dist/css/kick-b7c0b8f4.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/{{BRANCH}}/dist/userscript/client.user.js
