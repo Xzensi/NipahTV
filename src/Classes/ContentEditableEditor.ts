@@ -793,7 +793,10 @@ export class ContentEditableEditor {
 						selection.extend(inputNode, componentIndex + 1)
 					}
 				}
-			} else if (focusNode?.parentElement !== inputNode || anchorNode?.parentElement !== inputNode) {
+			} else if (
+				(focusNode !== inputNode && focusNode?.parentElement !== inputNode) ||
+				(anchorNode !== inputNode && anchorNode?.parentElement !== inputNode)
+			) {
 				inputNode.append(new Text(text))
 				inputNode.normalize()
 				this.hasUnprocessedContentChanges = true
