@@ -265,6 +265,8 @@
 	svg {
 		transition: transform 0.25s ease;
 		transform: rotate(-180deg);
+		pointer-events: none;
+		user-select: none;
 	}
 }
 

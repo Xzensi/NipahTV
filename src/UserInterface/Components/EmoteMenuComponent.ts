@@ -1,6 +1,6 @@
 import { SettingsManager } from '../../Managers/SettingsManager'
 import { EmotesManager } from '../../Managers/EmotesManager'
-import { log, info, error, cleanupHTML } from '../../utils'
+import { log, info, error, cleanupHTML, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 import { Publisher } from '../../Classes/Publisher'
 
@@ -16,13 +16,13 @@ export class EmoteMenuComponent extends AbstractComponent {
 	emotesManager: EmotesManager
 	parentContainer: HTMLElement
 
-	panels: { $emotes?: JQuery<HTMLElement>; $search?: JQuery<HTMLElement> } = {}
-	$container?: JQuery<HTMLElement>
-	$searchInput?: JQuery<HTMLElement>
-	$scrollable?: JQuery<HTMLElement>
-	$settingsBtn?: JQuery<HTMLElement>
-	$sidebarSets?: JQuery<HTMLElement>
-	$tooltip?: JQuery<HTMLElement>
+	panels: { emotes?: HTMLElement; search?: HTMLElement } = {}
+	containerEl?: HTMLElement
+	searchInputEl?: HTMLElement
+	scrollableEl?: HTMLElement
+	settingsBtnEl?: HTMLElement
+	sidebarSetsEl?: HTMLElement
+	tooltipEl?: HTMLElement
 
 	closeModalClickListenerHandle?: Function
 	scrollableHeight: number = 0
@@ -59,7 +59,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		// Delete any existing emote menus, in case cached page got loaded somehow
 		$('.ntv__emote-menu').remove()
 
-		this.$container = $(
+		this.containerEl = parseHTML(
 			cleanupHTML(`
 				<div class="ntv__emote-menu" style="display: none">
 					<div class="ntv__emote-menu__header">
@@ -92,29 +92,36 @@ export class EmoteMenuComponent extends AbstractComponent {
 						</div>
 					</div>
 				</div>
-			`)
-		)
+			`),
+			true
+		) as HTMLElement
 
 		// Set href for chatroom link which is at current channel
-		$('.ntv__chatroom-link', this.$container).attr('href', `/${this.channelData.channel_name}/chatroom`)
+		this.containerEl
+			.querySelector('.ntv__chatroom-link')!
+			.setAttribute('href', `/${this.channelData.channel_name}/chatroom`)
 
-		this.$searchInput = $('.ntv__emote-menu__search input', this.$container)
-		this.$scrollable = $('.ntv__emote-menu__scrollable', this.$container)
-		this.$settingsBtn = $('.ntv__emote-menu__sidebar-btn--settings', this.$container)
-		this.$sidebarSets = $('.ntv__emote-menu__sidebar__sets', this.$container)
-		this.panels.$emotes = $('.ntv__emote-menu__panel__emotes', this.$container)
-		this.panels.$search = $('.ntv__emote-menu__panel__search', this.$container)
+		this.searchInputEl = this.containerEl.querySelector('.ntv__emote-menu__search input')!
+		this.scrollableEl = this.containerEl.querySelector('.ntv__emote-menu__scrollable')!
+		this.settingsBtnEl = this.containerEl.querySelector('.ntv__emote-menu__sidebar-btn--settings')!
+		this.sidebarSetsEl = this.containerEl.querySelector('.ntv__emote-menu__sidebar__sets')!
+		this.panels.emotes = this.containerEl.querySelector('.ntv__emote-menu__panel__emotes')!
+		this.panels.search = this.containerEl.querySelector('.ntv__emote-menu__panel__search')!
 
-		$(this.parentContainer).append(this.$container)
+		this.parentContainer.appendChild(this.containerEl)
 	}
 
 	attachEventHandlers() {
 		const { eventBus, settingsManager } = this
 
 		// Emote click event
-		this.$scrollable?.on('click', 'img', evt => {
-			const emoteHid = evt.target.getAttribute('data-emote-hid')
+		this.scrollableEl?.addEventListener('click', evt => {
+			const target = evt.target as HTMLElement
+			if (target.tagName !== 'IMG') return
+
+			const emoteHid = target.getAttribute('data-emote-hid')
 			if (!emoteHid) return error('Invalid emote hid')
+
 			eventBus.publish('ntv.ui.emote.click', { emoteHid })
 
 			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.behavior.close_on_click')
@@ -122,51 +129,59 @@ export class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		// Tooltip for emotes
-		this.$scrollable
-			?.on('mouseenter', 'img', evt => {
-				if (this.$tooltip) this.$tooltip.remove()
+		this.scrollableEl?.addEventListener('mouseenter', evt => {
+			const target = evt.target as HTMLElement
+			if (target.tagName !== 'IMG') return
 
-				const emoteHid = evt.target.getAttribute('data-emote-hid')
-				if (!emoteHid) return
+			const emoteHid = target.getAttribute('data-emote-hid')
+			if (!emoteHid) return
 
-				const emote = this.emotesManager.getEmote(emoteHid)
-				if (!emote) return
+			const emote = this.emotesManager.getEmote(emoteHid)
+			if (!emote) return
 
-				const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
-				const $tooltip = $(
-					cleanupHTML(`
-					<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
-						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
-						<span>${emote.name}</span>
-					</div>`)
-				).appendTo(document.body)
+			const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
+			const tooltipEl = parseHTML(
+				cleanupHTML(`
+				<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
+					${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
+					<span>${emote.name}</span>
+				</div>`),
+				true
+			) as HTMLElement
 
-				const rect = evt.target.getBoundingClientRect()
-				$tooltip.css({
-					top: rect.top - rect.height / 2,
-					left: rect.left + rect.width / 2
-				})
-				this.$tooltip = $tooltip
-			})
-			.on('mouseleave', 'img', evt => {
-				if (this.$tooltip) this.$tooltip.remove()
-			})
+			this.tooltipEl = tooltipEl
+			document.body.appendChild(tooltipEl)
+
+			const rect = target.getBoundingClientRect()
+			tooltipEl.style.top = rect.top - rect.height / 2 + 'px'
+			tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
+		})
+
+		this.scrollableEl?.addEventListener('mouseleave', evt => {
+			const target = evt.target as HTMLElement
+			if (target.tagName !== 'IMG') return
+
+			if (this.tooltipEl) this.tooltipEl.remove()
+		})
 
 		// Search input event
-		this.$searchInput?.on('input', this.handleSearchInput.bind(this) as any)
+		this.searchInputEl?.addEventListener('input', this.handleSearchInput.bind(this) as any)
 
-		this.panels.$emotes?.on('click', '.ntv__chevron', evt => {
-			log('Emote set header chevron click')
-			const $emoteSet = $(evt.target).closest('.ntv__emote-set')
-			const $emoteSetBody = $emoteSet.children('.ntv__emote-set__emotes')
-			log($(evt.target).parent('.ntv__emote-set'), $emoteSetBody)
-			if (!$emoteSetBody.length) return error('Invalid emote set body')
+		this.panels.emotes?.addEventListener('click', evt => {
+			const target = evt.target as HTMLElement
+			if (!target.classList.contains('ntv__chevron')) return
 
-			$emoteSet.toggleClass('ntv__emote-set--collapsed')
+			const emoteSet = target.closest('.ntv__emote-set')
+			if (!emoteSet) return
+
+			const emoteSetBody = emoteSet.querySelector('.ntv__emote-set__emotes')
+			if (!emoteSetBody) return
+
+			emoteSet.classList.toggle('ntv__emote-set--collapsed')
 		})
 
 		// Settings button click event
-		this.$settingsBtn?.on('click', () => {
+		this.settingsBtnEl?.addEventListener('click', () => {
 			eventBus.publish('ntv.ui.settings.toggle_show')
 		})
 
@@ -174,13 +189,13 @@ export class EmoteMenuComponent extends AbstractComponent {
 		eventBus.subscribe('ntv.ui.footer.click', this.toggleShow.bind(this))
 
 		// On escape key, close the modal
-		$(document).on('keydown', evt => {
-			if (evt.which === 27) this.toggleShow(false)
+		document.addEventListener('keydown', evt => {
+			if (evt.key === 'Escape') this.toggleShow(false)
 		})
 
 		// On ctrl+spacebar key, open the modal
 		if (settingsManager.getSetting('shared.chat.appearance.emote_menu_ctrl_spacebar')) {
-			$(document).on('keydown', evt => {
+			document.addEventListener('keydown', evt => {
 				if (evt.ctrlKey && evt.key === ' ') {
 					evt.preventDefault()
 					this.toggleShow()
@@ -190,7 +205,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 		// On ctrl+e key, open the modal
 		if (settingsManager.getSetting('shared.chat.appearance.emote_menu_ctrl_e')) {
-			$(document).on('keydown', evt => {
+			document.addEventListener('keydown', evt => {
 				if (evt.ctrlKey && evt.key === 'e') {
 					evt.preventDefault()
 					this.toggleShow()
@@ -213,12 +228,16 @@ export class EmoteMenuComponent extends AbstractComponent {
 		const emotesResult = this.emotesManager.searchEmotes(searchVal.substring(0, 20))
 		log(`Searching for emotes, found ${emotesResult.length} matches"`)
 
+		// More performant than innerHTML
+		while (this.panels.search?.firstChild) {
+			this.panels.search.removeChild(this.panels.search.firstChild)
+		}
+
 		// Render the found emotes
-		this.panels.$search?.empty()
 		let maxResults = 75
 		for (const emoteResult of emotesResult) {
 			if (maxResults-- <= 0) break
-			this.panels.$search?.append(this.emotesManager.getRenderableEmote(emoteResult.item, 'ntv__emote'))
+			this.panels.search?.append(parseHTML(this.emotesManager.getRenderableEmote(emoteResult.item, 'ntv__emote')))
 		}
 	}
 
@@ -226,15 +245,15 @@ export class EmoteMenuComponent extends AbstractComponent {
 		if (this.activePanel === panel) return
 
 		if (this.activePanel === 'search') {
-			this.panels.$search?.hide()
+			if (this.panels.search) this.panels.search.style.display = 'none'
 		} else if (this.activePanel === 'emotes') {
-			this.panels.$emotes?.hide()
+			if (this.panels.emotes) this.panels.emotes.style.display = 'none'
 		}
 
 		if (panel === 'search') {
-			this.panels.$search?.show()
+			if (this.panels.search) this.panels.search.style.display = ''
 		} else if (panel === 'emotes') {
-			this.panels.$emotes?.show()
+			if (this.panels.emotes) this.panels.emotes.style.display = ''
 		}
 
 		this.activePanel = panel
@@ -243,12 +262,12 @@ export class EmoteMenuComponent extends AbstractComponent {
 	renderEmotes() {
 		log('Rendering emotes in modal')
 
-		const { emotesManager, $sidebarSets, $scrollable } = this
-		const $emotesPanel = this.panels.$emotes
-		if (!$emotesPanel || !$sidebarSets || !$scrollable) return error('Invalid emote menu elements')
+		const { emotesManager, sidebarSetsEl, scrollableEl } = this
+		const emotesPanelEl = this.panels.emotes
+		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
-		$sidebarSets.empty()
-		$emotesPanel.empty()
+		while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild));
+		while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild));
 
 		const emoteSets = this.emotesManager.getEmoteSets()
 		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index)
@@ -256,12 +275,15 @@ export class EmoteMenuComponent extends AbstractComponent {
 		for (const emoteSet of orderedEmoteSets) {
 			const sortedEmotes = (emoteSet as EmoteSet).emotes.sort((a, b) => a.width - b.width)
 
-			const sidebarIcon = $(
-				`<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`
-			).appendTo($sidebarSets)
-			this.sidebarMap.set(emoteSet.id, sidebarIcon[0])
+			const sidebarIcon = parseHTML(
+				`<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`,
+				true
+			) as HTMLElement
 
-			const $newEmoteSet = $(
+			sidebarSetsEl.appendChild(sidebarIcon)
+			this.sidebarMap.set(emoteSet.id, sidebarIcon)
+
+			const newEmoteSetEl = parseHTML(
 				cleanupHTML(
 					`<div class="ntv__emote-set" data-id="${emoteSet.id}">
 						<div class="ntv__emote-set__header">
@@ -273,27 +295,38 @@ export class EmoteMenuComponent extends AbstractComponent {
 						</div>
 						<div class="ntv__emote-set__emotes"></div>
 					</div>`
-				)
-			)
-			$emotesPanel.append($newEmoteSet)
+				),
+				true
+			) as HTMLElement
 
-			const $newEmoteSetEmotes = $('.ntv__emote-set__emotes', $newEmoteSet)
+			emotesPanelEl.append(newEmoteSetEl)
+
+			const newEmoteSetEmotesEl = newEmoteSetEl.querySelector('.ntv__emote-set__emotes')!
 			for (const emote of sortedEmotes) {
-				$newEmoteSetEmotes.append(emotesManager.getRenderableEmote(emote, 'ntv__emote ntv__emote-set__emote'))
+				newEmoteSetEmotesEl.append(
+					parseHTML(emotesManager.getRenderableEmote(emote, 'ntv__emote ntv__emote-set__emote'))
+				)
 			}
 		}
 
-		$sidebarSets.on('click', evt => {
-			const $img = $('img', evt.target)
-			if (!$img.length) return error('Invalid sidebar icon click')
+		sidebarSetsEl.addEventListener('click', evt => {
+			const target = evt.target as HTMLElement
 
-			const scrollableEl = $scrollable[0]
-			const emoteSetId = $img.attr('data-id')
-			const emoteSetEl = $(`.ntv__emote-set[data-id="${emoteSetId}"]`, this.$container)[0]
-			// const headerHeight = $('.ntv__emote-set__header', emoteSetEl).height()
+			const imgEl = target.querySelector('img')
+			if (!imgEl) return
 
+			const scrollableEl = this.scrollableEl
+			if (!scrollableEl) return
+
+			const emoteSetId = imgEl.getAttribute('data-id')
+			const emoteSetEl = this.containerEl?.querySelector(
+				`.ntv__emote-set[data-id="${emoteSetId}"]`
+			) as HTMLElement
+			if (!emoteSetEl) return error('Invalid emote set element')
+
+			const headerHeight = emoteSetEl.querySelector('.ntv__emote-set__header')?.clientHeight || 0
 			scrollableEl.scrollTo({
-				top: emoteSetEl.offsetTop - 55,
+				top: emoteSetEl.offsetTop - headerHeight,
 				behavior: 'smooth'
 			})
 		})
@@ -311,7 +344,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 				})
 			},
 			{
-				root: $scrollable[0],
+				root: scrollableEl,
 				rootMargin: '0px',
 				threshold: (() => {
 					let thresholds = []
@@ -328,13 +361,13 @@ export class EmoteMenuComponent extends AbstractComponent {
 			}
 		)
 
-		const emoteSetEls = $('.ntv__emote-set', $emotesPanel)
+		const emoteSetEls = $('.ntv__emote-set', emotesPanelEl)
 		for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl)
 	}
 
 	handleOutsideModalClick(evt: MouseEvent) {
-		if (!this.$container) return
-		const containerEl = this.$container[0]
+		if (!this.containerEl) return
+		const containerEl = this.containerEl
 		const withinComposedPath = evt.composedPath().includes(containerEl)
 		if (!withinComposedPath) this.toggleShow(false)
 	}
@@ -345,11 +378,11 @@ export class EmoteMenuComponent extends AbstractComponent {
 		// else this.isShowing = !this.isShowing
 		this.isShowing = !this.isShowing
 
-		const { $searchInput } = this
+		const { searchInputEl } = this
 
 		if (this.isShowing) {
 			setTimeout(() => {
-				if ($searchInput) $searchInput[0].focus()
+				if (searchInputEl) searchInputEl.focus()
 				this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this)
 				wwindow.addEventListener('click', this.closeModalClickListenerHandle as any)
 			})
@@ -357,11 +390,11 @@ export class EmoteMenuComponent extends AbstractComponent {
 			wwindow.removeEventListener('click', this.closeModalClickListenerHandle as any)
 		}
 
-		this.$container?.toggle(this.isShowing)
-		this.scrollableHeight = this.$scrollable?.height() || 0
+		if (this.containerEl) this.containerEl.style.display = this.isShowing ? '' : 'none'
+		this.scrollableHeight = this.scrollableEl?.clientHeight || 0
 	}
 
 	destroy() {
-		this.$container?.remove()
+		this.containerEl?.remove()
 	}
 }
