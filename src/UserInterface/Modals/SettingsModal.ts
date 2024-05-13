@@ -12,6 +12,7 @@ export class SettingsModal extends AbstractModal {
 
 	panelsEl?: HTMLElement
 	sidebarEl?: HTMLElement
+	sidebarBtnEl?: HTMLElement
 
 	constructor(eventBus: Publisher, settingsOpts: any) {
 		const geometry: ModalGeometry = {
@@ -38,12 +39,19 @@ export class SettingsModal extends AbstractModal {
 		const settingsMap = this.settingsOpts.settingsMap
 		const modalBodyEl = this.modalBodyEl
 
-		this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true) as HTMLElement
+		const windowWidth = window.innerWidth
 
+		this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true) as HTMLElement
 		this.sidebarEl = parseHTML(
-			cleanupHTML(`<div class="ntv__settings-modal__sidebar">
-							<ul></ul>
-						</div>`),
+			`<div class="ntv__settings-modal__sidebar ${
+				windowWidth < 768 ? '' : 'ntv__settings-modal__sidebar--open'
+			}"><ul></ul></div>`,
+			true
+		) as HTMLElement
+		this.sidebarBtnEl = parseHTML(
+			`<div class="ntv__settings-modal__mobile-btn-wrapper"><button><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+			<path fill="currentColor" d="M2.753 18h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm0-6.497h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm-.001-6.5h18.5a.75.75 0 0 1 .102 1.493l-.102.007h-18.5A.75.75 0 0 1 2.65 5.01zh18.5z" />
+		</svg> Menu</button></div>`,
 			true
 		) as HTMLElement
 
@@ -163,6 +171,7 @@ export class SettingsModal extends AbstractModal {
 			.querySelector(`[data-panel="${defaultPanel}"]`)
 			?.classList.add('ntv__settings-modal__sub-category--active')
 
+		modalBodyEl.appendChild(this.sidebarBtnEl)
 		modalBodyEl.appendChild(this.sidebarEl)
 		modalBodyEl.appendChild(this.panelsEl)
 	}
@@ -206,6 +215,10 @@ export class SettingsModal extends AbstractModal {
 				})
 				this.panelsEl!.querySelector(`[data-panel="${panelId}"]`)?.setAttribute('style', 'display: block')
 			})
+		})
+
+		this.sidebarBtnEl!.addEventListener('click', () => {
+			this.sidebarEl!.classList.toggle('ntv__settings-modal__sidebar--open')
 		})
 	}
 }

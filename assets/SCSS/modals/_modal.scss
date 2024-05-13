@@ -37,6 +37,8 @@
 	}
 
 	&__body {
+		align-content: flex-start;
+		flex-wrap: wrap;
 		overflow: auto;
 		flex: 1 1 100%;
 		display: flex;
