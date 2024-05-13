@@ -1,12 +1,15 @@
+import { cleanupHTML, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
 export class DropdownComponent extends AbstractComponent {
+	private id: string
+	private label: string
+	private options: { label: string; value: string }[]
+	private selectedOption: string | null
+	private selectEl: HTMLSelectElement
+
 	event = new EventTarget()
-	id: string
-	label: string
-	options: { label: string; value: string }[]
-	selectedOption: string | null
-	$element?: JQuery<HTMLElement>
+	element: HTMLElement
 
 	constructor(id: string, label: string, options = [], selectedOption = null) {
 		super()
@@ -14,10 +17,9 @@ export class DropdownComponent extends AbstractComponent {
 		this.label = label
 		this.options = options
 		this.selectedOption = selectedOption
-	}
 
-	render() {
-		this.$element = $(`
+		this.element = parseHTML(
+			cleanupHTML(`
             <div class="ntv__dropdown">
                 <label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
@@ -30,16 +32,22 @@ export class DropdownComponent extends AbstractComponent {
 						.join('')}
                 </select>
             </div>
-        `)
+        `),
+			true
+		) as HTMLElement
+
+		this.selectEl = this.element?.querySelector('select') as HTMLSelectElement
 	}
 
+	render() {}
+
 	attachEventHandlers() {
-		this.$element?.find('select').on('change', e => {
+		this.selectEl.addEventListener('change', event => {
 			this.event.dispatchEvent(new Event('change'))
 		})
 	}
 
 	getValue() {
-		return this.$element?.find('select').val()
+		return this.selectEl.value
 	}
 }

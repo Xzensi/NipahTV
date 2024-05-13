@@ -248,20 +248,25 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		///////////////////////////////////
 		//====// Proxy Text Field //====//
-		const originalTextFieldEl = $('#message-input')[0]
-		const placeholder = originalTextFieldEl.dataset.placeholder
-		const textFieldEl = (this.elm.textField = $(
-			`<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
-		)[0])
+		const originalTextFieldEl = document.querySelector('#message-input') as HTMLElement | undefined
+		if (!originalTextFieldEl) return error('Original text field not found')
 
-		const textFieldWrapperEl = $(
-			`<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`
-		)[0]
-		textFieldWrapperEl.append(textFieldEl)
+		const placeholder = originalTextFieldEl.dataset.placeholder || 'Send message...'
+		const textFieldEl = (this.elm.textField = parseHTML(
+			`<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`,
+			true
+		) as HTMLElement)
+
+		const textFieldWrapperEl = parseHTML(
+			`<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`,
+			true
+		) as HTMLElement
+
 		originalTextFieldEl.parentElement!.parentElement?.append(textFieldWrapperEl)
+		textFieldWrapperEl.append(textFieldEl)
 
-		const $moderatorChatIdentityBadgeIcon = $('.chat-input-wrapper .chat-input-icon')
-		if ($moderatorChatIdentityBadgeIcon.length) $(textFieldEl).before($moderatorChatIdentityBadgeIcon)
+		const moderatorChatIdentityBadgeIconEl = document.querySelector('.chat-input-wrapper .chat-input-icon')
+		if (moderatorChatIdentityBadgeIconEl) textFieldEl.before(moderatorChatIdentityBadgeIconEl)
 
 		document.getElementById('chatroom')?.classList.add('ntv__hide-chat-input')
 
@@ -367,7 +372,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		// If started typing with focus not on chat input, focus on chat input
-		$(document.body).on('keydown', evt => {
+		document.body.addEventListener('keydown', evt => {
 			if (
 				evt.ctrlKey ||
 				evt.altKey ||
@@ -376,7 +381,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				ignoredKeys[evt.key] ||
 				document.activeElement?.tagName === 'INPUT' ||
 				document.activeElement?.getAttribute('contenteditable') ||
-				evt.target.hasAttribute('capture-focus')
+				(<HTMLElement>evt.target)?.hasAttribute('capture-focus')
 			) {
 				return
 			}
@@ -551,7 +556,6 @@ export class KickUserInterface extends AbstractUserInterface {
 	observeChatMessages() {
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
 		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for observing')
-		const $chatMessagesContainer = $(chatMessagesContainerEl)
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
@@ -577,37 +581,40 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')
-		$chatMessagesContainer.on('mouseover', '.ntv__inline-emote-box img', evt => {
-			const emoteName = evt.target.dataset.emoteName
-			const emoteHid = evt.target.dataset.emoteHid
-			if (!emoteName || !emoteHid) return
+		chatMessagesContainerEl.addEventListener('mouseover', evt => {
+			const target = evt.target as HTMLElement
+			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
 
-			const target = evt.target
-			const $tooltip = $(
-				cleanupHTML(`
-					<div class="ntv__emote-tooltip__wrapper">
-						<div class="ntv__emote-tooltip ${showTooltips ? 'ntv__emote-tooltip--has-image' : ''}">
-							${showTooltips ? target.outerHTML.replace('chat-emote', '') : ''}
-							<span>${emoteName}</span>
-						</div>
-					</div>`)
-			)
+			const emoteName = target.getAttribute('data-emote-name')
+			if (!emoteName) return
 
-			$(target).after($tooltip)
+			const tooltipEl = parseHTML(
+				`<div class="ntv__emote-tooltip__wrapper"><div class="ntv__emote-tooltip ${
+					showTooltips ? 'ntv__emote-tooltip--has-image' : ''
+				}">${
+					showTooltips ? target.outerHTML.replace('chat-emote', '') : ''
+				}<span>${emoteName}</span></div></div>`,
+				true
+			) as HTMLElement
 
-			evt.target.addEventListener(
+			target.after(tooltipEl)
+
+			target.addEventListener(
 				'mouseleave',
 				() => {
-					$tooltip.remove()
+					tooltipEl.remove()
 				},
 				{ once: true, passive: true }
 			)
 		})
 
 		// Insert emote in chat input when clicked
-		// Can't track click events on kick emotes, because they kill the even with stopPropagation()
-		$chatMessagesContainer.on('click', '.ntv__inline-emote-box img', evt => {
-			const emoteHid = evt.target.getAttribute('data-emote-hid')
+		// Can't track click events on kick emotes, because they kill the event with stopPropagation()
+		chatMessagesContainerEl.addEventListener('click', evt => {
+			const target = evt.target as HTMLElement
+			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
+
+			const emoteHid = target.getAttribute('data-emote-hid')
 			if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
 		})
 	}

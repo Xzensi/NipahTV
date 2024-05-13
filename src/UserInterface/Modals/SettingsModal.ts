@@ -144,7 +144,7 @@ export class SettingsModal extends AbstractModal {
 
 						settingComponent?.init()
 
-						groupEl.append(settingComponent.$element[0])
+						groupEl.append(settingComponent.element)
 						settingComponent.event.addEventListener('change', () => {
 							const value = settingComponent.getValue()
 							this.event.dispatchEvent(
