@@ -1,4 +1,4 @@
-import { cleanupHTML, parseHTML } from '../../utils'
+import { cleanupHTML, log, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
 export class ReplyMessageComponent extends AbstractComponent {
@@ -57,6 +57,7 @@ export class ReplyMessageComponent extends AbstractComponent {
 	}
 
 	destroy() {
+		log('Destroying reply message component..', this.element)
 		this.element.remove()
 	}
 }

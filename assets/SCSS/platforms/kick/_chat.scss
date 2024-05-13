@@ -58,8 +58,16 @@
 		}
 	}
 
-	#chatroom-footer .send-row > button:not(.ntv__submit-button) {
-		display: none;
+	#chatroom-footer {
+		// Hide the native reply message element
+		.chat-mode > .p-2.text-sm {
+			display: none;
+		}
+
+		// Hide the native "Chat" submit button
+		.send-row > button:not(.ntv__submit-button) {
+			display: none;
+		}
 	}
 
 	> .ntv__sticky-scroll {

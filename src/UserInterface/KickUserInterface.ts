@@ -460,23 +460,29 @@ export class KickUserInterface extends AbstractUserInterface {
 			const targetMessage = chatMessagesContainerEl.querySelector(
 				'.chat-entry.bg-secondary-lighter'
 			)?.parentElement
-			if (!targetMessage) return error('Reply target message not found')
+			if (!targetMessage) return this.toastError('Reply target message not found')
+
 			const messageNodes = Array.from(
 				// targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
-				targetMessage.querySelectorAll('.chat-entry > span')
+				targetMessage.classList.contains('ntv__chat-message')
+					? targetMessage.querySelectorAll('.chat-entry > span')
+					: targetMessage.querySelectorAll('.chat-message-identity, .chat-message-identity ~ span')
 			)
+			if (!messageNodes.length)
+				return this.toastError('Unable to reply to message, target message content not found')
 
 			const chatEntryContentString = this.getMessageContentString(targetMessage)
 
 			const chatEntryId = targetMessage.getAttribute('data-chat-entry')
-			if (!chatEntryId) return error('Reply target message ID not found')
+			if (!chatEntryId) return this.toastError('Unable to reply to message, target message ID not found')
 
 			const chatEntryUsernameEl = targetMessage.querySelector('.chat-entry-username')
 			const chatEntryUserId = chatEntryUsernameEl?.getAttribute('data-chat-entry-user-id')
-			if (!chatEntryUserId) return error('Reply target message user ID not found')
+			if (!chatEntryUserId) return this.toastError('Unable to reply to message, target message user ID not found')
 
 			const chatEntryUsername = chatEntryUsernameEl?.textContent
-			if (!chatEntryUsername) return error('Reply target message username not found')
+			if (!chatEntryUsername)
+				return this.toastError('Unable to reply to message, target message username not found')
 
 			this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
 		}
@@ -492,14 +498,10 @@ export class KickUserInterface extends AbstractUserInterface {
 						) {
 							messageNode.querySelector
 
-							let replyBtnEl: HTMLElement | null = null
-
-							if (channelData.me.is_moderator) {
-								replyBtnEl = messageNode.querySelector('div:nth-child(2)')
-							} else {
-								replyBtnEl = messageNode.querySelector('div')
-							}
-
+							// It's painful, but this seems to be the only reliable way to get the reply button element
+							const replyBtnEl = messageNode.querySelector(
+								'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+							)?.parentElement?.parentElement?.parentElement
 							if (!replyBtnEl) return //error('Reply button element not found', messageNode)
 
 							// The only way to remove Kick's event listeners from the button is to replace it with a new button
@@ -517,13 +519,9 @@ export class KickUserInterface extends AbstractUserInterface {
 								messageNode.classList.contains('fixed') &&
 								messageNode.classList.contains('z-10')
 							) {
-								let replyBtnEl: HTMLElement | null = null
-
-								if (channelData.me.is_moderator) {
-									replyBtnEl = messageNode.querySelector('div:nth-child(2)')
-								} else {
-									replyBtnEl = messageNode.querySelector('div')
-								}
+								const replyBtnEl = messageNode.querySelector(
+									'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+								)?.parentElement?.parentElement?.parentElement
 
 								replyBtnEl?.removeEventListener('click', replyMessageButtonCallback)
 							}

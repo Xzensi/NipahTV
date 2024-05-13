@@ -79,7 +79,10 @@ export abstract class AbstractUserInterface {
 		})
 	}
 
-	getRenderedMessageLine() {}
+	toastError(message: string) {
+		error(message)
+		this.toaster.addToast(message, 4_000, 'error')
+	}
 
 	renderEmotesInElement(textElement: Element, appendTo?: Element) {
 		const { emotesManager } = this
@@ -144,13 +147,7 @@ export abstract class AbstractUserInterface {
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
 		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
-			error(
-				`Message too long, it is ${contentEditableEditor.getCharacterCount()} characters but max limit is ${
-					this.maxMessageLength
-				}.`
-			)
-			this.toaster.addToast('Message is too long to send.', 4_000, 'error')
-			return
+			return this.toastError('Message is too long to send.')
 		}
 
 		const replyContent = contentEditableEditor.getMessageContent()
@@ -163,11 +160,7 @@ export abstract class AbstractUserInterface {
 				.then(res => {
 					if (res.status.error) {
 						if (res.status.message)
-							this.toaster.addToast(
-								'Failed to send reply message because: ' + res.status.message,
-								5_000,
-								'error'
-							)
+							this.toastError('Failed to send reply message because: ' + res.status.message)
 						else this.toaster.addToast('Failed to send reply message.', 4_000, 'error')
 						error('Failed to send reply message:', res.status)
 					}
@@ -183,19 +176,13 @@ export abstract class AbstractUserInterface {
 				.sendMessage(replyContent)
 				.then(res => {
 					if (res.status.error) {
-						if (res.status.message)
-							this.toaster.addToast(
-								'Failed to send message because: ' + res.status.message,
-								5_000,
-								'error'
-							)
+						if (res.status.message) this.toastError('Failed to send message because: ' + res.status.message)
 						else this.toaster.addToast('Failed to send message.', 4_000, 'error')
 						error('Failed to send message:', res.status)
 					}
 				})
 				.catch(err => {
-					this.toaster.addToast('Failed to send message.', 4_000, 'error')
-					error('Failed to send message:', err)
+					return this.toastError('Failed to send message.')
 				})
 		}
 
@@ -211,12 +198,10 @@ export abstract class AbstractUserInterface {
 		chatEntryUsername: string
 	) {
 		log(`Replying to message ${chatEntryId} of user ${chatEntryUsername} with ID ${chatEntryUserId}..`)
+
 		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
 		if (!this.elm.replyMessageWrapper) return error('Unable to load reply message, reply message wrapper not found')
-
-		if (this.replyMessageData) {
-			this.destroyReplyMessageContext()
-		}
+		if (this.replyMessageData) this.destroyReplyMessageContext()
 
 		this.replyMessageData = {
 			chatEntryId,
@@ -226,7 +211,6 @@ export abstract class AbstractUserInterface {
 		}
 
 		this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init()
-
 		this.replyMessageComponent.addEventListener('close', () => {
 			this.destroyReplyMessageContext()
 		})
