@@ -175,19 +175,39 @@ export abstract class AbstractUserInterface {
 			this.networkInterface
 				.sendMessage(replyContent)
 				.then(res => {
-					if (res.status.error) {
+					if (res?.status.error) {
 						if (res.status.message) this.toastError('Failed to send message because: ' + res.status.message)
 						else this.toaster.addToast('Failed to send message.', 4_000, 'error')
 						error('Failed to send message:', res.status)
 					}
 				})
 				.catch(err => {
-					return this.toastError('Failed to send message.')
+					this.toaster.addToast('Failed to send emote to chat.', 4_000, 'error')
+					error('Failed to send emote to chat:', err)
 				})
 		}
 
 		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
 		contentEditableEditor.clearInput()
+	}
+
+	sendEmoteToChat(emoteHid: string) {
+		const { emotesManager } = this
+		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
+		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
+
+		this.networkInterface
+			.sendMessage(emoteEmbedding)
+			.then(res => {
+				if (res?.status.error) {
+					if (res.status.message) this.toastError('Failed to send emote because: ' + res.status.message)
+					else this.toaster.addToast('Failed to send emote to chat.', 4_000, 'error')
+					error('Failed to send emote to chat:', res.status)
+				}
+			})
+			.catch(err => {
+				this.toastError('Failed to send emote to chat.')
+			})
 	}
 
 	replyMessage(

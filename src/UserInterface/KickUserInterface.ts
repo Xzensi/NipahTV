@@ -35,15 +35,11 @@ export class KickUserInterface extends AbstractUserInterface {
 	private quickEmotesHolder: QuickEmotesHolderComponent | null = null
 
 	protected elm: {
-		originalTextField: HTMLElement | null
-		originalSubmitButton: HTMLElement | null
 		chatMessagesContainer: HTMLElement | null
 		replyMessageWrapper: HTMLElement | null
 		submitButton: HTMLElement | null
 		textField: HTMLElement | null
 	} = {
-		originalTextField: null,
-		originalSubmitButton: null,
 		chatMessagesContainer: null,
 		replyMessageWrapper: null,
 		submitButton: null,
@@ -238,15 +234,21 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
-		const originalSubmitButtonEl = (this.elm.originalSubmitButton = $('#chatroom-footer button.base-button')[0])
-		const submitButtonEl = (this.elm.submitButton = $(
-			`<button class="ntv__submit-button disabled">Chat</button>`
-		)[0])
-		originalSubmitButtonEl.after(submitButtonEl)
+		const submitButtonEl = (this.elm.submitButton = parseHTML(
+			`<button class="ntv__submit-button disabled">Chat</button>`,
+			true
+		) as HTMLElement)
+
+		const originalSubmitButtonEl = document.querySelector('#chatroom-footer button.base-button')
+		if (originalSubmitButtonEl) {
+			originalSubmitButtonEl.after(submitButtonEl)
+		} else {
+			error('Submit button not found')
+		}
 
 		///////////////////////////////////
 		//====// Proxy Text Field //====//
-		const originalTextFieldEl = (this.elm.originalTextField = $('#message-input')[0])
+		const originalTextFieldEl = $('#message-input')[0]
 		const placeholder = originalTextFieldEl.dataset.placeholder
 		const textFieldEl = (this.elm.textField = $(
 			`<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
@@ -836,39 +838,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		for (const chatEntryContentNode of chatEntryContentNodes) {
 			this.renderEmotesInElement(chatEntryContentNode)
 		}
-	}
-
-	// Sends emote to chat and restores previous message
-	sendEmoteToChat(emoteHid: string) {
-		assertArgDefined(emoteHid)
-
-		if (!this.elm.textField || !this.elm.originalTextField || !this.elm.submitButton) {
-			return error('Text field not loaded for sending emote')
-		}
-
-		const { inputController } = this
-		const contentEditableEditor = inputController?.contentEditableEditor
-		if (!contentEditableEditor) return error('Content editable editor not loaded for sending emote')
-
-		const originalTextFieldEl = this.elm.originalTextField
-		const originalSubmitButtonEl = this.elm.originalSubmitButton
-		if (!originalSubmitButtonEl) return error('Original submit button not loaded for sending emote')
-
-		// const oldMessage = contentEditableEditor.getInputHTML()
-		// contentEditableEditor.clearInput()
-
-		// contentEditableEditor.insertEmote(emoteHid)
-		// originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent()
-
-		// originalTextFieldEl.dispatchEvent(new Event('input'))
-		// originalSubmitButtonEl.dispatchEvent(new Event('click'))
-
-		// this.eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent: true })
-
-		// contentEditableEditor.setInputContent(oldMessage)
-
-		// originalTextFieldEl.innerHTML = oldMessage
-		// originalTextFieldEl.dispatchEvent(new Event('input'))
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {
