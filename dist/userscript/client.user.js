@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-b2bab702.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-f248029c.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/userscript/client.user.js
@@ -1493,6 +1493,7 @@ var ReplyMessageComponent = class extends AbstractComponent {
     this.eventTarget.addEventListener(event, callback);
   }
   destroy() {
+    log("Destroying reply message component..", this.element);
     this.element.remove();
   }
 };
@@ -2535,7 +2536,9 @@ var AbstractUserInterface = class {
       this.showUserInfoModal(data.username);
     });
   }
-  getRenderedMessageLine() {
+  toastError(message) {
+    error(message);
+    this.toaster.addToast(message, 4e3, "error");
   }
   renderEmotesInElement(textElement, appendTo) {
     const { emotesManager } = this;
@@ -2596,11 +2599,7 @@ var AbstractUserInterface = class {
     if (!contentEditableEditor)
       return error("Unable to submit input, the input controller is not loaded yet.");
     if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
-      error(
-        `Message too long, it is ${contentEditableEditor.getCharacterCount()} characters but max limit is ${this.maxMessageLength}.`
-      );
-      this.toaster.addToast("Message is too long to send.", 4e3, "error");
-      return;
+      return this.toastError("Message is too long to send.");
     }
     const replyContent = contentEditableEditor.getMessageContent();
     if (!replyContent.length)
@@ -2610,11 +2609,7 @@ var AbstractUserInterface = class {
       this.networkInterface.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername).then((res) => {
         if (res.status.error) {
           if (res.status.message)
-            this.toaster.addToast(
-              "Failed to send reply message because: " + res.status.message,
-              5e3,
-              "error"
-            );
+            this.toastError("Failed to send reply message because: " + res.status.message);
           else
             this.toaster.addToast("Failed to send reply message.", 4e3, "error");
           error("Failed to send reply message:", res.status);
@@ -2628,18 +2623,13 @@ var AbstractUserInterface = class {
       this.networkInterface.sendMessage(replyContent).then((res) => {
         if (res.status.error) {
           if (res.status.message)
-            this.toaster.addToast(
-              "Failed to send message because: " + res.status.message,
-              5e3,
-              "error"
-            );
+            this.toastError("Failed to send message because: " + res.status.message);
           else
             this.toaster.addToast("Failed to send message.", 4e3, "error");
           error("Failed to send message:", res.status);
         }
       }).catch((err) => {
-        this.toaster.addToast("Failed to send message.", 4e3, "error");
-        error("Failed to send message:", err);
+        return this.toastError("Failed to send message.");
       });
     }
     eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent });
@@ -2651,9 +2641,8 @@ var AbstractUserInterface = class {
       return error("Input controller not loaded for reply behaviour");
     if (!this.elm.replyMessageWrapper)
       return error("Unable to load reply message, reply message wrapper not found");
-    if (this.replyMessageData) {
+    if (this.replyMessageData)
       this.destroyReplyMessageContext();
-    }
     this.replyMessageData = {
       chatEntryId,
       chatEntryContentString,
@@ -4935,22 +4924,24 @@ var KickUserInterface = class extends AbstractUserInterface {
         ".chat-entry.bg-secondary-lighter"
       )?.parentElement;
       if (!targetMessage)
-        return error("Reply target message not found");
+        return this.toastError("Reply target message not found");
       const messageNodes = Array.from(
         // targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
-        targetMessage.querySelectorAll(".chat-entry > span")
+        targetMessage.classList.contains("ntv__chat-message") ? targetMessage.querySelectorAll(".chat-entry > span") : targetMessage.querySelectorAll(".chat-message-identity, .chat-message-identity ~ span")
       );
+      if (!messageNodes.length)
+        return this.toastError("Unable to reply to message, target message content not found");
       const chatEntryContentString = this.getMessageContentString(targetMessage);
       const chatEntryId = targetMessage.getAttribute("data-chat-entry");
       if (!chatEntryId)
-        return error("Reply target message ID not found");
+        return this.toastError("Unable to reply to message, target message ID not found");
       const chatEntryUsernameEl = targetMessage.querySelector(".chat-entry-username");
       const chatEntryUserId = chatEntryUsernameEl?.getAttribute("data-chat-entry-user-id");
       if (!chatEntryUserId)
-        return error("Reply target message user ID not found");
+        return this.toastError("Unable to reply to message, target message user ID not found");
       const chatEntryUsername = chatEntryUsernameEl?.textContent;
       if (!chatEntryUsername)
-        return error("Reply target message username not found");
+        return this.toastError("Unable to reply to message, target message username not found");
       this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername);
     };
     const observer = this.replyObserver = new MutationObserver((mutations) => {
@@ -4959,12 +4950,9 @@ var KickUserInterface = class extends AbstractUserInterface {
           for (const messageNode of mutation.addedNodes) {
             if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
               messageNode.querySelector;
-              let replyBtnEl = null;
-              if (channelData.me.is_moderator) {
-                replyBtnEl = messageNode.querySelector("div:nth-child(2)");
-              } else {
-                replyBtnEl = messageNode.querySelector("div");
-              }
+              const replyBtnEl = messageNode.querySelector(
+                '[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+              )?.parentElement?.parentElement?.parentElement;
               if (!replyBtnEl)
                 return;
               const newButtonEl = replyBtnEl.cloneNode(true);
@@ -4976,12 +4964,9 @@ var KickUserInterface = class extends AbstractUserInterface {
           for (const messageNode of mutation.removedNodes) {
             if (messageNode instanceof HTMLElement) {
               if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
-                let replyBtnEl = null;
-                if (channelData.me.is_moderator) {
-                  replyBtnEl = messageNode.querySelector("div:nth-child(2)");
-                } else {
-                  replyBtnEl = messageNode.querySelector("div");
-                }
+                const replyBtnEl = messageNode.querySelector(
+                  '[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+                )?.parentElement?.parentElement?.parentElement;
                 replyBtnEl?.removeEventListener("click", replyMessageButtonCallback);
               }
             }
