@@ -1,5 +1,5 @@
 import { AbstractProvider, IAbstractProvider, ProviderDependencies } from './AbstractProvider'
-import { log, info, error, fetchJSON, md5 } from '../utils'
+import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
 export class SevenTVProvider extends AbstractProvider implements IAbstractProvider {
@@ -14,7 +14,7 @@ export class SevenTVProvider extends AbstractProvider implements IAbstractProvid
 		info('Fetching emote data from SevenTV..')
 		if (!user_id) return error('Missing Kick channel id for SevenTV provider.')
 
-		const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`).catch(err => {
+		const data = await REST.get(`https://7tv.io/v3/users/KICK/${user_id}`).catch(err => {
 			error('Failed to fetch SevenTV emotes.', err)
 			this.status = 'connection_failed'
 			return []

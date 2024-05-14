@@ -28,26 +28,76 @@ export const assertArgDefined = (arg: any) => {
 	}
 }
 
-export async function fetchJSON(url: URL | RequestInfo) {
-	return new Promise((resolve, reject) => {
-		fetch(url)
-			.then(async res => {
-				if (res.redirected) {
-					reject('Request failed, redirected to ' + res.url)
-				} else if (res.status !== 200 && res.status !== 304) {
-					await res
-						.json()
-						.then(reject)
-						.catch(() => {
-							reject('Request failed with status code ' + res.status)
-						})
-				}
-				return res
+export class REST {
+	static get(url: string) {
+		return this.fetch(url)
+	}
+	static post(url: string, data?: object) {
+		if (data) {
+			return this.fetch(url, {
+				method: 'POST',
+				body: JSON.stringify(data)
 			})
-			.then(res => res.json())
-			.then(resolve)
-			.catch(reject)
-	}) as Promise<any | void>
+		} else {
+			return this.fetch(url, {
+				method: 'POST'
+			})
+		}
+	}
+	static put(url: string, data: object) {
+		return this.fetch(url, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		})
+	}
+	static delete(url: string) {
+		return this.fetch(url, {
+			method: 'DELETE'
+		})
+	}
+	static fetch(url: URL | RequestInfo, options: RequestInit = {}) {
+		return new Promise((resolve, reject) => {
+			if (options.body || options.method !== 'GET') {
+				options.headers = Object.assign(options.headers || {}, {
+					'Content-Type': 'application/json',
+					Accept: 'application/json, text/plain, */*'
+				})
+			}
+
+			const currentDomain = window.location.host.split('.').slice(-2).join('.')
+			const urlDomain = new URL(url as string).host.split('.').slice(-2).join('.')
+			if (currentDomain === urlDomain) {
+				options.credentials = 'include'
+
+				const XSRFToken = getCookie('XSRF')
+				if (XSRFToken) {
+					options.headers = Object.assign(options.headers || {}, {
+						'X-XSRF-TOKEN': XSRFToken
+						// Authorization: 'Bearer ' + XSRFToken
+					})
+				}
+			}
+
+			fetch(url, options)
+				.then(async res => {
+					const statusString = res.status.toString()
+					if (res.redirected) {
+						reject('Request failed, redirected to ' + res.url)
+					} else if (statusString[0] !== '2' && res.status !== 304) {
+						await res
+							.json()
+							.then(reject)
+							.catch(() => {
+								reject('Request failed with status code ' + res.status)
+							})
+					}
+					return res
+				})
+				.then(res => res.json())
+				.then(resolve)
+				.catch(reject)
+		}) as Promise<any | void>
+	}
 }
 
 export function isEmpty(obj: object) {
@@ -55,6 +105,28 @@ export function isEmpty(obj: object) {
 		return false
 	}
 	return true
+}
+
+export function getCookies() {
+	return Object.fromEntries(document.cookie.split('; ').map(v => v.split(/=(.*)/s).map(decodeURIComponent)))
+}
+
+export function getCookie(name: string) {
+	const c = document.cookie
+		.split('; ')
+		.find(v => v.startsWith(name))
+		?.split(/=(.*)/s)
+	return c && c[1] ? decodeURIComponent(c[1]) : null
+}
+
+export function eventKeyIsLetterDigitPuncSpaceChar(event: KeyboardEvent) {
+	if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) return true
+	return false
+}
+
+export function eventKeyIsLetterDigitPuncChar(event: KeyboardEvent) {
+	if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.altKey && !event.metaKey) return true
+	return false
 }
 
 export function debounce(fn: Function, delay: number) {
@@ -112,8 +184,29 @@ export function waitForElements(selectors: Array<string>, timeout = 10000, signa
 	})
 }
 
+export function parseHTML(html: string, firstElement = false) {
+	const template = document.createElement('template')
+	template.innerHTML = html
+	if (firstElement) {
+		return template.content.childNodes[0] as HTMLElement
+	} else {
+		return template.content
+	}
+}
+
 export function cleanupHTML(html: string) {
-	return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+	return html.trim().replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+}
+
+export function countStringOccurrences(str: string, substr: string) {
+	let count = 0,
+		sl = substr.length,
+		post = str.indexOf(substr)
+	while (post !== -1) {
+		count++
+		post = str.indexOf(substr, post + sl)
+	}
+	return count
 }
 
 // Split emote name into parts for more relevant search results
@@ -204,4 +297,91 @@ export function md5(inputString: string) {
         b=ii(b,c,d,a,x[i+ 9],21, -343485551);a=ad(a,olda);b=ad(b,oldb);c=ad(c,oldc);d=ad(d,oldd);
     }
     return rh(a)+rh(b)+rh(c)+rh(d);
+}
+
+/** Check if storage is persisted already.
+  @returns {Promise<boolean>} Promise resolved with true if current origin is
+  using persistent storage, false if not, and undefined if the API is not
+  present.
+*/
+async function isStoragePersisted() {
+	return (await navigator.storage) && navigator.storage.persisted ? navigator.storage.persisted() : undefined
+}
+
+/** Tries to convert to persisted storage.
+	@returns {Promise<boolean>} Promise resolved with true if successfully
+	persisted the storage, false if not, and undefined if the API is not present.
+  */
+async function persist() {
+	return (await navigator.storage) && navigator.storage.persist ? navigator.storage.persist() : undefined
+}
+
+/** Queries available disk quota.
+	@see https://developer.mozilla.org/en-US/docs/Web/API/StorageEstimate
+	@returns {Promise<{quota: number, usage: number}>} Promise resolved with
+	{quota: number, usage: number} or undefined.
+  */
+async function showEstimatedQuota() {
+	return (await navigator.storage) && navigator.storage.estimate ? navigator.storage.estimate() : undefined
+}
+
+/** Tries to persist storage without ever prompting user.
+	@returns {Promise<string>}
+	  "never" In case persisting is not ever possible. Caller don't bother
+		asking user for permission.
+	  "prompt" In case persisting would be possible if prompting user first.
+	  "persisted" In case this call successfully silently persisted the storage,
+		or if it was already persisted.
+  */
+// TODO -> https://dexie.org/docs/StorageManager
+async function tryPersistWithoutPromtingUser() {
+	if (!navigator.storage || !navigator.storage.persisted) {
+		return 'never'
+	}
+	let persisted = await navigator.storage.persisted()
+	if (persisted) {
+		return 'persisted'
+	}
+	if (!navigator.permissions || !navigator.permissions.query) {
+		return 'prompt' // It MAY be successful to prompt. Don't know.
+	}
+	const permission = await navigator.permissions.query({
+		name: 'persistent-storage'
+	})
+	if (permission.state === 'granted') {
+		persisted = await navigator.storage.persist()
+		if (persisted) {
+			return 'persisted'
+		} else {
+			throw new Error('Failed to persist')
+		}
+	}
+	if (permission.state === 'prompt') {
+		return 'prompt'
+	}
+	return 'never'
+}
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+	numeric: 'auto'
+})
+const RELATIVE_TIME_DIVISIONS = [
+	{ amount: 60, name: 'seconds' },
+	{ amount: 60, name: 'minutes' },
+	{ amount: 24, name: 'hours' },
+	{ amount: 7, name: 'days' },
+	{ amount: 4.34524, name: 'weeks' },
+	{ amount: 12, name: 'months' },
+	{ amount: Number.POSITIVE_INFINITY, name: 'years' }
+]
+export function formatRelativeTime(date: Date) {
+	let duration = (+date - Date.now()) / 1000
+
+	for (let i = 0; i < RELATIVE_TIME_DIVISIONS.length; i++) {
+		const division = RELATIVE_TIME_DIVISIONS[i]
+		if (Math.abs(duration) < division.amount) {
+			return relativeTimeFormatter.format(Math.round(duration), division.name as Intl.RelativeTimeFormatUnit)
+		}
+		duration /= division.amount
+	}
 }

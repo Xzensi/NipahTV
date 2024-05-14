@@ -1,0 +1,40 @@
+@use 'variables' as *;
+@use 'functions' as *;
+
+.ntv__toast {
+	transition: all 0.4s cubic-bezier(0.2, 0.6, 0.35, 1);
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+	box-shadow: shadow_elevation(2);
+	font-size: $root_font_size;
+	background-color: #333;
+	border-radius: 0.25rem;
+	max-width: 330px;
+	position: fixed;
+	color: #fff;
+	z-index: 9999;
+	padding: 1rem;
+	margin: 1rem;
+	right: 0;
+	top: 0;
+
+	&--success {
+		background-color: #1c9939;
+	}
+
+	&--error {
+		background-color: #bd2433;
+	}
+
+	&--warning {
+		background-color: #d4a30d;
+	}
+
+	&--info {
+		background-color: #226ec5;
+	}
+
+	&--top-right {
+		right: 15px;
+		top: 0px;
+	}
+}

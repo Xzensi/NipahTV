@@ -1,5 +1,8 @@
+import { Database } from '../Classes/Database'
+import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import { Publisher } from '../Classes/Publisher'
 import { SlidingTimestampWindow } from '../Classes/SlidingTimestampWindow'
+import { PLATFORM_ENUM } from '../constants'
 import { log, info, error, isEmpty } from '../utils'
 
 export class EmoteDatastore {
@@ -29,11 +32,11 @@ export class EmoteDatastore {
 		keys: [['name'], ['parts']]
 	})
 
-	database: Dexie
+	database: DatabaseProxy
 	eventBus: Publisher
 	channelId: string
 
-	constructor({ database, eventBus }: { database: Dexie; eventBus: Publisher }, channelId: string) {
+	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }, channelId: string) {
 		this.database = database
 		this.eventBus = eventBus
 		this.channelId = channelId
@@ -61,7 +64,7 @@ export class EmoteDatastore {
 		const { database, eventBus } = this
 		const emoteHistory = new Map()
 
-		const historyRecords = await database.emoteHistory.where('channelId').equals(this.channelId).toArray()
+		const historyRecords = await database.getHistoryRecords(PLATFORM_ENUM.KICK, this.channelId)
 		if (historyRecords.length) {
 			for (const record of historyRecords) {
 				emoteHistory.set(record.emoteHid, new SlidingTimestampWindow(record.timestamps))
@@ -92,8 +95,8 @@ export class EmoteDatastore {
 			}
 		}
 
-		if (puts.length) database.emoteHistory.bulkPut(puts)
-		if (deletes.length) database.emoteHistory.bulkDelete(deletes)
+		if (puts.length) database.bulkPutEmoteHistory(puts)
+		if (deletes.length) database.bulkDeleteEmoteHistory(deletes)
 
 		this.pendingHistoryChanges = {}
 	}
@@ -142,7 +145,7 @@ export class EmoteDatastore {
 			providerEmoteNameMap.set(emote.name, emote.hid)
 
 			// const emoteHistoryWindow = this.emoteHistory.get(emote.id)
-			// if (emoteHistoryWindow) emote.weight = emoteHistoryWindow.getTotal()
+			// if (emoteHistoryWindow) emote.weight = emoteHistorywwindow.getTotal()
 
 			this.fuse.add(emote)
 		})

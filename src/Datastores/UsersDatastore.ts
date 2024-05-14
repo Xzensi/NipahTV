@@ -56,6 +56,10 @@ export class UsersDatastore {
 		this.usersCount++
 	}
 
+	getUserById(id: string) {
+		return this.usersIdMap.get(id)
+	}
+
 	searchUsers(searchVal: string) {
 		return this.fuse.search(searchVal)
 	}

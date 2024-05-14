@@ -1,14 +1,10 @@
 @use 'variables';
 @use 'base';
 @use 'components';
+@use 'toasts';
+@use 'modals';
 @use 'inputComponents';
 @use 'emojis';
+@use 'messages';
 
-@use 'kick/settingsModal';
-@use 'kick/emotes';
-@use 'kick/emoteMenu';
-@use 'kick/emoteMenuButton';
-@use 'kick/emoteHolder';
-@use 'kick/modal';
-@use 'kick/chat';
-@use 'kick/tabCompletion';
+@use 'platforms/kick';

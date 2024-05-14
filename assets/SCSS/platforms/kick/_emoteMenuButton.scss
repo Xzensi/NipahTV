@@ -1,4 +1,4 @@
-@use '../variables' as *;
+@use '../../variables' as *;
 
 .ntv__emote-menu-button {
 	font-size: $root_font_size;
@@ -17,7 +17,7 @@
 		// width: 6em;
 
 		&:hover {
-			background-color: var(--background-highlight-2);
+			background-color: var(--ntv-background-highlight-2);
 		}
 
 		&.nipah {

@@ -1,11 +1,13 @@
 import { AbstractComponent } from './AbstractComponent'
+import { parseHTML, cleanupHTML } from '../../utils'
 
 export class CheckboxComponent extends AbstractComponent {
+	private checked: boolean
+	private label: string
+	private id: string
+
 	event = new EventTarget()
-	$element?: JQuery<HTMLElement>
-	checked: boolean
-	label: string
-	id: string
+	element: HTMLElement
 
 	constructor(id: string, label: string, checked = false) {
 		super()
@@ -13,20 +15,24 @@ export class CheckboxComponent extends AbstractComponent {
 		this.id = id
 		this.label = label
 		this.checked = checked
-	}
 
-	render() {
-		this.$element = $(`
+		this.element = parseHTML(
+			cleanupHTML(`
             <div class="ntv__checkbox">
                 <input type="checkbox" id="${this.id}" ${this.checked ? 'checked' : ''}>
                 <label for="${this.id}">${this.label}</label>
             </div>
-        `)
+        `),
+			true
+		) as HTMLElement
 	}
 
+	render() {}
+
 	attachEventHandlers() {
-		this.$element?.find('input').on('change', e => {
-			this.checked = e.target.checked
+		const inputEl = this.element?.querySelector('input') as HTMLInputElement
+		inputEl.addEventListener('change', event => {
+			this.checked = (event.target as HTMLInputElement).checked
 			this.event.dispatchEvent(new Event('change'))
 		})
 	}

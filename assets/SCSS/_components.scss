@@ -1,6 +1,44 @@
 @use 'variables' as *;
+@use 'functions' as *;
 
 $spacing: 1em;
+
+.ntv__button {
+	padding: $golden_ratio_inverse_half * 1em $golden_ratio_inverse * 1em;
+	background-color: var(--ntv-background-color-accent);
+	transition: 120ms background-color ease-in-out;
+	border-radius: 0.25em;
+	cursor: pointer;
+	font-size: 1em;
+
+	&--disabled {
+		pointer-events: none;
+		cursor: not-allowed;
+		user-select: none;
+		opacity: 0.38;
+	}
+
+	&:hover {
+		background-color: var(--ntv-background-color-accent-tint-2);
+	}
+}
+
+.ntv__icon-button {
+	transition: 120ms opacity ease-in-out;
+	border-radius: 0.128em;
+	cursor: pointer;
+
+	&--disabled {
+		pointer-events: none;
+		cursor: not-allowed;
+		user-select: none;
+		opacity: 0.38;
+	}
+
+	&:hover {
+		background-color: var(--ntv-background-color-tint-2);
+	}
+}
 
 .ntv__checkbox {
 	white-space: nowrap;
@@ -16,7 +54,7 @@ $spacing: 1em;
 		width: 1.618em;
 
 		position: relative;
-		opacity: 0.75;
+		// opacity: 0.75;
 		// left: -2em;
 
 		&::before {
@@ -58,7 +96,7 @@ $spacing: 1em;
 	}
 
 	input {
-		background-color: var(--background-color-shade-2);
+		background-color: var(--ntv-background-color-shade-2);
 		padding: 0.618em 1.333em;
 		appearance: auto;
 		width: 7em;
@@ -74,14 +112,14 @@ $spacing: 1em;
 	}
 
 	select {
-		border: 0.2em solid var(--border-transparent-2);
+		border: 0.2em solid var(--ntv-border-transparent-2);
 		padding: 0.382em 0.618em;
 		background: transparent;
 		border-radius: 0.25em;
 		margin-right: 1em;
 
 		option {
-			background-color: var(--background-color-shade-1);
+			background-color: var(--ntv-background-color-shade-1);
 		}
 	}
 }
@@ -96,5 +134,110 @@ $spacing: 1em;
 	input {
 		vertical-align: middle;
 		height: 2em;
+	}
+}
+
+.ntv__nav-window {
+	background-color: var(--ntv-background-color);
+	outline: 0.1em solid var(--ntv-border-transparent-2);
+	box-shadow: shadow_elevation(3);
+	// transform: translateY(-100%);
+	font-size: $root_font_size;
+	border-radius: 0.25em;
+	position: absolute;
+	z-index: 1000;
+	bottom: 115%;
+	width: 100%;
+	left: 0;
+
+	&__list {
+		flex-direction: column-reverse;
+		scrollbar-width: thin;
+		max-height: 23.4em;
+		overflow-x: hidden;
+		overflow-y: auto;
+		list-style: none;
+		display: flex;
+
+		li {
+			border-bottom: 1px solid var(--ntv-border-transparent-2);
+			padding: 0.333em 0.618em;
+			line-height: 1.618em;
+			white-space: nowrap;
+			align-items: center;
+			cursor: pointer;
+
+			&[data-emote-id] {
+				grid-template-columns: 4rem 1fr;
+				column-gap: 0.5em;
+				display: grid;
+			}
+
+			&[data-user-id] {
+				padding: 0.333em 1.333em;
+
+				span {
+					line-height: 2.618em;
+					display: block;
+					width: 100%;
+				}
+			}
+
+			&:first-child {
+				border-bottom: none;
+			}
+
+			&.selected {
+				background-color: var(--ntv-background-color-tint-2);
+			}
+
+			&:hover {
+				background-color: var(--ntv-background-color-tint-3);
+			}
+
+			img {
+				// object-fit: contain;
+				justify-self: center;
+				max-width: 100%;
+				height: 2.618em;
+			}
+
+			span {
+				overflow: hidden;
+			}
+		}
+	}
+}
+
+.ntv__stepped-input-slider {
+	input {
+		width: 100%;
+	}
+}
+
+.ntv__reply-message {
+	font-size: $root_font_size;
+
+	&__header {
+		margin-bottom: $golden_ratio_inverse * 1em;
+		align-items: center;
+		display: flex;
+
+		svg {
+			height: $golden_ratio * 1em;
+			width: $golden_ratio * 1em;
+			flex: 0 0 max-content;
+		}
+
+		span {
+			padding: 0 $golden_ratio_inverse * 1em;
+			font-size: 1.128em;
+			flex: 1 1 auto;
+		}
+	}
+
+	&__content {
+		padding: $golden_ratio_inverse * 1em $golden_ratio * 1em;
+		background-color: var(--ntv-background-color-shade-1);
 	}
 }
