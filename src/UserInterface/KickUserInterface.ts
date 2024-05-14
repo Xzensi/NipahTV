@@ -387,6 +387,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			textFieldEl.focus()
+			this.inputController?.contentEditableEditor.forwardEvent(evt)
 		})
 	}
 

@@ -132,6 +132,10 @@ export class ContentEditableEditor {
 		this.eventTarget.addEventListener(type, priority, listener, options)
 	}
 
+	forwardEvent(event: Event) {
+		this.eventTarget.dispatchEvent(event)
+	}
+
 	attachEventListeners() {
 		const { inputNode, emotesManager, clipboard } = this
 
