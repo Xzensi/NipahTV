@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.3.9
+// @version 1.4.0
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-f248029c.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/css/kick-c1814884.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/dev/dist/userscript/client.user.js
@@ -1081,8 +1081,8 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
   ENV_VARS;
   eventBus;
   settingsManager;
-  $element;
-  $footerLogoBtn;
+  element;
+  footerLogoBtnEl;
   constructor({
     ENV_VARS,
     eventBus,
@@ -1094,29 +1094,29 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     this.settingsManager = settingsManager;
   }
   render() {
-    $(".ntv__emote-menu-button").remove();
+    document.querySelector(".ntv__emote-menu-button")?.remove();
     const basePath = this.ENV_VARS.RESOURCE_ROOT + "assets/img/btn";
     const filename = this.getFile();
-    this.$element = $(
+    this.element = parseHTML(
       cleanupHTML(`
 				<div class="ntv__emote-menu-button">
 					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
-			`)
+			`),
+      true
     );
-    this.$footerLogoBtn = this.$element.find("img");
-    $("#chatroom-footer .send-row").prepend(this.$element);
+    this.footerLogoBtnEl = this.element.querySelector("img");
+    document.querySelector("#chatroom-footer .send-row")?.prepend(this.element);
   }
   attachEventHandlers() {
     this.eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
-      if (!this.$footerLogoBtn)
+      if (!this.footerLogoBtnEl)
         return error("Footer logo button not found, unable to set logo src");
       const filename = this.getFile();
-      this.$footerLogoBtn.attr("src", this.ENV_VARS.RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
-      this.$footerLogoBtn.removeClass();
-      this.$footerLogoBtn.addClass(filename.toLowerCase());
+      this.footerLogoBtnEl.setAttribute("src", this.ENV_VARS.RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
+      this.footerLogoBtnEl.className = filename.toLowerCase();
     });
-    $("img", this.$element).click(() => {
+    this.footerLogoBtnEl?.addEventListener("click", () => {
       this.eventBus.publish("ntv.ui.footer.click");
     });
   }
@@ -1146,7 +1146,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     return file;
   }
   destroy() {
-    this.$element?.remove();
+    this.element?.remove();
   }
 };
 
@@ -1162,12 +1162,12 @@ var EmoteMenuComponent = class extends AbstractComponent {
   emotesManager;
   parentContainer;
   panels = {};
-  $container;
-  $searchInput;
-  $scrollable;
-  $settingsBtn;
-  $sidebarSets;
-  $tooltip;
+  containerEl;
+  searchInputEl;
+  scrollableEl;
+  settingsBtnEl;
+  sidebarSetsEl;
+  tooltipEl;
   closeModalClickListenerHandle;
   scrollableHeight = 0;
   constructor({
@@ -1188,7 +1188,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
     const showSidebar = true;
     $(".ntv__emote-menu").remove();
-    this.$container = $(
+    this.containerEl = parseHTML(
       cleanupHTML(`
 				<div class="ntv__emote-menu" style="display: none">
 					<div class="ntv__emote-menu__header">
@@ -1221,21 +1221,25 @@ var EmoteMenuComponent = class extends AbstractComponent {
 						</div>
 					</div>
 				</div>
-			`)
+			`),
+      true
     );
-    $(".ntv__chatroom-link", this.$container).attr("href", `/${this.channelData.channel_name}/chatroom`);
-    this.$searchInput = $(".ntv__emote-menu__search input", this.$container);
-    this.$scrollable = $(".ntv__emote-menu__scrollable", this.$container);
-    this.$settingsBtn = $(".ntv__emote-menu__sidebar-btn--settings", this.$container);
-    this.$sidebarSets = $(".ntv__emote-menu__sidebar__sets", this.$container);
-    this.panels.$emotes = $(".ntv__emote-menu__panel__emotes", this.$container);
-    this.panels.$search = $(".ntv__emote-menu__panel__search", this.$container);
-    $(this.parentContainer).append(this.$container);
+    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/${this.channelData.channel_name}/chatroom`);
+    this.searchInputEl = this.containerEl.querySelector(".ntv__emote-menu__search input");
+    this.scrollableEl = this.containerEl.querySelector(".ntv__emote-menu__scrollable");
+    this.settingsBtnEl = this.containerEl.querySelector(".ntv__emote-menu__sidebar-btn--settings");
+    this.sidebarSetsEl = this.containerEl.querySelector(".ntv__emote-menu__sidebar__sets");
+    this.panels.emotes = this.containerEl.querySelector(".ntv__emote-menu__panel__emotes");
+    this.panels.search = this.containerEl.querySelector(".ntv__emote-menu__panel__search");
+    this.parentContainer.appendChild(this.containerEl);
   }
   attachEventHandlers() {
     const { eventBus, settingsManager } = this;
-    this.$scrollable?.on("click", "img", (evt) => {
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    this.scrollableEl?.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG")
+        return;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
         return error("Invalid emote hid");
       eventBus.publish("ntv.ui.emote.click", { emoteHid });
@@ -1243,54 +1247,62 @@ var EmoteMenuComponent = class extends AbstractComponent {
       if (closeOnClick)
         this.toggleShow(false);
     });
-    this.$scrollable?.on("mouseenter", "img", (evt) => {
-      if (this.$tooltip)
-        this.$tooltip.remove();
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    this.scrollableEl?.addEventListener("mouseenter", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG")
+        return;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
         return;
       const emote = this.emotesManager.getEmote(emoteHid);
       if (!emote)
         return;
       const imageInTooltop = settingsManager.getSetting("shared.chat.tooltips.images");
-      const $tooltip = $(
+      const tooltipEl = parseHTML(
         cleanupHTML(`
-					<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
-						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
-						<span>${emote.name}</span>
-					</div>`)
-      ).appendTo(document.body);
-      const rect = evt.target.getBoundingClientRect();
-      $tooltip.css({
-        top: rect.top - rect.height / 2,
-        left: rect.left + rect.width / 2
-      });
-      this.$tooltip = $tooltip;
-    }).on("mouseleave", "img", (evt) => {
-      if (this.$tooltip)
-        this.$tooltip.remove();
+				<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
+					${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
+					<span>${emote.name}</span>
+				</div>`),
+        true
+      );
+      this.tooltipEl = tooltipEl;
+      document.body.appendChild(tooltipEl);
+      const rect = target.getBoundingClientRect();
+      tooltipEl.style.top = rect.top - rect.height / 2 + "px";
+      tooltipEl.style.left = rect.left + rect.width / 2 + "px";
     });
-    this.$searchInput?.on("input", this.handleSearchInput.bind(this));
-    this.panels.$emotes?.on("click", ".ntv__chevron", (evt) => {
-      log("Emote set header chevron click");
-      const $emoteSet = $(evt.target).closest(".ntv__emote-set");
-      const $emoteSetBody = $emoteSet.children(".ntv__emote-set__emotes");
-      log($(evt.target).parent(".ntv__emote-set"), $emoteSetBody);
-      if (!$emoteSetBody.length)
-        return error("Invalid emote set body");
-      $emoteSet.toggleClass("ntv__emote-set--collapsed");
+    this.scrollableEl?.addEventListener("mouseleave", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG")
+        return;
+      if (this.tooltipEl)
+        this.tooltipEl.remove();
     });
-    this.$settingsBtn?.on("click", () => {
+    this.searchInputEl?.addEventListener("input", this.handleSearchInput.bind(this));
+    this.panels.emotes?.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (!target.classList.contains("ntv__chevron"))
+        return;
+      const emoteSet = target.closest(".ntv__emote-set");
+      if (!emoteSet)
+        return;
+      const emoteSetBody = emoteSet.querySelector(".ntv__emote-set__emotes");
+      if (!emoteSetBody)
+        return;
+      emoteSet.classList.toggle("ntv__emote-set--collapsed");
+    });
+    this.settingsBtnEl?.addEventListener("click", () => {
       eventBus.publish("ntv.ui.settings.toggle_show");
     });
     eventBus.subscribe("ntv.providers.loaded", this.renderEmotes.bind(this), true);
     eventBus.subscribe("ntv.ui.footer.click", this.toggleShow.bind(this));
-    $(document).on("keydown", (evt) => {
-      if (evt.which === 27)
+    document.addEventListener("keydown", (evt) => {
+      if (evt.key === "Escape")
         this.toggleShow(false);
     });
     if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_spacebar")) {
-      $(document).on("keydown", (evt) => {
+      document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === " ") {
           evt.preventDefault();
           this.toggleShow();
@@ -1298,7 +1310,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       });
     }
     if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_e")) {
-      $(document).on("keydown", (evt) => {
+      document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === "e") {
           evt.preventDefault();
           this.toggleShow();
@@ -1317,46 +1329,56 @@ var EmoteMenuComponent = class extends AbstractComponent {
     }
     const emotesResult = this.emotesManager.searchEmotes(searchVal.substring(0, 20));
     log(`Searching for emotes, found ${emotesResult.length} matches"`);
-    this.panels.$search?.empty();
+    while (this.panels.search?.firstChild) {
+      this.panels.search.removeChild(this.panels.search.firstChild);
+    }
     let maxResults = 75;
     for (const emoteResult of emotesResult) {
       if (maxResults-- <= 0)
         break;
-      this.panels.$search?.append(this.emotesManager.getRenderableEmote(emoteResult.item, "ntv__emote"));
+      this.panels.search?.append(parseHTML(this.emotesManager.getRenderableEmote(emoteResult.item, "ntv__emote")));
     }
   }
   switchPanel(panel) {
     if (this.activePanel === panel)
       return;
     if (this.activePanel === "search") {
-      this.panels.$search?.hide();
+      if (this.panels.search)
+        this.panels.search.style.display = "none";
     } else if (this.activePanel === "emotes") {
-      this.panels.$emotes?.hide();
+      if (this.panels.emotes)
+        this.panels.emotes.style.display = "none";
     }
     if (panel === "search") {
-      this.panels.$search?.show();
+      if (this.panels.search)
+        this.panels.search.style.display = "";
     } else if (panel === "emotes") {
-      this.panels.$emotes?.show();
+      if (this.panels.emotes)
+        this.panels.emotes.style.display = "";
     }
     this.activePanel = panel;
   }
   renderEmotes() {
     log("Rendering emotes in modal");
-    const { emotesManager, $sidebarSets, $scrollable } = this;
-    const $emotesPanel = this.panels.$emotes;
-    if (!$emotesPanel || !$sidebarSets || !$scrollable)
+    const { emotesManager, sidebarSetsEl, scrollableEl } = this;
+    const emotesPanelEl = this.panels.emotes;
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl)
       return error("Invalid emote menu elements");
-    $sidebarSets.empty();
-    $emotesPanel.empty();
+    while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild))
+      ;
+    while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild))
+      ;
     const emoteSets = this.emotesManager.getEmoteSets();
     const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index);
     for (const emoteSet of orderedEmoteSets) {
       const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
-      const sidebarIcon = $(
-        `<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`
-      ).appendTo($sidebarSets);
-      this.sidebarMap.set(emoteSet.id, sidebarIcon[0]);
-      const $newEmoteSet = $(
+      const sidebarIcon = parseHTML(
+        `<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`,
+        true
+      );
+      sidebarSetsEl.appendChild(sidebarIcon);
+      this.sidebarMap.set(emoteSet.id, sidebarIcon);
+      const newEmoteSetEl = parseHTML(
         cleanupHTML(
           `<div class="ntv__emote-set" data-id="${emoteSet.id}">
 						<div class="ntv__emote-set__header">
@@ -1368,23 +1390,34 @@ var EmoteMenuComponent = class extends AbstractComponent {
 						</div>
 						<div class="ntv__emote-set__emotes"></div>
 					</div>`
-        )
+        ),
+        true
       );
-      $emotesPanel.append($newEmoteSet);
-      const $newEmoteSetEmotes = $(".ntv__emote-set__emotes", $newEmoteSet);
+      emotesPanelEl.append(newEmoteSetEl);
+      const newEmoteSetEmotesEl = newEmoteSetEl.querySelector(".ntv__emote-set__emotes");
       for (const emote of sortedEmotes) {
-        $newEmoteSetEmotes.append(emotesManager.getRenderableEmote(emote, "ntv__emote ntv__emote-set__emote"));
+        newEmoteSetEmotesEl.append(
+          parseHTML(emotesManager.getRenderableEmote(emote, "ntv__emote ntv__emote-set__emote"))
+        );
       }
     }
-    $sidebarSets.on("click", (evt) => {
-      const $img = $("img", evt.target);
-      if (!$img.length)
-        return error("Invalid sidebar icon click");
-      const scrollableEl = $scrollable[0];
-      const emoteSetId = $img.attr("data-id");
-      const emoteSetEl = $(`.ntv__emote-set[data-id="${emoteSetId}"]`, this.$container)[0];
-      scrollableEl.scrollTo({
-        top: emoteSetEl.offsetTop - 55,
+    sidebarSetsEl.addEventListener("click", (evt) => {
+      const target = evt.target;
+      const imgEl = target.querySelector("img");
+      if (!imgEl)
+        return;
+      const scrollableEl2 = this.scrollableEl;
+      if (!scrollableEl2)
+        return;
+      const emoteSetId = imgEl.getAttribute("data-id");
+      const emoteSetEl = this.containerEl?.querySelector(
+        `.ntv__emote-set[data-id="${emoteSetId}"]`
+      );
+      if (!emoteSetEl)
+        return error("Invalid emote set element");
+      const headerHeight = emoteSetEl.querySelector(".ntv__emote-set__header")?.clientHeight || 0;
+      scrollableEl2.scrollTo({
+        top: emoteSetEl.offsetTop - headerHeight,
         behavior: "smooth"
       });
     });
@@ -1397,7 +1430,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         });
       },
       {
-        root: $scrollable[0],
+        root: scrollableEl,
         rootMargin: "0px",
         threshold: (() => {
           let thresholds = [];
@@ -1411,14 +1444,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
         })()
       }
     );
-    const emoteSetEls = $(".ntv__emote-set", $emotesPanel);
+    const emoteSetEls = $(".ntv__emote-set", emotesPanelEl);
     for (const emoteSetEl of emoteSetEls)
       observer.observe(emoteSetEl);
   }
   handleOutsideModalClick(evt) {
-    if (!this.$container)
+    if (!this.containerEl)
       return;
-    const containerEl = this.$container[0];
+    const containerEl = this.containerEl;
     const withinComposedPath = evt.composedPath().includes(containerEl);
     if (!withinComposedPath)
       this.toggleShow(false);
@@ -1427,22 +1460,23 @@ var EmoteMenuComponent = class extends AbstractComponent {
     if (bool === this.isShowing)
       return;
     this.isShowing = !this.isShowing;
-    const { $searchInput } = this;
+    const { searchInputEl } = this;
     if (this.isShowing) {
       setTimeout(() => {
-        if ($searchInput)
-          $searchInput[0].focus();
+        if (searchInputEl)
+          searchInputEl.focus();
         this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this);
         wwindow.addEventListener("click", this.closeModalClickListenerHandle);
       });
     } else {
       wwindow.removeEventListener("click", this.closeModalClickListenerHandle);
     }
-    this.$container?.toggle(this.isShowing);
-    this.scrollableHeight = this.$scrollable?.height() || 0;
+    if (this.containerEl)
+      this.containerEl.style.display = this.isShowing ? "" : "none";
+    this.scrollableHeight = this.scrollableEl?.clientHeight || 0;
   }
   destroy() {
-    this.$container?.remove();
+    this.containerEl?.remove();
   }
 };
 
@@ -1877,9 +1911,7 @@ var UserInfoModal = class extends AbstractModal {
     });
     this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
     this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
-    this.modActionButtonVIPEl?.addEventListener("click", () => {
-      log("BIP button clicked");
-    });
+    this.modActionButtonVIPEl?.addEventListener("click", this.clickVIPHandler.bind(this));
     this.modActionButtonModEl?.addEventListener("click", () => {
       log("Mod button clicked");
     });
@@ -1981,6 +2013,12 @@ var UserInfoModal = class extends AbstractModal {
       this.updateModStatusPage();
       log(`Successfully timed out user: ${this.username} for ${duration} minutes`);
     });
+  }
+  async clickVIPHandler() {
+    log("VIP button clicked");
+    const { networkInterface, userInfo } = this;
+    if (!userInfo)
+      return;
   }
   async clickBanHandler() {
     if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled"))
@@ -2621,7 +2659,7 @@ var AbstractUserInterface = class {
       this.destroyReplyMessageContext();
     } else {
       this.networkInterface.sendMessage(replyContent).then((res) => {
-        if (res.status.error) {
+        if (res?.status.error) {
           if (res.status.message)
             this.toastError("Failed to send message because: " + res.status.message);
           else
@@ -2629,11 +2667,29 @@ var AbstractUserInterface = class {
           error("Failed to send message:", res.status);
         }
       }).catch((err) => {
-        return this.toastError("Failed to send message.");
+        this.toaster.addToast("Failed to send emote to chat.", 4e3, "error");
+        error("Failed to send emote to chat:", err);
       });
     }
     eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent });
     contentEditableEditor.clearInput();
+  }
+  sendEmoteToChat(emoteHid) {
+    const { emotesManager } = this;
+    const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
+    if (!emoteEmbedding)
+      return error("Failed to send emote to chat, emote embedding not found.");
+    this.networkInterface.sendMessage(emoteEmbedding).then((res) => {
+      if (res?.status.error) {
+        if (res.status.message)
+          this.toastError("Failed to send emote because: " + res.status.message);
+        else
+          this.toaster.addToast("Failed to send emote to chat.", 4e3, "error");
+        error("Failed to send emote to chat:", res.status);
+      }
+    }).catch((err) => {
+      this.toastError("Failed to send emote to chat.");
+    });
   }
   replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername) {
     log(`Replying to message ${chatEntryId} of user ${chatEntryUsername} with ID ${chatEntryUserId}..`);
@@ -3313,7 +3369,7 @@ var ContentEditableEditor = class {
             selection.extend(inputNode, componentIndex + 1);
           }
         }
-      } else if (focusNode?.parentElement !== inputNode || anchorNode?.parentElement !== inputNode) {
+      } else if (focusNode !== inputNode && focusNode?.parentElement !== inputNode || anchorNode !== inputNode && anchorNode?.parentElement !== inputNode) {
         inputNode.append(new Text(text));
         inputNode.normalize();
         this.hasUnprocessedContentChanges = true;
@@ -4593,8 +4649,6 @@ var KickUserInterface = class extends AbstractUserInterface {
   emoteMenuButton = null;
   quickEmotesHolder = null;
   elm = {
-    originalTextField: null,
-    originalSubmitButton: null,
     chatMessagesContainer: null,
     replyMessageWrapper: null,
     submitButton: null,
@@ -4740,24 +4794,33 @@ var KickUserInterface = class extends AbstractUserInterface {
   loadShadowProxyElements() {
     if (!this.channelData.me.is_logged_in)
       return;
-    const originalSubmitButtonEl = this.elm.originalSubmitButton = $("#chatroom-footer button.base-button")[0];
-    const submitButtonEl = this.elm.submitButton = $(
-      `<button class="ntv__submit-button disabled">Chat</button>`
-    )[0];
-    originalSubmitButtonEl.after(submitButtonEl);
-    const originalTextFieldEl = this.elm.originalTextField = $("#message-input")[0];
-    const placeholder = originalTextFieldEl.dataset.placeholder;
-    const textFieldEl = this.elm.textField = $(
-      `<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
-    )[0];
-    const textFieldWrapperEl = $(
-      `<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`
-    )[0];
-    textFieldWrapperEl.append(textFieldEl);
+    const submitButtonEl = this.elm.submitButton = parseHTML(
+      `<button class="ntv__submit-button disabled">Chat</button>`,
+      true
+    );
+    const originalSubmitButtonEl = document.querySelector("#chatroom-footer button.base-button");
+    if (originalSubmitButtonEl) {
+      originalSubmitButtonEl.after(submitButtonEl);
+    } else {
+      error("Submit button not found");
+    }
+    const originalTextFieldEl = document.querySelector("#message-input");
+    if (!originalTextFieldEl)
+      return error("Original text field not found");
+    const placeholder = originalTextFieldEl.dataset.placeholder || "Send message...";
+    const textFieldEl = this.elm.textField = parseHTML(
+      `<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`,
+      true
+    );
+    const textFieldWrapperEl = parseHTML(
+      `<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`,
+      true
+    );
     originalTextFieldEl.parentElement.parentElement?.append(textFieldWrapperEl);
-    const $moderatorChatIdentityBadgeIcon = $(".chat-input-wrapper .chat-input-icon");
-    if ($moderatorChatIdentityBadgeIcon.length)
-      $(textFieldEl).before($moderatorChatIdentityBadgeIcon);
+    textFieldWrapperEl.append(textFieldEl);
+    const moderatorChatIdentityBadgeIconEl = document.querySelector(".chat-input-wrapper .chat-input-icon");
+    if (moderatorChatIdentityBadgeIconEl)
+      textFieldEl.before(moderatorChatIdentityBadgeIconEl);
     document.getElementById("chatroom")?.classList.add("ntv__hide-chat-input");
     submitButtonEl.addEventListener("click", () => this.submitInput());
     const inputController = this.inputController = new InputController(
@@ -4848,8 +4911,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       Pause: true,
       NumLock: true
     };
-    $(document.body).on("keydown", (evt) => {
-      if (evt.ctrlKey || evt.altKey || evt.metaKey || inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target.hasAttribute("capture-focus")) {
+    document.body.addEventListener("keydown", (evt) => {
+      if (evt.ctrlKey || evt.altKey || evt.metaKey || inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus")) {
         return;
       }
       textFieldEl.focus();
@@ -4990,7 +5053,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
     if (!chatMessagesContainerEl)
       return error("Chat messages container not loaded for observing");
-    const $chatMessagesContainer = $(chatMessagesContainerEl);
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
     this.eventBus.subscribe("ntv.providers.loaded", () => {
       const observer = this.chatObserver = new MutationObserver((mutations) => {
@@ -5010,32 +5072,31 @@ var KickUserInterface = class extends AbstractUserInterface {
       observer.observe(chatMessagesContainerEl, { childList: true });
     });
     const showTooltips = this.settingsManager.getSetting("shared.chat.tooltips.images");
-    $chatMessagesContainer.on("mouseover", ".ntv__inline-emote-box img", (evt) => {
-      const emoteName = evt.target.dataset.emoteName;
-      const emoteHid = evt.target.dataset.emoteHid;
-      if (!emoteName || !emoteHid)
-        return;
+    chatMessagesContainerEl.addEventListener("mouseover", (evt) => {
       const target = evt.target;
-      const $tooltip = $(
-        cleanupHTML(`
-					<div class="ntv__emote-tooltip__wrapper">
-						<div class="ntv__emote-tooltip ${showTooltips ? "ntv__emote-tooltip--has-image" : ""}">
-							${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}
-							<span>${emoteName}</span>
-						</div>
-					</div>`)
+      if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
+        return;
+      const emoteName = target.getAttribute("data-emote-name");
+      if (!emoteName)
+        return;
+      const tooltipEl = parseHTML(
+        `<div class="ntv__emote-tooltip__wrapper"><div class="ntv__emote-tooltip ${showTooltips ? "ntv__emote-tooltip--has-image" : ""}">${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}<span>${emoteName}</span></div></div>`,
+        true
       );
-      $(target).after($tooltip);
-      evt.target.addEventListener(
+      target.after(tooltipEl);
+      target.addEventListener(
         "mouseleave",
         () => {
-          $tooltip.remove();
+          tooltipEl.remove();
         },
         { once: true, passive: true }
       );
     });
-    $chatMessagesContainer.on("click", ".ntv__inline-emote-box img", (evt) => {
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    chatMessagesContainerEl.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
+        return;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (emoteHid)
         this.inputController?.contentEditableEditor.insertEmote(emoteHid);
     });
@@ -5191,21 +5252,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     for (const chatEntryContentNode of chatEntryContentNodes) {
       this.renderEmotesInElement(chatEntryContentNode);
     }
-  }
-  // Sends emote to chat and restores previous message
-  sendEmoteToChat(emoteHid) {
-    assertArgDefined(emoteHid);
-    if (!this.elm.textField || !this.elm.originalTextField || !this.elm.submitButton) {
-      return error("Text field not loaded for sending emote");
-    }
-    const { inputController } = this;
-    const contentEditableEditor = inputController?.contentEditableEditor;
-    if (!contentEditableEditor)
-      return error("Content editable editor not loaded for sending emote");
-    const originalTextFieldEl = this.elm.originalTextField;
-    const originalSubmitButtonEl = this.elm.originalSubmitButton;
-    if (!originalSubmitButtonEl)
-      return error("Original submit button not loaded for sending emote");
   }
   insertNodesInChat(embedNodes) {
     if (!embedNodes.length)
@@ -5461,28 +5507,32 @@ var SevenTVProvider = class extends AbstractProvider {
 
 // src/UserInterface/Components/CheckboxComponent.ts
 var CheckboxComponent = class extends AbstractComponent {
-  event = new EventTarget();
-  $element;
   checked;
   label;
   id;
+  event = new EventTarget();
+  element;
   constructor(id, label, checked = false) {
     super();
     this.id = id;
     this.label = label;
     this.checked = checked;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__checkbox">
                 <input type="checkbox" id="${this.id}" ${this.checked ? "checked" : ""}>
                 <label for="${this.id}">${this.label}</label>
             </div>
-        `);
+        `),
+      true
+    );
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("input").on("change", (e) => {
-      this.checked = e.target.checked;
+    const inputEl = this.element?.querySelector("input");
+    inputEl.addEventListener("change", (event) => {
+      this.checked = event.target.checked;
       this.event.dispatchEvent(new Event("change"));
     });
   }
@@ -5493,52 +5543,57 @@ var CheckboxComponent = class extends AbstractComponent {
 
 // src/UserInterface/Components/DropdownComponent.ts
 var DropdownComponent = class extends AbstractComponent {
-  event = new EventTarget();
   id;
   label;
   options;
   selectedOption;
-  $element;
+  selectEl;
+  event = new EventTarget();
+  element;
   constructor(id, label, options = [], selectedOption = null) {
     super();
     this.id = id;
     this.label = label;
     this.options = options;
     this.selectedOption = selectedOption;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__dropdown">
                 <label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
                     ${this.options.map((option) => {
-      const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
-      return `<option value="${option.value}" ${selected}>${option.label}</option>`;
-    }).join("")}
+        const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
+        return `<option value="${option.value}" ${selected}>${option.label}</option>`;
+      }).join("")}
                 </select>
             </div>
-        `);
+        `),
+      true
+    );
+    this.selectEl = this.element?.querySelector("select");
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("select").on("change", (e) => {
+    this.selectEl.addEventListener("change", (event) => {
       this.event.dispatchEvent(new Event("change"));
     });
   }
   getValue() {
-    return this.$element?.find("select").val();
+    return this.selectEl.value;
   }
 };
 
 // src/UserInterface/Components/NumberComponent.ts
 var NumberComponent = class extends AbstractComponent {
-  event = new EventTarget();
-  $element;
   id;
   label;
   value;
   min;
   max;
   step;
+  event = new EventTarget();
+  element;
   constructor(id, label, value = 0, min = 0, max = 10, step = 1) {
     super();
     this.id = id;
@@ -5547,18 +5602,22 @@ var NumberComponent = class extends AbstractComponent {
     this.min = min;
     this.max = max;
     this.step = step;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__number">
 				<label for="${this.id}">${this.label}</label>
                 <input type="number" id="${this.id}" name="${this.id}" value="${this.value}" min="${this.min}" max="${this.max}" step="${this.step}">
             </div>
-        `);
+        `),
+      true
+    );
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("input").on("input", (e) => {
-      this.value = +e.target.value;
+    const inputEl = this.element.querySelector("input");
+    inputEl.addEventListener("input", (event) => {
+      this.value = +event.target.value;
       this.event.dispatchEvent(new Event("change"));
     });
   }
@@ -5569,28 +5628,32 @@ var NumberComponent = class extends AbstractComponent {
 
 // src/UserInterface/Components/ColorComponent.ts
 var ColorComponent = class extends AbstractComponent {
-  event = new EventTarget();
-  $element;
   value;
   label;
   id;
+  event = new EventTarget();
+  element;
   constructor(id, label, value = "#000000") {
     super();
     this.id = id;
     this.label = label;
     this.value = value;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__color">
                 <label for="${this.id}">${this.label}</label>
                 <input type="color" id="${this.id}" value="${this.value}">
             </div>
-        `);
+        `),
+      true
+    );
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("input").on("change", (e) => {
-      this.value = e.target.value;
+    const inputEl = this.element.querySelector("input");
+    inputEl.addEventListener("change", (event) => {
+      this.value = event.target.value;
       this.event.dispatchEvent(new Event("change"));
     });
   }
@@ -5605,6 +5668,7 @@ var SettingsModal = class extends AbstractModal {
   settingsOpts;
   panelsEl;
   sidebarEl;
+  sidebarBtnEl;
   constructor(eventBus, settingsOpts) {
     const geometry = {
       position: "center"
@@ -5623,11 +5687,16 @@ var SettingsModal = class extends AbstractModal {
     const sharedSettings = this.settingsOpts.sharedSettings;
     const settingsMap = this.settingsOpts.settingsMap;
     const modalBodyEl = this.modalBodyEl;
+    const windowWidth = window.innerWidth;
     this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true);
     this.sidebarEl = parseHTML(
-      cleanupHTML(`<div class="ntv__settings-modal__sidebar">
-							<ul></ul>
-						</div>`),
+      `<div class="ntv__settings-modal__sidebar ${windowWidth < 768 ? "" : "ntv__settings-modal__sidebar--open"}"><ul></ul></div>`,
+      true
+    );
+    this.sidebarBtnEl = parseHTML(
+      `<div class="ntv__settings-modal__mobile-btn-wrapper"><button><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+			<path fill="currentColor" d="M2.753 18h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm0-6.497h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm-.001-6.5h18.5a.75.75 0 0 1 .102 1.493l-.102.007h-18.5A.75.75 0 0 1 2.65 5.01zh18.5z" />
+		</svg> Menu</button></div>`,
       true
     );
     const sidebarList = this.sidebarEl.querySelector("ul");
@@ -5713,7 +5782,7 @@ var SettingsModal = class extends AbstractModal {
                 continue;
             }
             settingComponent?.init();
-            groupEl.append(settingComponent.$element[0]);
+            groupEl.append(settingComponent.element);
             settingComponent.event.addEventListener("change", () => {
               const value = settingComponent.getValue();
               this.event.dispatchEvent(
@@ -5727,6 +5796,7 @@ var SettingsModal = class extends AbstractModal {
     const defaultPanel = "chat.appearance";
     this.panelsEl.querySelector(`[data-panel="${defaultPanel}"]`)?.setAttribute("style", "display: block");
     this.sidebarEl.querySelector(`[data-panel="${defaultPanel}"]`)?.classList.add("ntv__settings-modal__sub-category--active");
+    modalBodyEl.appendChild(this.sidebarBtnEl);
     modalBodyEl.appendChild(this.sidebarEl);
     modalBodyEl.appendChild(this.panelsEl);
   }
@@ -5751,6 +5821,9 @@ var SettingsModal = class extends AbstractModal {
         });
         this.panelsEl.querySelector(`[data-panel="${panelId}"]`)?.setAttribute("style", "display: block");
       });
+    });
+    this.sidebarBtnEl.addEventListener("click", () => {
+      this.sidebarEl.classList.toggle("ntv__settings-modal__sidebar--open");
     });
   }
 };
@@ -6620,7 +6693,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.3.9",
+    VERSION: "1.4.0",
     PLATFORM: PLATFORM_ENUM.NULL,
     RESOURCE_ROOT: null,
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",

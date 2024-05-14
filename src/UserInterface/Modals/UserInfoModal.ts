@@ -227,10 +227,7 @@ export class UserInfoModal extends AbstractModal {
 
 		this.modActionButtonBanEl?.addEventListener('click', this.clickBanHandler.bind(this))
 		this.modActionButtonTimeoutEl?.addEventListener('click', this.clickTimeoutHandler.bind(this))
-
-		this.modActionButtonVIPEl?.addEventListener('click', () => {
-			log('BIP button clicked')
-		})
+		this.modActionButtonVIPEl?.addEventListener('click', this.clickVIPHandler.bind(this))
 
 		this.modActionButtonModEl?.addEventListener('click', () => {
 			log('Mod button clicked')
@@ -354,6 +351,60 @@ export class UserInfoModal extends AbstractModal {
 
 			log(`Successfully timed out user: ${this.username} for ${duration} minutes`)
 		})
+	}
+
+	async clickVIPHandler() {
+		log('VIP button clicked')
+
+		const { networkInterface, userInfo } = this
+		if (!userInfo) return
+
+		// this.modActionButtonVIPEl!.classList.add('ntv__icon-button--disabled')
+
+		// if (userInfo.vip) {
+		// 	log(`Attempting to remove VIP from user: ${userInfo.username}..`)
+
+		// 	try {
+		// 		await networkInterface.sendCommand({ name: 'unvip', args: [userInfo.username] })
+		// 		log('Successfully removed VIP from user:', userInfo.username)
+		// 	} catch (err: any) {
+		// 		if (err.errors && err.errors.length > 0) {
+		// 			this.toaster.addToast('Failed to remove VIP from user: ' + err.errors.join(' '), 6_000, 'error')
+		// 		} else if (err.message) {
+		// 			this.toaster.addToast('Failed to remove VIP from user: ' + err.message, 6_000, 'error')
+		// 		} else {
+		// 			this.toaster.addToast('Failed to remove VIP from user, reason unknown', 6_000, 'error')
+		// 		}
+
+		// 		this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
+		// 		return
+		// 	}
+
+		// 	delete userInfo.vip
+		// } else {
+		// 	log(`Attempting to give VIP to user: ${userInfo.username}..`)
+
+		// 	try {
+		// 		await networkInterface.sendCommand({ name: 'vip', args: [userInfo.username] })
+		// 		log('Successfully gave VIP to user:', userInfo.username)
+		// 	} catch (err: any) {
+		// 		if (err.errors && err.errors.length > 0) {
+		// 			this.toaster.addToast('Failed to give VIP to user: ' + err.errors.join(' '), 6_000, 'error')
+		// 		} else if (err.message) {
+		// 			this.toaster.addToast('Failed to give VIP to user: ' + err.message, 6_000, 'error')
+		// 		} else {
+		// 			this.toaster.addToast('Failed to give VIP to user, reason unknown', 6_000, 'error')
+		// 		}
+
+		// 		this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
+		// 		return
+		// 	}
+
+		// 	userInfo.vip = true
+		// }
+
+		// this.updateModStatusPage()
+		// this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
 	}
 
 	async clickBanHandler() {
