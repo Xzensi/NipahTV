@@ -20,14 +20,14 @@ import { UsersManager } from './Managers/UsersManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.1',
+		VERSION: '1.4.0',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
-		RELEASE_BRANCH: 'dev'
+		RELEASE_BRANCH: 'master'
 	}
 
 	userInterface: AbstractUserInterface | null = null
