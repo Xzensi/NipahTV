@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.0
+// @version 1.4.1
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -3103,6 +3103,7 @@ var ContentEditableEditor = class {
   }
   setInputContent(content) {
     this.inputNode.innerHTML = content;
+    this.hasUnprocessedContentChanges = true;
     this.processInputContent();
   }
   processInputContent() {
@@ -6697,7 +6698,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.0",
+    VERSION: "1.4.1",
     PLATFORM: PLATFORM_ENUM.NULL,
     RESOURCE_ROOT: null,
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",

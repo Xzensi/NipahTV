@@ -456,6 +456,7 @@ export class ContentEditableEditor {
 
 	setInputContent(content: string) {
 		this.inputNode.innerHTML = content
+		this.hasUnprocessedContentChanges = true
 		this.processInputContent()
 	}
 
