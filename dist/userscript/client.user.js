@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.1
+// @version 1.4.2
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-c1814884.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-4e384923.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -1492,8 +1492,8 @@ var ReplyMessageComponent = class extends AbstractComponent {
       cleanupHTML(`
 			<div class="ntv__reply-message">
 				<div class="ntv__reply-message__header">
-					<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-						<path fill="currentColor" d="M9 16h7.2l-2.6 2.6L15 20l5-5l-5-5l-1.4 1.4l2.6 2.6H9c-2.2 0-4-1.8-4-4s1.8-4 4-4h2V4H9c-3.3 0-6 2.7-6 6s2.7 6 6 6" />
+					<svg x<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+						<path fill="currentColor" d="m12.281 5.281l-8 8l-.687.719l.687.719l8 8l1.438-1.438L7.438 15H21c2.773 0 5 2.227 5 5s-2.227 5-5 5v2c3.855 0 7-3.145 7-7s-3.145-7-7-7H7.437l6.282-6.281z" />
 					</svg>
 					<span>Replying to:</span>
 					<svg class="ntv__reply-message__close-btn ntv__icon-button" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
@@ -5428,7 +5428,7 @@ var KickProvider = class extends AbstractProvider {
     return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
   }
   getEmbeddableEmote(emote) {
-    return `[emote:${emote.id}:]`;
+    return `[emote:${emote.id}:_]`;
   }
   getEmoteSrc(emote) {
     return `https://files.kick.com/emotes/${emote.id}/fullsize`;
@@ -6698,7 +6698,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.1",
+    VERSION: "1.4.2",
     PLATFORM: PLATFORM_ENUM.NULL,
     RESOURCE_ROOT: null,
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
