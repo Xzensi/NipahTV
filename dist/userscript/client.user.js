@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.3
+// @version 1.4.4
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -5302,6 +5302,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         const { chatEntryUser, chatEntryUserId } = usernameEl.dataset;
         const chatEntryUserName = usernameEl.textContent;
         if (chatEntryUserId && chatEntryUserName) {
+          log(chatEntryUserId);
           if (!this.usersManager.hasSeenUser(chatEntryUserId)) {
             const enableFirstMessageHighlight = this.settingsManager.getSetting(
               "shared.chat.appearance.highlight_first_message"
@@ -6818,8 +6819,8 @@ var UsersDatastore = class {
       delete this.usersNameMap;
     });
   }
-  hasUser(name) {
-    return this.usersNameMap.has(name);
+  hasUser(id) {
+    return this.usersIdMap.has(id);
   }
   registerUser(id, name) {
     if (this.usersIdMap.has(id))
@@ -6849,8 +6850,8 @@ var UsersManager = class {
   constructor({ eventBus, settingsManager }) {
     this.datastore = new UsersDatastore({ eventBus });
   }
-  hasSeenUser(name) {
-    return this.datastore.hasUser(name);
+  hasSeenUser(id) {
+    return this.datastore.hasUser(id);
   }
   registerUser(id, name) {
     this.datastore.registerUser(id, name);
@@ -6866,7 +6867,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.3",
+    VERSION: "1.4.4",
     PLATFORM: PLATFORM_ENUM.NULL,
     RESOURCE_ROOT: null,
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",

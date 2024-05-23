@@ -20,7 +20,7 @@ import { UsersManager } from './Managers/UsersManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.3',
+		VERSION: '1.4.4',
 		PLATFORM: PLATFORM_ENUM.NULL,
 		RESOURCE_ROOT: null as string | null,
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
