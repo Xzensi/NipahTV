@@ -155,7 +155,7 @@ export class UserInfoModal extends AbstractModal {
 				.join('')}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
-					<!--<button class="ntv__button">Mute</button>-->
+					<button class="ntv__button">${this.rootContext.usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'}</button>
 					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
@@ -313,14 +313,24 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async clickMuteHandler() {
-		log('Mute button clicked')
-
 		const { userInfo } = this
 		if (!userInfo) return
 
 		const { id, username } = userInfo
+		const { usersManager } = this.rootContext
 
-		log('userInfo:', userInfo)
+		const user = usersManager.getUserById(id)
+		if (!user) return
+
+		if (user.muted) {
+			log('Unmuting user:', username)
+			usersManager.unmuteUserById(user.id)
+			this.actionMuteEl!.textContent = 'Mute'
+		} else {
+			log('Muting user:', username)
+			usersManager.muteUserById(user.id)
+			this.actionMuteEl!.textContent = 'Unmute'
+		}
 	}
 
 	async clickTimeoutHandler() {

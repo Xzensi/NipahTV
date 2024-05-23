@@ -650,6 +650,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
 				const chatEntryUserName = usernameEl.textContent
 				if (chatEntryUserId && chatEntryUserName) {
+					if (usersManager.hasMutedUser(chatEntryUserId)) {
+						messageNode.remove()
+						return
+					}
+
 					if (!usersManager.hasSeenUser(chatEntryUserId)) {
 						const enableFirstMessageHighlight = settingsManager.getSetting(
 							'shared.chat.appearance.highlight_first_message'
