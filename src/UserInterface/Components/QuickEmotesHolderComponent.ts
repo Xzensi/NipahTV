@@ -59,6 +59,13 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 		this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this)
 		eventBus.subscribe('ntv.ui.input_submitted', this.renderQuickEmotesCallback)
+
+		eventBus.subscribe(
+			'ntv.settings.change.shared.chat.quick_emote_holder.appearance.rows',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				this.element?.setAttribute('data-rows', value || '0')
+			}
+		)
 	}
 
 	handleEmoteClick(emoteHid: string, sendImmediately = false) {

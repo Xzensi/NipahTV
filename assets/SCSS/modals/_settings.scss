@@ -52,7 +52,10 @@
 	&__sidebar {
 		margin-right: $golden_ratio * 1em;
 		flex: 0 0 fit-content;
-		display: none;
+
+		@media (max-width: 768px) {
+			display: none;
+		}
 
 		&--open {
 			display: block;
@@ -147,6 +150,10 @@
 
 		&__sidebar:not(&__sidebar--open) {
 			display: none;
+		}
+
+		&__panels {
+			flex: 1 1 100%;
 		}
 	}
 

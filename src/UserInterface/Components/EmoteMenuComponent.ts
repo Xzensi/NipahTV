@@ -113,16 +113,20 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 		// Tooltip for emotes
 		this.scrollableEl?.addEventListener('mouseenter', evt => {
+			log('FLAG_0')
 			const target = evt.target as HTMLElement
 			if (target.tagName !== 'IMG') return
+			log('FLAG_1')
 
 			const emoteHid = target.getAttribute('data-emote-hid')
 			if (!emoteHid) return
+			log('FLAG_2')
 
 			const emote = emotesManager.getEmote(emoteHid)
 			if (!emote) return
 
 			const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
+			log('FLAG_3', imageInTooltop)
 			const tooltipEl = parseHTML(
 				cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">

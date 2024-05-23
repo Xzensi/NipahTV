@@ -73,10 +73,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.loadEmoteMenuButton()
 				this.loadQuickEmotesHolder()
 
-				if (settingsManager.getSetting('shared.chat.appearance.hide_emote_menu_button')) {
-					document.getElementById('chatroom')?.classList.add('ntv__hide-emote-menu-button')
-				}
-
 				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
 					document.getElementById('chatroom')?.classList.add('ntv__smooth-scrolling')
 				}
@@ -135,10 +131,21 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Submit input to chat
 		eventBus.subscribe('ntv.input_controller.submit', this.submitInput.bind(this))
 
+		// Set chat smooth scrolling mode
+		eventBus.subscribe(
+			'ntv.settings.change.shared.chat.behavior.smooth_scrolling',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				document.getElementById('chatroom')?.classList.toggle('ntv__smooth-scrolling', !!value)
+			}
+		)
+
 		// Add alternating background color to chat messages
-		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.alternating_background', (value: boolean) => {
-			document.getElementById('chatroom')?.classList.toggle('ntv__alternating-background', value)
-		})
+		eventBus.subscribe(
+			'ntv.settings.change.shared.chat.appearance.alternating_background',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				document.getElementById('chatroom')?.classList.toggle('ntv__alternating-background', !!value)
+			}
+		)
 
 		// Add seperator lines to chat messages
 		eventBus.subscribe(
@@ -206,14 +213,23 @@ export class KickUserInterface extends AbstractUserInterface {
 		const firstMessageHighlightColor = settingsManager.getSetting('shared.chat.appearance.highlight_color')
 		if (firstMessageHighlightColor) {
 			const rgb = hex2rgb(firstMessageHighlightColor)
-			document.documentElement.style.setProperty('--ntv-color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
+			document.documentElement.style.setProperty(
+				'--ntv-background-highlight-accent-1',
+				`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+			)
 		}
 
-		eventBus.subscribe('ntv.settings.change.shared.chat.appearance.highlight_color', (data: { value: string }) => {
-			if (!data.value) return
-			const rgb = hex2rgb(data.value)
-			document.documentElement.style.setProperty('--ntv-color-accent', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`)
-		})
+		eventBus.subscribe(
+			'ntv.settings.change.shared.chat.appearance.highlight_color',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				if (!value) return
+				const rgb = hex2rgb(value)
+				document.documentElement.style.setProperty(
+					'--ntv-background-highlight-accent-1',
+					`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+				)
+			}
+		)
 	}
 
 	loadShadowProxyElements() {
