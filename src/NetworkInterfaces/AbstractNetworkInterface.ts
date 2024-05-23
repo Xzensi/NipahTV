@@ -1,16 +1,26 @@
+import type { Badge } from "../Factories/BadgeFactory"
+
 export type UserInfo = {
 	id: string
 	username: string
 	profilePic: string
 	bannerImg: string
-	createdAt: string
+	createdAt: Date | null
+	isFollowing: boolean
+}
+
+export type UserChannelInfo = {
+	id: string
+	username: string
+	channel: string
+	badges: Badge[]
+	followingSince: Date | null
 	banned?: {
 		reason: string
-		createdAt: string
-		expiresAt: string
+		since: Date | null
+		expiresAt: Date | null
 		permanent: boolean
 	}
-	isFollowing: boolean
 }
 
 export type UserMessage = {
@@ -23,12 +33,6 @@ export type UserMessage = {
 		badges: Badge[]
 		color: string
 	}
-}
-
-export type Badge = {
-	type: string
-	label: string
-	active: boolean
 }
 
 export abstract class AbstractNetworkInterface {
@@ -54,5 +58,10 @@ export abstract class AbstractNetworkInterface {
 	abstract followUser(username: string): Promise<any>
 	abstract unfollowUser(username: string): Promise<any>
 	abstract getUserInfo(username: string): Promise<UserInfo>
-	abstract getUserMessages(channelId: string, userId: string): Promise<UserMessage[]>
+	abstract getUserChannelInfo(channelName: string, username: string): Promise<UserChannelInfo>
+	abstract getUserMessages(
+		channelId: string,
+		userId: string,
+		cursor: number
+	): Promise<{ cursor: number; messages: UserMessage[] }>
 }

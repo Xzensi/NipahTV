@@ -1,10 +1,16 @@
-import type { AbstractNetworkInterface, UserInfo, UserMessage } from '../../NetworkInterfaces/AbstractNetworkInterface'
+import type {
+	AbstractNetworkInterface,
+	UserChannelInfo,
+	UserInfo,
+	UserMessage
+} from '../../NetworkInterfaces/AbstractNetworkInterface'
 import type { AbstractUserInterface } from '../AbstractUserInterface'
 import type { Publisher } from '../../Classes/Publisher'
 import type { Toaster } from '../../Classes/Toaster'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
+import { BadgeFactory } from '../../Factories/BadgeFactory'
 
 export class UserInfoModal extends AbstractModal {
 	private ENV_VARS: any
@@ -16,6 +22,10 @@ export class UserInfoModal extends AbstractModal {
 	private toaster: Toaster
 	private username: string
 	private userInfo?: UserInfo
+	private userChannelInfo?: UserChannelInfo
+
+	private badgesEl?: HTMLElement
+	private messagesHistoryEl?: HTMLElement
 
 	private actionFollowEl?: HTMLElement
 	private actionMuteEl?: HTMLElement
@@ -31,6 +41,9 @@ export class UserInfoModal extends AbstractModal {
 	private modLogsPageEl?: HTMLElement
 
 	private timeoutSliderComponent?: SteppedInputSliderComponent
+
+	private messagesHistoryCursor: number | null = 0
+	private isLoadingMessages = false
 
 	constructor(
 		{
@@ -83,19 +96,40 @@ export class UserInfoModal extends AbstractModal {
 		const userInfo: UserInfo = this.userInfo || {
 			id: '',
 			username: 'Error',
-			createdAt: 'Error',
+			createdAt: null,
 			isFollowing: false,
 			profilePic: '',
 			bannerImg: ''
 		}
+		const userChannelInfo: UserChannelInfo = this.userChannelInfo || {
+			id: '',
+			username: 'Error',
+			channel: 'Error',
+			badges: [],
+			followingSince: null
+		}
 
-		const createdDate = new Date(userInfo.createdAt).toLocaleDateString()
-		const createdDateUnix = +new Date(createdDate)
-
-		let formattedDate = createdDate
 		const today = +new Date(new Date().toLocaleDateString())
-		if (+createdDateUnix === today) formattedDate = 'Today'
-		else if (+createdDateUnix === today - 24 * 60 * 60 * 1000) formattedDate = 'Yesterday'
+
+		let formattedAccountDate
+		if (userInfo.createdAt) {
+			const createdDate = userInfo.createdAt.toLocaleDateString()
+			const createdDateUnix = +new Date(createdDate)
+
+			if (+createdDateUnix === today) formattedAccountDate = 'Today'
+			else if (+createdDateUnix === today - 24 * 60 * 60 * 1000) formattedAccountDate = 'Yesterday'
+			else formattedAccountDate = formatRelativeTime(userInfo.createdAt)
+		}
+
+		let formattedJoinDate
+		if (userChannelInfo.followingSince) {
+			const joinedDate = userChannelInfo.followingSince.toLocaleDateString()
+			const joinedDateUnix = +new Date(joinedDate)
+
+			if (+joinedDateUnix === today) formattedJoinDate = 'Today'
+			else if (+joinedDateUnix === today - 24 * 60 * 60 * 1000) formattedJoinDate = 'Yesterday'
+			else formattedJoinDate = formatRelativeTime(userChannelInfo.followingSince)
+		}
 
 		const element = parseHTML(
 			cleanupHTML(`
@@ -108,21 +142,40 @@ export class UserInfoModal extends AbstractModal {
 					<div class="ntv__user-info-modal__header__banner">
 						<img src="${userInfo.profilePic}">
 						<h4>${userInfo.username}</h4>
-						<p><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-							<g fill="none" stroke="currentColor" stroke-width="1.5">
-								<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
-								<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
-								<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
-							</g>
-							<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
-						</svg> Account Created: ${formattedDate}</p>
+						<p>
+							${
+								formattedAccountDate
+									? `<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0.5 0 24 21">
+									<g fill="none" stroke="currentColor" stroke-width="1.5">
+										<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
+										<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
+										<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
+									</g>
+									<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
+								</svg> Account created: ${formattedAccountDate}</span>`
+									: ''
+							}
+
+							${
+								formattedJoinDate
+									? `<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
+								</svg> Followed since: ${formattedJoinDate}</span>`
+									: ''
+							}
+						</p>
 					</div>
 				</div>
+				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? 'Badges: ' : ''}${userChannelInfo.badges
+				.map(BadgeFactory.getBadge)
+				.join('')}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
-					<button class="ntv__button">Mute</button>
-					<button class="ntv__button">Report</button>
+					<!--<button class="ntv__button">Mute</button>-->
+					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
 				<div class="ntv__user-info-modal__timeout-page"></div>
@@ -131,6 +184,8 @@ export class UserInfoModal extends AbstractModal {
 				<div class="ntv__user-info-modal__mod-logs-page"></div>
 			`)
 		)
+
+		this.badgesEl = element.querySelector('.ntv__user-info-modal__badges') as HTMLElement
 
 		if (is_moderator) {
 			this.actionFollowEl = element.querySelector(
@@ -147,7 +202,7 @@ export class UserInfoModal extends AbstractModal {
 
 			this.modActionButtonBanEl = parseHTML(
 				cleanupHTML(`
-			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userInfo.banned ? 'active' : ''}>
+			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userChannelInfo.banned ? 'active' : ''}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-1.9 0-3.6.6-4.9 1.7l11.2 11.2c1-1.4 1.7-3.1 1.7-4.9c0-4.4-3.6-8-8-8m4.9 14.3L5.7 7.1C4.6 8.4 4 10.1 4 12c0 4.4 3.6 8 8 8c1.9 0 3.6-.6 4.9-1.7" />
 				</svg>
@@ -233,7 +288,7 @@ export class UserInfoModal extends AbstractModal {
 			log('Mod button clicked')
 		})
 
-		this.modLogsMessagesEl?.addEventListener('click', this.clickMessagesHandler.bind(this))
+		this.modLogsMessagesEl?.addEventListener('click', this.clickMessagesHistoryHandler.bind(this))
 	}
 
 	async clickFollowHandler() {
@@ -412,10 +467,10 @@ export class UserInfoModal extends AbstractModal {
 
 		this.modActionButtonBanEl!.classList.add('ntv__icon-button--disabled')
 
-		const { networkInterface, userInfo } = this
-		if (!userInfo) return
+		const { networkInterface, userInfo, userChannelInfo } = this
+		if (!userInfo || !userChannelInfo) return
 
-		if (userInfo.banned) {
+		if (userChannelInfo.banned) {
 			log(`Attempting to unban user: ${userInfo.username}..`)
 
 			try {
@@ -434,7 +489,7 @@ export class UserInfoModal extends AbstractModal {
 				return
 			}
 
-			delete userInfo.banned
+			delete userChannelInfo.banned
 			this.modActionButtonBanEl!.removeAttribute('active')
 		} else {
 			log(`Attempting to ban user: ${userInfo.username}..`)
@@ -465,23 +520,43 @@ export class UserInfoModal extends AbstractModal {
 		this.modActionButtonBanEl!.classList.remove('ntv__icon-button--disabled')
 	}
 
-	async clickMessagesHandler() {
-		const { networkInterface, userInfo, modLogsPageEl } = this
+	async clickMessagesHistoryHandler() {
+		const { userInfo, modLogsPageEl } = this
 		if (!userInfo || !modLogsPageEl) return
 
+		if (modLogsPageEl.querySelector('.ntv__user-info-modal__mod-logs-page__messages[loading]')) return
+
 		modLogsPageEl.innerHTML = ''
-		const messagesEl = parseHTML(
+		this.messagesHistoryCursor = 0
+
+		const messagesHistoryEl = (this.messagesHistoryEl = parseHTML(
 			`<div class="ntv__user-info-modal__mod-logs-page__messages" loading></div>`,
 			true
-		) as HTMLElement
+		) as HTMLElement)
 
-		modLogsPageEl.appendChild(messagesEl)
+		modLogsPageEl.appendChild(messagesHistoryEl)
 
-		let messages
+		log(`Fetching user messages of ${userInfo.username}..`)
+		await this.loadMoreMessagesHistory()
+
+		messagesHistoryEl.scrollTop = 9999
+		messagesHistoryEl.removeAttribute('loading')
+		messagesHistoryEl.addEventListener('scroll', this.messagesScrollHandler.bind(this))
+	}
+
+	async loadMoreMessagesHistory() {
+		const { networkInterface, userInfo, modLogsPageEl, messagesHistoryEl } = this
+		if (!userInfo || !modLogsPageEl || !messagesHistoryEl) return
+
+		const cursor = this.messagesHistoryCursor
+		if (typeof cursor !== 'number') return
+
+		if (this.isLoadingMessages) return
+		this.isLoadingMessages = true
+
+		let res
 		try {
-			log(`Getting user messages of ${userInfo.username}..`)
-			messages = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id)
-			log('Successfully received user messages')
+			res = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id, cursor)
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
 				this.toaster.addToast('Failed to load user message history: ' + err.errors.join(' '), 6_000, 'error')
@@ -490,39 +565,151 @@ export class UserInfoModal extends AbstractModal {
 			} else {
 				this.toaster.addToast('Failed to load user message history, reason unknown', 6_000, 'error')
 			}
+			messagesHistoryEl.removeAttribute('loading')
 			return
 		}
 
-		messagesEl.removeAttribute('loading')
-		messagesEl.innerHTML = messages
-			.reverse()
-			.map(message => {
-				const d = new Date(message.createdAt)
-				const time = ('' + d.getHours()).padStart(2, '0') + ':' + ('' + d.getMinutes()).padStart(2, '0')
-				return cleanupHTML(`
-					<div class="ntv__chat-message">
-						<span class="ntv__chat-message__identity">
-							<span class="ntv__chat-message__timestamp">${time} </span>
-							<span class="ntv__chat-message__badges"></span>
-							<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
-							<span class="ntv__chat-message__separator">: </span>
-						</span>
-						<span class="ntv__chat-message__part">${message.content}</span>
-					</div>`)
+		this.messagesHistoryCursor = res.cursor ? +res.cursor : null
+
+		let entriesHTML = '',
+			lastDate,
+			dateCursor
+
+		for (const message of res.messages) {
+			const d = new Date(message.createdAt)
+			const time = ('' + d.getHours()).padStart(2, '0') + ':' + ('' + d.getMinutes()).padStart(2, '0')
+
+			const dateString = d.getUTCFullYear() + '' + d.getUTCMonth() + '' + d.getUTCDay()
+			if (lastDate && dateString !== dateCursor) {
+				const formattedDate = lastDate.toLocaleDateString('en-US', {
+					weekday: 'long',
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric'
+				})
+
+				dateCursor = dateString
+				lastDate = d
+				entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>`
+			} else if (!lastDate) {
+				lastDate = d
+				dateCursor = dateString
+			}
+
+			entriesHTML += `<div class="ntv__chat-message" unrendered>
+				<span class="ntv__chat-message__identity">
+					<span class="ntv__chat-message__timestamp">${time} </span>
+					<span class="ntv__chat-message__badges"></span>
+					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
+					<span class="ntv__chat-message__separator">: </span>
+				</span>
+				<span class="ntv__chat-message__part">${message.content}</span>
+			</div>`
+		}
+
+		if (!this.messagesHistoryCursor && lastDate) {
+			const formattedDate = lastDate.toLocaleDateString('en-US', {
+				weekday: 'long',
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric'
 			})
-			.join('')
 
-		messagesEl.scrollTop = 9999
+			entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`
+		}
 
-		messagesEl.querySelectorAll('.ntv__chat-message__part').forEach((messageEl: Element) => {
-			this.userInterface.renderEmotesInElement(messageEl as HTMLElement)
+		messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)))
+
+		messagesHistoryEl.querySelectorAll('.ntv__chat-message[unrendered]').forEach((messageEl: Element) => {
+			messageEl.querySelectorAll('.ntv__chat-message__part').forEach((messagePartEl: Element) => {
+				this.userInterface.renderEmotesInElement(messagePartEl as HTMLElement)
+			})
+			messageEl.removeAttribute('unrendered')
 		})
+
+		this.isLoadingMessages = false
+		messagesHistoryEl.removeAttribute('loading')
+	}
+
+	async messagesScrollHandler(event: Event) {
+		const target = event.currentTarget as HTMLElement
+
+		// Scrolled to top, load new messages
+		const scrollTop = target.scrollTop + target.scrollHeight - target.clientHeight
+		if (scrollTop < 30) this.loadMoreMessagesHistory()
 	}
 
 	async updateUserInfo() {
 		try {
 			delete this.userInfo
+			delete this.userChannelInfo
 			this.userInfo = await this.networkInterface.getUserInfo(this.username)
+			this.userChannelInfo = await this.networkInterface.getUserChannelInfo(
+				this.channelData.channel_name,
+				this.username
+			)
+			// this.userChannelInfo.badges = [
+			// 	{
+			// 		type: 'broadcaster',
+			// 		label: 'Broadcaster',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'verified',
+			// 		label: 'Verified',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'staff',
+			// 		label: 'Staff',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'Partner',
+			// 		label: 'partner',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'global_moderator',
+			// 		label: 'Global moderator',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'global_admin',
+			// 		label: 'Global admin',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'moderator',
+			// 		label: 'Moderator',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'vip',
+			// 		label: 'VIP',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'founder',
+			// 		label: 'Founder',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'og',
+			// 		label: 'OG',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'sidekick',
+			// 		label: 'Sidekick',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'subscriber',
+			// 		label: 'Subscriber',
+			// 		active: true
+			// 	}
+			// ]
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
 				this.toaster.addToast('Failed to get user info: ' + err.errors.join(' '), 6_000, 'error')
@@ -535,15 +722,19 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	updateModStatusPage() {
-		const { userInfo, statusPageEl } = this
-		if (!userInfo || !statusPageEl) return
+		const { userChannelInfo, statusPageEl } = this
+		if (!userChannelInfo || !statusPageEl) return
 
-		if (userInfo.banned) {
+		if (userChannelInfo.banned) {
 			statusPageEl.innerHTML = cleanupHTML(`
 				<div class="ntv__user-info-modal__status-page__banned">
 					<span><b>Banned</b></span>
-					<span>Reason: ${userInfo.banned.reason}</span>
-					<span>Expires: ${formatRelativeTime(new Date(userInfo.banned.expiresAt))}</span>
+					<span>Reason: ${userChannelInfo.banned.reason}</span>
+					<span>Expires: ${
+						userChannelInfo.banned.expiresAt
+							? formatRelativeTime(userChannelInfo.banned.expiresAt)
+							: 'Not set'
+					}</span>
 				</div>
 			`)
 		} else {

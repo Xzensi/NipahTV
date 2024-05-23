@@ -15,5 +15,31 @@
 		font-weight: 700;
 	}
 	&__part {
+		word-break: break-word;
+	}
+}
+
+.ntv__chat-message-separator {
+	align-items: center;
+	display: flex;
+	gap: 1rem;
+
+	div {
+		border-bottom: 1px solid #ffffff80;
+		flex: 1 1 auto;
+	}
+
+	span {
+	}
+
+	&--date {
+		color: #ffffff80;
+	}
+
+	&--start {
+		display: inline-block;
+		font-size: 1.618em;
+		color: #ffffff80;
+		padding: 0.5em 0;
 	}
 }

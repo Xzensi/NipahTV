@@ -384,4 +384,7 @@ export function formatRelativeTime(date: Date) {
 		}
 		duration /= division.amount
 	}
+
+	error('Unable to format relative time', date)
+	return 'error'
 }

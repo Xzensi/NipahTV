@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.2
+// @version 1.4.3
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-4e384923.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-26c71088.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -429,6 +429,8 @@ function formatRelativeTime(date) {
     }
     duration /= division.amount;
   }
+  error("Unable to format relative time", date);
+  return "error";
 }
 
 // src/Classes/DTO.ts
@@ -1732,6 +1734,66 @@ var AbstractModal = class extends AbstractComponent {
   }
 };
 
+// src/Factories/BadgeFactory.ts
+var BadgeFactory = class {
+  static getBadge(badge) {
+    if (!badge.active)
+      return;
+    switch (badge.type) {
+      case "broadcaster":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2);" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3);" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5);" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6);" width="1.6" height="3.2"></rect></g></svg>`;
+      case "verified":
+        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<defs><linearGradient id="badge-verified-gradient" x1="25.333%" y1="99.375%" x2="73.541%" y2="2.917%" gradientUnits="objectBoundingBox"><stop stop-color="#1EFF00"/><stop offset="0.99" stop-color="#00FF8C"/></linearGradient></defs><path d="M14.72 7.00003V6.01336H15.64V4.12003H14.6733V3.16003H9.97332V1.2667H8.96665V0.280029H7.03332V1.2667H6.03332V3.16003H1.32665V4.12003H0.359985V6.01336H1.28665V7.00003H2.23332V9.0067H1.28665V9.99336H0.359985V11.8867H1.32665V12.8467H6.03332V14.74H7.03332V15.7267H8.96665V14.74H9.97332V12.8467H14.6733V11.8867H15.64V9.99336H14.72V9.0067H13.7733V7.00003H14.72ZM12.5 6.59336H11.44V7.66003H10.3733V8.72003H9.31332V9.7867H8.24665V10.8467L7.09332 10.9V11.8H6.02665V10.8467H5.05999V9.7867H3.99332V7.66003H6.11999V8.72003H7.18665V7.66003H8.24665V6.59336H9.31332V5.53336H10.3733V4.4667H12.5V6.59336Z" fill="url(#badge-verified-gradient)"/></svg>`;
+      case "staff":
+        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<defs><linearGradient id="badge-verified-gradient" x1="33.791%" y1="97.416%" x2="65.541%" y2="4.5%" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#1EFF00"></stop><stop offset="0.99" stop-color="#00FF8C"></stop></linearGradient></defs><path fill-rule="evenodd" clip-rule="evenodd" d="M2.07324 1.33331H6.51991V4.29331H7.99991V2.81331H9.47991V1.33331H13.9266V5.77998H12.4466V7.25998H10.9599V8.73998H12.4466V10.22H13.9266V14.6666H9.47991V13.1866H7.99991V11.7066H6.51991V14.6666H2.07324V1.33331Z" fill="url(#badge-verified-gradient)"></path></svg>`;
+      case "global_moderator":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><g id="Badge_Global_Mod"><linearGradient id="badge-global-mod-gradient" gradientUnits="userSpaceOnUse" x1="-1.918" y1="382.5619" x2="17.782" y2="361.3552" gradientTransform="matrix(1 0 0 1 0 -364)"><stop offset="0" style="stop-color:#FCA800"></stop><stop offset="0.99" style="stop-color:#FF5100"></stop></linearGradient><path style="fill:url(#badge-global-mod-gradient)" d="M10.5,0v1.5H9V3H7.5v1.5h-6v6H0V16h5.5v-1.5h6v-6H13V7h1.5V5.5H16V0H10.5z M14.7,4.3h-1.5 v1.5h-1.5v1.5h-1.5v1.5H8.7v1.5h1.5v3h-3v-1.5H5.8v1.5H4.3v1.5h-3v-3h1.5v-1.5h1.5V8.7H2.8v-3h3v1.5h1.5V5.8h1.5V4.3h1.5V2.8h1.5 V1.3h3v3H14.7z"></path></g></svg>`;
+      case "global_admin":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16">
+				<linearGradient id="badge-global-staff-gradient" gradientUnits="userSpaceOnUse" x1="-0.03948053" y1="-180.1338" x2="15.9672" y2="-163.9405" gradientTransform="matrix(1 0 0 -1 0 -164)">
+				  <stop offset="0" style="stop-color:#FCA800"></stop>
+				  <stop offset="0.99" style="stop-color:#FF5100"></stop>
+				</linearGradient>
+				<path style="fill-rule:evenodd;clip-rule:evenodd;fill:url(#badge-global-staff-gradient);" d="M1.1,0.3v15.3H15V0.3H1.1z M12.9,6.2h-1.2v1.2h-1.2v1.2h1.2v1.2h1.2v3.7H9.2v-1.2H8V11H6.8v2.4H3.1v-11h3.7v2.4H8V3.7h1.2V2.5h3.7V6.2z"></path></svg>`;
+      case "sidekick":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><linearGradient id="badge-sidekick-gradient" gradientUnits="userSpaceOnUse" x1="9.3961" y1="-162.6272" x2="5.8428" y2="-180.3738" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FF6A4A;"></stop><stop offset="1" style="stop-color:#C70C00;"></stop></linearGradient><path style="fill:url(#badge-sidekick-gradient);" d="M0,2.8v5.6h1.1V10h1.1v1.6h1.1v1.6h3.4v-1.6H9v1.6h3.4v-1.6h1.1V10h1.1V8.4H16V2.8h-4.6v1.6H9.1V6H6.8V4.4H4.5V2.8H0z M6.9,9.6H3.4V8H2.3V4.8h1.1v1.6h2.3V8h1.1v1.6H6.9z M13.7,8h-1.1v1.6H9.2V8h1.1V6.4h2.3V4.8h1.1C13.7,4.8,13.7,8,13.7,8z"></path></svg>`;
+      case "moderator":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><path style="fill: rgb(0, 199, 255);" d="M11.7,1.3v1.5h-1.5v1.5 H8.7v1.5H7.3v1.5H5.8V5.8h-3v3h1.5v1.5H2.8v1.5H1.3v3h3v-1.5h1.5v-1.5h1.5v1.5h3v-3H8.7V8.7h1.5V7.3h1.5V5.8h1.5V4.3h1.5v-3C14.7,1.3,11.7,1.3,11.7,1.3z"></path></svg>`;
+      case "vip":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" style="enable-background:new 0 0 16 16" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="badge-vip-gradient" gradientUnits="userSpaceOnUse" x1="8" y1="-163.4867" x2="8" y2="-181.56" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FFC900"></stop><stop offset="0.99" style="stop-color:#FF9500"></stop></linearGradient></defs><path style="fill:url(#badge-vip-gradient);" d="M13.9,2.4v1.1h-1.2v2.3h-1.1v1.1h-1.1V4.6H9.3V1.3H6.7v3.3H5.6v2.3H4.4V5.8H3.3V3.5H2.1V2.4H0v12.3h16V2.4H13.9z"/></svg>`;
+      case "og":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-og-gradient-1" gradientUnits="userSpaceOnUse" x1="12.2" y1="-180" x2="12.2" y2="-165.2556" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-1);" d="M16,16H9.2v-0.8H8.4v-8h0.8V6.4H16v3.2h-4.5v4.8H13v-1.6h-0.8v-1.6H16V16z"></path><linearGradient id="badge-og-gradient-2" gradientUnits="userSpaceOnUse" x1="3.7636" y1="-164.265" x2="4.0623" y2="-179.9352" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-2);" d="M6.8,8.8v0.8h-6V8.8H0v-8h0.8V0h6.1v0.8 h0.8v8H6.8z M4.5,6.4V1.6H3v4.8H4.5z"></path><path style="fill:#00FFF2;" d="M6.8,15.2V16h-6v-0.8H0V8.8h0.8V8h6.1v0.8h0.8v6.4C7.7,15.2,6.8,15.2,6.8,15.2z M4.5,14.4V9.6H3v4.8 C3,14.4,4.5,14.4,4.5,14.4z"></path><path style="fill:#00FFF2;" d="M16,8H9.2V7.2H8.4V0.8h0.8V0H16v1.6h-4.5v4.8H13V4.8h-0.8V3.2H16V8z"></path></g></svg>`;
+      case "founder":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><linearGradient id="badge-founder-gradient" gradientUnits="userSpaceOnUse" x1="7.874" y1="20.2333" x2="8.1274" y2="-0.3467" gradientTransform="matrix(1 0 0 -1 0 18)"><stop offset="0" style="stop-color: rgb(255, 201, 0);"></stop><stop offset="0.99" style="stop-color: rgb(255, 149, 0);"></stop></linearGradient><path d="
+                M14.6,4V2.7h-1.3V1.4H12V0H4v1.4H2.7v1.3H1.3V4H0v8h1.3v1.3h1.4v1.3H4V16h8v-1.4h1.3v-1.3h1.3V12H16V4H14.6z M9.9,12.9H6.7V6.4H4.5
+                V5.2h1V4.1h1v-1h3.4V12.9z" style="fill-rule: evenodd; clip-rule: evenodd; fill: url(&quot;#badge-founder-gradient&quot;);"></path></svg>`;
+      case "subscriber":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-subscriber-gradient-1" gradientUnits="userSpaceOnUse" x1="-2.386" y1="-151.2764" x2="42.2073" y2="-240.4697" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-1);" d="M14.8,7.3V6.1h-2.4V4.9H11V3.7H9.9V1.2H8.7V0H7.3v1.2H6.1v2.5H5v1.2H3.7v1.3H1.2v1.2H0v1.4
+				h1.2V10h2.4v1.3H5v1.2h1.2V15h1.2v1h1.3v-1.2h1.2v-2.5H11v-1.2h1.3V9.9h2.4V8.7H16V7.3H14.8z"></path><linearGradient id="badge-subscriber-gradient-2" gradientUnits="userSpaceOnUse" x1="-5.3836" y1="-158.3055" x2="14.9276" y2="-189.0962" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-2);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
+				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-3" gradientUnits="userSpaceOnUse" x1="3.65" y1="-160.7004" x2="3.65" y2="-184.1244" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-3);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
+				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-4" gradientUnits="userSpaceOnUse" x1="22.9659" y1="-167.65" x2="-5.3142" y2="-167.65" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-4);" d="M8.7,0v7.3H1.2V6.1h2.4V4.9H5V3.7h1.2V1.2
+				h1.2V0H8.7z"></path><linearGradient id="badge-subscriber-gradient-5" gradientUnits="userSpaceOnUse" x1="12.35" y1="-187.6089" x2="12.35" y2="-161.5965" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-5);" d="M8.7,8.7V1.2h1.2v2.5H11v1.2h1.3v1.3h2.4
+				v1.2H16v1.4L8.7,8.7L8.7,8.7z"></path><linearGradient id="badge-subscriber-gradient-6" gradientUnits="userSpaceOnUse" x1="-6.5494" y1="-176.35" x2="21.3285" y2="-176.35" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-6);" d="M7.3,16V8.7h7.4v1.2h-2.4v1.3H11v1.2H9.9
+				v2.5H8.7V16H7.3z"></path><linearGradient id="badge-subscriber-gradient-7" gradientUnits="userSpaceOnUse" x1="6.72" y1="-169.44" x2="12.2267" y2="-180.4533" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-7);" d="M8.7,7.3H7.3v1.4h1.3L8.7,7.3L8.7,7.3z"></path></g></svg>`;
+      case "sub_gifter":
+        const count = badge.count || 1;
+        if (count < 25) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17810)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.15499 6.63499V12.73L7.99999 15.995V9.14999Z" fill="#0269D4"></path><path d="M8.00003 10.735V9.61501L1.15503 6.63501V7.70501L8.00003 10.735Z" fill="#0269D4"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#04D0FF"></path><path d="M14.845 6.63501V7.70501L8 10.735V9.61501L14.845 6.63501Z" fill="#0269D4"></path></g><defs><clipPath id="clip0_301_17810"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 25) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17815)"><path d="M8.02501 9.14999V6.62499L0.51001 3.35999V6.34499L1.17501 6.63499V12.73L8.02501 15.995V9.14999Z" fill="#7B1BAB"></path><path d="M8.02505 10.735V9.61501L1.17505 6.63501V7.70501L8.02505 10.735Z" fill="#7B1BAB"></path><path d="M15.535 3.355V6.345L14.87 6.64V12.73L12.725 13.755L11.21 14.48L8.02501 15.995V6.715L4.84001 5.295H4.83501L3.32001 4.61L0.51001 3.355L3.69001 1.935L3.70501 1.93L5.11501 1.3L8.02501 0L10.93 1.3L12.34 1.925L12.355 1.935L15.535 3.355Z" fill="#A947D3"></path><path d="M14.87 6.63501V7.70501L8.02502 10.735V9.61501L14.87 6.63501Z" fill="#7B1BAB"></path></g><defs><clipPath id="clip0_301_17815"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 50) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17820)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#CF0038"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#CF0038"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FA4E78"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#CF0038"></path></g><defs><clipPath id="clip0_301_17820"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 100) {
+          return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17825)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#FF5008"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#FF5008"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FFC800"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#FF5008"></path></g><defs><clipPath id="clip0_301_17825"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 500) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17830)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#2FA604"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#2FA604"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#53F918"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#2FA604"></path></g><defs><clipPath id="clip0_301_17830"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        }
+    }
+  }
+};
+
 // src/UserInterface/Modals/UserInfoModal.ts
 var UserInfoModal = class extends AbstractModal {
   ENV_VARS;
@@ -1742,6 +1804,9 @@ var UserInfoModal = class extends AbstractModal {
   toaster;
   username;
   userInfo;
+  userChannelInfo;
+  badgesEl;
+  messagesHistoryEl;
   actionFollowEl;
   actionMuteEl;
   actionReportEl;
@@ -1754,6 +1819,8 @@ var UserInfoModal = class extends AbstractModal {
   modLogsMessagesEl;
   modLogsPageEl;
   timeoutSliderComponent;
+  messagesHistoryCursor = 0;
+  isLoadingMessages = false;
   constructor({
     ENV_VARS,
     eventBus,
@@ -1785,19 +1852,41 @@ var UserInfoModal = class extends AbstractModal {
     const userInfo = this.userInfo || {
       id: "",
       username: "Error",
-      createdAt: "Error",
+      createdAt: null,
       isFollowing: false,
       profilePic: "",
       bannerImg: ""
     };
-    const createdDate = new Date(userInfo.createdAt).toLocaleDateString();
-    const createdDateUnix = +new Date(createdDate);
-    let formattedDate = createdDate;
+    const userChannelInfo = this.userChannelInfo || {
+      id: "",
+      username: "Error",
+      channel: "Error",
+      badges: [],
+      followingSince: null
+    };
     const today = +new Date((/* @__PURE__ */ new Date()).toLocaleDateString());
-    if (+createdDateUnix === today)
-      formattedDate = "Today";
-    else if (+createdDateUnix === today - 24 * 60 * 60 * 1e3)
-      formattedDate = "Yesterday";
+    let formattedAccountDate;
+    if (userInfo.createdAt) {
+      const createdDate = userInfo.createdAt.toLocaleDateString();
+      const createdDateUnix = +new Date(createdDate);
+      if (+createdDateUnix === today)
+        formattedAccountDate = "Today";
+      else if (+createdDateUnix === today - 24 * 60 * 60 * 1e3)
+        formattedAccountDate = "Yesterday";
+      else
+        formattedAccountDate = formatRelativeTime(userInfo.createdAt);
+    }
+    let formattedJoinDate;
+    if (userChannelInfo.followingSince) {
+      const joinedDate = userChannelInfo.followingSince.toLocaleDateString();
+      const joinedDateUnix = +new Date(joinedDate);
+      if (+joinedDateUnix === today)
+        formattedJoinDate = "Today";
+      else if (+joinedDateUnix === today - 24 * 60 * 60 * 1e3)
+        formattedJoinDate = "Yesterday";
+      else
+        formattedJoinDate = formatRelativeTime(userChannelInfo.followingSince);
+    }
     const element = parseHTML(
       cleanupHTML(`
 				<div class="ntv__user-info-modal__header" ${userInfo.bannerImg ? `style="--background: url('${userInfo.bannerImg}')"` : ""}>
@@ -1807,21 +1896,30 @@ var UserInfoModal = class extends AbstractModal {
 					<div class="ntv__user-info-modal__header__banner">
 						<img src="${userInfo.profilePic}">
 						<h4>${userInfo.username}</h4>
-						<p><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-							<g fill="none" stroke="currentColor" stroke-width="1.5">
-								<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
-								<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
-								<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
-							</g>
-							<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
-						</svg> Account Created: ${formattedDate}</p>
+						<p>
+							${formattedAccountDate ? `<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0.5 0 24 21">
+									<g fill="none" stroke="currentColor" stroke-width="1.5">
+										<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
+										<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
+										<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
+									</g>
+									<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
+								</svg> Account created: ${formattedAccountDate}</span>` : ""}
+
+							${formattedJoinDate ? `<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
+								</svg> Followed since: ${formattedJoinDate}</span>` : ""}
+						</p>
 					</div>
 				</div>
+				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(BadgeFactory.getBadge).join("")}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? "Unfollow" : "Follow"}</button>
-					<button class="ntv__button">Mute</button>
-					<button class="ntv__button">Report</button>
+					<!--<button class="ntv__button">Mute</button>-->
+					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
 				<div class="ntv__user-info-modal__timeout-page"></div>
@@ -1830,6 +1928,7 @@ var UserInfoModal = class extends AbstractModal {
 				<div class="ntv__user-info-modal__mod-logs-page"></div>
 			`)
     );
+    this.badgesEl = element.querySelector(".ntv__user-info-modal__badges");
     if (is_moderator) {
       this.actionFollowEl = element.querySelector(
         ".ntv__user-info-modal__actions .ntv__button:nth-child(1)"
@@ -1844,7 +1943,7 @@ var UserInfoModal = class extends AbstractModal {
       this.statusPageEl = element.querySelector(".ntv__user-info-modal__status-page");
       this.modActionButtonBanEl = parseHTML(
         cleanupHTML(`
-			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userInfo.banned ? "active" : ""}>
+			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userChannelInfo.banned ? "active" : ""}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-1.9 0-3.6.6-4.9 1.7l11.2 11.2c1-1.4 1.7-3.1 1.7-4.9c0-4.4-3.6-8-8-8m4.9 14.3L5.7 7.1C4.6 8.4 4 10.1 4 12c0 4.4 3.6 8 8 8c1.9 0 3.6-.6 4.9-1.7" />
 				</svg>
@@ -1915,7 +2014,7 @@ var UserInfoModal = class extends AbstractModal {
     this.modActionButtonModEl?.addEventListener("click", () => {
       log("Mod button clicked");
     });
-    this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHandler.bind(this));
+    this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHistoryHandler.bind(this));
   }
   async clickFollowHandler() {
     log("Follow button clicked");
@@ -2024,10 +2123,10 @@ var UserInfoModal = class extends AbstractModal {
     if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled"))
       return;
     this.modActionButtonBanEl.classList.add("ntv__icon-button--disabled");
-    const { networkInterface, userInfo } = this;
-    if (!userInfo)
+    const { networkInterface, userInfo, userChannelInfo } = this;
+    if (!userInfo || !userChannelInfo)
       return;
-    if (userInfo.banned) {
+    if (userChannelInfo.banned) {
       log(`Attempting to unban user: ${userInfo.username}..`);
       try {
         await networkInterface.sendCommand({ name: "unban", args: [userInfo.username] });
@@ -2043,7 +2142,7 @@ var UserInfoModal = class extends AbstractModal {
         this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
         return;
       }
-      delete userInfo.banned;
+      delete userChannelInfo.banned;
       this.modActionButtonBanEl.removeAttribute("active");
     } else {
       log(`Attempting to ban user: ${userInfo.username}..`);
@@ -2067,21 +2166,38 @@ var UserInfoModal = class extends AbstractModal {
     this.updateModStatusPage();
     this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
   }
-  async clickMessagesHandler() {
-    const { networkInterface, userInfo, modLogsPageEl } = this;
+  async clickMessagesHistoryHandler() {
+    const { userInfo, modLogsPageEl } = this;
     if (!userInfo || !modLogsPageEl)
       return;
+    if (modLogsPageEl.querySelector(".ntv__user-info-modal__mod-logs-page__messages[loading]"))
+      return;
     modLogsPageEl.innerHTML = "";
-    const messagesEl = parseHTML(
+    this.messagesHistoryCursor = 0;
+    const messagesHistoryEl = this.messagesHistoryEl = parseHTML(
       `<div class="ntv__user-info-modal__mod-logs-page__messages" loading></div>`,
       true
     );
-    modLogsPageEl.appendChild(messagesEl);
-    let messages;
+    modLogsPageEl.appendChild(messagesHistoryEl);
+    log(`Fetching user messages of ${userInfo.username}..`);
+    await this.loadMoreMessagesHistory();
+    messagesHistoryEl.scrollTop = 9999;
+    messagesHistoryEl.removeAttribute("loading");
+    messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
+  }
+  async loadMoreMessagesHistory() {
+    const { networkInterface, userInfo, modLogsPageEl, messagesHistoryEl } = this;
+    if (!userInfo || !modLogsPageEl || !messagesHistoryEl)
+      return;
+    const cursor = this.messagesHistoryCursor;
+    if (typeof cursor !== "number")
+      return;
+    if (this.isLoadingMessages)
+      return;
+    this.isLoadingMessages = true;
+    let res;
     try {
-      log(`Getting user messages of ${userInfo.username}..`);
-      messages = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id);
-      log("Successfully received user messages");
+      res = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id, cursor);
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
         this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
@@ -2090,32 +2206,73 @@ var UserInfoModal = class extends AbstractModal {
       } else {
         this.toaster.addToast("Failed to load user message history, reason unknown", 6e3, "error");
       }
+      messagesHistoryEl.removeAttribute("loading");
       return;
     }
-    messagesEl.removeAttribute("loading");
-    messagesEl.innerHTML = messages.reverse().map((message) => {
+    this.messagesHistoryCursor = res.cursor ? +res.cursor : null;
+    let entriesHTML = "", lastDate, dateCursor;
+    for (const message of res.messages) {
       const d = new Date(message.createdAt);
       const time = ("" + d.getHours()).padStart(2, "0") + ":" + ("" + d.getMinutes()).padStart(2, "0");
-      return cleanupHTML(`
-					<div class="ntv__chat-message">
-						<span class="ntv__chat-message__identity">
-							<span class="ntv__chat-message__timestamp">${time} </span>
-							<span class="ntv__chat-message__badges"></span>
-							<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
-							<span class="ntv__chat-message__separator">: </span>
-						</span>
-						<span class="ntv__chat-message__part">${message.content}</span>
-					</div>`);
-    }).join("");
-    messagesEl.scrollTop = 9999;
-    messagesEl.querySelectorAll(".ntv__chat-message__part").forEach((messageEl) => {
-      this.userInterface.renderEmotesInElement(messageEl);
+      const dateString = d.getUTCFullYear() + "" + d.getUTCMonth() + d.getUTCDay();
+      if (lastDate && dateString !== dateCursor) {
+        const formattedDate = lastDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        });
+        dateCursor = dateString;
+        lastDate = d;
+        entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>`;
+      } else if (!lastDate) {
+        lastDate = d;
+        dateCursor = dateString;
+      }
+      entriesHTML += `<div class="ntv__chat-message" unrendered>
+				<span class="ntv__chat-message__identity">
+					<span class="ntv__chat-message__timestamp">${time} </span>
+					<span class="ntv__chat-message__badges"></span>
+					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
+					<span class="ntv__chat-message__separator">: </span>
+				</span>
+				<span class="ntv__chat-message__part">${message.content}</span>
+			</div>`;
+    }
+    if (!this.messagesHistoryCursor && lastDate) {
+      const formattedDate = lastDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+      entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`;
+    }
+    messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
+    messagesHistoryEl.querySelectorAll(".ntv__chat-message[unrendered]").forEach((messageEl) => {
+      messageEl.querySelectorAll(".ntv__chat-message__part").forEach((messagePartEl) => {
+        this.userInterface.renderEmotesInElement(messagePartEl);
+      });
+      messageEl.removeAttribute("unrendered");
     });
+    this.isLoadingMessages = false;
+    messagesHistoryEl.removeAttribute("loading");
+  }
+  async messagesScrollHandler(event) {
+    const target = event.currentTarget;
+    const scrollTop = target.scrollTop + target.scrollHeight - target.clientHeight;
+    if (scrollTop < 30)
+      this.loadMoreMessagesHistory();
   }
   async updateUserInfo() {
     try {
       delete this.userInfo;
+      delete this.userChannelInfo;
       this.userInfo = await this.networkInterface.getUserInfo(this.username);
+      this.userChannelInfo = await this.networkInterface.getUserChannelInfo(
+        this.channelData.channel_name,
+        this.username
+      );
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
         this.toaster.addToast("Failed to get user info: " + err.errors.join(" "), 6e3, "error");
@@ -2127,15 +2284,15 @@ var UserInfoModal = class extends AbstractModal {
     }
   }
   updateModStatusPage() {
-    const { userInfo, statusPageEl } = this;
-    if (!userInfo || !statusPageEl)
+    const { userChannelInfo, statusPageEl } = this;
+    if (!userChannelInfo || !statusPageEl)
       return;
-    if (userInfo.banned) {
+    if (userChannelInfo.banned) {
       statusPageEl.innerHTML = cleanupHTML(`
 				<div class="ntv__user-info-modal__status-page__banned">
 					<span><b>Banned</b></span>
-					<span>Reason: ${userInfo.banned.reason}</span>
-					<span>Expires: ${formatRelativeTime(new Date(userInfo.banned.expiresAt))}</span>
+					<span>Reason: ${userChannelInfo.banned.reason}</span>
+					<span>Expires: ${userChannelInfo.banned.expiresAt ? formatRelativeTime(userChannelInfo.banned.expiresAt) : "Not set"}</span>
 				</div>
 			`);
     } else {
@@ -5145,7 +5302,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         const { chatEntryUser, chatEntryUserId } = usernameEl.dataset;
         const chatEntryUserName = usernameEl.textContent;
         if (chatEntryUserId && chatEntryUserName) {
-          if (!this.usersManager.hasSeenUser(chatEntryUserName)) {
+          if (!this.usersManager.hasSeenUser(chatEntryUserId)) {
             const enableFirstMessageHighlight = this.settingsManager.getSetting(
               "shared.chat.appearance.highlight_first_message"
             );
@@ -6572,56 +6729,67 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     const { channelData } = this;
     const { channel_name } = channelData;
     const slug = username.replace("_", "-").toLowerCase();
-    const [res1, res2, res3] = await Promise.allSettled([
-      REST.get(`https://kick.com/api/v2/channels/${channel_name}/users/${username}`),
+    const [res1, res2] = await Promise.allSettled([
       // The reason underscores are replaced with dashes is likely because it's a slug
       REST.get(`https://kick.com/api/v2/channels/${slug}/me`),
       REST.get(`https://kick.com/api/v2/channels/${slug}`)
     ]);
-    if (res1.status === "rejected" || res2.status === "rejected" || res3.status === "rejected") {
+    if (res1.status === "rejected" || res2.status === "rejected") {
       throw new Error("Failed to fetch user data");
     }
-    const channelUserInfo = res1.value;
-    const userMeInfo = res2.value;
-    const userOwnChannelInfo = res3.value;
-    const userInfo = {
-      id: channelUserInfo.id,
-      username: channelUserInfo.username,
+    const userMeInfo = res1.value;
+    const userOwnChannelInfo = res2.value;
+    return {
+      id: userOwnChannelInfo.user.id,
+      username: userOwnChannelInfo.user.username,
       profilePic: userOwnChannelInfo.user.profile_pic || this.ENV_VARS.RESOURCE_ROOT + "assets/img/kick/default-user-profile.png",
       bannerImg: userOwnChannelInfo?.banner_image?.url || "",
-      createdAt: userOwnChannelInfo?.chatroom?.created_at || "Unknown",
-      banned: channelUserInfo.banned ? {
-        reason: channelUserInfo.banned?.reason || "No reason provided",
-        createdAt: channelUserInfo.banned?.created_at || "Unknown",
-        expiresAt: channelUserInfo.banned?.expires_at || "Unknown",
-        permanent: channelUserInfo.banned?.permanent || false
-      } : void 0,
+      createdAt: userOwnChannelInfo?.chatroom?.created_at ? new Date(userOwnChannelInfo?.chatroom?.created_at) : null,
       isFollowing: userMeInfo.is_following
     };
-    return userInfo;
   }
-  async getUserMessages(channelId, userId) {
-    const res = await REST.get(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages`);
-    log(res);
+  async getUserChannelInfo(channelName, username) {
+    const channelUserInfo = await REST.get(`https://kick.com/api/v2/channels/${channelName}/users/${username}`);
+    return {
+      id: channelUserInfo.id,
+      username: channelUserInfo.username,
+      channel: channelName,
+      badges: channelUserInfo.badges || [],
+      followingSince: channelUserInfo.following_since ? new Date(channelUserInfo.following_since) : null,
+      banned: channelUserInfo.banned ? {
+        reason: channelUserInfo.banned?.reason || "No reason provided",
+        since: channelUserInfo.banned?.created_at ? new Date(channelUserInfo.banned?.created_at) : null,
+        expiresAt: channelUserInfo.banned?.expires_at ? new Date(channelUserInfo.banned?.expires_at) : null,
+        permanent: channelUserInfo.banned?.permanent || false
+      } : void 0
+    };
+  }
+  async getUserMessages(channelId, userId, cursor) {
+    const res = await REST.get(
+      `https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages?cursor=${cursor}`
+    );
     const { data, status } = res;
     if (status.error) {
       error("Failed to fetch user messages", status);
       throw new Error("Failed to fetch user messages");
     }
     const messages = data.messages;
-    return messages.map((message) => {
-      return {
-        id: message.id,
-        content: message.content,
-        createdAt: message.created_at,
-        sender: {
-          id: message.sender?.id || "Unknown",
-          username: message.sender?.username || "Unknown",
-          badges: message.sender?.identity?.badges || [],
-          color: message.sender?.identity?.color || "#dec859"
-        }
-      };
-    });
+    return {
+      cursor: data.cursor,
+      messages: messages.map((message) => {
+        return {
+          id: message.id,
+          content: message.content,
+          createdAt: message.created_at,
+          sender: {
+            id: message.sender?.id || "Unknown",
+            username: message.sender?.username || "Unknown",
+            badges: message.sender?.identity?.badges || [],
+            color: message.sender?.identity?.color || "#dec859"
+          }
+        };
+      })
+    };
   }
 };
 
@@ -6698,7 +6866,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.2",
+    VERSION: "1.4.3",
     PLATFORM: PLATFORM_ENUM.NULL,
     RESOURCE_ROOT: null,
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
