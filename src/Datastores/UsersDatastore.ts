@@ -37,8 +37,8 @@ export class UsersDatastore {
 		})
 	}
 
-	hasUser(name: string): boolean {
-		return this.usersNameMap.has(name)
+	hasUser(id: string): boolean {
+		return this.usersIdMap.has(id)
 	}
 
 	registerUser(id: string, name: string) {

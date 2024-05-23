@@ -9,8 +9,8 @@ export class UsersManager {
 		this.datastore = new UsersDatastore({ eventBus })
 	}
 
-	hasSeenUser(name: string): boolean {
-		return this.datastore.hasUser(name)
+	hasSeenUser(id: string): boolean {
+		return this.datastore.hasUser(id)
 	}
 
 	registerUser(id: string, name: string) {
