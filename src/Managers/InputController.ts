@@ -12,51 +12,32 @@ import { Caret } from '../UserInterface/Caret'
 import { error, log } from '../utils'
 
 export class InputController {
-	private networkInterface: AbstractNetworkInterface
-	private settingsManager: SettingsManager
+	private rootContext: RootContext
 	private messageHistory: MessagesHistory
-	private emotesManager: EmotesManager
-	private usersManager: UsersManager
 	private tabCompletor: InputCompletor
-	private eventBus: Publisher
 
 	contentEditableEditor: ContentEditableEditor
 
 	constructor(
+		rootContext: RootContext,
 		{
-			settingsManager,
-			eventBus,
-			networkInterface,
-			emotesManager,
-			usersManager,
 			clipboard
 		}: {
-			networkInterface: AbstractNetworkInterface
-			settingsManager: SettingsManager
-			emotesManager: EmotesManager
-			usersManager: UsersManager
 			clipboard: Clipboard2
-			eventBus: Publisher
 		},
 		textFieldEl: HTMLElement
 	) {
-		this.settingsManager = settingsManager
-		this.networkInterface = networkInterface
-		this.emotesManager = emotesManager
-		this.usersManager = usersManager
-		this.eventBus = eventBus
+		this.rootContext = rootContext
 
 		this.messageHistory = new MessagesHistory()
 		this.contentEditableEditor = new ContentEditableEditor(
-			{ eventBus, emotesManager, messageHistory: this.messageHistory, clipboard },
+			this.rootContext,
+			{ messageHistory: this.messageHistory, clipboard },
 			textFieldEl
 		)
 		this.tabCompletor = new InputCompletor(
+			this.rootContext,
 			{
-				eventBus,
-				networkInterface,
-				emotesManager,
-				usersManager,
 				contentEditableEditor: this.contentEditableEditor
 			},
 			textFieldEl.parentElement as HTMLElement
@@ -64,7 +45,8 @@ export class InputController {
 	}
 
 	initialize() {
-		const { eventBus, contentEditableEditor } = this
+		const { eventBus } = this.rootContext
+		const { contentEditableEditor } = this
 
 		contentEditableEditor.attachEventListeners()
 
@@ -79,7 +61,8 @@ export class InputController {
 	}
 
 	handleInputSubmit({ suppressEngagementEvent }: any) {
-		const { contentEditableEditor, emotesManager, messageHistory } = this
+		const { emotesManager } = this.rootContext
+		const { contentEditableEditor, messageHistory } = this
 
 		if (!suppressEngagementEvent) {
 			const emotesInMessage = contentEditableEditor.getEmotesInMessage()
@@ -115,7 +98,8 @@ export class InputController {
 	}
 
 	loadChatHistoryBehaviour() {
-		const { settingsManager, contentEditableEditor } = this
+		const { settingsManager } = this.rootContext
+		const { contentEditableEditor } = this
 		if (!settingsManager.getSetting('shared.chat.input.history.enabled')) return
 
 		contentEditableEditor.addEventListener('keydown', 4, event => {

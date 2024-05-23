@@ -204,25 +204,20 @@ const commandsMap = [
 
 export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 	private contentEditableEditor: ContentEditableEditor
-	private networkInterface: AbstractNetworkInterface
-	private eventBus: Publisher
+	private rootContext: RootContext
 
 	constructor(
+		rootContext: RootContext,
 		{
-			eventBus,
-			networkInterface,
 			contentEditableEditor
 		}: {
-			eventBus: Publisher
-			networkInterface: AbstractNetworkInterface
 			contentEditableEditor: ContentEditableEditor
 		},
 		containerEl: HTMLElement
 	) {
 		super(containerEl)
 
-		this.eventBus = eventBus
-		this.networkInterface = networkInterface
+		this.rootContext = rootContext
 		this.contentEditableEditor = contentEditableEditor
 	}
 
@@ -339,7 +334,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 	}
 
 	getAvailableCommands() {
-		const channelData = this.networkInterface.channelData
+		const channelData = this.rootContext.networkInterface.channelData
 		const is_broadcaster = channelData?.me?.is_broadcaster || false
 		const is_moderator = channelData?.me?.is_moderator || false
 
@@ -446,7 +441,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 				return
 			}
 
-			const { networkInterface, eventBus } = this
+			const { networkInterface, eventBus } = this.rootContext
 			if (commandEntry && typeof commandEntry.execute === 'function') {
 				commandEntry.execute({ eventBus, networkInterface }, commandData.args)
 			} else {

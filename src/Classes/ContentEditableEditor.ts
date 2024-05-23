@@ -49,8 +49,7 @@ function maybeInsertSpaceCharacterAfterComponent(component: HTMLElement) {
 }
 
 export class ContentEditableEditor {
-	private eventBus: Publisher
-	private emotesManager: EmotesManager
+	private rootContext: RootContext
 	private messageHistory: MessagesHistory
 	private clipboard: Clipboard2
 	private inputNode: HTMLElement
@@ -64,21 +63,17 @@ export class ContentEditableEditor {
 	private hasUnprocessedContentChanges = false
 
 	constructor(
+		rootContext: RootContext,
 		{
-			eventBus,
-			emotesManager,
 			messageHistory,
 			clipboard
 		}: {
-			eventBus: Publisher
-			emotesManager: EmotesManager
 			messageHistory: MessagesHistory
 			clipboard: Clipboard2
 		},
 		contentEditableEl: HTMLElement
 	) {
-		this.eventBus = eventBus
-		this.emotesManager = emotesManager
+		this.rootContext = rootContext
 		this.messageHistory = messageHistory
 		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
@@ -137,7 +132,8 @@ export class ContentEditableEditor {
 	}
 
 	attachEventListeners() {
-		const { inputNode, emotesManager, clipboard } = this
+		const { emotesManager } = this.rootContext
+		const { inputNode, clipboard } = this
 
 		// inputNode.addEventListener('selectstart', (evt: Event) => {
 		// 	const selection = (evt.target as any)?.value
@@ -218,7 +214,7 @@ export class ContentEditableEditor {
 				event.preventDefault()
 				event.stopImmediatePropagation()
 				if (!this.inputEmpty) {
-					this.eventBus.publish('ntv.input_controller.submit')
+					this.rootContext.eventBus.publish('ntv.input_controller.submit')
 				}
 				break
 
@@ -289,7 +285,7 @@ export class ContentEditableEditor {
 			return this.insertText(' ')
 		}
 
-		const emoteHid = this.emotesManager.getEmoteHidByName(word)
+		const emoteHid = this.rootContext.emotesManager.getEmoteHidByName(word)
 		if (!emoteHid) {
 			event.preventDefault()
 			return this.insertText(' ')
@@ -463,7 +459,8 @@ export class ContentEditableEditor {
 	processInputContent() {
 		if (!this.hasUnprocessedContentChanges) return
 
-		const { inputNode, eventBus, emotesManager } = this
+		const { eventBus, emotesManager } = this.rootContext
+		const { inputNode } = this
 		const buffer = []
 		let bufferString = ''
 		let emotesInMessage = this.emotesInMessage
@@ -971,7 +968,8 @@ export class ContentEditableEditor {
 
 	insertEmote(emoteHid: string) {
 		assertArgDefined(emoteHid)
-		const { emotesManager, messageHistory, eventTarget } = this
+		const { messageHistory, eventTarget } = this
+		const { emotesManager } = this.rootContext
 
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		messageHistory.resetCursor()
@@ -999,7 +997,7 @@ export class ContentEditableEditor {
 	}
 
 	replaceEmote(component: HTMLElement, emoteHid: string) {
-		const { emotesManager } = this
+		const { emotesManager } = this.rootContext
 
 		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
 		if (!emoteHTML) {

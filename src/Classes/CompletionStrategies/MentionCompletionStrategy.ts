@@ -6,7 +6,7 @@ import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 
 export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 	private contentEditableEditor: ContentEditableEditor
-	private usersManager: UsersManager
+	private rootContext: RootContext
 
 	private start = 0
 	private end = 0
@@ -15,16 +15,14 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 	private mentionEnd = 0
 
 	constructor(
-		{
-			contentEditableEditor,
-			usersManager
-		}: { contentEditableEditor: ContentEditableEditor; usersManager: UsersManager },
+		rootContext: RootContext,
+		{ contentEditableEditor }: { contentEditableEditor: ContentEditableEditor },
 		containerEl: HTMLElement
 	) {
 		super(containerEl)
 
 		this.contentEditableEditor = contentEditableEditor
-		this.usersManager = usersManager
+		this.rootContext = rootContext
 	}
 
 	static shouldUseStrategy(event: KeyboardEvent): boolean {
@@ -56,7 +54,7 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 		this.end = end
 		this.node = node
 
-		const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20)
+		const searchResults = this.rootContext.usersManager.searchUsers(word.substring(1, 20), 20)
 		const userNames = searchResults.map((result: any) => result.item.name)
 		const userIds = searchResults.map((result: any) => result.item.id)
 

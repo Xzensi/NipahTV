@@ -1,9 +1,4 @@
-import type { AbstractNetworkInterface } from '../NetworkInterfaces/AbstractNetworkInterface'
 import type { InputController } from '../Managers/InputController'
-import type { SettingsManager } from '../Managers/SettingsManager'
-import type { EmotesManager } from '../Managers/EmotesManager'
-import type { UsersManager } from '../Managers/UsersManager'
-import type { Publisher } from '../Classes/Publisher'
 import { ReplyMessageComponent } from './Components/ReplyMessageComponent'
 import { MessagesHistory } from '../Classes/MessagesHistory'
 import { UserInfoModal } from './Modals/UserInfoModal'
@@ -12,13 +7,8 @@ import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { Toaster } from '../Classes/Toaster'
 
 export abstract class AbstractUserInterface {
-	protected ENV_VARS: any
-	protected channelData: ChannelData
-	protected eventBus: Publisher
-	protected networkInterface: AbstractNetworkInterface
-	protected settingsManager: SettingsManager
-	protected emotesManager: EmotesManager
-	protected usersManager: UsersManager
+	protected rootContext: RootContext
+	protected session: Session
 
 	protected inputController: InputController | null = null
 	protected clipboard = new Clipboard2()
@@ -44,34 +34,13 @@ export abstract class AbstractUserInterface {
 	 * @param {EventBus} eventBus
 	 * @param {object} deps
 	 */
-	constructor({
-		ENV_VARS,
-		channelData,
-		eventBus,
-		networkInterface,
-		settingsManager,
-		emotesManager,
-		usersManager
-	}: {
-		ENV_VARS: any
-		channelData: ChannelData
-		eventBus: Publisher
-		networkInterface: AbstractNetworkInterface
-		settingsManager: SettingsManager
-		emotesManager: EmotesManager
-		usersManager: UsersManager
-	}) {
-		this.ENV_VARS = ENV_VARS
-		this.channelData = channelData
-		this.eventBus = eventBus
-		this.networkInterface = networkInterface
-		this.settingsManager = settingsManager
-		this.emotesManager = emotesManager
-		this.usersManager = usersManager
+	constructor(rootContext: RootContext, session: Session) {
+		this.rootContext = rootContext
+		this.session = session
 	}
 
 	loadInterface() {
-		const { eventBus } = this
+		const { eventBus } = this.rootContext
 
 		eventBus.subscribe('ntv.ui.show_modal.user_info', (data: { username: string }) => {
 			assertArgDefined(data.username)
@@ -85,7 +54,7 @@ export abstract class AbstractUserInterface {
 	}
 
 	renderEmotesInElement(textElement: Element, appendTo?: Element) {
-		const { emotesManager } = this
+		const { emotesManager } = this.rootContext
 		const text = textElement.textContent || ''
 		const tokens = text.split(' ')
 		const newNodes = []
@@ -128,21 +97,18 @@ export abstract class AbstractUserInterface {
 	showUserInfoModal(username: string) {
 		log('Showing user info modal..')
 		const modal = new UserInfoModal(
+			this.rootContext,
+			this.session,
 			{
-				ENV_VARS: this.ENV_VARS,
-				eventBus: this.eventBus,
-				networkInterface: this.networkInterface,
-				toaster: this.toaster,
-				userInterface: this
+				toaster: this.toaster
 			},
-			this.channelData,
 			username
 		).init()
 	}
 
 	// Submits input to chat
 	submitInput(suppressEngagementEvent?: boolean) {
-		const { eventBus } = this
+		const { eventBus, networkInterface } = this.rootContext
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
@@ -155,7 +121,7 @@ export abstract class AbstractUserInterface {
 
 		if (this.replyMessageData) {
 			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData
-			this.networkInterface
+			networkInterface
 				.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
 				.then(res => {
 					if (res.status.error) {
@@ -172,7 +138,7 @@ export abstract class AbstractUserInterface {
 
 			this.destroyReplyMessageContext()
 		} else {
-			this.networkInterface
+			networkInterface
 				.sendMessage(replyContent)
 				.then(res => {
 					if (res?.status.error) {
@@ -192,11 +158,11 @@ export abstract class AbstractUserInterface {
 	}
 
 	sendEmoteToChat(emoteHid: string) {
-		const { emotesManager } = this
+		const { emotesManager, networkInterface } = this.rootContext
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
 		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
 
-		this.networkInterface
+		networkInterface
 			.sendMessage(emoteEmbedding)
 			.then(res => {
 				if (res?.status.error) {

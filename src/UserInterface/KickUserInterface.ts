@@ -49,8 +49,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	private stickyScroll = true
 	protected maxMessageLength = 500
 
-	constructor(deps: any) {
-		super(deps)
+	constructor(rootContext: RootContext, session: Session) {
+		super(rootContext, session)
 	}
 
 	async loadInterface() {
@@ -58,7 +58,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		super.loadInterface()
 
-		const { eventBus, settingsManager, abortController } = this
+		const { eventBus, settingsManager } = this.rootContext
+		const { channelData } = this.session
+		const { abortController } = this
 		const abortSignal = abortController.signal
 
 		this.loadSettings()
@@ -82,7 +84,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 
 		// Wait for chat messages container to load
-		const chatMessagesContainerSelector = this.channelData.is_vod
+		const chatMessagesContainerSelector = channelData.is_vod
 			? '#chatroom-replay > .overflow-y-scroll > .flex-col-reverse'
 			: '#chatroom > div:nth-child(2) > .overflow-y-scroll'
 
@@ -155,33 +157,25 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	// TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
 	async loadEmoteMenu() {
-		const { channelData, eventBus, settingsManager, emotesManager } = this
 		if (!this.elm.textField) return error('Text field not loaded for emote menu')
 
 		const container = this.elm.textField.parentElement!.parentElement!
-		this.emoteMenu = new EmoteMenuComponent(
-			{ channelData, eventBus, emotesManager, settingsManager },
-			container
-		).init()
+		this.emoteMenu = new EmoteMenuComponent(this.rootContext, this.session, container).init()
 
 		this.elm.textField.addEventListener('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
 	}
 
 	async loadEmoteMenuButton() {
-		const { ENV_VARS, eventBus, settingsManager } = this
-		this.emoteMenuButton = new EmoteMenuButtonComponent({ ENV_VARS, eventBus, settingsManager }).init()
+		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext).init()
 	}
 
 	async loadQuickEmotesHolder() {
-		const { eventBus, settingsManager, emotesManager } = this
+		const { eventBus, settingsManager } = this.rootContext
 		const quickEmotesHolderEnabled = settingsManager.getSetting('shared.chat.quick_emote_holder.enabled')
 		if (quickEmotesHolderEnabled) {
 			const placeholder = document.createElement('div')
 			document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
-			this.quickEmotesHolder = new QuickEmotesHolderComponent(
-				{ eventBus, settingsManager, emotesManager },
-				placeholder
-			).init()
+			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init()
 		}
 
 		eventBus.subscribe(
@@ -190,14 +184,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (value) {
 					const placeholder = document.createElement('div')
 					document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
-					this.quickEmotesHolder = new QuickEmotesHolderComponent(
-						{
-							eventBus,
-							settingsManager,
-							emotesManager
-						},
-						placeholder
-					).init()
+					this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init()
 				} else {
 					this.quickEmotesHolder?.destroy()
 					this.quickEmotesHolder = null
@@ -214,7 +201,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadSettings() {
-		const { eventBus, settingsManager } = this
+		const { eventBus, settingsManager } = this.rootContext
 
 		const firstMessageHighlightColor = settingsManager.getSetting('shared.chat.appearance.highlight_color')
 		if (firstMessageHighlightColor) {
@@ -230,7 +217,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadShadowProxyElements() {
-		if (!this.channelData.me.is_logged_in) return
+		if (!this.session.channelData.me.is_logged_in) return
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
@@ -275,12 +262,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		submitButtonEl.addEventListener('click', () => this.submitInput())
 
 		const inputController = (this.inputController = new InputController(
+			this.rootContext,
 			{
-				settingsManager: this.settingsManager,
-				eventBus: this.eventBus,
-				networkInterface: this.networkInterface,
-				emotesManager: this.emotesManager,
-				usersManager: this.usersManager,
 				clipboard: this.clipboard
 			},
 			textFieldEl
@@ -313,7 +296,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			this.clipboard.handleCopyEvent(evt)
 		})
 
-		this.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
+		this.rootContext.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
 			if (value > this.maxMessageLength) {
 				textFieldWrapperEl.setAttribute('data-char-count', value)
 				textFieldWrapperEl.classList.add('ntv__message-input__wrapper--char-limit-reached')
@@ -447,7 +430,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadReplyBehaviour() {
-		const { channelData, inputController } = this
+		const { inputController } = this
+		const { channelData } = this.session
 		if (!inputController) return error('Input controller not loaded for reply behaviour')
 
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
@@ -560,7 +544,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
-		this.eventBus.subscribe('ntv.providers.loaded', () => {
+		this.rootContext.eventBus.subscribe('ntv.providers.loaded', () => {
 			// Render emotes in chat when new messages are added
 			const observer = (this.chatObserver = new MutationObserver(mutations => {
 				mutations.forEach(mutation => {
@@ -581,7 +565,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 
 		// Show emote tooltip with emote name, remove when mouse leaves
-		const showTooltips = this.settingsManager.getSetting('shared.chat.tooltips.images')
+		const showTooltips = this.rootContext.settingsManager.getSetting('shared.chat.tooltips.images')
 		chatMessagesContainerEl.addEventListener('mouseover', evt => {
 			const target = evt.target as HTMLElement
 			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
@@ -624,7 +608,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const chatroomTopEl = document.getElementById('chatroom-top')
 		if (!chatroomTopEl) return error('Chatroom top not loaded for observing pinned message')
 
-		this.eventBus.subscribe('ntv.providers.loaded', () => {
+		this.rootContext.eventBus.subscribe('ntv.providers.loaded', () => {
 			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
 				mutations.forEach(mutation => {
 					if (mutation.addedNodes.length) {
@@ -657,28 +641,30 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderChatMessage(messageNode: HTMLElement) {
-		if (!this.channelData.is_vod) {
+		const { usersManager, settingsManager, emotesManager } = this.rootContext
+		const { channelData } = this.session
+
+		if (!channelData.is_vod) {
 			const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
 			if (usernameEl) {
 				const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
 				const chatEntryUserName = usernameEl.textContent
 				if (chatEntryUserId && chatEntryUserName) {
-					if (!this.usersManager.hasSeenUser(chatEntryUserId)) {
-						const enableFirstMessageHighlight = this.settingsManager.getSetting(
+					if (!usersManager.hasSeenUser(chatEntryUserId)) {
+						const enableFirstMessageHighlight = settingsManager.getSetting(
 							'shared.chat.appearance.highlight_first_message'
 						)
-						const highlightWhenModeratorOnly = this.settingsManager.getSetting(
+						const highlightWhenModeratorOnly = settingsManager.getSetting(
 							'shared.chat.appearance.highlight_first_message_moderator'
 						)
 						if (
 							enableFirstMessageHighlight &&
-							(!highlightWhenModeratorOnly ||
-								(highlightWhenModeratorOnly && this.channelData.me.is_moderator))
+							(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.is_moderator))
 						) {
 							messageNode.classList.add('ntv__highlight-first-message')
 						}
 					}
-					this.usersManager.registerUser(chatEntryUserId, chatEntryUserName)
+					usersManager.registerUser(chatEntryUserId, chatEntryUserName)
 				}
 			}
 		}
@@ -760,8 +746,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Chat message after username is empty..
 		if (!contentNodes[firstContentNodeIndex]) return
-
-		const emotesManager = this.emotesManager
 
 		// Skip first two nodes, they are the username etc
 		for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
