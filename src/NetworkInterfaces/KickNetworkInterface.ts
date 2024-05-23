@@ -233,46 +233,63 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		const { channel_name } = channelData
 		const slug = username.replace('_', '-').toLowerCase()
 
-		const [res1, res2, res3] = await Promise.allSettled([
-			REST.get(`https://kick.com/api/v2/channels/${channel_name}/users/${username}`),
+		const [res1, res2] = await Promise.allSettled([
 			// The reason underscores are replaced with dashes is likely because it's a slug
 			REST.get(`https://kick.com/api/v2/channels/${slug}/me`),
 			REST.get(`https://kick.com/api/v2/channels/${slug}`)
 		])
-		if (res1.status === 'rejected' || res2.status === 'rejected' || res3.status === 'rejected') {
+		if (res1.status === 'rejected' || res2.status === 'rejected') {
 			throw new Error('Failed to fetch user data')
 		}
 
-		const channelUserInfo = res1.value
-		const userMeInfo = res2.value
-		const userOwnChannelInfo = res3.value
+		const userMeInfo = res1.value
+		const userOwnChannelInfo = res2.value
 
-		// TODO rename to channelUserInfo, because channel specific data is mixed with user data
-		const userInfo = {
-			id: channelUserInfo.id,
-			username: channelUserInfo.username,
+		// log('User me info:', userMeInfo)
+		// log('User own channel info:', userOwnChannelInfo)
+
+		return {
+			id: userOwnChannelInfo.user.id,
+			username: userOwnChannelInfo.user.username,
 			profilePic:
 				userOwnChannelInfo.user.profile_pic ||
 				this.ENV_VARS.RESOURCE_ROOT + 'assets/img/kick/default-user-profile.png',
 			bannerImg: userOwnChannelInfo?.banner_image?.url || '',
-			createdAt: userOwnChannelInfo?.chatroom?.created_at || 'Unknown',
+			createdAt: userOwnChannelInfo?.chatroom?.created_at
+				? new Date(userOwnChannelInfo?.chatroom?.created_at)
+				: null,
+			isFollowing: userMeInfo.is_following
+		}
+	}
+
+	async getUserChannelInfo(channelName: string, username: string) {
+		const channelUserInfo = await REST.get(`https://kick.com/api/v2/channels/${channelName}/users/${username}`)
+
+		// log('User channel info:', channelUserInfo)
+
+		return {
+			id: channelUserInfo.id,
+			username: channelUserInfo.username,
+			channel: channelName,
+			badges: channelUserInfo.badges || [],
+			followingSince: channelUserInfo.following_since ? new Date(channelUserInfo.following_since) : null,
 			banned: channelUserInfo.banned
 				? {
 						reason: channelUserInfo.banned?.reason || 'No reason provided',
-						createdAt: channelUserInfo.banned?.created_at || 'Unknown',
-						expiresAt: channelUserInfo.banned?.expires_at || 'Unknown',
+						since: channelUserInfo.banned?.created_at ? new Date(channelUserInfo.banned?.created_at) : null,
+						expiresAt: channelUserInfo.banned?.expires_at
+							? new Date(channelUserInfo.banned?.expires_at)
+							: null,
 						permanent: channelUserInfo.banned?.permanent || false
 				  }
-				: void 0,
-			isFollowing: userMeInfo.is_following
+				: void 0
 		}
-
-		return userInfo
 	}
 
-	async getUserMessages(channelId: string, userId: string) {
-		const res = await REST.get(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages`)
-		log(res)
+	async getUserMessages(channelId: string, userId: string, cursor: number) {
+		const res = await REST.get(
+			`https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages?cursor=${cursor}`
+		)
 		const { data, status } = res
 		if (status.error) {
 			error('Failed to fetch user messages', status)
@@ -281,18 +298,21 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 
 		const messages = data.messages
 
-		return messages.map((message: any) => {
-			return {
-				id: message.id,
-				content: message.content,
-				createdAt: message.created_at,
-				sender: {
-					id: message.sender?.id || 'Unknown',
-					username: message.sender?.username || 'Unknown',
-					badges: message.sender?.identity?.badges || [],
-					color: message.sender?.identity?.color || '#dec859'
+		return {
+			cursor: data.cursor,
+			messages: messages.map((message: any) => {
+				return {
+					id: message.id,
+					content: message.content,
+					createdAt: message.created_at,
+					sender: {
+						id: message.sender?.id || 'Unknown',
+						username: message.sender?.username || 'Unknown',
+						badges: message.sender?.identity?.badges || [],
+						color: message.sender?.identity?.color || '#dec859'
+					}
 				}
-			}
-		}) as UserMessage[]
+			}) as UserMessage[]
+		}
 	}
 }

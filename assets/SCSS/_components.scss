@@ -240,3 +240,8 @@ $spacing: 1em;
 		background-color: var(--ntv-background-color-shade-1);
 	}
 }
+
+.ntv__badge {
+	height: $golden_ratio * 1em;
+	width: $golden_ratio * 1em;
+}
