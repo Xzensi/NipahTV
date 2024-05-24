@@ -1,8 +1,5 @@
-import { SettingsManager } from '../../Managers/SettingsManager'
-import { EmotesManager } from '../../Managers/EmotesManager'
-import { log, info, error, cleanupHTML, parseHTML } from '../../utils'
+import { log, error, cleanupHTML, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
-import { Publisher } from '../../Classes/Publisher'
 
 export class EmoteMenuComponent extends AbstractComponent {
 	toggleStates = {}
@@ -10,10 +7,8 @@ export class EmoteMenuComponent extends AbstractComponent {
 	activePanel = 'emotes'
 	sidebarMap = new Map()
 
-	channelData: ChannelData
-	eventBus: Publisher
-	settingsManager: SettingsManager
-	emotesManager: EmotesManager
+	rootContext: RootContext
+	session: Session
 	parentContainer: HTMLElement
 
 	panels: { emotes?: HTMLElement; search?: HTMLElement } = {}
@@ -27,31 +22,16 @@ export class EmoteMenuComponent extends AbstractComponent {
 	closeModalClickListenerHandle?: Function
 	scrollableHeight: number = 0
 
-	constructor(
-		{
-			channelData,
-			eventBus,
-			settingsManager,
-			emotesManager
-		}: {
-			channelData: ChannelData
-			eventBus: Publisher
-			settingsManager: SettingsManager
-			emotesManager: EmotesManager
-		},
-		container: HTMLElement
-	) {
+	constructor(rootContext: RootContext, session: Session, container: HTMLElement) {
 		super()
 
-		this.channelData = channelData
-		this.eventBus = eventBus
-		this.settingsManager = settingsManager
-		this.emotesManager = emotesManager
+		this.rootContext = rootContext
+		this.session = session
 		this.parentContainer = container
 	}
 
 	render() {
-		const { settingsManager } = this
+		const { settingsManager } = this.rootContext
 
 		const showSearchBox = settingsManager.getSetting('shared.chat.emote_menu.appearance.search_box')
 		const showSidebar = true //settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
@@ -99,7 +79,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		// Set href for chatroom link which is at current channel
 		this.containerEl
 			.querySelector('.ntv__chatroom-link')!
-			.setAttribute('href', `/${this.channelData.channel_name}/chatroom`)
+			.setAttribute('href', `/${this.session.channelData.channel_name}/chatroom`)
 
 		this.searchInputEl = this.containerEl.querySelector('.ntv__emote-menu__search input')!
 		this.scrollableEl = this.containerEl.querySelector('.ntv__emote-menu__scrollable')!
@@ -112,7 +92,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 	}
 
 	attachEventHandlers() {
-		const { eventBus, settingsManager } = this
+		const { eventBus, settingsManager, emotesManager } = this.rootContext
 
 		// Emote click event
 		this.scrollableEl?.addEventListener('click', evt => {
@@ -129,21 +109,23 @@ export class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		// Tooltip for emotes
-		this.scrollableEl?.addEventListener('mouseenter', evt => {
+		let lastEnteredElement: HTMLElement | null = null
+		this.scrollableEl?.addEventListener('mouseover', evt => {
 			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG') return
+			if (target === lastEnteredElement || target.tagName !== 'IMG') return
+			lastEnteredElement = target
 
 			const emoteHid = target.getAttribute('data-emote-hid')
 			if (!emoteHid) return
 
-			const emote = this.emotesManager.getEmote(emoteHid)
+			const emote = emotesManager.getEmote(emoteHid)
 			if (!emote) return
 
 			const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
 			const tooltipEl = parseHTML(
 				cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
-					${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
+					${imageInTooltop ? emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
 					<span>${emote.name}</span>
 				</div>`),
 				true
@@ -155,13 +137,15 @@ export class EmoteMenuComponent extends AbstractComponent {
 			const rect = target.getBoundingClientRect()
 			tooltipEl.style.top = rect.top - rect.height / 2 + 'px'
 			tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
-		})
 
-		this.scrollableEl?.addEventListener('mouseleave', evt => {
-			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG') return
-
-			if (this.tooltipEl) this.tooltipEl.remove()
+			target.addEventListener(
+				'mouseleave',
+				() => {
+					if (this.tooltipEl) this.tooltipEl.remove()
+					lastEnteredElement = null
+				},
+				{ once: true }
+			)
 		})
 
 		// Search input event
@@ -217,6 +201,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 	handleSearchInput(evt: InputEvent) {
 		if (!(evt.target instanceof HTMLInputElement)) return
 
+		const { emotesManager } = this.rootContext
 		const searchVal = evt.target.value
 
 		if (searchVal.length) {
@@ -225,7 +210,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 			this.switchPanel('emotes')
 		}
 
-		const emotesResult = this.emotesManager.searchEmotes(searchVal.substring(0, 20))
+		const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20))
 		log(`Searching for emotes, found ${emotesResult.length} matches"`)
 
 		// More performant than innerHTML
@@ -237,7 +222,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		let maxResults = 75
 		for (const emoteResult of emotesResult) {
 			if (maxResults-- <= 0) break
-			this.panels.search?.append(parseHTML(this.emotesManager.getRenderableEmote(emoteResult.item, 'ntv__emote')))
+			this.panels.search?.append(parseHTML(emotesManager.getRenderableEmote(emoteResult.item, 'ntv__emote')))
 		}
 	}
 
@@ -262,14 +247,15 @@ export class EmoteMenuComponent extends AbstractComponent {
 	renderEmotes() {
 		log('Rendering emotes in modal')
 
-		const { emotesManager, sidebarSetsEl, scrollableEl } = this
+		const { sidebarSetsEl, scrollableEl } = this
+		const { emotesManager } = this.rootContext
 		const emotesPanelEl = this.panels.emotes
 		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
 		while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild));
 		while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild));
 
-		const emoteSets = this.emotesManager.getEmoteSets()
+		const emoteSets = emotesManager.getEmoteSets()
 		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index)
 
 		for (const emoteSet of orderedEmoteSets) {

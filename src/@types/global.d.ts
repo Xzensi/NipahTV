@@ -1,4 +1,16 @@
+import type { KickNetworkInterface } from '../NetworkInterfaces/KickNetworkInterface'
+import type { AbstractUserInterface } from '../UserInterface/AbstractUserInterface'
+import type { SettingsManager } from '../Managers/SettingsManager'
+import type { EmotesManager } from '../Managers/EmotesManager'
+import type { UsersManager } from '../Managers/UsersManager'
+import type { Publisher } from '../Classes/Publisher'
+import type { Database } from '../Classes/Database'
+import type { PLATFORM_ENUM } from '../constants'
 import type Twemoji from 'twemoji'
+
+declare global {
+	type ValueOf<T> = T[keyof T]
+}
 
 declare global {
 	var __LOCAL__: boolean
@@ -15,6 +27,9 @@ declare global {
 	var GM_getResourceText: Function
 	var twemoji: typeof Twemoji
 	var Fuse: Fuse
+
+	var PLATFORM: ValueOf<typeof PLATFORM_ENUM>
+	var RESOURCE_ROOT: string
 
 	interface CustomWindow extends Window {
 		wwindow: CustomWindow
@@ -33,6 +48,20 @@ declare global {
 	type Fuse = {
 		new (data: any, options: any): any
 		search: Function
+	}
+
+	type RootContext = {
+		eventBus: Publisher
+		networkInterface: KickNetworkInterface
+		database: Database
+		emotesManager: EmotesManager
+		settingsManager: SettingsManager
+		usersManager: UsersManager
+	}
+
+	type Session = {
+		channelData: ChannelData
+		userInterface?: AbstractUserInterface
 	}
 
 	type ChannelData = {

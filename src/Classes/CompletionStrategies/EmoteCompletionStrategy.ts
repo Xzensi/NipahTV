@@ -5,7 +5,7 @@ import { error, parseHTML } from '../../utils'
 import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 
 export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
-	private emotesManager: EmotesManager
+	private rootContext: RootContext
 	private contentEditableEditor: ContentEditableEditor
 
 	private start = 0
@@ -15,15 +15,13 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 	private emoteComponent: HTMLElement | null = null
 
 	constructor(
-		{
-			emotesManager,
-			contentEditableEditor
-		}: { emotesManager: EmotesManager; contentEditableEditor: ContentEditableEditor },
+		rootContext: RootContext,
+		{ contentEditableEditor }: { contentEditableEditor: ContentEditableEditor },
 		containerEl: HTMLElement
 	) {
 		super(containerEl)
 
-		this.emotesManager = emotesManager
+		this.rootContext = rootContext
 		this.contentEditableEditor = contentEditableEditor
 	}
 
@@ -50,22 +48,24 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 			return
 		}
 
+		const { emotesManager } = this.rootContext
+
 		this.word = word
 		this.start = start
 		this.end = end
 		this.node = node
 
-		const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20)
+		const searchResults = emotesManager.searchEmotes(word.substring(0, 20), 20)
 		// log('Search results:', searchResults)
 
 		const emoteNames = searchResults.map((result: any) => result.item.name)
-		const emoteHids = searchResults.map((result: any) => this.emotesManager.getEmoteHidByName(result.item.name))
+		const emoteHids = searchResults.map((result: any) => emotesManager.getEmoteHidByName(result.item.name))
 
 		if (emoteNames.length) {
 			for (let i = 0; i < emoteNames.length; i++) {
 				const emoteName = emoteNames[i]
 				const emoteHid = emoteHids[i]
-				const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')
+				const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')
 
 				this.navWindow.addEntry(
 					{ emoteHid },
@@ -189,7 +189,7 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 	}
 
 	destroy() {
-        super.destroy()
+		super.destroy()
 
 		this.start = 0
 		this.end = 0

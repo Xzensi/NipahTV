@@ -1,11 +1,4 @@
-import type {
-	AbstractNetworkInterface,
-	UserChannelInfo,
-	UserInfo,
-	UserMessage
-} from '../../NetworkInterfaces/AbstractNetworkInterface'
-import type { AbstractUserInterface } from '../AbstractUserInterface'
-import type { Publisher } from '../../Classes/Publisher'
+import type { UserChannelInfo, UserInfo } from '../../NetworkInterfaces/AbstractNetworkInterface'
 import type { Toaster } from '../../Classes/Toaster'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
@@ -13,12 +6,9 @@ import { AbstractModal, ModalGeometry } from './AbstractModal'
 import { BadgeFactory } from '../../Factories/BadgeFactory'
 
 export class UserInfoModal extends AbstractModal {
-	private ENV_VARS: any
-	private eventBus: Publisher
-	private networkInterface: AbstractNetworkInterface
-	private userInterface: AbstractUserInterface
+	private rootContext: RootContext
+	private session: Session
 
-	private channelData: ChannelData
 	private toaster: Toaster
 	private username: string
 	private userInfo?: UserInfo
@@ -46,20 +36,13 @@ export class UserInfoModal extends AbstractModal {
 	private isLoadingMessages = false
 
 	constructor(
+		rootContext: RootContext,
+		session: Session,
 		{
-			ENV_VARS,
-			eventBus,
-			networkInterface,
-			toaster,
-			userInterface
+			toaster
 		}: {
-			ENV_VARS: any
-			eventBus: Publisher
-			networkInterface: AbstractNetworkInterface
 			toaster: Toaster
-			userInterface: AbstractUserInterface
 		},
-		channelData: ChannelData,
 		username: string
 	) {
 		const geometry: ModalGeometry = {
@@ -69,13 +52,10 @@ export class UserInfoModal extends AbstractModal {
 
 		super('user-info', geometry)
 
-		this.ENV_VARS = ENV_VARS
-		this.eventBus = eventBus
-		this.networkInterface = networkInterface
-		this.userInterface = userInterface
+		this.rootContext = rootContext
+		this.session = session
 		this.toaster = toaster
 		this.username = username
-		this.channelData = channelData
 	}
 
 	init() {
@@ -86,8 +66,9 @@ export class UserInfoModal extends AbstractModal {
 	async render() {
 		super.render()
 
+		const { channelData } = this.session
 		const is_moderator =
-			this.channelData.me.is_super_admin || this.channelData.me.is_moderator || this.channelData.me.is_broadcaster
+			channelData.me.is_super_admin || channelData.me.is_moderator || channelData.me.is_broadcaster
 
 		// TODO override the modal position and size to top of chat? Keep in mind other platforms
 
@@ -174,7 +155,7 @@ export class UserInfoModal extends AbstractModal {
 				.join('')}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
-					<!--<button class="ntv__button">Mute</button>-->
+					<button class="ntv__button">${this.rootContext.usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'}</button>
 					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
@@ -272,9 +253,7 @@ export class UserInfoModal extends AbstractModal {
 
 		this.actionFollowEl?.addEventListener('click', this.clickFollowHandler.bind(this))
 
-		this.actionMuteEl?.addEventListener('click', () => {
-			log('Mute button clicked')
-		})
+		this.actionMuteEl?.addEventListener('click', this.clickMuteHandler.bind(this))
 
 		this.actionReportEl?.addEventListener('click', () => {
 			log('Report button clicked')
@@ -294,6 +273,7 @@ export class UserInfoModal extends AbstractModal {
 	async clickFollowHandler() {
 		log('Follow button clicked')
 
+		const { networkInterface } = this.rootContext
 		const { userInfo } = this
 		if (!userInfo) return
 
@@ -301,7 +281,7 @@ export class UserInfoModal extends AbstractModal {
 
 		if (userInfo.isFollowing) {
 			try {
-				await this.networkInterface.unfollowUser(this.username)
+				await networkInterface.unfollowUser(this.username)
 				userInfo.isFollowing = false
 				this.actionFollowEl!.textContent = 'Follow'
 			} catch (err: any) {
@@ -315,7 +295,7 @@ export class UserInfoModal extends AbstractModal {
 			}
 		} else {
 			try {
-				await this.networkInterface.followUser(this.username)
+				await networkInterface.followUser(this.username)
 				userInfo.isFollowing = true
 				this.actionFollowEl!.textContent = 'Unfollow'
 			} catch (err: any) {
@@ -330,6 +310,27 @@ export class UserInfoModal extends AbstractModal {
 		}
 
 		this.actionFollowEl!.classList.remove('ntv__button--disabled')
+	}
+
+	async clickMuteHandler() {
+		const { userInfo } = this
+		if (!userInfo) return
+
+		const { id, username } = userInfo
+		const { usersManager } = this.rootContext
+
+		const user = usersManager.getUserById(id)
+		if (!user) return
+
+		if (user.muted) {
+			log('Unmuting user:', username)
+			usersManager.unmuteUserById(user.id)
+			this.actionMuteEl!.textContent = 'Mute'
+		} else {
+			log('Muting user:', username)
+			usersManager.muteUserById(user.id)
+			this.actionMuteEl!.textContent = 'Unmute'
+		}
 	}
 
 	async clickTimeoutHandler() {
@@ -378,7 +379,7 @@ export class UserInfoModal extends AbstractModal {
 			timeoutPageEl.setAttribute('disabled', '')
 
 			try {
-				await this.networkInterface.sendCommand({
+				await this.rootContext.networkInterface.sendCommand({
 					name: 'timeout',
 					args: [this.username, duration, reason]
 				})
@@ -411,7 +412,8 @@ export class UserInfoModal extends AbstractModal {
 	async clickVIPHandler() {
 		log('VIP button clicked')
 
-		const { networkInterface, userInfo } = this
+		const { networkInterface } = this.rootContext
+		const { userInfo } = this
 		if (!userInfo) return
 
 		// this.modActionButtonVIPEl!.classList.add('ntv__icon-button--disabled')
@@ -467,7 +469,8 @@ export class UserInfoModal extends AbstractModal {
 
 		this.modActionButtonBanEl!.classList.add('ntv__icon-button--disabled')
 
-		const { networkInterface, userInfo, userChannelInfo } = this
+		const { networkInterface } = this.rootContext
+		const { userInfo, userChannelInfo } = this
 		if (!userInfo || !userChannelInfo) return
 
 		if (userChannelInfo.banned) {
@@ -545,7 +548,10 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async loadMoreMessagesHistory() {
-		const { networkInterface, userInfo, modLogsPageEl, messagesHistoryEl } = this
+		const { networkInterface } = this.rootContext
+		const { channelData, userInterface } = this.session
+
+		const { userInfo, modLogsPageEl, messagesHistoryEl } = this
 		if (!userInfo || !modLogsPageEl || !messagesHistoryEl) return
 
 		const cursor = this.messagesHistoryCursor
@@ -556,7 +562,7 @@ export class UserInfoModal extends AbstractModal {
 
 		let res
 		try {
-			res = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id, cursor)
+			res = await networkInterface.getUserMessages(channelData.channel_id, userInfo.id, cursor)
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
 				this.toaster.addToast('Failed to load user message history: ' + err.errors.join(' '), 6_000, 'error')
@@ -622,7 +628,7 @@ export class UserInfoModal extends AbstractModal {
 
 		messagesHistoryEl.querySelectorAll('.ntv__chat-message[unrendered]').forEach((messageEl: Element) => {
 			messageEl.querySelectorAll('.ntv__chat-message__part').forEach((messagePartEl: Element) => {
-				this.userInterface.renderEmotesInElement(messagePartEl as HTMLElement)
+				userInterface!.renderEmotesInElement(messagePartEl as HTMLElement)
 			})
 			messageEl.removeAttribute('unrendered')
 		})
@@ -640,14 +646,14 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async updateUserInfo() {
+		const { networkInterface } = this.rootContext
+		const { channelData } = this.session
+
 		try {
 			delete this.userInfo
 			delete this.userChannelInfo
-			this.userInfo = await this.networkInterface.getUserInfo(this.username)
-			this.userChannelInfo = await this.networkInterface.getUserChannelInfo(
-				this.channelData.channel_name,
-				this.username
-			)
+			this.userInfo = await networkInterface.getUserInfo(this.username)
+			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channel_name, this.username)
 			// this.userChannelInfo.badges = [
 			// 	{
 			// 		type: 'broadcaster',

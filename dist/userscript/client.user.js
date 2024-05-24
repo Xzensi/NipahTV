@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.4
+// @version 1.4.5
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-26c71088.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-131aef06.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -963,29 +963,21 @@ var AbstractComponent = class {
 var QuickEmotesHolderComponent = class extends AbstractComponent {
   // The sorting list shadow reflects the order of emotes in this.$element
   sortingList = [];
-  eventBus;
-  settingsManager;
-  emotesManager;
+  rootContext;
   element;
   emote;
   placeholder;
   renderQuickEmotesCallback;
-  constructor({
-    eventBus,
-    settingsManager,
-    emotesManager
-  }, placeholder) {
+  constructor(rootContext, placeholder) {
     super();
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
+    this.rootContext = rootContext;
     this.placeholder = placeholder;
   }
   render() {
     const oldEls = document.getElementsByClassName("ntv__client_quick_emotes_holder");
     for (const el of oldEls)
       el.remove();
-    const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
+    const rows = this.rootContext.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
     this.element = parseHTML(
       `<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`,
       true
@@ -993,6 +985,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     this.placeholder.replaceWith(this.element);
   }
   attachEventHandlers() {
+    const { eventBus } = this.rootContext;
     this.element?.addEventListener("click", (evt) => {
       const target = evt.target;
       if (target.tagName !== "IMG")
@@ -1002,23 +995,28 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         return error("Invalid emote hid");
       this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
     });
-    this.eventBus.subscribeAllOnce(
+    eventBus.subscribeAllOnce(
       ["ntv.providers.loaded", "ntv.datastore.emotes.history.loaded"],
       this.renderQuickEmotes.bind(this)
     );
     this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this);
-    this.eventBus.subscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
+    eventBus.subscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.quick_emote_holder.appearance.rows",
+      ({ value, prevValue }) => {
+        this.element?.setAttribute("data-rows", value || "0");
+      }
+    );
   }
   handleEmoteClick(emoteHid, sendImmediately = false) {
     assertArgDefined(emoteHid);
-    const { emotesManager } = this;
-    const emote = emotesManager.getEmote(emoteHid);
+    const emote = this.rootContext.emotesManager.getEmote(emoteHid);
     if (!emote)
       return error("Invalid emote");
-    this.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
+    this.rootContext.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
   }
   renderQuickEmotes() {
-    const { emotesManager } = this;
+    const { emotesManager } = this.rootContext;
     const emoteHistory = emotesManager.getEmoteHistory();
     if (emoteHistory.size) {
       for (const [emoteHid, history] of emoteHistory) {
@@ -1030,7 +1028,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
    * Move the emote to the correct position in the emote holder, append if new emote.
    */
   renderQuickEmote(emoteHid) {
-    const { emotesManager } = this;
+    const { emotesManager } = this.rootContext;
     const emote = emotesManager.getEmote(emoteHid);
     if (!emote) {
       return error("History encountered emote missing from provider emote sets..", emoteHid);
@@ -1065,7 +1063,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     }
   }
   getSortedEmoteIndex(emoteHid) {
-    const { emotesManager } = this;
+    const { emotesManager } = this.rootContext;
     const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteHid);
     return this.sortingList.findIndex((entry) => {
       return emotesManager.getEmoteHistoryCount(entry.hid) < emoteHistoryCount;
@@ -1074,30 +1072,22 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   destroy() {
     this.element?.remove();
     if (this.renderQuickEmotesCallback)
-      this.eventBus.unsubscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
+      this.rootContext.eventBus.unsubscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
   }
 };
 
 // src/UserInterface/Components/EmoteMenuButtonComponent.ts
 var EmoteMenuButtonComponent = class extends AbstractComponent {
-  ENV_VARS;
-  eventBus;
-  settingsManager;
+  rootContext;
   element;
   footerLogoBtnEl;
-  constructor({
-    ENV_VARS,
-    eventBus,
-    settingsManager
-  }) {
+  constructor(rootContex) {
     super();
-    this.ENV_VARS = ENV_VARS;
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
+    this.rootContext = rootContex;
   }
   render() {
     document.querySelector(".ntv__emote-menu-button")?.remove();
-    const basePath = this.ENV_VARS.RESOURCE_ROOT + "assets/img/btn";
+    const basePath = RESOURCE_ROOT + "assets/img/btn";
     const filename = this.getFile();
     this.element = parseHTML(
       cleanupHTML(`
@@ -1111,19 +1101,22 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     document.querySelector("#chatroom-footer .send-row")?.prepend(this.element);
   }
   attachEventHandlers() {
-    this.eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
+    const { eventBus } = this.rootContext;
+    eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
       if (!this.footerLogoBtnEl)
         return error("Footer logo button not found, unable to set logo src");
       const filename = this.getFile();
-      this.footerLogoBtnEl.setAttribute("src", this.ENV_VARS.RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
+      this.footerLogoBtnEl.setAttribute("src", RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
       this.footerLogoBtnEl.className = filename.toLowerCase();
     });
     this.footerLogoBtnEl?.addEventListener("click", () => {
-      this.eventBus.publish("ntv.ui.footer.click");
+      eventBus.publish("ntv.ui.footer.click");
     });
   }
   getFile() {
-    const buttonStyle = this.settingsManager.getSetting("shared.chat.emote_menu.appearance.button_style");
+    const buttonStyle = this.rootContext.settingsManager.getSetting(
+      "shared.chat.emote_menu.appearance.button_style"
+    );
     let file = "Nipah";
     switch (buttonStyle) {
       case "nipahtv":
@@ -1158,10 +1151,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   isShowing = false;
   activePanel = "emotes";
   sidebarMap = /* @__PURE__ */ new Map();
-  channelData;
-  eventBus;
-  settingsManager;
-  emotesManager;
+  rootContext;
+  session;
   parentContainer;
   panels = {};
   containerEl;
@@ -1172,21 +1163,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
   tooltipEl;
   closeModalClickListenerHandle;
   scrollableHeight = 0;
-  constructor({
-    channelData,
-    eventBus,
-    settingsManager,
-    emotesManager
-  }, container) {
+  constructor(rootContext, session, container) {
     super();
-    this.channelData = channelData;
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
+    this.rootContext = rootContext;
+    this.session = session;
     this.parentContainer = container;
   }
   render() {
-    const { settingsManager } = this;
+    const { settingsManager } = this.rootContext;
     const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
     const showSidebar = true;
     $(".ntv__emote-menu").remove();
@@ -1226,7 +1210,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
 			`),
       true
     );
-    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/${this.channelData.channel_name}/chatroom`);
+    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/${this.session.channelData.channel_name}/chatroom`);
     this.searchInputEl = this.containerEl.querySelector(".ntv__emote-menu__search input");
     this.scrollableEl = this.containerEl.querySelector(".ntv__emote-menu__scrollable");
     this.settingsBtnEl = this.containerEl.querySelector(".ntv__emote-menu__sidebar-btn--settings");
@@ -1236,7 +1220,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.parentContainer.appendChild(this.containerEl);
   }
   attachEventHandlers() {
-    const { eventBus, settingsManager } = this;
+    const { eventBus, settingsManager, emotesManager } = this.rootContext;
     this.scrollableEl?.addEventListener("click", (evt) => {
       const target = evt.target;
       if (target.tagName !== "IMG")
@@ -1249,21 +1233,23 @@ var EmoteMenuComponent = class extends AbstractComponent {
       if (closeOnClick)
         this.toggleShow(false);
     });
-    this.scrollableEl?.addEventListener("mouseenter", (evt) => {
+    let lastEnteredElement = null;
+    this.scrollableEl?.addEventListener("mouseover", (evt) => {
       const target = evt.target;
-      if (target.tagName !== "IMG")
+      if (target === lastEnteredElement || target.tagName !== "IMG")
         return;
+      lastEnteredElement = target;
       const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
         return;
-      const emote = this.emotesManager.getEmote(emoteHid);
+      const emote = emotesManager.getEmote(emoteHid);
       if (!emote)
         return;
       const imageInTooltop = settingsManager.getSetting("shared.chat.tooltips.images");
       const tooltipEl = parseHTML(
         cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
-					${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
+					${imageInTooltop ? emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
 					<span>${emote.name}</span>
 				</div>`),
         true
@@ -1273,13 +1259,15 @@ var EmoteMenuComponent = class extends AbstractComponent {
       const rect = target.getBoundingClientRect();
       tooltipEl.style.top = rect.top - rect.height / 2 + "px";
       tooltipEl.style.left = rect.left + rect.width / 2 + "px";
-    });
-    this.scrollableEl?.addEventListener("mouseleave", (evt) => {
-      const target = evt.target;
-      if (target.tagName !== "IMG")
-        return;
-      if (this.tooltipEl)
-        this.tooltipEl.remove();
+      target.addEventListener(
+        "mouseleave",
+        () => {
+          if (this.tooltipEl)
+            this.tooltipEl.remove();
+          lastEnteredElement = null;
+        },
+        { once: true }
+      );
     });
     this.searchInputEl?.addEventListener("input", this.handleSearchInput.bind(this));
     this.panels.emotes?.addEventListener("click", (evt) => {
@@ -1323,13 +1311,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
   handleSearchInput(evt) {
     if (!(evt.target instanceof HTMLInputElement))
       return;
+    const { emotesManager } = this.rootContext;
     const searchVal = evt.target.value;
     if (searchVal.length) {
       this.switchPanel("search");
     } else {
       this.switchPanel("emotes");
     }
-    const emotesResult = this.emotesManager.searchEmotes(searchVal.substring(0, 20));
+    const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20));
     log(`Searching for emotes, found ${emotesResult.length} matches"`);
     while (this.panels.search?.firstChild) {
       this.panels.search.removeChild(this.panels.search.firstChild);
@@ -1338,7 +1327,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     for (const emoteResult of emotesResult) {
       if (maxResults-- <= 0)
         break;
-      this.panels.search?.append(parseHTML(this.emotesManager.getRenderableEmote(emoteResult.item, "ntv__emote")));
+      this.panels.search?.append(parseHTML(emotesManager.getRenderableEmote(emoteResult.item, "ntv__emote")));
     }
   }
   switchPanel(panel) {
@@ -1362,7 +1351,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   renderEmotes() {
     log("Rendering emotes in modal");
-    const { emotesManager, sidebarSetsEl, scrollableEl } = this;
+    const { sidebarSetsEl, scrollableEl } = this;
+    const { emotesManager } = this.rootContext;
     const emotesPanelEl = this.panels.emotes;
     if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl)
       return error("Invalid emote menu elements");
@@ -1370,7 +1360,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       ;
     while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild))
       ;
-    const emoteSets = this.emotesManager.getEmoteSets();
+    const emoteSets = emotesManager.getEmoteSets();
     const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index);
     for (const emoteSet of orderedEmoteSets) {
       const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
@@ -1787,7 +1777,7 @@ var BadgeFactory = class {
           return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17820)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#CF0038"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#CF0038"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FA4E78"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#CF0038"></path></g><defs><clipPath id="clip0_301_17820"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
         } else if (count >= 100) {
           return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17825)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#FF5008"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#FF5008"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FFC800"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#FF5008"></path></g><defs><clipPath id="clip0_301_17825"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
-        } else if (count >= 500) {
+        } else if (count >= 200) {
           return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17830)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#2FA604"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#2FA604"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#53F918"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#2FA604"></path></g><defs><clipPath id="clip0_301_17830"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
         }
     }
@@ -1796,11 +1786,8 @@ var BadgeFactory = class {
 
 // src/UserInterface/Modals/UserInfoModal.ts
 var UserInfoModal = class extends AbstractModal {
-  ENV_VARS;
-  eventBus;
-  networkInterface;
-  userInterface;
-  channelData;
+  rootContext;
+  session;
   toaster;
   username;
   userInfo;
@@ -1821,25 +1808,18 @@ var UserInfoModal = class extends AbstractModal {
   timeoutSliderComponent;
   messagesHistoryCursor = 0;
   isLoadingMessages = false;
-  constructor({
-    ENV_VARS,
-    eventBus,
-    networkInterface,
-    toaster,
-    userInterface
-  }, channelData, username) {
+  constructor(rootContext, session, {
+    toaster
+  }, username) {
     const geometry = {
       width: "340px",
       position: "chat-top"
     };
     super("user-info", geometry);
-    this.ENV_VARS = ENV_VARS;
-    this.eventBus = eventBus;
-    this.networkInterface = networkInterface;
-    this.userInterface = userInterface;
+    this.rootContext = rootContext;
+    this.session = session;
     this.toaster = toaster;
     this.username = username;
-    this.channelData = channelData;
   }
   init() {
     super.init();
@@ -1847,7 +1827,8 @@ var UserInfoModal = class extends AbstractModal {
   }
   async render() {
     super.render();
-    const is_moderator = this.channelData.me.is_super_admin || this.channelData.me.is_moderator || this.channelData.me.is_broadcaster;
+    const { channelData } = this.session;
+    const is_moderator = channelData.me.is_super_admin || channelData.me.is_moderator || channelData.me.is_broadcaster;
     await this.updateUserInfo();
     const userInfo = this.userInfo || {
       id: "",
@@ -1918,7 +1899,7 @@ var UserInfoModal = class extends AbstractModal {
 				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(BadgeFactory.getBadge).join("")}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? "Unfollow" : "Follow"}</button>
-					<!--<button class="ntv__button">Mute</button>-->
+					<button class="ntv__button">${this.rootContext.usersManager.hasMutedUser(userInfo.id) ? "Unmute" : "Mute"}</button>
 					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
@@ -2002,9 +1983,7 @@ var UserInfoModal = class extends AbstractModal {
   attachEventHandlers() {
     super.attachEventHandlers();
     this.actionFollowEl?.addEventListener("click", this.clickFollowHandler.bind(this));
-    this.actionMuteEl?.addEventListener("click", () => {
-      log("Mute button clicked");
-    });
+    this.actionMuteEl?.addEventListener("click", this.clickMuteHandler.bind(this));
     this.actionReportEl?.addEventListener("click", () => {
       log("Report button clicked");
     });
@@ -2018,13 +1997,14 @@ var UserInfoModal = class extends AbstractModal {
   }
   async clickFollowHandler() {
     log("Follow button clicked");
+    const { networkInterface } = this.rootContext;
     const { userInfo } = this;
     if (!userInfo)
       return;
     this.actionFollowEl.classList.add("ntv__button--disabled");
     if (userInfo.isFollowing) {
       try {
-        await this.networkInterface.unfollowUser(this.username);
+        await networkInterface.unfollowUser(this.username);
         userInfo.isFollowing = false;
         this.actionFollowEl.textContent = "Follow";
       } catch (err) {
@@ -2038,7 +2018,7 @@ var UserInfoModal = class extends AbstractModal {
       }
     } else {
       try {
-        await this.networkInterface.followUser(this.username);
+        await networkInterface.followUser(this.username);
         userInfo.isFollowing = true;
         this.actionFollowEl.textContent = "Unfollow";
       } catch (err) {
@@ -2052,6 +2032,25 @@ var UserInfoModal = class extends AbstractModal {
       }
     }
     this.actionFollowEl.classList.remove("ntv__button--disabled");
+  }
+  async clickMuteHandler() {
+    const { userInfo } = this;
+    if (!userInfo)
+      return;
+    const { id, username } = userInfo;
+    const { usersManager } = this.rootContext;
+    const user = usersManager.getUserById(id);
+    if (!user)
+      return;
+    if (user.muted) {
+      log("Unmuting user:", username);
+      usersManager.unmuteUserById(user.id);
+      this.actionMuteEl.textContent = "Mute";
+    } else {
+      log("Muting user:", username);
+      usersManager.muteUserById(user.id);
+      this.actionMuteEl.textContent = "Unmute";
+    }
   }
   async clickTimeoutHandler() {
     log("Timeout button clicked");
@@ -2089,7 +2088,7 @@ var UserInfoModal = class extends AbstractModal {
       const reason = timeoutWrapperEl.querySelector("textarea").value;
       timeoutPageEl.setAttribute("disabled", "");
       try {
-        await this.networkInterface.sendCommand({
+        await this.rootContext.networkInterface.sendCommand({
           name: "timeout",
           args: [this.username, duration, reason]
         });
@@ -2115,7 +2114,8 @@ var UserInfoModal = class extends AbstractModal {
   }
   async clickVIPHandler() {
     log("VIP button clicked");
-    const { networkInterface, userInfo } = this;
+    const { networkInterface } = this.rootContext;
+    const { userInfo } = this;
     if (!userInfo)
       return;
   }
@@ -2123,7 +2123,8 @@ var UserInfoModal = class extends AbstractModal {
     if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled"))
       return;
     this.modActionButtonBanEl.classList.add("ntv__icon-button--disabled");
-    const { networkInterface, userInfo, userChannelInfo } = this;
+    const { networkInterface } = this.rootContext;
+    const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo)
       return;
     if (userChannelInfo.banned) {
@@ -2186,7 +2187,9 @@ var UserInfoModal = class extends AbstractModal {
     messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
   }
   async loadMoreMessagesHistory() {
-    const { networkInterface, userInfo, modLogsPageEl, messagesHistoryEl } = this;
+    const { networkInterface } = this.rootContext;
+    const { channelData, userInterface } = this.session;
+    const { userInfo, modLogsPageEl, messagesHistoryEl } = this;
     if (!userInfo || !modLogsPageEl || !messagesHistoryEl)
       return;
     const cursor = this.messagesHistoryCursor;
@@ -2197,7 +2200,7 @@ var UserInfoModal = class extends AbstractModal {
     this.isLoadingMessages = true;
     let res;
     try {
-      res = await networkInterface.getUserMessages(this.channelData.channel_id, userInfo.id, cursor);
+      res = await networkInterface.getUserMessages(channelData.channel_id, userInfo.id, cursor);
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
         this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
@@ -2251,7 +2254,7 @@ var UserInfoModal = class extends AbstractModal {
     messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
     messagesHistoryEl.querySelectorAll(".ntv__chat-message[unrendered]").forEach((messageEl) => {
       messageEl.querySelectorAll(".ntv__chat-message__part").forEach((messagePartEl) => {
-        this.userInterface.renderEmotesInElement(messagePartEl);
+        userInterface.renderEmotesInElement(messagePartEl);
       });
       messageEl.removeAttribute("unrendered");
     });
@@ -2265,14 +2268,13 @@ var UserInfoModal = class extends AbstractModal {
       this.loadMoreMessagesHistory();
   }
   async updateUserInfo() {
+    const { networkInterface } = this.rootContext;
+    const { channelData } = this.session;
     try {
       delete this.userInfo;
       delete this.userChannelInfo;
-      this.userInfo = await this.networkInterface.getUserInfo(this.username);
-      this.userChannelInfo = await this.networkInterface.getUserChannelInfo(
-        this.channelData.channel_name,
-        this.username
-      );
+      this.userInfo = await networkInterface.getUserInfo(this.username);
+      this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channel_name, this.username);
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
         this.toaster.addToast("Failed to get user info: " + err.errors.join(" "), 6e3, "error");
@@ -2689,13 +2691,8 @@ var Toaster = class {
 
 // src/UserInterface/AbstractUserInterface.ts
 var AbstractUserInterface = class {
-  ENV_VARS;
-  channelData;
-  eventBus;
-  networkInterface;
-  settingsManager;
-  emotesManager;
-  usersManager;
+  rootContext;
+  session;
   inputController = null;
   clipboard = new Clipboard2();
   toaster = new Toaster();
@@ -2707,25 +2704,12 @@ var AbstractUserInterface = class {
    * @param {EventBus} eventBus
    * @param {object} deps
    */
-  constructor({
-    ENV_VARS,
-    channelData,
-    eventBus,
-    networkInterface,
-    settingsManager,
-    emotesManager,
-    usersManager
-  }) {
-    this.ENV_VARS = ENV_VARS;
-    this.channelData = channelData;
-    this.eventBus = eventBus;
-    this.networkInterface = networkInterface;
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
-    this.usersManager = usersManager;
+  constructor(rootContext, session) {
+    this.rootContext = rootContext;
+    this.session = session;
   }
   loadInterface() {
-    const { eventBus } = this;
+    const { eventBus } = this.rootContext;
     eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
       assertArgDefined(data.username);
       this.showUserInfoModal(data.username);
@@ -2736,7 +2720,7 @@ var AbstractUserInterface = class {
     this.toaster.addToast(message, 4e3, "error");
   }
   renderEmotesInElement(textElement, appendTo) {
-    const { emotesManager } = this;
+    const { emotesManager } = this.rootContext;
     const text = textElement.textContent || "";
     const tokens = text.split(" ");
     const newNodes = [];
@@ -2776,20 +2760,17 @@ var AbstractUserInterface = class {
   showUserInfoModal(username) {
     log("Showing user info modal..");
     const modal = new UserInfoModal(
+      this.rootContext,
+      this.session,
       {
-        ENV_VARS: this.ENV_VARS,
-        eventBus: this.eventBus,
-        networkInterface: this.networkInterface,
-        toaster: this.toaster,
-        userInterface: this
+        toaster: this.toaster
       },
-      this.channelData,
       username
     ).init();
   }
   // Submits input to chat
   submitInput(suppressEngagementEvent) {
-    const { eventBus } = this;
+    const { eventBus, networkInterface } = this.rootContext;
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor)
       return error("Unable to submit input, the input controller is not loaded yet.");
@@ -2801,7 +2782,7 @@ var AbstractUserInterface = class {
       return;
     if (this.replyMessageData) {
       const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData;
-      this.networkInterface.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername).then((res) => {
+      networkInterface.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername).then((res) => {
         if (res.status.error) {
           if (res.status.message)
             this.toastError("Failed to send reply message because: " + res.status.message);
@@ -2815,7 +2796,7 @@ var AbstractUserInterface = class {
       });
       this.destroyReplyMessageContext();
     } else {
-      this.networkInterface.sendMessage(replyContent).then((res) => {
+      networkInterface.sendMessage(replyContent).then((res) => {
         if (res?.status.error) {
           if (res.status.message)
             this.toastError("Failed to send message because: " + res.status.message);
@@ -2832,11 +2813,11 @@ var AbstractUserInterface = class {
     contentEditableEditor.clearInput();
   }
   sendEmoteToChat(emoteHid) {
-    const { emotesManager } = this;
+    const { emotesManager, networkInterface } = this.rootContext;
     const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
     if (!emoteEmbedding)
       return error("Failed to send emote to chat, emote embedding not found.");
-    this.networkInterface.sendMessage(emoteEmbedding).then((res) => {
+    networkInterface.sendMessage(emoteEmbedding).then((res) => {
       if (res?.status.error) {
         if (res.status.message)
           this.toastError("Failed to send emote because: " + res.status.message);
@@ -2967,8 +2948,7 @@ var PriorityEventTarget = class {
 
 // src/Classes/ContentEditableEditor.ts
 var ContentEditableEditor = class {
-  eventBus;
-  emotesManager;
+  rootContext;
   messageHistory;
   clipboard;
   inputNode;
@@ -2980,14 +2960,11 @@ var ContentEditableEditor = class {
   emotesInMessage = /* @__PURE__ */ new Set();
   hasMouseDown = false;
   hasUnprocessedContentChanges = false;
-  constructor({
-    eventBus,
-    emotesManager,
+  constructor(rootContext, {
     messageHistory,
     clipboard
   }, contentEditableEl) {
-    this.eventBus = eventBus;
-    this.emotesManager = emotesManager;
+    this.rootContext = rootContext;
     this.messageHistory = messageHistory;
     this.clipboard = clipboard;
     this.inputNode = contentEditableEl;
@@ -3030,7 +3007,8 @@ var ContentEditableEditor = class {
     this.eventTarget.dispatchEvent(event);
   }
   attachEventListeners() {
-    const { inputNode, emotesManager, clipboard } = this;
+    const { emotesManager } = this.rootContext;
+    const { inputNode, clipboard } = this;
     document.addEventListener("selectionchange", (evt) => {
       const activeElement = document.activeElement;
       if (activeElement !== inputNode)
@@ -3092,7 +3070,7 @@ var ContentEditableEditor = class {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (!this.inputEmpty) {
-          this.eventBus.publish("ntv.input_controller.submit");
+          this.rootContext.eventBus.publish("ntv.input_controller.submit");
         }
         break;
       case " ":
@@ -3144,7 +3122,7 @@ var ContentEditableEditor = class {
       event.preventDefault();
       return this.insertText(" ");
     }
-    const emoteHid = this.emotesManager.getEmoteHidByName(word);
+    const emoteHid = this.rootContext.emotesManager.getEmoteHidByName(word);
     if (!emoteHid) {
       event.preventDefault();
       return this.insertText(" ");
@@ -3266,7 +3244,8 @@ var ContentEditableEditor = class {
   processInputContent() {
     if (!this.hasUnprocessedContentChanges)
       return;
-    const { inputNode, eventBus, emotesManager } = this;
+    const { eventBus, emotesManager } = this.rootContext;
+    const { inputNode } = this;
     const buffer = [];
     let bufferString = "";
     let emotesInMessage = this.emotesInMessage;
@@ -3666,7 +3645,8 @@ var ContentEditableEditor = class {
   }
   insertEmote(emoteHid) {
     assertArgDefined(emoteHid);
-    const { emotesManager, messageHistory, eventTarget } = this;
+    const { messageHistory, eventTarget } = this;
+    const { emotesManager } = this.rootContext;
     messageHistory.resetCursor();
     const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
     if (!emoteHTML) {
@@ -3685,7 +3665,7 @@ var ContentEditableEditor = class {
     return emoteComponent;
   }
   replaceEmote(component, emoteHid) {
-    const { emotesManager } = this;
+    const { emotesManager } = this.rootContext;
     const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
     if (!emoteHTML) {
       error("Invalid emote embed");
@@ -4072,16 +4052,12 @@ var commandsMap = [
 ];
 var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
   contentEditableEditor;
-  networkInterface;
-  eventBus;
-  constructor({
-    eventBus,
-    networkInterface,
+  rootContext;
+  constructor(rootContext, {
     contentEditableEditor
   }, containerEl) {
     super(containerEl);
-    this.eventBus = eventBus;
-    this.networkInterface = networkInterface;
+    this.rootContext = rootContext;
     this.contentEditableEditor = contentEditableEditor;
   }
   static shouldUseStrategy(event, contentEditableEditor) {
@@ -4177,7 +4153,7 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     return null;
   }
   getAvailableCommands() {
-    const channelData = this.networkInterface.channelData;
+    const channelData = this.rootContext.networkInterface.channelData;
     const is_broadcaster = channelData?.me?.is_broadcaster || false;
     const is_moderator = channelData?.me?.is_moderator || false;
     return commandsMap.filter((commandEntry) => {
@@ -4269,7 +4245,7 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
       if (isInvalid || !commandData) {
         return;
       }
-      const { networkInterface, eventBus } = this;
+      const { networkInterface, eventBus } = this.rootContext;
       if (commandEntry && typeof commandEntry.execute === "function") {
         commandEntry.execute({ eventBus, networkInterface }, commandData.args);
       } else {
@@ -4285,19 +4261,16 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
 // src/Classes/CompletionStrategies/MentionCompletionStrategy.ts
 var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
   contentEditableEditor;
-  usersManager;
+  rootContext;
   start = 0;
   end = 0;
   node = null;
   word = null;
   mentionEnd = 0;
-  constructor({
-    contentEditableEditor,
-    usersManager
-  }, containerEl) {
+  constructor(rootContext, { contentEditableEditor }, containerEl) {
     super(containerEl);
     this.contentEditableEditor = contentEditableEditor;
-    this.usersManager = usersManager;
+    this.rootContext = rootContext;
   }
   static shouldUseStrategy(event) {
     const word = Caret.getWordBeforeCaret().word;
@@ -4323,7 +4296,7 @@ var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
     this.start = start;
     this.end = end;
     this.node = node;
-    const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20);
+    const searchResults = this.rootContext.usersManager.searchUsers(word.substring(1, 20), 20);
     const userNames = searchResults.map((result) => result.item.name);
     const userIds = searchResults.map((result) => result.item.id);
     if (userNames.length) {
@@ -4432,19 +4405,16 @@ var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
 
 // src/Classes/CompletionStrategies/EmoteCompletionStrategy.ts
 var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
-  emotesManager;
+  rootContext;
   contentEditableEditor;
   start = 0;
   end = 0;
   node = null;
   word = null;
   emoteComponent = null;
-  constructor({
-    emotesManager,
-    contentEditableEditor
-  }, containerEl) {
+  constructor(rootContext, { contentEditableEditor }, containerEl) {
     super(containerEl);
-    this.emotesManager = emotesManager;
+    this.rootContext = rootContext;
     this.contentEditableEditor = contentEditableEditor;
   }
   static shouldUseStrategy(event) {
@@ -4466,18 +4436,19 @@ var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
       this.destroy();
       return;
     }
+    const { emotesManager } = this.rootContext;
     this.word = word;
     this.start = start;
     this.end = end;
     this.node = node;
-    const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20);
+    const searchResults = emotesManager.searchEmotes(word.substring(0, 20), 20);
     const emoteNames = searchResults.map((result) => result.item.name);
-    const emoteHids = searchResults.map((result) => this.emotesManager.getEmoteHidByName(result.item.name));
+    const emoteHids = searchResults.map((result) => emotesManager.getEmoteHidByName(result.item.name));
     if (emoteNames.length) {
       for (let i = 0; i < emoteNames.length; i++) {
         const emoteName = emoteNames[i];
         const emoteHid = emoteHids[i];
-        const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
+        const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
         this.navWindow.addEntry(
           { emoteHid },
           parseHTML(
@@ -4596,25 +4567,15 @@ var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
 // src/Classes/InputCompletor.ts
 var InputCompletor = class {
   currentActiveStrategy;
+  rootContext;
   contentEditableEditor;
-  networkInterface;
-  emotesManager;
-  usersManager;
   containerEl;
-  eventBus;
-  constructor({
-    contentEditableEditor,
-    networkInterface,
-    emotesManager,
-    usersManager,
-    eventBus
+  constructor(rootContext, {
+    contentEditableEditor
   }, containerEl) {
+    this.rootContext = rootContext;
     this.contentEditableEditor = contentEditableEditor;
-    this.networkInterface = networkInterface;
-    this.emotesManager = emotesManager;
-    this.usersManager = usersManager;
     this.containerEl = containerEl;
-    this.eventBus = eventBus;
   }
   attachEventHandlers() {
     this.contentEditableEditor.addEventListener("keydown", 8, this.handleKeyDown.bind(this));
@@ -4632,26 +4593,25 @@ var InputCompletor = class {
     if (!this.currentActiveStrategy) {
       if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
         this.currentActiveStrategy = new CommandCompletionStrategy(
+          this.rootContext,
           {
-            eventBus: this.eventBus,
-            networkInterface: this.networkInterface,
             contentEditableEditor: this.contentEditableEditor
           },
           this.containerEl
         );
       } else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
         this.currentActiveStrategy = new MentionCompletionStrategy(
+          this.rootContext,
           {
-            contentEditableEditor: this.contentEditableEditor,
-            usersManager: this.usersManager
+            contentEditableEditor: this.contentEditableEditor
           },
           this.containerEl
         );
       } else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
         this.currentActiveStrategy = new EmoteCompletionStrategy(
+          this.rootContext,
           {
-            contentEditableEditor: this.contentEditableEditor,
-            emotesManager: this.emotesManager
+            contentEditableEditor: this.contentEditableEditor
           },
           this.containerEl
         );
@@ -4685,45 +4645,31 @@ var InputCompletor = class {
 
 // src/Managers/InputController.ts
 var InputController = class {
-  networkInterface;
-  settingsManager;
+  rootContext;
   messageHistory;
-  emotesManager;
-  usersManager;
   tabCompletor;
-  eventBus;
   contentEditableEditor;
-  constructor({
-    settingsManager,
-    eventBus,
-    networkInterface,
-    emotesManager,
-    usersManager,
+  constructor(rootContext, {
     clipboard
   }, textFieldEl) {
-    this.settingsManager = settingsManager;
-    this.networkInterface = networkInterface;
-    this.emotesManager = emotesManager;
-    this.usersManager = usersManager;
-    this.eventBus = eventBus;
+    this.rootContext = rootContext;
     this.messageHistory = new MessagesHistory();
     this.contentEditableEditor = new ContentEditableEditor(
-      { eventBus, emotesManager, messageHistory: this.messageHistory, clipboard },
+      this.rootContext,
+      { messageHistory: this.messageHistory, clipboard },
       textFieldEl
     );
     this.tabCompletor = new InputCompletor(
+      this.rootContext,
       {
-        eventBus,
-        networkInterface,
-        emotesManager,
-        usersManager,
         contentEditableEditor: this.contentEditableEditor
       },
       textFieldEl.parentElement
     );
   }
   initialize() {
-    const { eventBus, contentEditableEditor } = this;
+    const { eventBus } = this.rootContext;
+    const { contentEditableEditor } = this;
     contentEditableEditor.attachEventListeners();
     contentEditableEditor.addEventListener("keydown", 9, (event) => {
       if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
@@ -4733,7 +4679,8 @@ var InputController = class {
     eventBus.subscribe("ntv.ui.input_submitted", this.handleInputSubmit.bind(this));
   }
   handleInputSubmit({ suppressEngagementEvent }) {
-    const { contentEditableEditor, emotesManager, messageHistory } = this;
+    const { emotesManager } = this.rootContext;
+    const { contentEditableEditor, messageHistory } = this;
     if (!suppressEngagementEvent) {
       const emotesInMessage = contentEditableEditor.getEmotesInMessage();
       for (const emoteHid of emotesInMessage) {
@@ -4757,7 +4704,8 @@ var InputController = class {
     });
   }
   loadChatHistoryBehaviour() {
-    const { settingsManager, contentEditableEditor } = this;
+    const { settingsManager } = this.rootContext;
+    const { contentEditableEditor } = this;
     if (!settingsManager.getSetting("shared.chat.input.history.enabled"))
       return;
     contentEditableEditor.addEventListener("keydown", 4, (event) => {
@@ -4817,13 +4765,15 @@ var KickUserInterface = class extends AbstractUserInterface {
   };
   stickyScroll = true;
   maxMessageLength = 500;
-  constructor(deps) {
-    super(deps);
+  constructor(rootContext, session) {
+    super(rootContext, session);
   }
   async loadInterface() {
     info("Creating user interface..");
     super.loadInterface();
-    const { eventBus, settingsManager, abortController } = this;
+    const { eventBus, settingsManager } = this.rootContext;
+    const { channelData } = this.session;
+    const { abortController } = this;
     const abortSignal = abortController.signal;
     this.loadSettings();
     waitForElements(["#message-input", "#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
@@ -4831,15 +4781,12 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.loadEmoteMenu();
       this.loadEmoteMenuButton();
       this.loadQuickEmotesHolder();
-      if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
-        document.getElementById("chatroom")?.classList.add("ntv__hide-emote-menu-button");
-      }
       if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
         document.getElementById("chatroom")?.classList.add("ntv__smooth-scrolling");
       }
     }).catch(() => {
     });
-    const chatMessagesContainerSelector = this.channelData.is_vod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
+    const chatMessagesContainerSelector = channelData.is_vod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
     waitForElements([chatMessagesContainerSelector], 5e3, abortSignal).then(() => {
       this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector);
       if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
@@ -4871,9 +4818,18 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     eventBus.subscribe("ntv.input_controller.submit", this.submitInput.bind(this));
-    eventBus.subscribe("ntv.settings.change.shared.chat.appearance.alternating_background", (value) => {
-      document.getElementById("chatroom")?.classList.toggle("ntv__alternating-background", value);
-    });
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.behavior.smooth_scrolling",
+      ({ value, prevValue }) => {
+        document.getElementById("chatroom")?.classList.toggle("ntv__smooth-scrolling", !!value);
+      }
+    );
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.appearance.alternating_background",
+      ({ value, prevValue }) => {
+        document.getElementById("chatroom")?.classList.toggle("ntv__alternating-background", !!value);
+      }
+    );
     eventBus.subscribe(
       "ntv.settings.change.shared.chat.appearance.seperators",
       ({ value, prevValue }) => {
@@ -4888,30 +4844,22 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   // TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
   async loadEmoteMenu() {
-    const { channelData, eventBus, settingsManager, emotesManager } = this;
     if (!this.elm.textField)
       return error("Text field not loaded for emote menu");
     const container = this.elm.textField.parentElement.parentElement;
-    this.emoteMenu = new EmoteMenuComponent(
-      { channelData, eventBus, emotesManager, settingsManager },
-      container
-    ).init();
+    this.emoteMenu = new EmoteMenuComponent(this.rootContext, this.session, container).init();
     this.elm.textField.addEventListener("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
   }
   async loadEmoteMenuButton() {
-    const { ENV_VARS, eventBus, settingsManager } = this;
-    this.emoteMenuButton = new EmoteMenuButtonComponent({ ENV_VARS, eventBus, settingsManager }).init();
+    this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext).init();
   }
   async loadQuickEmotesHolder() {
-    const { eventBus, settingsManager, emotesManager } = this;
+    const { eventBus, settingsManager } = this.rootContext;
     const quickEmotesHolderEnabled = settingsManager.getSetting("shared.chat.quick_emote_holder.enabled");
     if (quickEmotesHolderEnabled) {
       const placeholder = document.createElement("div");
       document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
-      this.quickEmotesHolder = new QuickEmotesHolderComponent(
-        { eventBus, settingsManager, emotesManager },
-        placeholder
-      ).init();
+      this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init();
     }
     eventBus.subscribe(
       "ntv.settings.change.shared.chat.quick_emote_holder.enabled",
@@ -4919,14 +4867,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (value) {
           const placeholder = document.createElement("div");
           document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
-          this.quickEmotesHolder = new QuickEmotesHolderComponent(
-            {
-              eventBus,
-              settingsManager,
-              emotesManager
-            },
-            placeholder
-          ).init();
+          this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init();
         } else {
           this.quickEmotesHolder?.destroy();
           this.quickEmotesHolder = null;
@@ -4939,21 +4880,30 @@ var KickUserInterface = class extends AbstractUserInterface {
     });
   }
   loadSettings() {
-    const { eventBus, settingsManager } = this;
+    const { eventBus, settingsManager } = this.rootContext;
     const firstMessageHighlightColor = settingsManager.getSetting("shared.chat.appearance.highlight_color");
     if (firstMessageHighlightColor) {
       const rgb = hex2rgb(firstMessageHighlightColor);
-      document.documentElement.style.setProperty("--ntv-color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+      document.documentElement.style.setProperty(
+        "--ntv-background-highlight-accent-1",
+        `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+      );
     }
-    eventBus.subscribe("ntv.settings.change.shared.chat.appearance.highlight_color", (data) => {
-      if (!data.value)
-        return;
-      const rgb = hex2rgb(data.value);
-      document.documentElement.style.setProperty("--ntv-color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
-    });
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.appearance.highlight_color",
+      ({ value, prevValue }) => {
+        if (!value)
+          return;
+        const rgb = hex2rgb(value);
+        document.documentElement.style.setProperty(
+          "--ntv-background-highlight-accent-1",
+          `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+        );
+      }
+    );
   }
   loadShadowProxyElements() {
-    if (!this.channelData.me.is_logged_in)
+    if (!this.session.channelData.me.is_logged_in)
       return;
     const submitButtonEl = this.elm.submitButton = parseHTML(
       `<button class="ntv__submit-button disabled">Chat</button>`,
@@ -4985,12 +4935,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     document.getElementById("chatroom")?.classList.add("ntv__hide-chat-input");
     submitButtonEl.addEventListener("click", () => this.submitInput());
     const inputController = this.inputController = new InputController(
+      this.rootContext,
       {
-        settingsManager: this.settingsManager,
-        eventBus: this.eventBus,
-        networkInterface: this.networkInterface,
-        emotesManager: this.emotesManager,
-        usersManager: this.usersManager,
         clipboard: this.clipboard
       },
       textFieldEl
@@ -5017,7 +4963,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldEl.addEventListener("copy", (evt) => {
       this.clipboard.handleCopyEvent(evt);
     });
-    this.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
+    this.rootContext.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
       if (value > this.maxMessageLength) {
         textFieldWrapperEl.setAttribute("data-char-count", value);
         textFieldWrapperEl.classList.add("ntv__message-input__wrapper--char-limit-reached");
@@ -5129,7 +5075,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     return messageContent.join(" ");
   }
   loadReplyBehaviour() {
-    const { channelData, inputController } = this;
+    const { inputController } = this;
+    const { channelData } = this.session;
     if (!inputController)
       return error("Input controller not loaded for reply behaviour");
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
@@ -5216,7 +5163,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (!chatMessagesContainerEl)
       return error("Chat messages container not loaded for observing");
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
-    this.eventBus.subscribe("ntv.providers.loaded", () => {
+    this.rootContext.eventBus.subscribe("ntv.providers.loaded", () => {
       const observer = this.chatObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes.length) {
@@ -5233,7 +5180,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
       observer.observe(chatMessagesContainerEl, { childList: true });
     });
-    const showTooltips = this.settingsManager.getSetting("shared.chat.tooltips.images");
+    const showTooltips = this.rootContext.settingsManager.getSetting("shared.chat.tooltips.images");
     chatMessagesContainerEl.addEventListener("mouseover", (evt) => {
       const target = evt.target;
       if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
@@ -5267,7 +5214,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatroomTopEl = document.getElementById("chatroom-top");
     if (!chatroomTopEl)
       return error("Chatroom top not loaded for observing pinned message");
-    this.eventBus.subscribe("ntv.providers.loaded", () => {
+    this.rootContext.eventBus.subscribe("ntv.providers.loaded", () => {
       const observer = this.pinnedMessageObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes.length) {
@@ -5296,24 +5243,30 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
   }
   renderChatMessage(messageNode) {
-    if (!this.channelData.is_vod) {
+    const { usersManager, settingsManager, emotesManager } = this.rootContext;
+    const { channelData } = this.session;
+    if (!channelData.is_vod) {
       const usernameEl = messageNode.querySelector(".chat-entry-username");
       if (usernameEl) {
         const { chatEntryUser, chatEntryUserId } = usernameEl.dataset;
         const chatEntryUserName = usernameEl.textContent;
         if (chatEntryUserId && chatEntryUserName) {
-          if (!this.usersManager.hasSeenUser(chatEntryUserId)) {
-            const enableFirstMessageHighlight = this.settingsManager.getSetting(
+          if (usersManager.hasMutedUser(chatEntryUserId)) {
+            messageNode.remove();
+            return;
+          }
+          if (!usersManager.hasSeenUser(chatEntryUserId)) {
+            const enableFirstMessageHighlight = settingsManager.getSetting(
               "shared.chat.appearance.highlight_first_message"
             );
-            const highlightWhenModeratorOnly = this.settingsManager.getSetting(
+            const highlightWhenModeratorOnly = settingsManager.getSetting(
               "shared.chat.appearance.highlight_first_message_moderator"
             );
-            if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && this.channelData.me.is_moderator)) {
+            if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.is_moderator)) {
               messageNode.classList.add("ntv__highlight-first-message");
             }
           }
-          this.usersManager.registerUser(chatEntryUserId, chatEntryUserName);
+          usersManager.registerUser(chatEntryUserId, chatEntryUserName);
         }
       }
     }
@@ -5345,7 +5298,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
     if (!contentNodes[firstContentNodeIndex])
       return;
-    const emotesManager = this.emotesManager;
     for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
       const contentNode = contentNodes[i];
       const componentNode = contentNode.children[0];
@@ -6057,12 +6009,6 @@ var SettingsManager = class {
               label: "Appearance",
               children: [
                 {
-                  label: "Hide Kick's emote menu button",
-                  id: "shared.chat.appearance.hide_emote_menu_button",
-                  default: true,
-                  type: "checkbox"
-                },
-                {
                   label: "Highlight first user messages",
                   id: "shared.chat.appearance.highlight_first_message",
                   default: false,
@@ -6742,7 +6688,7 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     return {
       id: userOwnChannelInfo.user.id,
       username: userOwnChannelInfo.user.username,
-      profilePic: userOwnChannelInfo.user.profile_pic || this.ENV_VARS.RESOURCE_ROOT + "assets/img/kick/default-user-profile.png",
+      profilePic: userOwnChannelInfo.user.profile_pic || RESOURCE_ROOT + "assets/img/kick/default-user-profile.png",
       bannerImg: userOwnChannelInfo?.banner_image?.url || "",
       createdAt: userOwnChannelInfo?.chatroom?.created_at ? new Date(userOwnChannelInfo?.chatroom?.created_at) : null,
       isFollowing: userMeInfo.is_following
@@ -6821,7 +6767,14 @@ var UsersDatastore = class {
   hasUser(id) {
     return this.usersIdMap.has(id);
   }
+  hasMutedUser(id) {
+    const user = this.usersIdMap.get(id);
+    if (!user)
+      return false;
+    return user.muted ?? false;
+  }
   registerUser(id, name) {
+    typeof id === "string" || error("Invalid user id:", id);
     if (this.usersIdMap.has(id))
       return;
     if (this.usersCount >= this.maxUsers) {
@@ -6836,10 +6789,24 @@ var UsersDatastore = class {
     this.usersCount++;
   }
   getUserById(id) {
-    return this.usersIdMap.get(id);
+    return this.usersIdMap.get(id + "");
   }
   searchUsers(searchVal) {
     return this.fuse.search(searchVal);
+  }
+  muteUserById(id) {
+    const user = this.usersIdMap.get(id + "");
+    if (!user)
+      return;
+    user.muted = true;
+    this.eventBus.publish("ntv.user.muted", user);
+  }
+  unmuteUserById(id) {
+    const user = this.usersIdMap.get(id + "");
+    if (!user)
+      return;
+    user.muted = false;
+    this.eventBus.publish("ntv.user.unmuted", user);
   }
 };
 
@@ -6852,6 +6819,9 @@ var UsersManager = class {
   hasSeenUser(id) {
     return this.datastore.hasUser(id);
   }
+  hasMutedUser(id) {
+    return this.datastore.hasMutedUser(id);
+  }
   registerUser(id, name) {
     this.datastore.registerUser(id, name);
   }
@@ -6861,14 +6831,18 @@ var UsersManager = class {
   searchUsers(searchVal, limit = 20) {
     return this.datastore.searchUsers(searchVal).slice(0, limit);
   }
+  muteUserById(id) {
+    this.datastore.muteUserById(id);
+  }
+  unmuteUserById(id) {
+    this.datastore.unmuteUserById(id);
+  }
 };
 
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.4",
-    PLATFORM: PLATFORM_ENUM.NULL,
-    RESOURCE_ROOT: null,
+    VERSION: "1.4.5",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -6882,28 +6856,31 @@ var NipahClient = class {
   emotesManager = null;
   database = null;
   channelData = null;
+  sessions = [];
   initialize() {
     const { ENV_VARS } = this;
     info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
     if (false) {
       info("Running in debug mode enabled..");
-      ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
+      RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
       wwindow.NipahTV = this;
     } else if (false) {
       info("Running in extension mode..");
-      ENV_VARS.RESOURCE_ROOT = browser.runtime.getURL("/");
+      RESOURCE_ROOT = browser.runtime.getURL("/");
     } else {
-      ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
+      RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
     }
+    Object.freeze(RESOURCE_ROOT);
     if (wwindow.location.host === "kick.com") {
-      ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
+      PLATFORM = PLATFORM_ENUM.KICK;
       info("Platform detected: Kick");
     } else if (wwindow.location.host === "www.twitch.tv") {
-      ENV_VARS.PLATFORM = PLATFORM_ENUM.TWITCH;
+      PLATFORM = PLATFORM_ENUM.TWITCH;
       info("Platform detected: Twitch");
     } else {
       return error("Unsupported platform", wwindow.location.host);
     }
+    Object.freeze(PLATFORM);
     this.attachPageNavigationListener();
     this.setupDatabase().then(() => {
       this.setupClientEnvironment().catch((err) => error("Failed to setup client environment.\n\n", err.message));
@@ -6928,9 +6905,9 @@ var NipahClient = class {
     info("Setting up client environment..");
     const eventBus = new Publisher();
     this.eventBus = eventBus;
-    if (ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK) {
+    if (PLATFORM === PLATFORM_ENUM.KICK) {
       this.networkInterface = new KickNetworkInterface({ ENV_VARS });
-    } else if (ENV_VARS.PLATFORM === PLATFORM_ENUM.TWITCH) {
+    } else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
       throw new Error("Twitch platform is not supported yet.");
     } else {
       throw new Error("Unsupported platform");
@@ -6959,20 +6936,29 @@ var NipahClient = class {
     );
     emotesManager.initialize();
     const usersManager = new UsersManager({ eventBus, settingsManager });
+    const rootContext = {
+      eventBus,
+      networkInterface,
+      database,
+      emotesManager,
+      settingsManager,
+      usersManager
+    };
+    this.createChannelSession(rootContext, channelData);
+  }
+  createChannelSession(rootContext, channelData) {
+    const { emotesManager } = rootContext;
+    const session = {
+      channelData
+    };
     let userInterface;
-    if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-      userInterface = new KickUserInterface({
-        ENV_VARS,
-        channelData,
-        eventBus,
-        networkInterface,
-        settingsManager,
-        emotesManager,
-        usersManager
-      });
+    if (PLATFORM === PLATFORM_ENUM.KICK) {
+      userInterface = new KickUserInterface(rootContext, session);
     } else {
-      return error("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
+      return error("Platform has no user interface implemented..", PLATFORM);
     }
+    session.userInterface = userInterface;
+    this.sessions.push(session);
     if (!this.stylesLoaded) {
       this.loadStyles().then(() => {
         this.stylesLoaded = true;
@@ -6981,7 +6967,6 @@ var NipahClient = class {
     } else {
       userInterface.loadInterface();
     }
-    this.userInterface = userInterface;
     emotesManager.registerProvider(KickProvider);
     emotesManager.registerProvider(SevenTVProvider);
     const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV];
@@ -6995,7 +6980,7 @@ var NipahClient = class {
       if (false) {
         GM_xmlhttpRequest({
           method: "GET",
-          url: this.ENV_VARS.RESOURCE_ROOT + "dist/css/kick.css",
+          url: RESOURCE_ROOT + "dist/css/kick.css",
           onerror: () => reject("Failed to load local stylesheet"),
           onload: function(response) {
             log("Loaded styles from local resource..");
@@ -7005,7 +6990,7 @@ var NipahClient = class {
         });
       } else {
         let style;
-        switch (this.ENV_VARS.PLATFORM) {
+        switch (PLATFORM) {
           case PLATFORM_ENUM.KICK:
             style = "KICK_CSS";
             break;
@@ -7081,6 +7066,8 @@ var NipahClient = class {
   if (!twemoji && !wwindow2["twemoji"]) {
     return error("Failed to import Twemoji");
   }
+  PLATFORM = PLATFORM_ENUM.NULL;
+  RESOURCE_ROOT = "";
   const nipahClient = new NipahClient();
   nipahClient.initialize();
 })();

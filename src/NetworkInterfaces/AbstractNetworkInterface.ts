@@ -1,4 +1,4 @@
-import type { Badge } from "../Factories/BadgeFactory"
+import type { Badge } from '../Factories/BadgeFactory'
 
 export type UserInfo = {
 	id: string

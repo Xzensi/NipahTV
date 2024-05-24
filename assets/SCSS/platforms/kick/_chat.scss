@@ -91,18 +91,9 @@
 	}
 }
 
-.ntv__chat-messages-container {
-	&--smooth-scrolling,
+.ntv__smooth-scrolling {
 	.overflow-y-scroll {
 		scroll-behavior: smooth;
-	}
-
-	> div {
-		display: none;
-	}
-
-	.ntv__chat-message {
-		display: block;
 	}
 }
 

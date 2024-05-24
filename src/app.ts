@@ -20,9 +20,7 @@ import { UsersManager } from './Managers/UsersManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.4',
-		PLATFORM: PLATFORM_ENUM.NULL,
-		RESOURCE_ROOT: null as string | null,
+		VERSION: '1.4.5',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -37,6 +35,7 @@ class NipahClient {
 	emotesManager: EmotesManager | null = null
 	private database: DatabaseProxy | null = null
 	private channelData: ChannelData | null = null
+	private sessions: Session[] = []
 
 	initialize() {
 		const { ENV_VARS } = this
@@ -45,24 +44,28 @@ class NipahClient {
 
 		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')
-			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
+			RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
 			wwindow.NipahTV = this
 		} else if (!__USERSCRIPT__) {
 			info('Running in extension mode..')
-			ENV_VARS.RESOURCE_ROOT = browser.runtime.getURL('/')
+			RESOURCE_ROOT = browser.runtime.getURL('/')
 		} else {
-			ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
+			RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
 		}
 
+		Object.freeze(RESOURCE_ROOT)
+
 		if (wwindow.location.host === 'kick.com') {
-			ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK
+			PLATFORM = PLATFORM_ENUM.KICK
 			info('Platform detected: Kick')
 		} else if (wwindow.location.host === 'www.twitch.tv') {
-			ENV_VARS.PLATFORM = PLATFORM_ENUM.TWITCH
+			PLATFORM = PLATFORM_ENUM.TWITCH
 			info('Platform detected: Twitch')
 		} else {
 			return error('Unsupported platform', wwindow.location.host)
 		}
+
+		Object.freeze(PLATFORM)
 
 		this.attachPageNavigationListener()
 		this.setupDatabase().then(() => {
@@ -109,9 +112,9 @@ class NipahClient {
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
 
-		if ((ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK)) {
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			this.networkInterface = new KickNetworkInterface({ ENV_VARS })
-		} else if (ENV_VARS.PLATFORM === PLATFORM_ENUM.TWITCH) {
+		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
 			// this.networkInterface = new TwitchNetworkInterface()
 			throw new Error('Twitch platform is not supported yet.')
 		} else {
@@ -146,20 +149,35 @@ class NipahClient {
 
 		const usersManager = new UsersManager({ eventBus, settingsManager })
 
-		let userInterface: KickUserInterface
-		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-			userInterface = new KickUserInterface({
-				ENV_VARS,
-				channelData,
-				eventBus,
-				networkInterface,
-				settingsManager,
-				emotesManager,
-				usersManager
-			})
-		} else {
-			return error('Platform has no user interface implemented..', ENV_VARS.PLATFORM)
+		//* The shared context for all sessions
+		const rootContext: RootContext = {
+			eventBus,
+			networkInterface,
+			database,
+			emotesManager,
+			settingsManager,
+			usersManager
 		}
+
+		this.createChannelSession(rootContext, channelData)
+	}
+
+	createChannelSession(rootContext: RootContext, channelData: ChannelData) {
+		const { emotesManager } = rootContext
+
+		const session: Session = {
+			channelData
+		}
+
+		let userInterface: KickUserInterface
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
+			userInterface = new KickUserInterface(rootContext, session)
+		} else {
+			return error('Platform has no user interface implemented..', PLATFORM)
+		}
+
+		session.userInterface = userInterface
+		this.sessions.push(session)
 
 		if (!this.stylesLoaded) {
 			this.loadStyles()
@@ -171,8 +189,6 @@ class NipahClient {
 		} else {
 			userInterface.loadInterface()
 		}
-
-		this.userInterface = userInterface
 
 		emotesManager.registerProvider(KickProvider)
 		emotesManager.registerProvider(SevenTVProvider)
@@ -193,7 +209,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: this.ENV_VARS.RESOURCE_ROOT + 'dist/css/kick.css',
+					url: RESOURCE_ROOT + 'dist/css/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
 						log('Loaded styles from local resource..')
@@ -203,7 +219,7 @@ class NipahClient {
 				})
 			} else {
 				let style
-				switch (this.ENV_VARS.PLATFORM) {
+				switch (PLATFORM) {
 					case PLATFORM_ENUM.KICK:
 						style = 'KICK_CSS'
 						break
@@ -297,6 +313,9 @@ class NipahClient {
 	if (!twemoji && !wwindow['twemoji']) {
 		return error('Failed to import Twemoji')
 	}
+
+	PLATFORM = PLATFORM_ENUM.NULL
+	RESOURCE_ROOT = ''
 
 	const nipahClient = new NipahClient()
 	nipahClient.initialize()
