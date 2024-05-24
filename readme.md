@@ -35,7 +35,6 @@ NipahTV aims to enhance the emote integration experience within Kick chat by pro
 
 <div align="center">
   <video src="https://github.com/Xzensi/NipahTV/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
-  (outdated demo, 7TV emotes now render as emotes in chat input)
 </div>
 <br />
 
