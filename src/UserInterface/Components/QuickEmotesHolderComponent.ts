@@ -1,8 +1,5 @@
 import { log, info, error, assertArgDefined, parseHTML } from '../../utils'
-import { SettingsManager } from '../../Managers/SettingsManager'
-import { EmotesManager } from '../../Managers/EmotesManager'
 import { AbstractComponent } from './AbstractComponent'
-import { Publisher } from '../../Classes/Publisher'
 
 export class QuickEmotesHolderComponent extends AbstractComponent {
 	// The sorting list shadow reflects the order of emotes in this.$element

@@ -1,8 +1,5 @@
-import { SettingsManager } from '../../Managers/SettingsManager'
-import { EmotesManager } from '../../Managers/EmotesManager'
-import { log, info, error, cleanupHTML, parseHTML } from '../../utils'
+import { log, error, cleanupHTML, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
-import { Publisher } from '../../Classes/Publisher'
 
 export class EmoteMenuComponent extends AbstractComponent {
 	toggleStates = {}
@@ -112,21 +109,19 @@ export class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		// Tooltip for emotes
-		this.scrollableEl?.addEventListener('mouseenter', evt => {
-			log('FLAG_0')
+		let lastEnteredElement: HTMLElement | null = null
+		this.scrollableEl?.addEventListener('mouseover', evt => {
 			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG') return
-			log('FLAG_1')
+			if (target === lastEnteredElement || target.tagName !== 'IMG') return
+			lastEnteredElement = target
 
 			const emoteHid = target.getAttribute('data-emote-hid')
 			if (!emoteHid) return
-			log('FLAG_2')
 
 			const emote = emotesManager.getEmote(emoteHid)
 			if (!emote) return
 
 			const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
-			log('FLAG_3', imageInTooltop)
 			const tooltipEl = parseHTML(
 				cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
@@ -142,13 +137,15 @@ export class EmoteMenuComponent extends AbstractComponent {
 			const rect = target.getBoundingClientRect()
 			tooltipEl.style.top = rect.top - rect.height / 2 + 'px'
 			tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
-		})
 
-		this.scrollableEl?.addEventListener('mouseleave', evt => {
-			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG') return
-
-			if (this.tooltipEl) this.tooltipEl.remove()
+			target.addEventListener(
+				'mouseleave',
+				() => {
+					if (this.tooltipEl) this.tooltipEl.remove()
+					lastEnteredElement = null
+				},
+				{ once: true }
+			)
 		})
 
 		// Search input event
