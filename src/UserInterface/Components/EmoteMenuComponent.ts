@@ -2,25 +2,25 @@ import { log, error, cleanupHTML, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
 export class EmoteMenuComponent extends AbstractComponent {
-	toggleStates = {}
-	isShowing = false
-	activePanel = 'emotes'
-	sidebarMap = new Map()
+	private toggleStates = {}
+	private isShowing = false
+	private activePanel = 'emotes'
+	private sidebarMap = new Map()
 
-	rootContext: RootContext
-	session: Session
-	parentContainer: HTMLElement
+	private rootContext: RootContext
+	private session: Session
+	private parentContainer: HTMLElement
 
-	panels: { emotes?: HTMLElement; search?: HTMLElement } = {}
-	containerEl?: HTMLElement
-	searchInputEl?: HTMLElement
-	scrollableEl?: HTMLElement
-	settingsBtnEl?: HTMLElement
-	sidebarSetsEl?: HTMLElement
-	tooltipEl?: HTMLElement
+	private panels: { emotes?: HTMLElement; search?: HTMLElement } = {}
+	private containerEl?: HTMLElement
+	private searchInputEl?: HTMLElement
+	private scrollableEl?: HTMLElement
+	private settingsBtnEl?: HTMLElement
+	private sidebarSetsEl?: HTMLElement
+	private tooltipEl?: HTMLElement
 
-	closeModalClickListenerHandle?: Function
-	scrollableHeight: number = 0
+	private closeModalClickListenerHandle?: Function
+	private scrollableHeight: number = 0
 
 	constructor(rootContext: RootContext, session: Session, container: HTMLElement) {
 		super()
@@ -113,6 +113,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		this.scrollableEl?.addEventListener('mouseover', evt => {
 			const target = evt.target as HTMLElement
 			if (target === lastEnteredElement || target.tagName !== 'IMG') return
+			if (this.tooltipEl) this.tooltipEl.remove()
 			lastEnteredElement = target
 
 			const emoteHid = target.getAttribute('data-emote-hid')
@@ -200,6 +201,8 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 	handleSearchInput(evt: InputEvent) {
 		if (!(evt.target instanceof HTMLInputElement)) return
+
+		if (this.tooltipEl) this.tooltipEl.remove()
 
 		const { emotesManager } = this.rootContext
 		const searchVal = evt.target.value
