@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.5
+// @version 1.4.6
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1238,6 +1238,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
       const target = evt.target;
       if (target === lastEnteredElement || target.tagName !== "IMG")
         return;
+      if (this.tooltipEl)
+        this.tooltipEl.remove();
       lastEnteredElement = target;
       const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
@@ -1311,6 +1313,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   handleSearchInput(evt) {
     if (!(evt.target instanceof HTMLInputElement))
       return;
+    if (this.tooltipEl)
+      this.tooltipEl.remove();
     const { emotesManager } = this.rootContext;
     const searchVal = evt.target.value;
     if (searchVal.length) {
@@ -6842,7 +6846,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.5",
+    VERSION: "1.4.6",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
