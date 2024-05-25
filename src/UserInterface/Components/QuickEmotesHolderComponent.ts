@@ -92,12 +92,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	renderQuickEmote(emoteHid: string) {
 		const { emotesManager } = this.rootContext
 		const emote = emotesManager.getEmote(emoteHid)
-		if (!emote) {
-			// TODO rethink this, doesn't seem like a good idea. If ever connection to the provider is lost, the emote will be removed from the history.
-			// Remove emote from history since it's not in the provider emote sets
-			// emotesManager.removeEmoteHistory(emoteId)
-			return error('History encountered emote missing from provider emote sets..', emoteHid)
-		}
+		if (!emote) return // Emote is no longer im provider's emote sets
 
 		// TODO limit the amount of emotes that can be rendered in the quick emote holder
 
