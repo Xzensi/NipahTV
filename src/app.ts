@@ -34,7 +34,6 @@ class NipahClient {
 	networkInterface: KickNetworkInterface | null = null
 	emotesManager: EmotesManager | null = null
 	private database: DatabaseProxy | null = null
-	private channelData: ChannelData | null = null
 	private sessions: Session[] = []
 
 	initialize() {
@@ -139,7 +138,7 @@ class NipahClient {
 		await Promise.allSettled(promises)
 
 		if (!networkInterface.channelData) throw new Error('Channel data has not loaded yet.')
-		const channelData = (this.channelData = networkInterface.channelData)
+		const channelData = networkInterface.channelData
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },

@@ -38,8 +38,6 @@ NipahTV aims to enhance the emote integration experience within Kick chat by pro
 </div>
 <br />
 
-
-
 ## Getting NipahTV
 
 Refer to this [wiki page](https://github.com/Xzensi/NipahTV/wiki/Installation-instructions) for installation instructions (it'll be simple, I promise).
@@ -90,7 +88,7 @@ First install all dependencies `npm install`. There are three different ways to 
     		"args": {
     			"commands": [
     				"editor.action.formatDocument",
-    				"workbench.action.files.save",
+    				"workbench.action.files.saveAll",
     				"workbench.action.tasks.build"
     			]
     		}
