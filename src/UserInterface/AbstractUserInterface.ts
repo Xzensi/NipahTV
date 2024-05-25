@@ -117,7 +117,7 @@ export abstract class AbstractUserInterface {
 		}
 
 		const replyContent = contentEditableEditor.getMessageContent()
-		if (!replyContent.length) return
+		if (!replyContent.length) return log('No message content to send.')
 
 		if (this.replyMessageData) {
 			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData

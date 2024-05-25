@@ -2,25 +2,44 @@ import { log, error } from '../utils'
 
 import type { Dexie as _Dexie, DexieConstructor, Table } from 'dexie'
 export interface ExtendedDexie extends _Dexie {
-	emoteHistory: Table
+	emoteUsage: Table
 	settings: Table
 }
 declare var Dexie: DexieConstructor & ExtendedDexie
 
 export class Database {
-	idb: ExtendedDexie
-	databaseName = 'NipahTV'
-	ready = false
+	private idb: ExtendedDexie
+	private databaseName = 'NipahTV'
+	private ready = false
 
 	constructor(SWDexie?: DexieConstructor) {
 		this.idb = SWDexie
 			? (new SWDexie(this.databaseName) as ExtendedDexie)
 			: (new Dexie(this.databaseName) as ExtendedDexie)
 
-		this.idb.version(1).stores({
-			settings: '&id',
-			emoteHistory: '&[channelId+emoteHid]'
-		})
+		this.idb
+			.version(2)
+			.stores({
+				settings: '&id',
+				emoteUsage: '&[channelId+emoteHid]',
+				emoteHistory: null
+			})
+			.upgrade(async tx => {
+				// Migrate emoteHistory to emoteUsage by counting the timestamps in emoteHistory and storing them in emoteUsage
+				// emoteHistory = [{ channelId: '123', emoteHid: '123', timestamps: [1234567890, ...] }, ...]
+				// emoteUsage = [{ channelId: '123', emoteHid: '123', count: 1 }, ...]
+				const emoteHistoryRecords = await tx.table('emoteHistory').toArray()
+
+				return tx.table('emoteUsage').bulkPut(
+					emoteHistoryRecords.map(record => {
+						return {
+							channelId: record.channelId,
+							emoteHid: record.emoteHid,
+							count: record.timestamps.length
+						}
+					})
+				)
+			})
 	}
 
 	checkCompatibility() {
@@ -45,22 +64,30 @@ export class Database {
 	}
 
 	async getSettings() {
-		return await this.idb.settings.toArray()
+		return this.idb.settings.toArray()
+	}
+
+	async getSetting(id: string) {
+		return this.idb.settings.get(id)
+	}
+
+	async getTableCount(tableName: string) {
+		return this.idb.table(tableName).count()
 	}
 
 	async putSetting(setting: any) {
-		return await this.idb.settings.put(setting)
+		return this.idb.settings.put(setting)
 	}
 
-	async getHistoryRecords(plaform: number, channelId: string) {
-		return await this.idb.emoteHistory.where('channelId').equals(channelId).toArray()
+	async getEmoteUsageRecords(channelId: string) {
+		return this.idb.emoteUsage.where('channelId').equals(channelId).toArray()
 	}
 
-	async bulkPutEmoteHistory(records: any[]) {
-		return await this.idb.emoteHistory.bulkPut(records)
+	async bulkPutEmoteUsage(records: any[]) {
+		return this.idb.emoteUsage.bulkPut(records)
 	}
 
-	async bulkDeleteEmoteHistory(records: any[]) {
-		return await this.idb.emoteHistory.bulkDelete(records)
+	async bulkDeleteEmoteUsage(records: any[]) {
+		return this.idb.emoteUsage.bulkDelete(records)
 	}
 }

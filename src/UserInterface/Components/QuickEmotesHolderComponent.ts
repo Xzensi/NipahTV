@@ -50,7 +50,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 		// Wait for emotes to be loaded from the database before rendering the quick emotes
 		eventBus.subscribeAllOnce(
-			['ntv.providers.loaded', 'ntv.datastore.emotes.history.loaded'],
+			['ntv.providers.loaded', 'ntv.datastore.emotes.usage.loaded'],
 			this.renderQuickEmotes.bind(this)
 		)
 
@@ -76,11 +76,11 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 	renderQuickEmotes() {
 		const { emotesManager } = this.rootContext
-		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.history.changed" event to cache the emotes that are changed on "ntv.ui.input_submitted"
-		const emoteHistory = emotesManager.getEmoteHistory()
+		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.usage.changed" event to cache the emotes that are changed on "ntv.ui.input_submitted"
+		const emoteUsageCounts = emotesManager.getEmoteUsageCounts()
 
-		if (emoteHistory.size) {
-			for (const [emoteHid, history] of emoteHistory) {
+		if (emoteUsageCounts.size) {
+			for (const [emoteHid] of emoteUsageCounts) {
 				this.renderQuickEmote(emoteHid)
 			}
 		}
@@ -139,9 +139,9 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		// Find the correct position in sortingList to insert the emote
 		//  according to the emote history count.
 		const { emotesManager } = this.rootContext
-		const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteHid)
+		const emoteUsageCount = emotesManager.getEmoteUsageCount(emoteHid)
 		return this.sortingList.findIndex(entry => {
-			return emotesManager.getEmoteHistoryCount(entry.hid) < emoteHistoryCount
+			return emotesManager.getEmoteUsageCount(entry.hid) < emoteUsageCount
 		})
 	}
 

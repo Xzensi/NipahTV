@@ -118,12 +118,12 @@ export class EmotesManager {
 		return this.datastore.emoteSets
 	}
 
-	getEmoteHistory() {
-		return this.datastore.emoteHistory
+	getEmoteUsageCounts() {
+		return this.datastore.emoteUsage
 	}
 
-	getEmoteHistoryCount(emoteHid: string) {
-		return this.datastore.getEmoteHistoryCount(emoteHid)
+	getEmoteUsageCount(emoteHid: string) {
+		return this.datastore.getEmoteUsageCount(emoteHid)
 	}
 
 	getRenderableEmote(emote: Emote, classes = '') {
@@ -159,8 +159,8 @@ export class EmotesManager {
 		this.datastore.registerEmoteEngagement(emoteHid)
 	}
 
-	removeEmoteHistory(emoteHid: string) {
-		this.datastore.removeEmoteHistory(emoteHid)
+	removeEmoteUsage(emoteHid: string) {
+		this.datastore.removeEmoteUsage(emoteHid)
 	}
 
 	searchEmotes(search: string, limit = 0) {
