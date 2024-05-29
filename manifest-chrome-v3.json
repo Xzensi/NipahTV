@@ -5,7 +5,10 @@
 	"version": "{{VERSION}}",
 	"minimum_chrome_version": "123",
 	"icons": {
-		"48": "assets/img/icons/border-48.png"
+		"16": "assets/img/NTV_icon_16.png",
+		"48": "assets/img/NTV_icon_48.png",
+		"96": "assets/img/NTV_icon_96.png",
+		"128": "assets/img/NTV_icon_128.png"
 	},
 	"permissions": [],
 	"host_permissions": [],
