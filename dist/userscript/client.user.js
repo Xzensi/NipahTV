@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.6
+// @version 1.4.7
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -541,68 +541,20 @@ var Publisher = class {
   }
 };
 
-// src/Classes/SlidingTimestampWindow.ts
-var SlidingTimestampWindow = class {
-  timestampWindow;
-  entries;
-  maxEntries;
-  constructor(historyEntries) {
-    this.timestampWindow = 14 * 24 * 60 * 60 * 1e3;
-    this.entries = historyEntries || [];
-    this.maxEntries = 400;
-    setInterval(this.update.bind(this), Math.random() * 40 * 1e3 + 30 * 60 * 1e3);
-    setTimeout(this.update.bind(this), (Math.random() * 40 + 30) * 1e3);
-  }
-  addEntry() {
-    if (this.entries.length >= this.maxEntries) {
-      let oldestIndex = 0;
-      let oldestTimestamp = this.entries[0];
-      for (let i = 1; i < this.entries.length; i++) {
-        if (this.entries[i] < oldestTimestamp) {
-          oldestIndex = i;
-          oldestTimestamp = this.entries[i];
-        }
-      }
-      this.entries[oldestIndex] = Date.now();
-      return;
-    }
-    this.entries.push(Date.now());
-  }
-  update() {
-    this.entries = this.entries.filter((entry) => entry > Date.now() - this.timestampWindow);
-  }
-  getTotal() {
-    return this.entries.length;
-  }
-};
-
-// src/constants.ts
-var PLATFORM_ENUM = {
-  NULL: 0,
-  KICK: 1,
-  TWITCH: 2,
-  YOUTUBE: 3
-};
-var PROVIDER_ENUM = {
-  NULL: 0,
-  KICK: 1,
-  SEVENTV: 2
-};
-
 // src/Datastores/EmoteDatastore.ts
 var EmoteDatastore = class {
   emoteSets = [];
   emoteMap = /* @__PURE__ */ new Map();
   emoteIdMap = /* @__PURE__ */ new Map();
   emoteNameMap = /* @__PURE__ */ new Map();
-  emoteHistory = /* @__PURE__ */ new Map();
+  emoteUsage = /* @__PURE__ */ new Map();
   emoteEmoteSetMap = /* @__PURE__ */ new Map();
   // Map of emote names splitted into parts for more relevant search results
   splittedNamesMap = /* @__PURE__ */ new Map();
   // Map of provider ids containing map of emote names to emote hids
   emoteProviderNameMap = /* @__PURE__ */ new Map();
-  // Map of pending history changes to be synced to database
-  pendingHistoryChanges = {};
+  // Map of pending emote usage changes to be synced to database
+  pendingEmoteUsageChanges = {};
   fuse = new Fuse([], {
     includeScore: true,
     shouldSort: false,
@@ -624,45 +576,35 @@ var EmoteDatastore = class {
     }, 10 * 1e3);
     setInterval(() => this.storeDatabase(), 3 * 1e3);
     eventBus.subscribe("ntv.session.destroy", () => {
-      delete this.emoteSets;
-      delete this.emoteMap;
-      delete this.emoteNameMap;
-      delete this.emoteHistory;
-      delete this.emoteProviderNameMap;
-      delete this.pendingHistoryChanges;
+      this.emoteProviderNameMap.clear();
+      this.emoteNameMap.clear();
+      this.emoteUsage.clear();
+      this.emoteMap.clear();
     });
   }
   async loadDatabase() {
     info("Reading out emotes data from database..");
     const { database, eventBus } = this;
-    const emoteHistory = /* @__PURE__ */ new Map();
-    const historyRecords = await database.getHistoryRecords(PLATFORM_ENUM.KICK, this.channelId);
-    if (historyRecords.length) {
-      for (const record of historyRecords) {
-        emoteHistory.set(record.emoteHid, new SlidingTimestampWindow(record.timestamps));
+    const usageRecords = await database.getEmoteUsageRecords(this.channelId);
+    if (usageRecords.length) {
+      for (const record of usageRecords) {
+        this.emoteUsage.set(record.emoteHid, record.count);
       }
     }
-    this.emoteHistory = emoteHistory;
-    eventBus.publish("ntv.datastore.emotes.history.loaded");
+    eventBus.publish("ntv.datastore.emotes.usage.loaded");
   }
   storeDatabase() {
-    if (isEmpty(this.pendingHistoryChanges))
+    if (isEmpty(this.pendingEmoteUsageChanges))
       return;
     const { database } = this;
-    const puts = [], deletes = [];
-    for (const emoteHid in this.pendingHistoryChanges) {
-      const history = this.emoteHistory.get(emoteHid);
-      if (!history) {
-        deletes.push({ channelId: this.channelId, emoteHid });
-      } else {
-        puts.push({ channelId: this.channelId, emoteHid, timestamps: history.entries });
-      }
+    const puts = [];
+    for (const emoteHid in this.pendingEmoteUsageChanges) {
+      const emoteUsages = this.emoteUsage.get(emoteHid);
+      puts.push({ channelId: this.channelId, emoteHid, count: emoteUsages });
     }
     if (puts.length)
-      database.bulkPutEmoteHistory(puts);
-    if (deletes.length)
-      database.bulkDeleteEmoteHistory(deletes);
-    this.pendingHistoryChanges = {};
+      database.bulkPutEmoteUsage(puts);
+    this.pendingEmoteUsageChanges = {};
   }
   registerEmoteSet(emoteSet) {
     for (const set of this.emoteSets) {
@@ -710,30 +652,30 @@ var EmoteDatastore = class {
   getEmoteById(id) {
     return this.emoteIdMap.get(id);
   }
-  getEmoteHistoryCount(emoteHid) {
-    return this.emoteHistory.get(emoteHid)?.getTotal() || 0;
+  getEmoteUsageCount(emoteHid) {
+    return this.emoteUsage.get(emoteHid) || 0;
   }
-  registerEmoteEngagement(emoteHid, historyEntries) {
+  registerEmoteEngagement(emoteHid) {
     if (!emoteHid)
       return error("Undefined required emoteHid argument");
-    if (!this.emoteHistory.has(emoteHid) || historyEntries) {
-      this.emoteHistory.set(emoteHid, new SlidingTimestampWindow(historyEntries));
+    if (!this.emoteUsage.has(emoteHid)) {
+      this.emoteUsage.set(emoteHid, 0);
     }
-    this.pendingHistoryChanges[emoteHid] = true;
-    this.emoteHistory.get(emoteHid).addEntry();
-    this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteHid });
+    this.pendingEmoteUsageChanges[emoteHid] = true;
+    this.emoteUsage.set(emoteHid, this.emoteUsage.get(emoteHid) + 1);
+    this.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
   }
-  removeEmoteHistory(emoteHid) {
+  removeEmoteUsage(emoteHid) {
     if (!emoteHid)
       return error("Undefined required emoteHid argument");
-    this.emoteHistory.delete(emoteHid);
-    this.pendingHistoryChanges[emoteHid] = true;
-    this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteHid });
+    this.emoteUsage.delete(emoteHid);
+    this.pendingEmoteUsageChanges[emoteHid] = true;
+    this.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
   }
   searchEmotesWithWeightedHistory(searchVal) {
     return this.fuse.search(searchVal).sort((a, b) => {
-      const aHistory = (this.emoteHistory.get(a.item.hid)?.getTotal() || 0) + 1;
-      const bHistory = (this.emoteHistory.get(b.item.hid)?.getTotal() || 0) + 1;
+      const aHistory = (this.emoteUsage.get(a.item.hid) || 0) + 1;
+      const bHistory = (this.emoteUsage.get(b.item.hid) || 0) + 1;
       const aTotalScore = a.score - 1 - 1 / bHistory;
       const bTotalScore = b.score - 1 - 1 / aHistory;
       if (aTotalScore < bTotalScore)
@@ -884,11 +826,11 @@ var EmotesManager = class {
   getEmoteSets() {
     return this.datastore.emoteSets;
   }
-  getEmoteHistory() {
-    return this.datastore.emoteHistory;
+  getEmoteUsageCounts() {
+    return this.datastore.emoteUsage;
   }
-  getEmoteHistoryCount(emoteHid) {
-    return this.datastore.getEmoteHistoryCount(emoteHid);
+  getEmoteUsageCount(emoteHid) {
+    return this.datastore.getEmoteUsageCount(emoteHid);
   }
   getRenderableEmote(emote, classes = "") {
     if (!emote)
@@ -919,8 +861,8 @@ var EmotesManager = class {
   registerEmoteEngagement(emoteHid) {
     this.datastore.registerEmoteEngagement(emoteHid);
   }
-  removeEmoteHistory(emoteHid) {
-    this.datastore.removeEmoteHistory(emoteHid);
+  removeEmoteUsage(emoteHid) {
+    this.datastore.removeEmoteUsage(emoteHid);
   }
   searchEmotes(search, limit = 0) {
     const { settingsManager } = this;
@@ -996,7 +938,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
     });
     eventBus.subscribeAllOnce(
-      ["ntv.providers.loaded", "ntv.datastore.emotes.history.loaded"],
+      ["ntv.providers.loaded", "ntv.datastore.emotes.usage.loaded"],
       this.renderQuickEmotes.bind(this)
     );
     this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this);
@@ -1017,9 +959,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   }
   renderQuickEmotes() {
     const { emotesManager } = this.rootContext;
-    const emoteHistory = emotesManager.getEmoteHistory();
-    if (emoteHistory.size) {
-      for (const [emoteHid, history] of emoteHistory) {
+    const emoteUsageCounts = emotesManager.getEmoteUsageCounts();
+    if (emoteUsageCounts.size) {
+      for (const [emoteHid] of emoteUsageCounts) {
         this.renderQuickEmote(emoteHid);
       }
     }
@@ -1030,9 +972,8 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   renderQuickEmote(emoteHid) {
     const { emotesManager } = this.rootContext;
     const emote = emotesManager.getEmote(emoteHid);
-    if (!emote) {
-      return error("History encountered emote missing from provider emote sets..", emoteHid);
-    }
+    if (!emote)
+      return;
     const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.hid === emoteHid);
     if (emoteInSortingListIndex !== -1) {
       const emoteToSort = this.sortingList[emoteInSortingListIndex];
@@ -1064,9 +1005,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   }
   getSortedEmoteIndex(emoteHid) {
     const { emotesManager } = this.rootContext;
-    const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteHid);
+    const emoteUsageCount = emotesManager.getEmoteUsageCount(emoteHid);
     return this.sortingList.findIndex((entry) => {
-      return emotesManager.getEmoteHistoryCount(entry.hid) < emoteHistoryCount;
+      return emotesManager.getEmoteUsageCount(entry.hid) < emoteUsageCount;
     });
   }
   destroy() {
@@ -1079,11 +1020,13 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
 // src/UserInterface/Components/EmoteMenuButtonComponent.ts
 var EmoteMenuButtonComponent = class extends AbstractComponent {
   rootContext;
+  session;
   element;
   footerLogoBtnEl;
-  constructor(rootContex) {
+  constructor(rootContex, session) {
     super();
     this.rootContext = rootContex;
+    this.session = session;
   }
   render() {
     document.querySelector(".ntv__emote-menu-button")?.remove();
@@ -1110,6 +1053,9 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
       this.footerLogoBtnEl.className = filename.toLowerCase();
     });
     this.footerLogoBtnEl?.addEventListener("click", () => {
+      if (!this.session.channelData.me.is_logged_in) {
+        this.session.userInterface?.toastError(`Please log in first to use NipahTV.`);
+      }
       eventBus.publish("ntv.ui.footer.click");
     });
   }
@@ -2783,7 +2729,7 @@ var AbstractUserInterface = class {
     }
     const replyContent = contentEditableEditor.getMessageContent();
     if (!replyContent.length)
-      return;
+      return log("No message content to send.");
     if (this.replyMessageData) {
       const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData;
       networkInterface.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername).then((res) => {
@@ -4855,7 +4801,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.elm.textField.addEventListener("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
   }
   async loadEmoteMenuButton() {
-    this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext).init();
+    this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session).init();
   }
   async loadQuickEmotesHolder() {
     const { eventBus, settingsManager } = this.rootContext;
@@ -5441,7 +5387,7 @@ var KickUserInterface = class extends AbstractUserInterface {
 
 // src/Providers/AbstractProvider.ts
 var AbstractProvider = class {
-  id = PROVIDER_ENUM.NULL;
+  id = 0 /* NULL */;
   settingsManager;
   datastore;
   constructor({ settingsManager, datastore }) {
@@ -5452,7 +5398,7 @@ var AbstractProvider = class {
 
 // src/Providers/KickProvider.ts
 var KickProvider = class extends AbstractProvider {
-  id = PROVIDER_ENUM.KICK;
+  id = 1 /* KICK */;
   status = "unloaded";
   constructor(dependencies) {
     super(dependencies);
@@ -5499,7 +5445,7 @@ var KickProvider = class extends AbstractProvider {
           hid: md5(emote.name),
           name: emote.name,
           subscribers_only: emote.subscribers_only,
-          provider: PROVIDER_ENUM.KICK,
+          provider: 1 /* KICK */,
           width: 32,
           size: 1
         };
@@ -5550,7 +5496,7 @@ var KickProvider = class extends AbstractProvider {
 
 // src/Providers/SevenTVProvider.ts
 var SevenTVProvider = class extends AbstractProvider {
-  id = PROVIDER_ENUM.SEVENTV;
+  id = 2 /* SEVENTV */;
   status = "unloaded";
   constructor(dependencies) {
     super(dependencies);
@@ -5589,7 +5535,7 @@ var SevenTVProvider = class extends AbstractProvider {
         id: "" + emote.id,
         hid: md5(emote.name),
         name: emote.name,
-        provider: PROVIDER_ENUM.SEVENTV,
+        provider: 2 /* SEVENTV */,
         subscribers_only: false,
         spacing: true,
         width: file.width,
@@ -6402,9 +6348,21 @@ var Database = class {
   ready = false;
   constructor(SWDexie) {
     this.idb = SWDexie ? new SWDexie(this.databaseName) : new Dexie(this.databaseName);
-    this.idb.version(1).stores({
+    this.idb.version(2).stores({
       settings: "&id",
-      emoteHistory: "&[channelId+emoteHid]"
+      emoteUsage: "&[channelId+emoteHid]",
+      emoteHistory: null
+    }).upgrade(async (tx) => {
+      const emoteHistoryRecords = await tx.table("emoteHistory").toArray();
+      return tx.table("emoteUsage").bulkPut(
+        emoteHistoryRecords.map((record) => {
+          return {
+            channelId: record.channelId,
+            emoteHid: record.emoteHid,
+            count: record.timestamps.length
+          };
+        })
+      );
     });
   }
   checkCompatibility() {
@@ -6425,19 +6383,25 @@ var Database = class {
     });
   }
   async getSettings() {
-    return await this.idb.settings.toArray();
+    return this.idb.settings.toArray();
+  }
+  async getSetting(id) {
+    return this.idb.settings.get(id);
+  }
+  async getTableCount(tableName) {
+    return this.idb.table(tableName).count();
   }
   async putSetting(setting) {
-    return await this.idb.settings.put(setting);
+    return this.idb.settings.put(setting);
   }
-  async getHistoryRecords(plaform, channelId) {
-    return await this.idb.emoteHistory.where("channelId").equals(channelId).toArray();
+  async getEmoteUsageRecords(channelId) {
+    return this.idb.emoteUsage.where("channelId").equals(channelId).toArray();
   }
-  async bulkPutEmoteHistory(records) {
-    return await this.idb.emoteHistory.bulkPut(records);
+  async bulkPutEmoteUsage(records) {
+    return this.idb.emoteUsage.bulkPut(records);
   }
-  async bulkDeleteEmoteHistory(records) {
-    return await this.idb.emoteHistory.bulkDelete(records);
+  async bulkDeleteEmoteUsage(records) {
+    return this.idb.emoteUsage.bulkDelete(records);
   }
 };
 
@@ -6846,7 +6810,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.6",
+    VERSION: "1.4.7",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -6859,7 +6823,6 @@ var NipahClient = class {
   networkInterface = null;
   emotesManager = null;
   database = null;
-  channelData = null;
   sessions = [];
   initialize() {
     const { ENV_VARS } = this;
@@ -6876,10 +6839,10 @@ var NipahClient = class {
     }
     Object.freeze(RESOURCE_ROOT);
     if (wwindow.location.host === "kick.com") {
-      PLATFORM = PLATFORM_ENUM.KICK;
+      PLATFORM = 1 /* KICK */;
       info("Platform detected: Kick");
     } else if (wwindow.location.host === "www.twitch.tv") {
-      PLATFORM = PLATFORM_ENUM.TWITCH;
+      PLATFORM = 2 /* TWITCH */;
       info("Platform detected: Twitch");
     } else {
       return error("Unsupported platform", wwindow.location.host);
@@ -6909,9 +6872,9 @@ var NipahClient = class {
     info("Setting up client environment..");
     const eventBus = new Publisher();
     this.eventBus = eventBus;
-    if (PLATFORM === PLATFORM_ENUM.KICK) {
+    if (PLATFORM === 1 /* KICK */) {
       this.networkInterface = new KickNetworkInterface({ ENV_VARS });
-    } else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
+    } else if (PLATFORM === 2 /* TWITCH */) {
       throw new Error("Twitch platform is not supported yet.");
     } else {
       throw new Error("Unsupported platform");
@@ -6933,7 +6896,7 @@ var NipahClient = class {
     await Promise.allSettled(promises);
     if (!networkInterface.channelData)
       throw new Error("Channel data has not loaded yet.");
-    const channelData = this.channelData = networkInterface.channelData;
+    const channelData = networkInterface.channelData;
     const emotesManager = this.emotesManager = new EmotesManager(
       { database, eventBus, settingsManager },
       channelData.channel_id
@@ -6956,7 +6919,7 @@ var NipahClient = class {
       channelData
     };
     let userInterface;
-    if (PLATFORM === PLATFORM_ENUM.KICK) {
+    if (PLATFORM === 1 /* KICK */) {
       userInterface = new KickUserInterface(rootContext, session);
     } else {
       return error("Platform has no user interface implemented..", PLATFORM);
@@ -6973,7 +6936,7 @@ var NipahClient = class {
     }
     emotesManager.registerProvider(KickProvider);
     emotesManager.registerProvider(SevenTVProvider);
-    const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV];
+    const providerLoadOrder = [1 /* KICK */, 2 /* SEVENTV */];
     emotesManager.loadProviderEmotes(channelData, providerLoadOrder);
   }
   loadStyles() {
@@ -6995,7 +6958,7 @@ var NipahClient = class {
       } else {
         let style;
         switch (PLATFORM) {
-          case PLATFORM_ENUM.KICK:
+          case 1 /* KICK */:
             style = "KICK_CSS";
             break;
           default:
@@ -7070,7 +7033,7 @@ var NipahClient = class {
   if (!twemoji && !wwindow2["twemoji"]) {
     return error("Failed to import Twemoji");
   }
-  PLATFORM = PLATFORM_ENUM.NULL;
+  PLATFORM = 0 /* NULL */;
   RESOURCE_ROOT = "";
   const nipahClient = new NipahClient();
   nipahClient.initialize();
