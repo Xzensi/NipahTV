@@ -3,7 +3,6 @@
 	"name": "NipahTV",
 	"short_name": "NTV",
 	"author": "Xzensi",
-	"default_locale": "en",
 	"homepage_url": "https://github.com/Xzensi/NipahTV",
 	"description": "A Better Kick and 7TV Emote Integration for Kick.",
 	"version": "{{VERSION}}",

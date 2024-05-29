@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.7
+// @version 1.4.8
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -543,14 +543,12 @@ var Publisher = class {
 
 // src/Datastores/EmoteDatastore.ts
 var EmoteDatastore = class {
-  emoteSets = [];
   emoteMap = /* @__PURE__ */ new Map();
   emoteIdMap = /* @__PURE__ */ new Map();
   emoteNameMap = /* @__PURE__ */ new Map();
-  emoteUsage = /* @__PURE__ */ new Map();
   emoteEmoteSetMap = /* @__PURE__ */ new Map();
-  // Map of emote names splitted into parts for more relevant search results
-  splittedNamesMap = /* @__PURE__ */ new Map();
+  emoteSets = [];
+  emoteUsage = /* @__PURE__ */ new Map();
   // Map of provider ids containing map of emote names to emote hids
   emoteProviderNameMap = /* @__PURE__ */ new Map();
   // Map of pending emote usage changes to be synced to database
@@ -740,7 +738,6 @@ var EmoteDatastore = class {
 var EmotesManager = class {
   providers = /* @__PURE__ */ new Map();
   loaded = false;
-  database;
   eventBus;
   settingsManager;
   datastore;
@@ -749,7 +746,6 @@ var EmotesManager = class {
     eventBus,
     settingsManager
   }, channelId) {
-    this.database = database;
     this.eventBus = eventBus;
     this.settingsManager = settingsManager;
     this.datastore = new EmoteDatastore({ database, eventBus }, channelId);
@@ -1119,7 +1115,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { settingsManager } = this.rootContext;
     const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
     const showSidebar = true;
-    $(".ntv__emote-menu").remove();
+    document.querySelectorAll(".ntv__emote-menu").forEach((el) => el.remove());
     this.containerEl = parseHTML(
       cleanupHTML(`
 				<div class="ntv__emote-menu" style="display: none">
@@ -1386,7 +1382,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         })()
       }
     );
-    const emoteSetEls = $(".ntv__emote-set", emotesPanelEl);
+    const emoteSetEls = emotesPanelEl.querySelectorAll(".ntv__emote-set");
     for (const emoteSetEl of emoteSetEls)
       observer.observe(emoteSetEl);
   }
@@ -6263,10 +6259,10 @@ var SettingsManager = class {
   ];
   settingsMap = /* @__PURE__ */ new Map();
   isShowingModal = false;
-  isLoaded = false;
   database;
   eventBus;
   modal;
+  isLoaded = false;
   constructor({ database, eventBus }) {
     this.database = database;
     this.eventBus = eventBus;
@@ -6709,6 +6705,7 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
 
 // src/Datastores/UsersDatastore.ts
 var UsersDatastore = class {
+  eventBus;
   usersNameMap = /* @__PURE__ */ new Map();
   usersIdMap = /* @__PURE__ */ new Map();
   users = [];
@@ -6723,7 +6720,6 @@ var UsersDatastore = class {
     threshold: 0.4,
     keys: [["name"]]
   });
-  eventBus;
   constructor({ eventBus }) {
     this.eventBus = eventBus;
     eventBus.subscribe("ntv.session.destroy", () => {
@@ -6810,7 +6806,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.7",
+    VERSION: "1.4.8",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
