@@ -39,8 +39,6 @@ declare global {
 		__USERSCRIPT__: boolean
 		__LOCAL__?: boolean
 		NipahTV?: any // Export class NipahClient not allowed for Userscripts
-		jQuery: JQuery
-		$: JQuery
 		Fuse: Fuse
 		twemoji: any
 	}

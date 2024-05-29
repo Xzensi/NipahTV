@@ -8,14 +8,15 @@ export type User = {
 }
 
 export class UsersDatastore {
-	usersNameMap: Map<string, User> = new Map()
-	usersIdMap: Map<string, User> = new Map()
-	users: Array<User> = []
-	usersCount = 0
+	private eventBus: Publisher
 
-	maxUsers = 50_000
+	private usersNameMap: Map<string, User> = new Map()
+	private usersIdMap: Map<string, User> = new Map()
+	private users: Array<User> = []
+	private usersCount = 0
+	private maxUsers = 50_000
 
-	fuse = new Fuse([], {
+	private fuse = new Fuse([], {
 		includeScore: true,
 		shouldSort: true,
 		includeMatches: true,
@@ -24,8 +25,6 @@ export class UsersDatastore {
 		threshold: 0.4,
 		keys: [['name']]
 	})
-
-	eventBus: Publisher
 
 	constructor({ eventBus }: { eventBus: Publisher }) {
 		this.eventBus = eventBus

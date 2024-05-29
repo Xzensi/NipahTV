@@ -37,7 +37,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		const showSidebar = true //settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
 
 		// Delete any existing emote menus, in case cached page got loaded somehow
-		$('.ntv__emote-menu').remove()
+		document.querySelectorAll('.ntv__emote-menu').forEach(el => el.remove())
 
 		this.containerEl = parseHTML(
 			cleanupHTML(`
@@ -350,7 +350,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 			}
 		)
 
-		const emoteSetEls = $('.ntv__emote-set', emotesPanelEl)
+		const emoteSetEls = emotesPanelEl.querySelectorAll('.ntv__emote-set')
 		for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl)
 	}
 

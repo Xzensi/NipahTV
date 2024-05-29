@@ -3,7 +3,7 @@ import { SettingsManager } from './SettingsManager'
 import { Publisher } from '../Classes/Publisher'
 
 export class UsersManager {
-	datastore: UsersDatastore
+	private datastore: UsersDatastore
 
 	constructor({ eventBus, settingsManager }: { eventBus: Publisher; settingsManager: SettingsManager }) {
 		this.datastore = new UsersDatastore({ eventBus })
