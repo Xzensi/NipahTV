@@ -1,15 +1,17 @@
 import { AbstractComponent } from './AbstractComponent'
-import { error, cleanupHTML, parseHTML } from '../../utils'
+import { error, cleanupHTML, parseHTML, log } from '../../utils'
 
 export class EmoteMenuButtonComponent extends AbstractComponent {
-	rootContext: RootContext
-	element?: HTMLElement
-	footerLogoBtnEl?: HTMLElement
+	private rootContext: RootContext
+	private session: Session
+	private element?: HTMLElement
+	private footerLogoBtnEl?: HTMLElement
 
-	constructor(rootContex: RootContext) {
+	constructor(rootContex: RootContext, session: Session) {
 		super()
 
 		this.rootContext = rootContex
+		this.session = session
 	}
 
 	render() {
@@ -43,6 +45,10 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 		})
 
 		this.footerLogoBtnEl?.addEventListener('click', () => {
+			if (!this.session.channelData.me.is_logged_in) {
+				this.session.userInterface?.toastError(`Please log in first to use NipahTV.`)
+			}
+
 			eventBus.publish('ntv.ui.footer.click')
 		})
 	}

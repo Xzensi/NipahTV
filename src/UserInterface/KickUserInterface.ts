@@ -173,7 +173,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadEmoteMenuButton() {
-		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext).init()
+		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session).init()
 	}
 
 	async loadQuickEmotesHolder() {

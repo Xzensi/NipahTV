@@ -20,7 +20,7 @@ import { UsersManager } from './Managers/UsersManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.6',
+		VERSION: '1.4.7',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -34,7 +34,6 @@ class NipahClient {
 	networkInterface: KickNetworkInterface | null = null
 	emotesManager: EmotesManager | null = null
 	private database: DatabaseProxy | null = null
-	private channelData: ChannelData | null = null
 	private sessions: Session[] = []
 
 	initialize() {
@@ -139,7 +138,7 @@ class NipahClient {
 		await Promise.allSettled(promises)
 
 		if (!networkInterface.channelData) throw new Error('Channel data has not loaded yet.')
-		const channelData = (this.channelData = networkInterface.channelData)
+		const channelData = networkInterface.channelData
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
