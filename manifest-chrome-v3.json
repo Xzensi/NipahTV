@@ -1,11 +1,17 @@
 {
 	"manifest_version": 3,
 	"name": "NipahTV",
+	"short_name": "NTV",
+	"author": "Xzensi",
+	"homepage_url": "https://github.com/Xzensi/NipahTV",
 	"description": "A Better Kick and 7TV Emote Integration for Kick.",
 	"version": "{{VERSION}}",
 	"minimum_chrome_version": "123",
 	"icons": {
-		"48": "assets/img/icons/border-48.png"
+		"16": "assets/img/NTV_icon_16.png",
+		"48": "assets/img/NTV_icon_48.png",
+		"96": "assets/img/NTV_icon_96.png",
+		"128": "assets/img/NTV_icon_128.png"
 	},
 	"permissions": [],
 	"host_permissions": [],
@@ -16,13 +22,7 @@
 	"content_scripts": [
 		{
 			"matches": ["https://kick.com/*"],
-			"js": [
-				"vendor/jquery.min.js",
-				"vendor/dexie.min.js",
-				"vendor/fuse.min.js",
-				"vendor/twemoji.min.js",
-				"index.js"
-			],
+			"js": ["vendor/dexie.min.js", "vendor/fuse.min.js", "vendor/twemoji.min.js", "index.js"],
 			"css": ["style.min.css"]
 		}
 	],

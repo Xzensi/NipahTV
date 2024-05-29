@@ -1,5 +1,5 @@
-@use '../variables' as *;
-@use '../mixins' as *;
+@use '../../variables' as *;
+@use '../../mixins' as *;
 @use 'sass:math';
 
 #chatroom {
@@ -15,7 +15,7 @@
 	&.ntv__seperators {
 		&-basic {
 			[data-chat-entry] {
-				border-bottom: 1px solid var(--border-transparent-2);
+				border-bottom: 1px solid var(--ntv-border-transparent-2);
 			}
 		}
 
@@ -35,15 +35,37 @@
 
 		&-wide {
 			[data-chat-entry] {
-				border-bottom: 2px solid var(--border-transparent-2);
-				border-top: 2px solid var(--border-transparent-2);
+				border-bottom: 2px solid var(--ntv-border-transparent-2);
+				border-top: 2px solid var(--ntv-border-transparent-2);
 				padding: 0.1em;
 			}
 		}
 	}
 
-	&.ntv__hide-emote-menu-button {
-		.chat-input-wrapper > div:not(#ntv__message-input) {
+	// &.ntv__hide-emote-menu-button {
+	// 	.chat-input-wrapper > div:not(#ntv__message-input):not(#message-input) {
+	// 		display: none;
+	// 	}
+	// }
+
+	&.ntv__hide-chat-input {
+		.chat-input-wrapper {
+			display: none !important;
+
+			#message-input {
+				display: none !important;
+			}
+		}
+	}
+
+	#chatroom-footer {
+		// Hide the native reply message element
+		.chat-mode > .p-2.text-sm {
+			display: none;
+		}
+
+		// Hide the native "Chat" submit button
+		.send-row > button:not(.ntv__submit-button) {
 			display: none;
 		}
 	}
@@ -56,6 +78,9 @@
 	}
 
 	.chat-entry {
+		min-height: auto;
+		padding: 0;
+
 		&.bg-secondary-lighter {
 			background-color: transparent;
 		}
@@ -64,28 +89,11 @@
 			background-color: rgba(128, 128, 128, 0.09);
 		}
 	}
-
-	.chat-input-wrapper {
-		display: none !important;
-
-		#message-input {
-			display: none !important;
-		}
-	}
 }
 
-.ntv__chat-messages-container {
-	&--smooth-scrolling,
+.ntv__smooth-scrolling {
 	.overflow-y-scroll {
 		scroll-behavior: smooth;
-	}
-
-	> div {
-		display: none;
-	}
-
-	.ntv__chat-message {
-		display: block;
 	}
 }
 
@@ -112,7 +120,7 @@
 }
 
 .ntv__highlight-first-message {
-	background-color: var(--background-highlight-accent-1);
+	background-color: var(--ntv-background-highlight-accent-1);
 }
 
 .ntv__message-input__wrapper {
@@ -132,7 +140,7 @@
 	width: 100%;
 
 	&:hover {
-		border-color: var(--border-transparent-2);
+		border-color: var(--ntv-border-transparent-2);
 	}
 
 	&[data-char-count]:after {
@@ -200,10 +208,6 @@
 		outline: 2px solid transparent;
 		outline-offset: 2px;
 	}
-}
-
-#chatroom-footer .send-row > button:not(.ntv__submit-button) {
-	display: none;
 }
 
 .ntv__submit-button {

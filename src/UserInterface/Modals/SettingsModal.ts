@@ -1,19 +1,25 @@
+import type { Publisher } from '../../Classes/Publisher'
 import { CheckboxComponent } from '../Components/CheckboxComponent'
 import { DropdownComponent } from '../Components/DropdownComponent'
 import { NumberComponent } from '../Components/NumberComponent'
 import { ColorComponent } from '../Components/ColorComponent'
-import { Publisher } from '../../Classes/Publisher'
-import { AbstractModal } from './AbstractModal'
-import { log, error } from '../../utils'
+import { AbstractModal, ModalGeometry } from './AbstractModal'
+import { log, error, parseHTML, cleanupHTML } from '../../utils'
 
 export class SettingsModal extends AbstractModal {
 	eventBus: Publisher
 	settingsOpts: any
-	$panels?: JQuery<HTMLElement>
-	$sidebar?: JQuery<HTMLElement>
+
+	panelsEl?: HTMLElement
+	sidebarEl?: HTMLElement
+	sidebarBtnEl?: HTMLElement
 
 	constructor(eventBus: Publisher, settingsOpts: any) {
-		super('settings')
+		const geometry: ModalGeometry = {
+			position: 'center'
+		}
+
+		super('settings', geometry)
 
 		this.eventBus = eventBus
 		this.settingsOpts = settingsOpts
@@ -31,41 +37,54 @@ export class SettingsModal extends AbstractModal {
 
 		const sharedSettings = this.settingsOpts.sharedSettings
 		const settingsMap = this.settingsOpts.settingsMap
-		const $modalBody = this.$modalBody
+		const modalBodyEl = this.modalBodyEl
 
-		const $panels = $(`<div class="ntv__settings-modal__panels"></div>`)
-		this.$panels = $panels
+		const windowWidth = window.innerWidth
 
-		const $sidebar = $(`
-			<div class="ntv__settings-modal__sidebar">
-				<ul></ul>
-			</div>
-		`)
-		this.$sidebar = $sidebar
-		const $sidebarList = $sidebar.find('ul')
+		this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true) as HTMLElement
+		this.sidebarEl = parseHTML(
+			`<div class="ntv__settings-modal__sidebar ${
+				windowWidth < 768 ? '' : 'ntv__settings-modal__sidebar--open'
+			}"><ul></ul></div>`,
+			true
+		) as HTMLElement
+		this.sidebarBtnEl = parseHTML(
+			`<div class="ntv__settings-modal__mobile-btn-wrapper"><button><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+			<path fill="currentColor" d="M2.753 18h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm0-6.497h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm-.001-6.5h18.5a.75.75 0 0 1 .102 1.493l-.102.007h-18.5A.75.75 0 0 1 2.65 5.01zh18.5z" />
+		</svg> Menu</button></div>`,
+			true
+		) as HTMLElement
+
+		const sidebarList = this.sidebarEl.querySelector('ul') as HTMLElement
 
 		// Render navigation sidebar
 		// Category > Subcategory > Group > Setting
 		for (const category of sharedSettings) {
-			const $category = $(`
+			const categoryEl = parseHTML(
+				cleanupHTML(`
 				<li class="ntv__settings-modal__category">
 					<span>${category.label}</span>
 					<ul></ul>
 				</li>
-			`)
+			`),
+				true
+			)
 
-			const $categoryList = $category.find('ul')
-			$sidebarList.append($category)
+			const categoryListEl = categoryEl.querySelector('ul') as HTMLElement
+			sidebarList.appendChild(categoryEl)
 
 			for (const subCategory of category.children) {
 				const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`
-				const $subCategory = $(`
-					<li data-panel="${categoryId}" class="ntv__settings-modal__sub-category">
+				const subCategoryEl = parseHTML(
+					cleanupHTML(
+						`<li data-panel="${categoryId}" class="ntv__settings-modal__sub-category">
 						<span>${subCategory.label}</span>
-					</li>
-				`)
+					</li>`
+					),
+					true
+				)
 
-				$categoryList.append($subCategory)
+				categoryListEl.appendChild(subCategoryEl)
 			}
 		}
 
@@ -74,21 +93,25 @@ export class SettingsModal extends AbstractModal {
 		for (const category of sharedSettings) {
 			for (const subCategory of category.children) {
 				const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`
-				const $subCategoryPanel = $(
-					`<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`
+				const subCategoryPanelEl = parseHTML(
+					`<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`,
+					true
 				)
-				$panels.append($subCategoryPanel)
+				this.panelsEl.appendChild(subCategoryPanelEl)
 
 				for (const group of subCategory.children) {
-					const $group = $(
-						`<div class="ntv__settings-modal__group">
+					const groupEl = parseHTML(
+						cleanupHTML(
+							`<div class="ntv__settings-modal__group">
 							<div class="ntv__settings-modal__group-header">
 								<h4>${group.label}</h4>
 								${group.description ? `<p>${group.description}</p>` : ''}
 							</div>
 						</div>`
+						),
+						true
 					)
-					$subCategoryPanel.append($group)
+					subCategoryPanelEl.append(groupEl)
 
 					for (const setting of group.children) {
 						let settingComponent: any
@@ -129,7 +152,7 @@ export class SettingsModal extends AbstractModal {
 
 						settingComponent?.init()
 
-						$group.append(settingComponent.$element)
+						groupEl.append(settingComponent.element)
 						settingComponent.event.addEventListener('change', () => {
 							const value = settingComponent.getValue()
 							this.event.dispatchEvent(
@@ -143,11 +166,14 @@ export class SettingsModal extends AbstractModal {
 
 		// Show first panel
 		const defaultPanel = 'chat.appearance'
-		$panels.find(`[data-panel="${defaultPanel}]"`).show()
-		$sidebar.find(`[data-panel="${defaultPanel}"]`).addClass('ntv__settings-modal__sub-category--active')
+		this.panelsEl.querySelector(`[data-panel="${defaultPanel}"]`)?.setAttribute('style', 'display: block')
+		this.sidebarEl
+			.querySelector(`[data-panel="${defaultPanel}"]`)
+			?.classList.add('ntv__settings-modal__sub-category--active')
 
-		$modalBody?.append($sidebar)
-		$modalBody?.append($panels)
+		modalBodyEl.appendChild(this.sidebarBtnEl)
+		modalBodyEl.appendChild(this.sidebarEl)
+		modalBodyEl.appendChild(this.panelsEl)
 	}
 
 	getSettingElement(setting: string) {}
@@ -155,17 +181,44 @@ export class SettingsModal extends AbstractModal {
 	attachEventHandlers() {
 		super.attachEventHandlers()
 
+		if (!this.panelsEl || !this.sidebarEl) {
+			error('SettingsModal: panelsEl or sidebarEl not found')
+			return
+		}
+
 		// Sidebar navigation
-		$('.ntv__settings-modal__sub-category', this.$sidebar).on('click', evt => {
-			const panelId = $(evt.currentTarget).data('panel')
+		// $('.ntv__settings-modal__sub-category', this.$sidebar).on('click', evt => {
+		// 	const panelId = $(evt.currentTarget).data('panel')
 
-			$('.ntv__settings-modal__sub-category', this.$sidebar).removeClass(
-				'ntv__settings-modal__sub-category--active'
-			)
-			$(evt.currentTarget).addClass('ntv__settings-modal__sub-category--active')
+		// 	$('.ntv__settings-modal__sub-category', this.$sidebar).removeClass(
+		// 		'ntv__settings-modal__sub-category--active'
+		// 	)
+		// 	$(evt.currentTarget).addClass('ntv__settings-modal__sub-category--active')
 
-			$('.ntv__settings-modal__panel', this.$panels).hide()
-			$(`[data-panel="${panelId}"]`, this.$panels).show()
+		// 	$('.ntv__settings-modal__panel', this.$panels).hide()
+		// 	$(`[data-panel="${panelId}"]`, this.$panels).show()
+		// })
+
+		// Vanilla javascript
+		this.sidebarEl.querySelectorAll('.ntv__settings-modal__sub-category').forEach((el1: Element) => {
+			el1.addEventListener('click', evt => {
+				const panelId = (<HTMLElement>el1).dataset.panel
+
+				this.sidebarEl!.querySelectorAll('.ntv__settings-modal__sub-category').forEach((el2: Element) => {
+					el2.classList.remove('ntv__settings-modal__sub-category--active')
+				})
+
+				el1.classList.add('ntv__settings-modal__sub-category--active')
+
+				this.panelsEl!.querySelectorAll('.ntv__settings-modal__panel').forEach((el2: Element) => {
+					;(<HTMLElement>el2).style.display = 'none'
+				})
+				this.panelsEl!.querySelector(`[data-panel="${panelId}"]`)?.setAttribute('style', 'display: block')
+			})
+		})
+
+		this.sidebarBtnEl!.addEventListener('click', () => {
+			this.sidebarEl!.classList.toggle('ntv__settings-modal__sidebar--open')
 		})
 	}
 }

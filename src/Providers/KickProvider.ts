@@ -1,6 +1,6 @@
 import { AbstractProvider, IAbstractProvider, ProviderDependencies } from './AbstractProvider'
 import { SettingsManager } from '../Managers/SettingsManager'
-import { log, info, error, fetchJSON, md5 } from '../utils'
+import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
 export class KickProvider extends AbstractProvider implements IAbstractProvider {
@@ -27,7 +27,7 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 		const includeEmojiEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_emojis')
 
 		info('Fetching emote data from Kick..')
-		const data = await fetchJSON(`https://kick.com/emotes/${channel_name}`)
+		const data = await REST.get(`https://kick.com/emotes/${channel_name}`)
 
 		let dataFiltered = data
 		if (!includeGlobalEmoteSet) {
@@ -109,8 +109,8 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 	}
 
 	getEmbeddableEmote(emote: Emote) {
-		// return `[emote:${emote.id}:${emote.name}]`
-		return `[emote:${emote.id}:]` // Turns out name is not necessary, saves characters sent.
+		// return `[emote:${emote.id}:${emote.name}]` // Turns out name is not necessary, would save characters sent.
+		return `[emote:${emote.id}:_]`
 	}
 
 	getEmoteSrc(emote: Emote) {

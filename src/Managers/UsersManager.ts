@@ -3,21 +3,37 @@ import { SettingsManager } from './SettingsManager'
 import { Publisher } from '../Classes/Publisher'
 
 export class UsersManager {
-	datastore: UsersDatastore
+	private datastore: UsersDatastore
 
 	constructor({ eventBus, settingsManager }: { eventBus: Publisher; settingsManager: SettingsManager }) {
 		this.datastore = new UsersDatastore({ eventBus })
 	}
 
-	hasSeenUser(name: string): boolean {
-		return this.datastore.hasUser(name)
+	hasSeenUser(id: string): boolean {
+		return this.datastore.hasUser(id)
+	}
+
+	hasMutedUser(id: string): boolean {
+		return this.datastore.hasMutedUser(id)
 	}
 
 	registerUser(id: string, name: string) {
 		this.datastore.registerUser(id, name)
 	}
 
+	getUserById(id: string) {
+		return this.datastore.getUserById(id)
+	}
+
 	searchUsers(searchVal: string, limit = 20) {
 		return this.datastore.searchUsers(searchVal).slice(0, limit)
+	}
+
+	muteUserById(id: string) {
+		this.datastore.muteUserById(id)
+	}
+
+	unmuteUserById(id: string) {
+		this.datastore.unmuteUserById(id)
 	}
 }

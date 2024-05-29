@@ -34,8 +34,7 @@ NipahTV aims to enhance the emote integration experience within Kick chat by pro
 <br />
 
 <div align="center">
-  <video src="https://github.com/Xzensi/NipahTV/assets/14015478/62d07ea5-b629-41a2-990f-47d8ba51c91b" align="center" width="336"></video>
-  (outdated demo, 7TV emotes now render as emotes in chat input)
+  <video src="https://github.com/Xzensi/NipahTV/assets/14015478/45d492b6-a51c-4a2c-92fe-45aaf3899b81" align="center" width="336"></video>
 </div>
 <br />
 
@@ -89,7 +88,7 @@ First install all dependencies `npm install`. There are three different ways to 
     		"args": {
     			"commands": [
     				"editor.action.formatDocument",
-    				"workbench.action.files.save",
+    				"workbench.action.files.saveAll",
     				"workbench.action.tasks.build"
     			]
     		}

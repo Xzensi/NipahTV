@@ -13,7 +13,7 @@ const stopImmediatePropagation = function (this: Event | any) {
 }
 
 export class PriorityEventTarget {
-	events: Map<string, Array<Array<[(event: Event) => void, AddEventListenerOptions?]>>> = new Map()
+	private events: Map<string, Array<Array<[(event: Event) => void, AddEventListenerOptions?]>>> = new Map()
 
 	/**
 	 * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.

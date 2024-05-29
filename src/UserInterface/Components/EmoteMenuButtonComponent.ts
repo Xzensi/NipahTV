@@ -1,65 +1,62 @@
-import { SettingsManager } from '../../Managers/SettingsManager'
 import { AbstractComponent } from './AbstractComponent'
-import { Publisher } from '../../Classes/Publisher'
-import { error, cleanupHTML } from '../../utils'
+import { error, cleanupHTML, parseHTML, log } from '../../utils'
 
 export class EmoteMenuButtonComponent extends AbstractComponent {
-	ENV_VARS: any
-	eventBus: Publisher
-	settingsManager: SettingsManager
-	$element?: JQuery<HTMLElement>
-	$footerLogoBtn?: JQuery<HTMLElement>
+	private rootContext: RootContext
+	private session: Session
+	private element?: HTMLElement
+	private footerLogoBtnEl?: HTMLElement
 
-	constructor({
-		ENV_VARS,
-		eventBus,
-		settingsManager
-	}: {
-		ENV_VARS: any
-		eventBus: Publisher
-		settingsManager: SettingsManager
-	}) {
+	constructor(rootContex: RootContext, session: Session) {
 		super()
 
-		this.ENV_VARS = ENV_VARS
-		this.eventBus = eventBus
-		this.settingsManager = settingsManager
+		this.rootContext = rootContex
+		this.session = session
 	}
 
 	render() {
 		// Delete any existing footer logo button, in case cached page got loaded somehow
-		$('.ntv__emote-menu-button').remove()
+		document.querySelector('.ntv__emote-menu-button')?.remove()
 
-		const basePath = this.ENV_VARS.RESOURCE_ROOT + 'assets/img/btn'
+		const basePath = RESOURCE_ROOT + 'assets/img/btn'
 		const filename = this.getFile()
 
-		this.$element = $(
+		this.element = parseHTML(
 			cleanupHTML(`
 				<div class="ntv__emote-menu-button">
 					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
-			`)
-		)
-		this.$footerLogoBtn = this.$element.find('img')
-		$('#chatroom-footer .send-row').prepend(this.$element)
+			`),
+			true
+		) as HTMLElement
+		this.footerLogoBtnEl = this.element.querySelector('img')!
+
+		document.querySelector('#chatroom-footer .send-row')?.prepend(this.element)
 	}
 
 	attachEventHandlers() {
-		this.eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
-			if (!this.$footerLogoBtn) return error('Footer logo button not found, unable to set logo src')
+		const { eventBus } = this.rootContext
+
+		eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
+			if (!this.footerLogoBtnEl) return error('Footer logo button not found, unable to set logo src')
 			const filename = this.getFile()
-			this.$footerLogoBtn.attr('src', this.ENV_VARS.RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
-			this.$footerLogoBtn.removeClass()
-			this.$footerLogoBtn.addClass(filename.toLowerCase())
+			this.footerLogoBtnEl.setAttribute('src', RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
+			this.footerLogoBtnEl.className = filename.toLowerCase()
 		})
 
-		$('img', this.$element).click(() => {
-			this.eventBus.publish('ntv.ui.footer.click')
+		this.footerLogoBtnEl?.addEventListener('click', () => {
+			if (!this.session.channelData.me.is_logged_in) {
+				this.session.userInterface?.toastError(`Please log in first to use NipahTV.`)
+			}
+
+			eventBus.publish('ntv.ui.footer.click')
 		})
 	}
 
 	getFile() {
-		const buttonStyle = this.settingsManager.getSetting('shared.chat.emote_menu.appearance.button_style')
+		const buttonStyle = this.rootContext.settingsManager.getSetting(
+			'shared.chat.emote_menu.appearance.button_style'
+		)
 		let file = 'Nipah'
 
 		switch (buttonStyle) {
@@ -87,6 +84,6 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 	}
 
 	destroy() {
-		this.$element?.remove()
+		this.element?.remove()
 	}
 }

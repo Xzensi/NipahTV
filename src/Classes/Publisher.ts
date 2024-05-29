@@ -1,10 +1,10 @@
-import { log, logEvent, error, assertArgument, assertArgDefined, fetchJSON, assertArray } from '../utils'
+import { logEvent, error, assertArgument, assertArray } from '../utils'
 import { DTO } from './DTO'
 
 export class Publisher {
-	listeners = new Map()
-	onceListeners = new Map()
-	firedEvents = new Map()
+	private listeners = new Map()
+	private onceListeners = new Map()
+	private firedEvents = new Map()
 
 	subscribe(event: string, callback: Function, triggerOnExistingEvent = false, once = false) {
 		assertArgument(event, 'string')

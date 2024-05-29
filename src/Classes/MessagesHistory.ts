@@ -1,7 +1,7 @@
 export class MessagesHistory {
-	messages: string[]
-	cursorIndex: number
-	maxMessages: number
+	private messages: string[]
+	private cursorIndex: number
+	private maxMessages: number
 
 	constructor() {
 		this.messages = []

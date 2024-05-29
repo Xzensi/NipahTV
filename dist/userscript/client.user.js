@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.3.9
+// @version 1.4.8
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,10 +9,10 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7f16a31f.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-131aef06.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
-// @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/client.user.js
+// @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
 // @grant unsafeWindow
 // @grant GM_getValue
 // @grant GM_addStyle
@@ -116,25 +116,81 @@ var assertArgDefined = (arg) => {
     throw new Error("Invalid argument, expected defined value");
   }
 };
-async function fetchJSON(url) {
-  return new Promise((resolve, reject) => {
-    fetch(url).then(async (res) => {
-      if (res.redirected) {
-        reject("Request failed, redirected to " + res.url);
-      } else if (res.status !== 200 && res.status !== 304) {
-        await res.json().then(reject).catch(() => {
-          reject("Request failed with status code " + res.status);
+var REST = class {
+  static get(url) {
+    return this.fetch(url);
+  }
+  static post(url, data) {
+    if (data) {
+      return this.fetch(url, {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+    } else {
+      return this.fetch(url, {
+        method: "POST"
+      });
+    }
+  }
+  static put(url, data) {
+    return this.fetch(url, {
+      method: "PUT",
+      body: JSON.stringify(data)
+    });
+  }
+  static delete(url) {
+    return this.fetch(url, {
+      method: "DELETE"
+    });
+  }
+  static fetch(url, options = {}) {
+    return new Promise((resolve, reject) => {
+      if (options.body || options.method !== "GET") {
+        options.headers = Object.assign(options.headers || {}, {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/plain, */*"
         });
       }
-      return res;
-    }).then((res) => res.json()).then(resolve).catch(reject);
-  });
-}
+      const currentDomain = window.location.host.split(".").slice(-2).join(".");
+      const urlDomain = new URL(url).host.split(".").slice(-2).join(".");
+      if (currentDomain === urlDomain) {
+        options.credentials = "include";
+        const XSRFToken = getCookie("XSRF");
+        if (XSRFToken) {
+          options.headers = Object.assign(options.headers || {}, {
+            "X-XSRF-TOKEN": XSRFToken
+            // Authorization: 'Bearer ' + XSRFToken
+          });
+        }
+      }
+      fetch(url, options).then(async (res) => {
+        const statusString = res.status.toString();
+        if (res.redirected) {
+          reject("Request failed, redirected to " + res.url);
+        } else if (statusString[0] !== "2" && res.status !== 304) {
+          await res.json().then(reject).catch(() => {
+            reject("Request failed with status code " + res.status);
+          });
+        }
+        return res;
+      }).then((res) => res.json()).then(resolve).catch(reject);
+    });
+  }
+};
 function isEmpty(obj) {
   for (var x in obj) {
     return false;
   }
   return true;
+}
+function getCookie(name) {
+  const c = document.cookie.split("; ").find((v) => v.startsWith(name))?.split(/=(.*)/s);
+  return c && c[1] ? decodeURIComponent(c[1]) : null;
+}
+function eventKeyIsLetterDigitPuncSpaceChar(event) {
+  if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey)
+    return true;
+  return false;
 }
 function debounce(fn, delay) {
   let timeout;
@@ -178,8 +234,25 @@ function waitForElements(selectors, timeout = 1e4, signal = null) {
     }
   });
 }
+function parseHTML(html, firstElement = false) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  if (firstElement) {
+    return template.content.childNodes[0];
+  } else {
+    return template.content;
+  }
+}
 function cleanupHTML(html) {
-  return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, "");
+  return html.trim().replaceAll(/\s\s|\r\n|\r|\n|	/gm, "");
+}
+function countStringOccurrences(str, substr) {
+  let count = 0, sl = substr.length, post = str.indexOf(substr);
+  while (post !== -1) {
+    count++;
+    post = str.indexOf(substr, post + sl);
+  }
+  return count;
 }
 function splitEmoteName(name, minPartLength) {
   if (name.length < minPartLength || name === name.toLowerCase() || name === name.toUpperCase()) {
@@ -335,6 +408,30 @@ function md5(inputString) {
   }
   return rh(a) + rh(b) + rh(c) + rh(d);
 }
+var relativeTimeFormatter = new Intl.RelativeTimeFormat(void 0, {
+  numeric: "auto"
+});
+var RELATIVE_TIME_DIVISIONS = [
+  { amount: 60, name: "seconds" },
+  { amount: 60, name: "minutes" },
+  { amount: 24, name: "hours" },
+  { amount: 7, name: "days" },
+  { amount: 4.34524, name: "weeks" },
+  { amount: 12, name: "months" },
+  { amount: Number.POSITIVE_INFINITY, name: "years" }
+];
+function formatRelativeTime(date) {
+  let duration = (+date - Date.now()) / 1e3;
+  for (let i = 0; i < RELATIVE_TIME_DIVISIONS.length; i++) {
+    const division = RELATIVE_TIME_DIVISIONS[i];
+    if (Math.abs(duration) < division.amount) {
+      return relativeTimeFormatter.format(Math.round(duration), division.name);
+    }
+    duration /= division.amount;
+  }
+  error("Unable to format relative time", date);
+  return "error";
+}
 
 // src/Classes/DTO.ts
 var DTO = class {
@@ -444,68 +541,18 @@ var Publisher = class {
   }
 };
 
-// src/Classes/SlidingTimestampWindow.ts
-var SlidingTimestampWindow = class {
-  timestampWindow;
-  entries;
-  maxEntries;
-  constructor(historyEntries) {
-    this.timestampWindow = 14 * 24 * 60 * 60 * 1e3;
-    this.entries = historyEntries || [];
-    this.maxEntries = 400;
-    setInterval(this.update.bind(this), Math.random() * 40 * 1e3 + 30 * 60 * 1e3);
-    setTimeout(this.update.bind(this), (Math.random() * 40 + 30) * 1e3);
-  }
-  addEntry() {
-    if (this.entries.length >= this.maxEntries) {
-      let oldestIndex = 0;
-      let oldestTimestamp = this.entries[0];
-      for (let i = 1; i < this.entries.length; i++) {
-        if (this.entries[i] < oldestTimestamp) {
-          oldestIndex = i;
-          oldestTimestamp = this.entries[i];
-        }
-      }
-      this.entries[oldestIndex] = Date.now();
-      return;
-    }
-    this.entries.push(Date.now());
-  }
-  update() {
-    this.entries = this.entries.filter((entry) => entry > Date.now() - this.timestampWindow);
-  }
-  getTotal() {
-    return this.entries.length;
-  }
-};
-
-// src/constants.ts
-var PLATFORM_ENUM = {
-  NULL: 0,
-  KICK: 1,
-  TWITCH: 2,
-  YOUTUBE: 3
-};
-var PROVIDER_ENUM = {
-  NULL: 0,
-  KICK: 1,
-  SEVENTV: 2
-};
-
 // src/Datastores/EmoteDatastore.ts
 var EmoteDatastore = class {
-  emoteSets = [];
   emoteMap = /* @__PURE__ */ new Map();
   emoteIdMap = /* @__PURE__ */ new Map();
   emoteNameMap = /* @__PURE__ */ new Map();
-  emoteHistory = /* @__PURE__ */ new Map();
   emoteEmoteSetMap = /* @__PURE__ */ new Map();
-  // Map of emote names splitted into parts for more relevant search results
-  splittedNamesMap = /* @__PURE__ */ new Map();
+  emoteSets = [];
+  emoteUsage = /* @__PURE__ */ new Map();
   // Map of provider ids containing map of emote names to emote hids
   emoteProviderNameMap = /* @__PURE__ */ new Map();
-  // Map of pending history changes to be synced to database
-  pendingHistoryChanges = {};
+  // Map of pending emote usage changes to be synced to database
+  pendingEmoteUsageChanges = {};
   fuse = new Fuse([], {
     includeScore: true,
     shouldSort: false,
@@ -527,45 +574,35 @@ var EmoteDatastore = class {
     }, 10 * 1e3);
     setInterval(() => this.storeDatabase(), 3 * 1e3);
     eventBus.subscribe("ntv.session.destroy", () => {
-      delete this.emoteSets;
-      delete this.emoteMap;
-      delete this.emoteNameMap;
-      delete this.emoteHistory;
-      delete this.emoteProviderNameMap;
-      delete this.pendingHistoryChanges;
+      this.emoteProviderNameMap.clear();
+      this.emoteNameMap.clear();
+      this.emoteUsage.clear();
+      this.emoteMap.clear();
     });
   }
   async loadDatabase() {
     info("Reading out emotes data from database..");
     const { database, eventBus } = this;
-    const emoteHistory = /* @__PURE__ */ new Map();
-    const historyRecords = await database.getHistoryRecords(PLATFORM_ENUM.KICK, this.channelId);
-    if (historyRecords.length) {
-      for (const record of historyRecords) {
-        emoteHistory.set(record.emoteHid, new SlidingTimestampWindow(record.timestamps));
+    const usageRecords = await database.getEmoteUsageRecords(this.channelId);
+    if (usageRecords.length) {
+      for (const record of usageRecords) {
+        this.emoteUsage.set(record.emoteHid, record.count);
       }
     }
-    this.emoteHistory = emoteHistory;
-    eventBus.publish("ntv.datastore.emotes.history.loaded");
+    eventBus.publish("ntv.datastore.emotes.usage.loaded");
   }
   storeDatabase() {
-    if (isEmpty(this.pendingHistoryChanges))
+    if (isEmpty(this.pendingEmoteUsageChanges))
       return;
     const { database } = this;
-    const puts = [], deletes = [];
-    for (const emoteHid in this.pendingHistoryChanges) {
-      const history = this.emoteHistory.get(emoteHid);
-      if (!history) {
-        deletes.push({ channelId: this.channelId, emoteHid });
-      } else {
-        puts.push({ channelId: this.channelId, emoteHid, timestamps: history.entries });
-      }
+    const puts = [];
+    for (const emoteHid in this.pendingEmoteUsageChanges) {
+      const emoteUsages = this.emoteUsage.get(emoteHid);
+      puts.push({ channelId: this.channelId, emoteHid, count: emoteUsages });
     }
     if (puts.length)
-      database.bulkPutEmoteHistory(puts);
-    if (deletes.length)
-      database.bulkDeleteEmoteHistory(deletes);
-    this.pendingHistoryChanges = {};
+      database.bulkPutEmoteUsage(puts);
+    this.pendingEmoteUsageChanges = {};
   }
   registerEmoteSet(emoteSet) {
     for (const set of this.emoteSets) {
@@ -613,30 +650,30 @@ var EmoteDatastore = class {
   getEmoteById(id) {
     return this.emoteIdMap.get(id);
   }
-  getEmoteHistoryCount(emoteHid) {
-    return this.emoteHistory.get(emoteHid)?.getTotal() || 0;
+  getEmoteUsageCount(emoteHid) {
+    return this.emoteUsage.get(emoteHid) || 0;
   }
-  registerEmoteEngagement(emoteHid, historyEntries) {
+  registerEmoteEngagement(emoteHid) {
     if (!emoteHid)
       return error("Undefined required emoteHid argument");
-    if (!this.emoteHistory.has(emoteHid) || historyEntries) {
-      this.emoteHistory.set(emoteHid, new SlidingTimestampWindow(historyEntries));
+    if (!this.emoteUsage.has(emoteHid)) {
+      this.emoteUsage.set(emoteHid, 0);
     }
-    this.pendingHistoryChanges[emoteHid] = true;
-    this.emoteHistory.get(emoteHid).addEntry();
-    this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteHid });
+    this.pendingEmoteUsageChanges[emoteHid] = true;
+    this.emoteUsage.set(emoteHid, this.emoteUsage.get(emoteHid) + 1);
+    this.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
   }
-  removeEmoteHistory(emoteHid) {
+  removeEmoteUsage(emoteHid) {
     if (!emoteHid)
       return error("Undefined required emoteHid argument");
-    this.emoteHistory.delete(emoteHid);
-    this.pendingHistoryChanges[emoteHid] = true;
-    this.eventBus.publish("ntv.datastore.emotes.history.changed", { emoteHid });
+    this.emoteUsage.delete(emoteHid);
+    this.pendingEmoteUsageChanges[emoteHid] = true;
+    this.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
   }
   searchEmotesWithWeightedHistory(searchVal) {
     return this.fuse.search(searchVal).sort((a, b) => {
-      const aHistory = (this.emoteHistory.get(a.item.hid)?.getTotal() || 0) + 1;
-      const bHistory = (this.emoteHistory.get(b.item.hid)?.getTotal() || 0) + 1;
+      const aHistory = (this.emoteUsage.get(a.item.hid) || 0) + 1;
+      const bHistory = (this.emoteUsage.get(b.item.hid) || 0) + 1;
       const aTotalScore = a.score - 1 - 1 / bHistory;
       const bTotalScore = b.score - 1 - 1 / aHistory;
       if (aTotalScore < bTotalScore)
@@ -701,7 +738,6 @@ var EmoteDatastore = class {
 var EmotesManager = class {
   providers = /* @__PURE__ */ new Map();
   loaded = false;
-  database;
   eventBus;
   settingsManager;
   datastore;
@@ -710,7 +746,6 @@ var EmotesManager = class {
     eventBus,
     settingsManager
   }, channelId) {
-    this.database = database;
     this.eventBus = eventBus;
     this.settingsManager = settingsManager;
     this.datastore = new EmoteDatastore({ database, eventBus }, channelId);
@@ -787,11 +822,11 @@ var EmotesManager = class {
   getEmoteSets() {
     return this.datastore.emoteSets;
   }
-  getEmoteHistory() {
-    return this.datastore.emoteHistory;
+  getEmoteUsageCounts() {
+    return this.datastore.emoteUsage;
   }
-  getEmoteHistoryCount(emoteHid) {
-    return this.datastore.getEmoteHistoryCount(emoteHid);
+  getEmoteUsageCount(emoteHid) {
+    return this.datastore.getEmoteUsageCount(emoteHid);
   }
   getRenderableEmote(emote, classes = "") {
     if (!emote)
@@ -822,8 +857,8 @@ var EmotesManager = class {
   registerEmoteEngagement(emoteHid) {
     this.datastore.registerEmoteEngagement(emoteHid);
   }
-  removeEmoteHistory(emoteHid) {
-    this.datastore.removeEmoteHistory(emoteHid);
+  removeEmoteUsage(emoteHid) {
+    this.datastore.removeEmoteUsage(emoteHid);
   }
   searchEmotes(search, limit = 0) {
     const { settingsManager } = this;
@@ -843,16 +878,21 @@ var EmotesManager = class {
 var AbstractComponent = class {
   // Method to render the component
   render() {
-    throw new Error("render() method must be implemented");
+    throw new Error("render() method is not implemented yet");
   }
   // Method to attach event handlers
   attachEventHandlers() {
-    throw new Error("attachEventHandlers() method must be implemented");
+    throw new Error("attachEventHandlers() method is not implemented yet");
   }
   // Method to initialize the component
   init() {
-    this.render();
-    this.attachEventHandlers();
+    if (this.render.constructor.name === "AsyncFunction") {
+      ;
+      this.render().then(this.attachEventHandlers.bind(this));
+    } else {
+      this.render();
+      this.attachEventHandlers();
+    }
     return this;
   }
 };
@@ -861,57 +901,63 @@ var AbstractComponent = class {
 var QuickEmotesHolderComponent = class extends AbstractComponent {
   // The sorting list shadow reflects the order of emotes in this.$element
   sortingList = [];
-  eventBus;
-  settingsManager;
-  emotesManager;
-  $element;
-  $emote;
+  rootContext;
+  element;
+  emote;
+  placeholder;
   renderQuickEmotesCallback;
-  constructor({
-    eventBus,
-    settingsManager,
-    emotesManager
-  }) {
+  constructor(rootContext, placeholder) {
     super();
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
+    this.rootContext = rootContext;
+    this.placeholder = placeholder;
   }
   render() {
-    $(".ntv__client_quick_emotes_holder").remove();
-    const rows = this.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
-    this.$element = $(`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`);
-    const $oldEmotesHolder = $("#chatroom-footer .quick-emotes-holder");
-    $oldEmotesHolder.remove();
-    $("#chatroom-footer").prepend(this.$element);
+    const oldEls = document.getElementsByClassName("ntv__client_quick_emotes_holder");
+    for (const el of oldEls)
+      el.remove();
+    const rows = this.rootContext.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
+    this.element = parseHTML(
+      `<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`,
+      true
+    );
+    this.placeholder.replaceWith(this.element);
   }
   attachEventHandlers() {
-    this.$element?.on("click", "img", (evt) => {
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    const { eventBus } = this.rootContext;
+    this.element?.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG")
+        return;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
         return error("Invalid emote hid");
       this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
     });
-    this.eventBus.subscribeAllOnce(
-      ["ntv.providers.loaded", "ntv.datastore.emotes.history.loaded"],
+    eventBus.subscribeAllOnce(
+      ["ntv.providers.loaded", "ntv.datastore.emotes.usage.loaded"],
       this.renderQuickEmotes.bind(this)
     );
     this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this);
-    this.eventBus.subscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
+    eventBus.subscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.quick_emote_holder.appearance.rows",
+      ({ value, prevValue }) => {
+        this.element?.setAttribute("data-rows", value || "0");
+      }
+    );
   }
   handleEmoteClick(emoteHid, sendImmediately = false) {
     assertArgDefined(emoteHid);
-    const { emotesManager } = this;
-    const emote = emotesManager.getEmote(emoteHid);
+    const emote = this.rootContext.emotesManager.getEmote(emoteHid);
     if (!emote)
       return error("Invalid emote");
-    this.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
+    this.rootContext.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
   }
   renderQuickEmotes() {
-    const { emotesManager } = this;
-    const emoteHistory = emotesManager.getEmoteHistory();
-    if (emoteHistory.size) {
-      for (const [emoteHid, history] of emoteHistory) {
+    const { emotesManager } = this.rootContext;
+    const emoteUsageCounts = emotesManager.getEmoteUsageCounts();
+    if (emoteUsageCounts.size) {
+      for (const [emoteHid] of emoteUsageCounts) {
         this.renderQuickEmote(emoteHid);
       }
     }
@@ -920,97 +966,99 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
    * Move the emote to the correct position in the emote holder, append if new emote.
    */
   renderQuickEmote(emoteHid) {
-    const { emotesManager } = this;
+    const { emotesManager } = this.rootContext;
     const emote = emotesManager.getEmote(emoteHid);
-    if (!emote) {
-      return error("History encountered emote missing from provider emote sets..", emoteHid);
-    }
+    if (!emote)
+      return;
     const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.hid === emoteHid);
     if (emoteInSortingListIndex !== -1) {
       const emoteToSort = this.sortingList[emoteInSortingListIndex];
-      const $emote = emoteToSort.$emote;
-      $emote.remove();
+      const emoteEl = emoteToSort.emoteEl;
+      emoteEl.remove();
       this.sortingList.splice(emoteInSortingListIndex, 1);
       const insertIndex = this.getSortedEmoteIndex(emoteHid);
       if (insertIndex !== -1) {
         this.sortingList.splice(insertIndex, 0, emoteToSort);
-        this.$element?.children().eq(insertIndex).before($emote);
+        this.element?.children[insertIndex].before(emoteEl);
       } else {
         this.sortingList.push(emoteToSort);
-        this.$element?.append($emote);
+        this.element?.append(emoteEl);
       }
     } else {
-      const $emotePartial = $(emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote"));
+      const emotePartialEl = parseHTML(
+        emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote"),
+        true
+      );
       const insertIndex = this.getSortedEmoteIndex(emoteHid);
       if (insertIndex !== -1) {
-        this.sortingList.splice(insertIndex, 0, { hid: emoteHid, $emote: $emotePartial });
-        this.$element?.children().eq(insertIndex).before($emotePartial);
+        this.sortingList.splice(insertIndex, 0, { hid: emoteHid, emoteEl: emotePartialEl });
+        this.element?.children[insertIndex].before(emotePartialEl);
       } else {
-        this.sortingList.push({ hid: emoteHid, $emote: $emotePartial });
-        this.$element?.append($emotePartial);
+        this.sortingList.push({ hid: emoteHid, emoteEl: emotePartialEl });
+        this.element?.append(emotePartialEl);
       }
     }
   }
   getSortedEmoteIndex(emoteHid) {
-    const { emotesManager } = this;
-    const emoteHistoryCount = emotesManager.getEmoteHistoryCount(emoteHid);
+    const { emotesManager } = this.rootContext;
+    const emoteUsageCount = emotesManager.getEmoteUsageCount(emoteHid);
     return this.sortingList.findIndex((entry) => {
-      return emotesManager.getEmoteHistoryCount(entry.hid) < emoteHistoryCount;
+      return emotesManager.getEmoteUsageCount(entry.hid) < emoteUsageCount;
     });
   }
   destroy() {
-    this.$element?.remove();
+    this.element?.remove();
     if (this.renderQuickEmotesCallback)
-      this.eventBus.unsubscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
+      this.rootContext.eventBus.unsubscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
   }
 };
 
 // src/UserInterface/Components/EmoteMenuButtonComponent.ts
 var EmoteMenuButtonComponent = class extends AbstractComponent {
-  ENV_VARS;
-  eventBus;
-  settingsManager;
-  $element;
-  $footerLogoBtn;
-  constructor({
-    ENV_VARS,
-    eventBus,
-    settingsManager
-  }) {
+  rootContext;
+  session;
+  element;
+  footerLogoBtnEl;
+  constructor(rootContex, session) {
     super();
-    this.ENV_VARS = ENV_VARS;
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
+    this.rootContext = rootContex;
+    this.session = session;
   }
   render() {
-    $(".ntv__emote-menu-button").remove();
-    const basePath = this.ENV_VARS.RESOURCE_ROOT + "assets/img/btn";
+    document.querySelector(".ntv__emote-menu-button")?.remove();
+    const basePath = RESOURCE_ROOT + "assets/img/btn";
     const filename = this.getFile();
-    this.$element = $(
+    this.element = parseHTML(
       cleanupHTML(`
 				<div class="ntv__emote-menu-button">
 					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
 				</div>
-			`)
+			`),
+      true
     );
-    this.$footerLogoBtn = this.$element.find("img");
-    $("#chatroom-footer .send-row").prepend(this.$element);
+    this.footerLogoBtnEl = this.element.querySelector("img");
+    document.querySelector("#chatroom-footer .send-row")?.prepend(this.element);
   }
   attachEventHandlers() {
-    this.eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
-      if (!this.$footerLogoBtn)
+    const { eventBus } = this.rootContext;
+    eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
+      if (!this.footerLogoBtnEl)
         return error("Footer logo button not found, unable to set logo src");
       const filename = this.getFile();
-      this.$footerLogoBtn.attr("src", this.ENV_VARS.RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
-      this.$footerLogoBtn.removeClass();
-      this.$footerLogoBtn.addClass(filename.toLowerCase());
+      this.footerLogoBtnEl.setAttribute("src", RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
+      this.footerLogoBtnEl.className = filename.toLowerCase();
     });
-    $("img", this.$element).click(() => {
-      this.eventBus.publish("ntv.ui.footer.click");
+    this.footerLogoBtnEl?.addEventListener("click", () => {
+      if (!this.session.channelData.me.is_logged_in) {
+        this.session.userInterface?.toastError(`Please log in first to use NipahTV.`);
+      }
+      eventBus.publish("ntv.ui.footer.click");
     });
   }
   getFile() {
-    const buttonStyle = this.settingsManager.getSetting("shared.chat.emote_menu.appearance.button_style");
+    const buttonStyle = this.rootContext.settingsManager.getSetting(
+      "shared.chat.emote_menu.appearance.button_style"
+    );
     let file = "Nipah";
     switch (buttonStyle) {
       case "nipahtv":
@@ -1035,7 +1083,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     return file;
   }
   destroy() {
-    this.$element?.remove();
+    this.element?.remove();
   }
 };
 
@@ -1045,39 +1093,30 @@ var EmoteMenuComponent = class extends AbstractComponent {
   isShowing = false;
   activePanel = "emotes";
   sidebarMap = /* @__PURE__ */ new Map();
-  channelData;
-  eventBus;
-  settingsManager;
-  emotesManager;
+  rootContext;
+  session;
   parentContainer;
   panels = {};
-  $container;
-  $searchInput;
-  $scrollable;
-  $settingsBtn;
-  $sidebarSets;
-  $tooltip;
+  containerEl;
+  searchInputEl;
+  scrollableEl;
+  settingsBtnEl;
+  sidebarSetsEl;
+  tooltipEl;
   closeModalClickListenerHandle;
   scrollableHeight = 0;
-  constructor({
-    channelData,
-    eventBus,
-    settingsManager,
-    emotesManager
-  }, container) {
+  constructor(rootContext, session, container) {
     super();
-    this.channelData = channelData;
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
+    this.rootContext = rootContext;
+    this.session = session;
     this.parentContainer = container;
   }
   render() {
-    const { settingsManager } = this;
+    const { settingsManager } = this.rootContext;
     const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
     const showSidebar = true;
-    $(".ntv__emote-menu").remove();
-    this.$container = $(
+    document.querySelectorAll(".ntv__emote-menu").forEach((el) => el.remove());
+    this.containerEl = parseHTML(
       cleanupHTML(`
 				<div class="ntv__emote-menu" style="display: none">
 					<div class="ntv__emote-menu__header">
@@ -1110,21 +1149,25 @@ var EmoteMenuComponent = class extends AbstractComponent {
 						</div>
 					</div>
 				</div>
-			`)
+			`),
+      true
     );
-    $(".ntv__chatroom-link", this.$container).attr("href", `/${this.channelData.channel_name}/chatroom`);
-    this.$searchInput = $(".ntv__emote-menu__search input", this.$container);
-    this.$scrollable = $(".ntv__emote-menu__scrollable", this.$container);
-    this.$settingsBtn = $(".ntv__emote-menu__sidebar-btn--settings", this.$container);
-    this.$sidebarSets = $(".ntv__emote-menu__sidebar__sets", this.$container);
-    this.panels.$emotes = $(".ntv__emote-menu__panel__emotes", this.$container);
-    this.panels.$search = $(".ntv__emote-menu__panel__search", this.$container);
-    $(this.parentContainer).append(this.$container);
+    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/${this.session.channelData.channel_name}/chatroom`);
+    this.searchInputEl = this.containerEl.querySelector(".ntv__emote-menu__search input");
+    this.scrollableEl = this.containerEl.querySelector(".ntv__emote-menu__scrollable");
+    this.settingsBtnEl = this.containerEl.querySelector(".ntv__emote-menu__sidebar-btn--settings");
+    this.sidebarSetsEl = this.containerEl.querySelector(".ntv__emote-menu__sidebar__sets");
+    this.panels.emotes = this.containerEl.querySelector(".ntv__emote-menu__panel__emotes");
+    this.panels.search = this.containerEl.querySelector(".ntv__emote-menu__panel__search");
+    this.parentContainer.appendChild(this.containerEl);
   }
   attachEventHandlers() {
-    const { eventBus, settingsManager } = this;
-    this.$scrollable?.on("click", "img", (evt) => {
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    const { eventBus, settingsManager, emotesManager } = this.rootContext;
+    this.scrollableEl?.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG")
+        return;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
         return error("Invalid emote hid");
       eventBus.publish("ntv.ui.emote.click", { emoteHid });
@@ -1132,54 +1175,68 @@ var EmoteMenuComponent = class extends AbstractComponent {
       if (closeOnClick)
         this.toggleShow(false);
     });
-    this.$scrollable?.on("mouseenter", "img", (evt) => {
-      if (this.$tooltip)
-        this.$tooltip.remove();
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    let lastEnteredElement = null;
+    this.scrollableEl?.addEventListener("mouseover", (evt) => {
+      const target = evt.target;
+      if (target === lastEnteredElement || target.tagName !== "IMG")
+        return;
+      if (this.tooltipEl)
+        this.tooltipEl.remove();
+      lastEnteredElement = target;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid)
         return;
-      const emote = this.emotesManager.getEmote(emoteHid);
+      const emote = emotesManager.getEmote(emoteHid);
       if (!emote)
         return;
       const imageInTooltop = settingsManager.getSetting("shared.chat.tooltips.images");
-      const $tooltip = $(
+      const tooltipEl = parseHTML(
         cleanupHTML(`
-					<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
-						${imageInTooltop ? this.emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
-						<span>${emote.name}</span>
-					</div>`)
-      ).appendTo(document.body);
-      const rect = evt.target.getBoundingClientRect();
-      $tooltip.css({
-        top: rect.top - rect.height / 2,
-        left: rect.left + rect.width / 2
-      });
-      this.$tooltip = $tooltip;
-    }).on("mouseleave", "img", (evt) => {
-      if (this.$tooltip)
-        this.$tooltip.remove();
+				<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
+					${imageInTooltop ? emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
+					<span>${emote.name}</span>
+				</div>`),
+        true
+      );
+      this.tooltipEl = tooltipEl;
+      document.body.appendChild(tooltipEl);
+      const rect = target.getBoundingClientRect();
+      tooltipEl.style.top = rect.top - rect.height / 2 + "px";
+      tooltipEl.style.left = rect.left + rect.width / 2 + "px";
+      target.addEventListener(
+        "mouseleave",
+        () => {
+          if (this.tooltipEl)
+            this.tooltipEl.remove();
+          lastEnteredElement = null;
+        },
+        { once: true }
+      );
     });
-    this.$searchInput?.on("input", this.handleSearchInput.bind(this));
-    this.panels.$emotes?.on("click", ".ntv__chevron", (evt) => {
-      log("Emote set header chevron click");
-      const $emoteSet = $(evt.target).closest(".ntv__emote-set");
-      const $emoteSetBody = $emoteSet.children(".ntv__emote-set__emotes");
-      log($(evt.target).parent(".ntv__emote-set"), $emoteSetBody);
-      if (!$emoteSetBody.length)
-        return error("Invalid emote set body");
-      $emoteSet.toggleClass("ntv__emote-set--collapsed");
+    this.searchInputEl?.addEventListener("input", this.handleSearchInput.bind(this));
+    this.panels.emotes?.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (!target.classList.contains("ntv__chevron"))
+        return;
+      const emoteSet = target.closest(".ntv__emote-set");
+      if (!emoteSet)
+        return;
+      const emoteSetBody = emoteSet.querySelector(".ntv__emote-set__emotes");
+      if (!emoteSetBody)
+        return;
+      emoteSet.classList.toggle("ntv__emote-set--collapsed");
     });
-    this.$settingsBtn?.on("click", () => {
+    this.settingsBtnEl?.addEventListener("click", () => {
       eventBus.publish("ntv.ui.settings.toggle_show");
     });
     eventBus.subscribe("ntv.providers.loaded", this.renderEmotes.bind(this), true);
     eventBus.subscribe("ntv.ui.footer.click", this.toggleShow.bind(this));
-    $(document).on("keydown", (evt) => {
-      if (evt.which === 27)
+    document.addEventListener("keydown", (evt) => {
+      if (evt.key === "Escape")
         this.toggleShow(false);
     });
     if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_spacebar")) {
-      $(document).on("keydown", (evt) => {
+      document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === " ") {
           evt.preventDefault();
           this.toggleShow();
@@ -1187,7 +1244,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       });
     }
     if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_e")) {
-      $(document).on("keydown", (evt) => {
+      document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === "e") {
           evt.preventDefault();
           this.toggleShow();
@@ -1198,54 +1255,68 @@ var EmoteMenuComponent = class extends AbstractComponent {
   handleSearchInput(evt) {
     if (!(evt.target instanceof HTMLInputElement))
       return;
+    if (this.tooltipEl)
+      this.tooltipEl.remove();
+    const { emotesManager } = this.rootContext;
     const searchVal = evt.target.value;
     if (searchVal.length) {
       this.switchPanel("search");
     } else {
       this.switchPanel("emotes");
     }
-    const emotesResult = this.emotesManager.searchEmotes(searchVal.substring(0, 20));
+    const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20));
     log(`Searching for emotes, found ${emotesResult.length} matches"`);
-    this.panels.$search?.empty();
+    while (this.panels.search?.firstChild) {
+      this.panels.search.removeChild(this.panels.search.firstChild);
+    }
     let maxResults = 75;
     for (const emoteResult of emotesResult) {
       if (maxResults-- <= 0)
         break;
-      this.panels.$search?.append(this.emotesManager.getRenderableEmote(emoteResult.item, "ntv__emote"));
+      this.panels.search?.append(parseHTML(emotesManager.getRenderableEmote(emoteResult.item, "ntv__emote")));
     }
   }
   switchPanel(panel) {
     if (this.activePanel === panel)
       return;
     if (this.activePanel === "search") {
-      this.panels.$search?.hide();
+      if (this.panels.search)
+        this.panels.search.style.display = "none";
     } else if (this.activePanel === "emotes") {
-      this.panels.$emotes?.hide();
+      if (this.panels.emotes)
+        this.panels.emotes.style.display = "none";
     }
     if (panel === "search") {
-      this.panels.$search?.show();
+      if (this.panels.search)
+        this.panels.search.style.display = "";
     } else if (panel === "emotes") {
-      this.panels.$emotes?.show();
+      if (this.panels.emotes)
+        this.panels.emotes.style.display = "";
     }
     this.activePanel = panel;
   }
   renderEmotes() {
     log("Rendering emotes in modal");
-    const { emotesManager, $sidebarSets, $scrollable } = this;
-    const $emotesPanel = this.panels.$emotes;
-    if (!$emotesPanel || !$sidebarSets || !$scrollable)
+    const { sidebarSetsEl, scrollableEl } = this;
+    const { emotesManager } = this.rootContext;
+    const emotesPanelEl = this.panels.emotes;
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl)
       return error("Invalid emote menu elements");
-    $sidebarSets.empty();
-    $emotesPanel.empty();
-    const emoteSets = this.emotesManager.getEmoteSets();
+    while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild))
+      ;
+    while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild))
+      ;
+    const emoteSets = emotesManager.getEmoteSets();
     const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index);
     for (const emoteSet of orderedEmoteSets) {
       const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
-      const sidebarIcon = $(
-        `<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`
-      ).appendTo($sidebarSets);
-      this.sidebarMap.set(emoteSet.id, sidebarIcon[0]);
-      const $newEmoteSet = $(
+      const sidebarIcon = parseHTML(
+        `<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`,
+        true
+      );
+      sidebarSetsEl.appendChild(sidebarIcon);
+      this.sidebarMap.set(emoteSet.id, sidebarIcon);
+      const newEmoteSetEl = parseHTML(
         cleanupHTML(
           `<div class="ntv__emote-set" data-id="${emoteSet.id}">
 						<div class="ntv__emote-set__header">
@@ -1257,23 +1328,34 @@ var EmoteMenuComponent = class extends AbstractComponent {
 						</div>
 						<div class="ntv__emote-set__emotes"></div>
 					</div>`
-        )
+        ),
+        true
       );
-      $emotesPanel.append($newEmoteSet);
-      const $newEmoteSetEmotes = $(".ntv__emote-set__emotes", $newEmoteSet);
+      emotesPanelEl.append(newEmoteSetEl);
+      const newEmoteSetEmotesEl = newEmoteSetEl.querySelector(".ntv__emote-set__emotes");
       for (const emote of sortedEmotes) {
-        $newEmoteSetEmotes.append(emotesManager.getRenderableEmote(emote, "ntv__emote ntv__emote-set__emote"));
+        newEmoteSetEmotesEl.append(
+          parseHTML(emotesManager.getRenderableEmote(emote, "ntv__emote ntv__emote-set__emote"))
+        );
       }
     }
-    $sidebarSets.on("click", (evt) => {
-      const $img = $("img", evt.target);
-      if (!$img.length)
-        return error("Invalid sidebar icon click");
-      const scrollableEl = $scrollable[0];
-      const emoteSetId = $img.attr("data-id");
-      const emoteSetEl = $(`.ntv__emote-set[data-id="${emoteSetId}"]`, this.$container)[0];
-      scrollableEl.scrollTo({
-        top: emoteSetEl.offsetTop - 55,
+    sidebarSetsEl.addEventListener("click", (evt) => {
+      const target = evt.target;
+      const imgEl = target.querySelector("img");
+      if (!imgEl)
+        return;
+      const scrollableEl2 = this.scrollableEl;
+      if (!scrollableEl2)
+        return;
+      const emoteSetId = imgEl.getAttribute("data-id");
+      const emoteSetEl = this.containerEl?.querySelector(
+        `.ntv__emote-set[data-id="${emoteSetId}"]`
+      );
+      if (!emoteSetEl)
+        return error("Invalid emote set element");
+      const headerHeight = emoteSetEl.querySelector(".ntv__emote-set__header")?.clientHeight || 0;
+      scrollableEl2.scrollTo({
+        top: emoteSetEl.offsetTop - headerHeight,
         behavior: "smooth"
       });
     });
@@ -1286,7 +1368,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         });
       },
       {
-        root: $scrollable[0],
+        root: scrollableEl,
         rootMargin: "0px",
         threshold: (() => {
           let thresholds = [];
@@ -1300,14 +1382,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
         })()
       }
     );
-    const emoteSetEls = $(".ntv__emote-set", $emotesPanel);
+    const emoteSetEls = emotesPanelEl.querySelectorAll(".ntv__emote-set");
     for (const emoteSetEl of emoteSetEls)
       observer.observe(emoteSetEl);
   }
   handleOutsideModalClick(evt) {
-    if (!this.$container)
+    if (!this.containerEl)
       return;
-    const containerEl = this.$container[0];
+    const containerEl = this.containerEl;
     const withinComposedPath = evt.composedPath().includes(containerEl);
     if (!withinComposedPath)
       this.toggleShow(false);
@@ -1316,22 +1398,75 @@ var EmoteMenuComponent = class extends AbstractComponent {
     if (bool === this.isShowing)
       return;
     this.isShowing = !this.isShowing;
-    const { $searchInput } = this;
+    const { searchInputEl } = this;
     if (this.isShowing) {
       setTimeout(() => {
-        if ($searchInput)
-          $searchInput[0].focus();
+        if (searchInputEl)
+          searchInputEl.focus();
         this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this);
         wwindow.addEventListener("click", this.closeModalClickListenerHandle);
       });
     } else {
       wwindow.removeEventListener("click", this.closeModalClickListenerHandle);
     }
-    this.$container?.toggle(this.isShowing);
-    this.scrollableHeight = this.$scrollable?.height() || 0;
+    if (this.containerEl)
+      this.containerEl.style.display = this.isShowing ? "" : "none";
+    this.scrollableHeight = this.scrollableEl?.clientHeight || 0;
   }
   destroy() {
-    this.$container?.remove();
+    this.containerEl?.remove();
+  }
+};
+
+// src/UserInterface/Components/ReplyMessageComponent.ts
+var ReplyMessageComponent = class extends AbstractComponent {
+  element;
+  containerEl;
+  eventTarget = new EventTarget();
+  constructor(containerEl, messageNodes) {
+    super();
+    this.containerEl = containerEl;
+    this.element = parseHTML(
+      cleanupHTML(`
+			<div class="ntv__reply-message">
+				<div class="ntv__reply-message__header">
+					<svg x<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+						<path fill="currentColor" d="m12.281 5.281l-8 8l-.687.719l.687.719l8 8l1.438-1.438L7.438 15H21c2.773 0 5 2.227 5 5s-2.227 5-5 5v2c3.855 0 7-3.145 7-7s-3.145-7-7-7H7.437l6.282-6.281z" />
+					</svg>
+					<span>Replying to:</span>
+					<svg class="ntv__reply-message__close-btn ntv__icon-button" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
+						<path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
+						<path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
+					</svg>
+				</div>
+				<div class="ntv__reply-message__content">
+				</div>
+			</div>
+		`),
+      true
+    );
+    const contentEl = this.element.querySelector(".ntv__reply-message__content");
+    for (const messageNode of messageNodes) {
+      contentEl.append(messageNode.cloneNode(true));
+    }
+  }
+  render() {
+    this.containerEl.append(this.element);
+  }
+  // Method to attach event handlers
+  attachEventHandlers() {
+    const closeBtn = this.element.querySelector(".ntv__reply-message__close-btn");
+    closeBtn.addEventListener("click", () => {
+      this.element.remove();
+      this.eventTarget.dispatchEvent(new Event("close"));
+    });
+  }
+  addEventListener(event, callback) {
+    this.eventTarget.addEventListener(event, callback);
+  }
+  destroy() {
+    log("Destroying reply message component..", this.element);
+    this.element.remove();
   }
 };
 
@@ -1391,142 +1526,726 @@ var MessagesHistory = class {
   }
 };
 
-// src/Datastores/UsersDatastore.ts
-var UsersDatastore = class {
-  usersNameMap = /* @__PURE__ */ new Map();
-  usersIdMap = /* @__PURE__ */ new Map();
-  users = [];
-  usersCount = 0;
-  maxUsers = 5e4;
-  fuse = new Fuse([], {
-    includeScore: true,
-    shouldSort: true,
-    includeMatches: true,
-    // isCaseSensitive: true,
-    findAllMatches: true,
-    threshold: 0.4,
-    keys: [["name"]]
-  });
-  eventBus;
-  constructor({ eventBus }) {
-    this.eventBus = eventBus;
-    eventBus.subscribe("ntv.session.destroy", () => {
-      delete this.users;
-      delete this.usersIdMap;
-      delete this.usersNameMap;
+// src/UserInterface/Components/SteppedInputSliderComponent.ts
+var SteppedInputSliderComponent = class extends AbstractComponent {
+  container;
+  labels;
+  steps;
+  eventTarget = new EventTarget();
+  element;
+  constructor(container, labels, steps) {
+    super();
+    this.container = container;
+    this.labels = labels;
+    this.steps = steps;
+  }
+  render() {
+    this.element = parseHTML(
+      cleanupHTML(`
+            <div class="ntv__stepped-input-slider">
+                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="0">
+                <div>${this.labels[0]}</div>
+            </div>
+        `),
+      true
+    );
+    this.container.appendChild(this.element);
+  }
+  attachEventHandlers() {
+    if (!this.element)
+      return;
+    const input = this.element.querySelector("input");
+    const label = this.element.querySelector("div");
+    input.addEventListener("input", () => {
+      label.textContent = this.labels[parseInt(input.value)];
+      this.eventTarget.dispatchEvent(new Event("change"));
     });
   }
-  hasUser(name) {
-    return this.usersNameMap.has(name);
+  addEventListener(event, callback) {
+    this.eventTarget.addEventListener(event, callback);
   }
-  registerUser(id, name) {
-    if (this.usersIdMap.has(id))
+  getValue() {
+    if (!this.element)
       return;
-    if (this.usersCount >= this.maxUsers) {
-      error(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`);
-      return;
+    const input = this.element.querySelector("input");
+    return this.steps[parseInt(input.value)] || this.steps[0];
+  }
+};
+
+// src/UserInterface/Modals/AbstractModal.ts
+var AbstractModal = class extends AbstractComponent {
+  event = new EventTarget();
+  className;
+  geometry;
+  element;
+  modalHeaderEl;
+  modalBodyEl;
+  modalCloseBtn;
+  constructor(className, geometry) {
+    super();
+    this.className = className;
+    this.geometry = geometry;
+    const widthStyle = this.geometry?.width ? `width:${this.geometry.width}` : "";
+    const positionStyle = this.geometry?.position === "chat-top" ? `right:0;top:43px;` : "";
+    const styleAttribute = `style="${widthStyle};${positionStyle}"`;
+    this.element = parseHTML(
+      cleanupHTML(
+        `<div class="ntv__modal ${this.className ? `ntv__${this.className}-modal` : ""}" ${styleAttribute}>
+								<div class="ntv__modal__header">
+									<h3 class="ntv__modal__title"></h3>
+									<button class="ntv__modal__close-btn">\u{1F7A8}</button>
+								</div>
+								<div class="ntv__modal__body"></div>
+							</div>`
+      ),
+      true
+    );
+    this.modalHeaderEl = this.element.querySelector(".ntv__modal__header");
+    this.modalBodyEl = this.element.querySelector(".ntv__modal__body");
+    this.modalCloseBtn = this.element.querySelector(".ntv__modal__close-btn");
+  }
+  init() {
+    super.init();
+    return this;
+  }
+  // Renders the modal container, header and body
+  render() {
+    document.body.appendChild(this.element);
+    if (this.geometry?.position === "center")
+      this.centerModal();
+  }
+  // Attaches event handlers for the modal
+  attachEventHandlers() {
+    this.modalCloseBtn.addEventListener("click", () => {
+      this.destroy();
+      this.event.dispatchEvent(new Event("close"));
+    });
+    this.modalHeaderEl.addEventListener("mousedown", this.handleModalDrag.bind(this));
+    if (this.geometry?.position === "center") {
+      window.addEventListener("resize", this.centerModal.bind(this));
     }
-    const user = { id, name };
-    this.usersNameMap.set(name, user);
-    this.usersIdMap.set(id, user);
-    this.users.push(user);
-    this.fuse.add(user);
-    this.usersCount++;
   }
-  searchUsers(searchVal) {
-    return this.fuse.search(searchVal);
+  destroy() {
+    this.element.remove();
+  }
+  centerModal() {
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+    this.element.style.left = windowWidth / 2 + "px";
+    this.element.style.top = windowHeight / 2 + "px";
+    this.element.style.removeProperty("right");
+    this.element.style.removeProperty("bottom");
+    this.element.style.transform = "translate(-50%, -50%)";
+  }
+  handleModalDrag(event) {
+    const modal = this.element;
+    const modalOffset = modal.getBoundingClientRect();
+    const cursorOffsetX = event.pageX - modalOffset.left;
+    const cursorOffsetY = event.pageY - modalOffset.top;
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+    const modalWidth = modal.clientWidth;
+    const modalHeight = modal.clientHeight;
+    const handleDrag = (evt) => {
+      let x = evt.pageX - cursorOffsetX;
+      let y = evt.pageY - cursorOffsetY;
+      if (x < 0)
+        x = 0;
+      if (y < 0)
+        y = 0;
+      if (x + modalWidth > windowWidth)
+        x = windowWidth - modalWidth;
+      if (y + modalHeight > windowHeight)
+        y = windowHeight - modalHeight;
+      modal.style.left = `${x}px`;
+      modal.style.top = `${y}px`;
+      this.element.style.removeProperty("transform");
+    };
+    const handleDragEnd = () => {
+      document.removeEventListener("mousemove", handleDrag);
+      document.removeEventListener("mouseup", handleDragEnd);
+    };
+    document.addEventListener("mousemove", handleDrag);
+    document.addEventListener("mouseup", handleDragEnd);
   }
 };
 
-// src/Managers/UsersManager.ts
-var UsersManager = class {
-  datastore;
-  constructor({ eventBus, settingsManager }) {
-    this.datastore = new UsersDatastore({ eventBus });
-  }
-  hasSeenUser(name) {
-    return this.datastore.hasUser(name);
-  }
-  registerUser(id, name) {
-    this.datastore.registerUser(id, name);
-  }
-  searchUsers(searchVal, limit = 20) {
-    return this.datastore.searchUsers(searchVal).slice(0, limit);
-  }
-};
-
-// src/UserInterface/AbstractUserInterface.ts
-var AbstractUserInterface = class {
-  messageHistory = new MessagesHistory();
-  ENV_VARS;
-  channelData;
-  eventBus;
-  settingsManager;
-  emotesManager;
-  usersManager;
-  /**
-   * @param {EventBus} eventBus
-   * @param {object} deps
-   */
-  constructor({
-    ENV_VARS,
-    channelData,
-    eventBus,
-    settingsManager,
-    emotesManager
-  }) {
-    assertArgDefined(ENV_VARS);
-    assertArgDefined(channelData);
-    assertArgDefined(eventBus);
-    assertArgDefined(settingsManager);
-    assertArgDefined(emotesManager);
-    this.ENV_VARS = ENV_VARS;
-    this.channelData = channelData;
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
-    this.usersManager = new UsersManager({ eventBus, settingsManager });
-  }
-  loadInterface() {
-    throw new Error("loadInterface() not implemented");
-  }
-  renderEmotesInElement(textElement, appendTo) {
-    const { emotesManager } = this;
-    const text = textElement.textContent || "";
-    const tokens = text.split(" ");
-    const newNodes = [];
-    let textBuffer = "";
-    for (const token of tokens) {
-      const emoteHid = emotesManager.getEmoteHidByName(token);
-      if (emoteHid) {
-        if (textBuffer) {
-          const newNode2 = document.createElement("span");
-          newNode2.appendChild(document.createTextNode(textBuffer.trim()));
-          newNode2.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
-          newNodes.push(newNode2);
-          textBuffer = "";
+// src/Factories/BadgeFactory.ts
+var BadgeFactory = class {
+  static getBadge(badge) {
+    if (!badge.active)
+      return;
+    switch (badge.type) {
+      case "broadcaster":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2);" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3);" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5);" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6);" width="1.6" height="3.2"></rect></g></svg>`;
+      case "verified":
+        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<defs><linearGradient id="badge-verified-gradient" x1="25.333%" y1="99.375%" x2="73.541%" y2="2.917%" gradientUnits="objectBoundingBox"><stop stop-color="#1EFF00"/><stop offset="0.99" stop-color="#00FF8C"/></linearGradient></defs><path d="M14.72 7.00003V6.01336H15.64V4.12003H14.6733V3.16003H9.97332V1.2667H8.96665V0.280029H7.03332V1.2667H6.03332V3.16003H1.32665V4.12003H0.359985V6.01336H1.28665V7.00003H2.23332V9.0067H1.28665V9.99336H0.359985V11.8867H1.32665V12.8467H6.03332V14.74H7.03332V15.7267H8.96665V14.74H9.97332V12.8467H14.6733V11.8867H15.64V9.99336H14.72V9.0067H13.7733V7.00003H14.72ZM12.5 6.59336H11.44V7.66003H10.3733V8.72003H9.31332V9.7867H8.24665V10.8467L7.09332 10.9V11.8H6.02665V10.8467H5.05999V9.7867H3.99332V7.66003H6.11999V8.72003H7.18665V7.66003H8.24665V6.59336H9.31332V5.53336H10.3733V4.4667H12.5V6.59336Z" fill="url(#badge-verified-gradient)"/></svg>`;
+      case "staff":
+        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<defs><linearGradient id="badge-verified-gradient" x1="33.791%" y1="97.416%" x2="65.541%" y2="4.5%" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#1EFF00"></stop><stop offset="0.99" stop-color="#00FF8C"></stop></linearGradient></defs><path fill-rule="evenodd" clip-rule="evenodd" d="M2.07324 1.33331H6.51991V4.29331H7.99991V2.81331H9.47991V1.33331H13.9266V5.77998H12.4466V7.25998H10.9599V8.73998H12.4466V10.22H13.9266V14.6666H9.47991V13.1866H7.99991V11.7066H6.51991V14.6666H2.07324V1.33331Z" fill="url(#badge-verified-gradient)"></path></svg>`;
+      case "global_moderator":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><g id="Badge_Global_Mod"><linearGradient id="badge-global-mod-gradient" gradientUnits="userSpaceOnUse" x1="-1.918" y1="382.5619" x2="17.782" y2="361.3552" gradientTransform="matrix(1 0 0 1 0 -364)"><stop offset="0" style="stop-color:#FCA800"></stop><stop offset="0.99" style="stop-color:#FF5100"></stop></linearGradient><path style="fill:url(#badge-global-mod-gradient)" d="M10.5,0v1.5H9V3H7.5v1.5h-6v6H0V16h5.5v-1.5h6v-6H13V7h1.5V5.5H16V0H10.5z M14.7,4.3h-1.5 v1.5h-1.5v1.5h-1.5v1.5H8.7v1.5h1.5v3h-3v-1.5H5.8v1.5H4.3v1.5h-3v-3h1.5v-1.5h1.5V8.7H2.8v-3h3v1.5h1.5V5.8h1.5V4.3h1.5V2.8h1.5 V1.3h3v3H14.7z"></path></g></svg>`;
+      case "global_admin":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16">
+				<linearGradient id="badge-global-staff-gradient" gradientUnits="userSpaceOnUse" x1="-0.03948053" y1="-180.1338" x2="15.9672" y2="-163.9405" gradientTransform="matrix(1 0 0 -1 0 -164)">
+				  <stop offset="0" style="stop-color:#FCA800"></stop>
+				  <stop offset="0.99" style="stop-color:#FF5100"></stop>
+				</linearGradient>
+				<path style="fill-rule:evenodd;clip-rule:evenodd;fill:url(#badge-global-staff-gradient);" d="M1.1,0.3v15.3H15V0.3H1.1z M12.9,6.2h-1.2v1.2h-1.2v1.2h1.2v1.2h1.2v3.7H9.2v-1.2H8V11H6.8v2.4H3.1v-11h3.7v2.4H8V3.7h1.2V2.5h3.7V6.2z"></path></svg>`;
+      case "sidekick":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><linearGradient id="badge-sidekick-gradient" gradientUnits="userSpaceOnUse" x1="9.3961" y1="-162.6272" x2="5.8428" y2="-180.3738" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FF6A4A;"></stop><stop offset="1" style="stop-color:#C70C00;"></stop></linearGradient><path style="fill:url(#badge-sidekick-gradient);" d="M0,2.8v5.6h1.1V10h1.1v1.6h1.1v1.6h3.4v-1.6H9v1.6h3.4v-1.6h1.1V10h1.1V8.4H16V2.8h-4.6v1.6H9.1V6H6.8V4.4H4.5V2.8H0z M6.9,9.6H3.4V8H2.3V4.8h1.1v1.6h2.3V8h1.1v1.6H6.9z M13.7,8h-1.1v1.6H9.2V8h1.1V6.4h2.3V4.8h1.1C13.7,4.8,13.7,8,13.7,8z"></path></svg>`;
+      case "moderator":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><path style="fill: rgb(0, 199, 255);" d="M11.7,1.3v1.5h-1.5v1.5 H8.7v1.5H7.3v1.5H5.8V5.8h-3v3h1.5v1.5H2.8v1.5H1.3v3h3v-1.5h1.5v-1.5h1.5v1.5h3v-3H8.7V8.7h1.5V7.3h1.5V5.8h1.5V4.3h1.5v-3C14.7,1.3,11.7,1.3,11.7,1.3z"></path></svg>`;
+      case "vip":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" style="enable-background:new 0 0 16 16" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="badge-vip-gradient" gradientUnits="userSpaceOnUse" x1="8" y1="-163.4867" x2="8" y2="-181.56" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FFC900"></stop><stop offset="0.99" style="stop-color:#FF9500"></stop></linearGradient></defs><path style="fill:url(#badge-vip-gradient);" d="M13.9,2.4v1.1h-1.2v2.3h-1.1v1.1h-1.1V4.6H9.3V1.3H6.7v3.3H5.6v2.3H4.4V5.8H3.3V3.5H2.1V2.4H0v12.3h16V2.4H13.9z"/></svg>`;
+      case "og":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-og-gradient-1" gradientUnits="userSpaceOnUse" x1="12.2" y1="-180" x2="12.2" y2="-165.2556" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-1);" d="M16,16H9.2v-0.8H8.4v-8h0.8V6.4H16v3.2h-4.5v4.8H13v-1.6h-0.8v-1.6H16V16z"></path><linearGradient id="badge-og-gradient-2" gradientUnits="userSpaceOnUse" x1="3.7636" y1="-164.265" x2="4.0623" y2="-179.9352" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-2);" d="M6.8,8.8v0.8h-6V8.8H0v-8h0.8V0h6.1v0.8 h0.8v8H6.8z M4.5,6.4V1.6H3v4.8H4.5z"></path><path style="fill:#00FFF2;" d="M6.8,15.2V16h-6v-0.8H0V8.8h0.8V8h6.1v0.8h0.8v6.4C7.7,15.2,6.8,15.2,6.8,15.2z M4.5,14.4V9.6H3v4.8 C3,14.4,4.5,14.4,4.5,14.4z"></path><path style="fill:#00FFF2;" d="M16,8H9.2V7.2H8.4V0.8h0.8V0H16v1.6h-4.5v4.8H13V4.8h-0.8V3.2H16V8z"></path></g></svg>`;
+      case "founder":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><linearGradient id="badge-founder-gradient" gradientUnits="userSpaceOnUse" x1="7.874" y1="20.2333" x2="8.1274" y2="-0.3467" gradientTransform="matrix(1 0 0 -1 0 18)"><stop offset="0" style="stop-color: rgb(255, 201, 0);"></stop><stop offset="0.99" style="stop-color: rgb(255, 149, 0);"></stop></linearGradient><path d="
+                M14.6,4V2.7h-1.3V1.4H12V0H4v1.4H2.7v1.3H1.3V4H0v8h1.3v1.3h1.4v1.3H4V16h8v-1.4h1.3v-1.3h1.3V12H16V4H14.6z M9.9,12.9H6.7V6.4H4.5
+                V5.2h1V4.1h1v-1h3.4V12.9z" style="fill-rule: evenodd; clip-rule: evenodd; fill: url(&quot;#badge-founder-gradient&quot;);"></path></svg>`;
+      case "subscriber":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-subscriber-gradient-1" gradientUnits="userSpaceOnUse" x1="-2.386" y1="-151.2764" x2="42.2073" y2="-240.4697" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-1);" d="M14.8,7.3V6.1h-2.4V4.9H11V3.7H9.9V1.2H8.7V0H7.3v1.2H6.1v2.5H5v1.2H3.7v1.3H1.2v1.2H0v1.4
+				h1.2V10h2.4v1.3H5v1.2h1.2V15h1.2v1h1.3v-1.2h1.2v-2.5H11v-1.2h1.3V9.9h2.4V8.7H16V7.3H14.8z"></path><linearGradient id="badge-subscriber-gradient-2" gradientUnits="userSpaceOnUse" x1="-5.3836" y1="-158.3055" x2="14.9276" y2="-189.0962" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-2);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
+				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-3" gradientUnits="userSpaceOnUse" x1="3.65" y1="-160.7004" x2="3.65" y2="-184.1244" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-3);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
+				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-4" gradientUnits="userSpaceOnUse" x1="22.9659" y1="-167.65" x2="-5.3142" y2="-167.65" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-4);" d="M8.7,0v7.3H1.2V6.1h2.4V4.9H5V3.7h1.2V1.2
+				h1.2V0H8.7z"></path><linearGradient id="badge-subscriber-gradient-5" gradientUnits="userSpaceOnUse" x1="12.35" y1="-187.6089" x2="12.35" y2="-161.5965" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-5);" d="M8.7,8.7V1.2h1.2v2.5H11v1.2h1.3v1.3h2.4
+				v1.2H16v1.4L8.7,8.7L8.7,8.7z"></path><linearGradient id="badge-subscriber-gradient-6" gradientUnits="userSpaceOnUse" x1="-6.5494" y1="-176.35" x2="21.3285" y2="-176.35" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-6);" d="M7.3,16V8.7h7.4v1.2h-2.4v1.3H11v1.2H9.9
+				v2.5H8.7V16H7.3z"></path><linearGradient id="badge-subscriber-gradient-7" gradientUnits="userSpaceOnUse" x1="6.72" y1="-169.44" x2="12.2267" y2="-180.4533" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-7);" d="M8.7,7.3H7.3v1.4h1.3L8.7,7.3L8.7,7.3z"></path></g></svg>`;
+      case "sub_gifter":
+        const count = badge.count || 1;
+        if (count < 25) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17810)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.15499 6.63499V12.73L7.99999 15.995V9.14999Z" fill="#0269D4"></path><path d="M8.00003 10.735V9.61501L1.15503 6.63501V7.70501L8.00003 10.735Z" fill="#0269D4"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#04D0FF"></path><path d="M14.845 6.63501V7.70501L8 10.735V9.61501L14.845 6.63501Z" fill="#0269D4"></path></g><defs><clipPath id="clip0_301_17810"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 25) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17815)"><path d="M8.02501 9.14999V6.62499L0.51001 3.35999V6.34499L1.17501 6.63499V12.73L8.02501 15.995V9.14999Z" fill="#7B1BAB"></path><path d="M8.02505 10.735V9.61501L1.17505 6.63501V7.70501L8.02505 10.735Z" fill="#7B1BAB"></path><path d="M15.535 3.355V6.345L14.87 6.64V12.73L12.725 13.755L11.21 14.48L8.02501 15.995V6.715L4.84001 5.295H4.83501L3.32001 4.61L0.51001 3.355L3.69001 1.935L3.70501 1.93L5.11501 1.3L8.02501 0L10.93 1.3L12.34 1.925L12.355 1.935L15.535 3.355Z" fill="#A947D3"></path><path d="M14.87 6.63501V7.70501L8.02502 10.735V9.61501L14.87 6.63501Z" fill="#7B1BAB"></path></g><defs><clipPath id="clip0_301_17815"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 50) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17820)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#CF0038"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#CF0038"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FA4E78"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#CF0038"></path></g><defs><clipPath id="clip0_301_17820"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 100) {
+          return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17825)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#FF5008"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#FF5008"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FFC800"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#FF5008"></path></g><defs><clipPath id="clip0_301_17825"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 200) {
+          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17830)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#2FA604"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#2FA604"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#53F918"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#2FA604"></path></g><defs><clipPath id="clip0_301_17830"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
         }
-        const newNode = document.createElement("span");
-        newNode.innerHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
-        newNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
-        newNode.setAttribute("data-emote-hid", emoteHid);
-        newNode.setAttribute("contenteditable", "false");
-        newNodes.push(newNode);
-      } else if (token) {
-        textBuffer += token + " ";
+    }
+  }
+};
+
+// src/UserInterface/Modals/UserInfoModal.ts
+var UserInfoModal = class extends AbstractModal {
+  rootContext;
+  session;
+  toaster;
+  username;
+  userInfo;
+  userChannelInfo;
+  badgesEl;
+  messagesHistoryEl;
+  actionFollowEl;
+  actionMuteEl;
+  actionReportEl;
+  timeoutPageEl;
+  statusPageEl;
+  modActionButtonBanEl;
+  modActionButtonTimeoutEl;
+  modActionButtonVIPEl;
+  modActionButtonModEl;
+  modLogsMessagesEl;
+  modLogsPageEl;
+  timeoutSliderComponent;
+  messagesHistoryCursor = 0;
+  isLoadingMessages = false;
+  constructor(rootContext, session, {
+    toaster
+  }, username) {
+    const geometry = {
+      width: "340px",
+      position: "chat-top"
+    };
+    super("user-info", geometry);
+    this.rootContext = rootContext;
+    this.session = session;
+    this.toaster = toaster;
+    this.username = username;
+  }
+  init() {
+    super.init();
+    return this;
+  }
+  async render() {
+    super.render();
+    const { channelData } = this.session;
+    const is_moderator = channelData.me.is_super_admin || channelData.me.is_moderator || channelData.me.is_broadcaster;
+    await this.updateUserInfo();
+    const userInfo = this.userInfo || {
+      id: "",
+      username: "Error",
+      createdAt: null,
+      isFollowing: false,
+      profilePic: "",
+      bannerImg: ""
+    };
+    const userChannelInfo = this.userChannelInfo || {
+      id: "",
+      username: "Error",
+      channel: "Error",
+      badges: [],
+      followingSince: null
+    };
+    const today = +new Date((/* @__PURE__ */ new Date()).toLocaleDateString());
+    let formattedAccountDate;
+    if (userInfo.createdAt) {
+      const createdDate = userInfo.createdAt.toLocaleDateString();
+      const createdDateUnix = +new Date(createdDate);
+      if (+createdDateUnix === today)
+        formattedAccountDate = "Today";
+      else if (+createdDateUnix === today - 24 * 60 * 60 * 1e3)
+        formattedAccountDate = "Yesterday";
+      else
+        formattedAccountDate = formatRelativeTime(userInfo.createdAt);
+    }
+    let formattedJoinDate;
+    if (userChannelInfo.followingSince) {
+      const joinedDate = userChannelInfo.followingSince.toLocaleDateString();
+      const joinedDateUnix = +new Date(joinedDate);
+      if (+joinedDateUnix === today)
+        formattedJoinDate = "Today";
+      else if (+joinedDateUnix === today - 24 * 60 * 60 * 1e3)
+        formattedJoinDate = "Yesterday";
+      else
+        formattedJoinDate = formatRelativeTime(userChannelInfo.followingSince);
+    }
+    const element = parseHTML(
+      cleanupHTML(`
+				<div class="ntv__user-info-modal__header" ${userInfo.bannerImg ? `style="--background: url('${userInfo.bannerImg}')"` : ""}>
+					<div class="ntv__user-info-modal__header__actions">
+					
+					</div>
+					<div class="ntv__user-info-modal__header__banner">
+						<img src="${userInfo.profilePic}">
+						<h4>${userInfo.username}</h4>
+						<p>
+							${formattedAccountDate ? `<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0.5 0 24 21">
+									<g fill="none" stroke="currentColor" stroke-width="1.5">
+										<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
+										<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
+										<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
+									</g>
+									<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
+								</svg> Account created: ${formattedAccountDate}</span>` : ""}
+
+							${formattedJoinDate ? `<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
+								</svg> Followed since: ${formattedJoinDate}</span>` : ""}
+						</p>
+					</div>
+				</div>
+				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(BadgeFactory.getBadge).join("")}</div>
+				<div class="ntv__user-info-modal__actions">
+					<button class="ntv__button">${userInfo.isFollowing ? "Unfollow" : "Follow"}</button>
+					<button class="ntv__button">${this.rootContext.usersManager.hasMutedUser(userInfo.id) ? "Unmute" : "Mute"}</button>
+					<!--<button class="ntv__button">Report</button>-->
+				</div>
+				<div class="ntv__user-info-modal__mod-actions"></div>
+				<div class="ntv__user-info-modal__timeout-page"></div>
+				<div class="ntv__user-info-modal__status-page"></div>
+				<div class="ntv__user-info-modal__mod-logs"></div>
+				<div class="ntv__user-info-modal__mod-logs-page"></div>
+			`)
+    );
+    this.badgesEl = element.querySelector(".ntv__user-info-modal__badges");
+    if (is_moderator) {
+      this.actionFollowEl = element.querySelector(
+        ".ntv__user-info-modal__actions .ntv__button:nth-child(1)"
+      );
+      this.actionMuteEl = element.querySelector(
+        ".ntv__user-info-modal__actions .ntv__button:nth-child(2)"
+      );
+      this.actionReportEl = element.querySelector(
+        ".ntv__user-info-modal__actions .ntv__button:nth-child(3)"
+      );
+      this.timeoutPageEl = element.querySelector(".ntv__user-info-modal__timeout-page");
+      this.statusPageEl = element.querySelector(".ntv__user-info-modal__status-page");
+      this.modActionButtonBanEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userChannelInfo.banned ? "active" : ""}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-1.9 0-3.6.6-4.9 1.7l11.2 11.2c1-1.4 1.7-3.1 1.7-4.9c0-4.4-3.6-8-8-8m4.9 14.3L5.7 7.1C4.6 8.4 4 10.1 4 12c0 4.4 3.6 8 8 8c1.9 0 3.6-.6 4.9-1.7" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonTimeoutEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Timeout ${userInfo.username}">
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<g fill="none">
+						<path d="M24 0v24H0V0zM12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093c.012.004.023 0 .029-.008l.004-.014l-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014l-.034.614c0 .012.007.02.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z" />
+						<path fill="currentColor" d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16m0 2a1 1 0 0 1 .993.883L13 7v4.586l2.707 2.707a1 1 0 0 1-1.32 1.497l-.094-.083l-3-3a1 1 0 0 1-.284-.576L11 12V7a1 1 0 0 1 1-1" />
+					</g>
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonVIPEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="VIP ${userInfo.username}">
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h18M3 19h18M4 9l2 6h1l2-6m3 0v6m4 0V9h2a2 2 0 1 1 0 4h-2" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonModEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Mod ${userInfo.username}">
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.updateModStatusPage();
+      const modActionsEl = element.querySelector(".ntv__user-info-modal__mod-actions");
+      modActionsEl.append(
+        this.modActionButtonBanEl,
+        this.modActionButtonTimeoutEl,
+        this.modActionButtonVIPEl,
+        this.modActionButtonModEl
+      );
+      this.modLogsPageEl = element.querySelector(".ntv__user-info-modal__mod-logs-page");
+      this.modLogsMessagesEl = parseHTML(`<button>Messages</button>`, true);
+      const modLogsEl = element.querySelector(".ntv__user-info-modal__mod-logs");
+      modLogsEl.appendChild(this.modLogsMessagesEl);
+    }
+    this.modalBodyEl.appendChild(element);
+  }
+  attachEventHandlers() {
+    super.attachEventHandlers();
+    this.actionFollowEl?.addEventListener("click", this.clickFollowHandler.bind(this));
+    this.actionMuteEl?.addEventListener("click", this.clickMuteHandler.bind(this));
+    this.actionReportEl?.addEventListener("click", () => {
+      log("Report button clicked");
+    });
+    this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
+    this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
+    this.modActionButtonVIPEl?.addEventListener("click", this.clickVIPHandler.bind(this));
+    this.modActionButtonModEl?.addEventListener("click", () => {
+      log("Mod button clicked");
+    });
+    this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHistoryHandler.bind(this));
+  }
+  async clickFollowHandler() {
+    log("Follow button clicked");
+    const { networkInterface } = this.rootContext;
+    const { userInfo } = this;
+    if (!userInfo)
+      return;
+    this.actionFollowEl.classList.add("ntv__button--disabled");
+    if (userInfo.isFollowing) {
+      try {
+        await networkInterface.unfollowUser(this.username);
+        userInfo.isFollowing = false;
+        this.actionFollowEl.textContent = "Follow";
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to follow user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to follow user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to follow user, reason unknown", 6e3, "error");
+        }
+      }
+    } else {
+      try {
+        await networkInterface.followUser(this.username);
+        userInfo.isFollowing = true;
+        this.actionFollowEl.textContent = "Unfollow";
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to unfollow user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to unfollow user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to unfollow user, reason unknown", 6e3, "error");
+        }
       }
     }
-    if (textBuffer) {
-      const newNode = document.createElement("span");
-      newNode.appendChild(document.createTextNode(textBuffer.trim()));
-      newNode.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
-      newNodes.push(newNode);
+    this.actionFollowEl.classList.remove("ntv__button--disabled");
+  }
+  async clickMuteHandler() {
+    const { userInfo } = this;
+    if (!userInfo)
+      return;
+    const { id, username } = userInfo;
+    const { usersManager } = this.rootContext;
+    const user = usersManager.getUserById(id);
+    if (!user)
+      return;
+    if (user.muted) {
+      log("Unmuting user:", username);
+      usersManager.unmuteUserById(user.id);
+      this.actionMuteEl.textContent = "Mute";
+    } else {
+      log("Muting user:", username);
+      usersManager.muteUserById(user.id);
+      this.actionMuteEl.textContent = "Unmute";
     }
-    if (appendTo)
-      appendTo.append(...newNodes);
-    else
-      textElement.after(...newNodes);
-    textElement.remove();
+  }
+  async clickTimeoutHandler() {
+    log("Timeout button clicked");
+    const { timeoutPageEl } = this;
+    if (!timeoutPageEl)
+      return;
+    timeoutPageEl.innerHTML = "";
+    if (this.timeoutSliderComponent) {
+      delete this.timeoutSliderComponent;
+      return;
+    }
+    const timeoutWrapperEl = parseHTML(
+      cleanupHTML(`
+			<div class="ntv__user-info-modal__timeout-page__wrapper">
+				<div></div>
+				<button class="ntv__button">></button>
+				<textarea placeholder="Reason" rows="1" capture-focus></textarea>
+			</div>`),
+      true
+    );
+    timeoutPageEl.appendChild(timeoutWrapperEl);
+    const rangeWrapperEl = timeoutWrapperEl.querySelector(
+      ".ntv__user-info-modal__timeout-page__wrapper div"
+    );
+    this.timeoutSliderComponent = new SteppedInputSliderComponent(
+      rangeWrapperEl,
+      ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week"],
+      [5, 15, 60, 60 * 24, 60 * 24 * 7]
+    ).init();
+    const buttonEl = timeoutWrapperEl.querySelector("button");
+    buttonEl.addEventListener("click", async () => {
+      if (!this.timeoutSliderComponent)
+        return;
+      const duration = this.timeoutSliderComponent.getValue();
+      const reason = timeoutWrapperEl.querySelector("textarea").value;
+      timeoutPageEl.setAttribute("disabled", "");
+      try {
+        await this.rootContext.networkInterface.sendCommand({
+          name: "timeout",
+          args: [this.username, duration, reason]
+        });
+        await this.updateUserInfo();
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to timeout user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to timeout user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to timeout user, reason unknown", 6e3, "error");
+        }
+        timeoutPageEl.removeAttribute("disabled");
+        return;
+      }
+      this.modActionButtonBanEl.setAttribute("active", "");
+      timeoutPageEl.innerHTML = "";
+      timeoutPageEl.removeAttribute("disabled");
+      delete this.timeoutSliderComponent;
+      this.updateModStatusPage();
+      log(`Successfully timed out user: ${this.username} for ${duration} minutes`);
+    });
+  }
+  async clickVIPHandler() {
+    log("VIP button clicked");
+    const { networkInterface } = this.rootContext;
+    const { userInfo } = this;
+    if (!userInfo)
+      return;
+  }
+  async clickBanHandler() {
+    if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled"))
+      return;
+    this.modActionButtonBanEl.classList.add("ntv__icon-button--disabled");
+    const { networkInterface } = this.rootContext;
+    const { userInfo, userChannelInfo } = this;
+    if (!userInfo || !userChannelInfo)
+      return;
+    if (userChannelInfo.banned) {
+      log(`Attempting to unban user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "unban", args: [userInfo.username] });
+        log("Successfully unbanned user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to unban user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to unban user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to unban user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      delete userChannelInfo.banned;
+      this.modActionButtonBanEl.removeAttribute("active");
+    } else {
+      log(`Attempting to ban user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "ban", args: [userInfo.username] });
+        log("Successfully banned user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to ban user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to ban user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to ban user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.modActionButtonBanEl.setAttribute("active", "");
+      await this.updateUserInfo();
+    }
+    this.updateModStatusPage();
+    this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+  }
+  async clickMessagesHistoryHandler() {
+    const { userInfo, modLogsPageEl } = this;
+    if (!userInfo || !modLogsPageEl)
+      return;
+    if (modLogsPageEl.querySelector(".ntv__user-info-modal__mod-logs-page__messages[loading]"))
+      return;
+    modLogsPageEl.innerHTML = "";
+    this.messagesHistoryCursor = 0;
+    const messagesHistoryEl = this.messagesHistoryEl = parseHTML(
+      `<div class="ntv__user-info-modal__mod-logs-page__messages" loading></div>`,
+      true
+    );
+    modLogsPageEl.appendChild(messagesHistoryEl);
+    log(`Fetching user messages of ${userInfo.username}..`);
+    await this.loadMoreMessagesHistory();
+    messagesHistoryEl.scrollTop = 9999;
+    messagesHistoryEl.removeAttribute("loading");
+    messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
+  }
+  async loadMoreMessagesHistory() {
+    const { networkInterface } = this.rootContext;
+    const { channelData, userInterface } = this.session;
+    const { userInfo, modLogsPageEl, messagesHistoryEl } = this;
+    if (!userInfo || !modLogsPageEl || !messagesHistoryEl)
+      return;
+    const cursor = this.messagesHistoryCursor;
+    if (typeof cursor !== "number")
+      return;
+    if (this.isLoadingMessages)
+      return;
+    this.isLoadingMessages = true;
+    let res;
+    try {
+      res = await networkInterface.getUserMessages(channelData.channel_id, userInfo.id, cursor);
+    } catch (err) {
+      if (err.errors && err.errors.length > 0) {
+        this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
+      } else if (err.message) {
+        this.toaster.addToast("Failed to load user message history: " + err.message, 6e3, "error");
+      } else {
+        this.toaster.addToast("Failed to load user message history, reason unknown", 6e3, "error");
+      }
+      messagesHistoryEl.removeAttribute("loading");
+      return;
+    }
+    this.messagesHistoryCursor = res.cursor ? +res.cursor : null;
+    let entriesHTML = "", lastDate, dateCursor;
+    for (const message of res.messages) {
+      const d = new Date(message.createdAt);
+      const time = ("" + d.getHours()).padStart(2, "0") + ":" + ("" + d.getMinutes()).padStart(2, "0");
+      const dateString = d.getUTCFullYear() + "" + d.getUTCMonth() + d.getUTCDay();
+      if (lastDate && dateString !== dateCursor) {
+        const formattedDate = lastDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        });
+        dateCursor = dateString;
+        lastDate = d;
+        entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>`;
+      } else if (!lastDate) {
+        lastDate = d;
+        dateCursor = dateString;
+      }
+      entriesHTML += `<div class="ntv__chat-message" unrendered>
+				<span class="ntv__chat-message__identity">
+					<span class="ntv__chat-message__timestamp">${time} </span>
+					<span class="ntv__chat-message__badges"></span>
+					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
+					<span class="ntv__chat-message__separator">: </span>
+				</span>
+				<span class="ntv__chat-message__part">${message.content}</span>
+			</div>`;
+    }
+    if (!this.messagesHistoryCursor && lastDate) {
+      const formattedDate = lastDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+      entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`;
+    }
+    messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
+    messagesHistoryEl.querySelectorAll(".ntv__chat-message[unrendered]").forEach((messageEl) => {
+      messageEl.querySelectorAll(".ntv__chat-message__part").forEach((messagePartEl) => {
+        userInterface.renderEmotesInElement(messagePartEl);
+      });
+      messageEl.removeAttribute("unrendered");
+    });
+    this.isLoadingMessages = false;
+    messagesHistoryEl.removeAttribute("loading");
+  }
+  async messagesScrollHandler(event) {
+    const target = event.currentTarget;
+    const scrollTop = target.scrollTop + target.scrollHeight - target.clientHeight;
+    if (scrollTop < 30)
+      this.loadMoreMessagesHistory();
+  }
+  async updateUserInfo() {
+    const { networkInterface } = this.rootContext;
+    const { channelData } = this.session;
+    try {
+      delete this.userInfo;
+      delete this.userChannelInfo;
+      this.userInfo = await networkInterface.getUserInfo(this.username);
+      this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channel_name, this.username);
+    } catch (err) {
+      if (err.errors && err.errors.length > 0) {
+        this.toaster.addToast("Failed to get user info: " + err.errors.join(" "), 6e3, "error");
+      } else if (err.message) {
+        this.toaster.addToast("Failed to get user info: " + err.message, 6e3, "error");
+      } else {
+        this.toaster.addToast("Failed to get user info, reason unknown", 6e3, "error");
+      }
+    }
+  }
+  updateModStatusPage() {
+    const { userChannelInfo, statusPageEl } = this;
+    if (!userChannelInfo || !statusPageEl)
+      return;
+    if (userChannelInfo.banned) {
+      statusPageEl.innerHTML = cleanupHTML(`
+				<div class="ntv__user-info-modal__status-page__banned">
+					<span><b>Banned</b></span>
+					<span>Reason: ${userChannelInfo.banned.reason}</span>
+					<span>Expires: ${userChannelInfo.banned.expiresAt ? formatRelativeTime(userChannelInfo.banned.expiresAt) : "Not set"}</span>
+				</div>
+			`);
+    } else {
+      statusPageEl.innerHTML = "";
+    }
   }
 };
 
@@ -1744,1212 +2463,6 @@ var Caret = class {
   }
 };
 
-// src/Classes/PriorityEventTarget.ts
-var notAllowed = function() {
-  throw new Error("PreventDefault cannot be called because the event was set as passive.");
-};
-var stopPropagation = function() {
-  this._stopPropagation();
-  this.stoppedPropagation = true;
-};
-var stopImmediatePropagation = function() {
-  this._stopImmediatePropagation();
-  this.stoppedImmediatePropagation = true;
-};
-var PriorityEventTarget = class {
-  events = /* @__PURE__ */ new Map();
-  /**
-   * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.
-   * @param type
-   * @param priority
-   * @param listener
-   * @param options
-   */
-  addEventListener(type, priority, listener, options) {
-    if (!this.events.has(type)) {
-      this.events.set(type, []);
-    }
-    const priorities = this.events.get(type);
-    if (!priorities[priority])
-      priorities[priority] = [];
-    const listeners = priorities[priority];
-    if (options)
-      listeners.push([listener, options]);
-    else
-      listeners.push([listener]);
-    if (options && options.signal) {
-      options.signal.addEventListener("abort", () => {
-        this.removeEventListener(type, priority, listener, options);
-      });
-    }
-  }
-  removeEventListener(type, priority, listener, options) {
-    if (this.events.has(type)) {
-      const priorities = this.events.get(type);
-      const listeners = priorities[priority];
-      if (!listeners)
-        return;
-      for (let i = 0; i < listeners.length; i++) {
-        let listenerItem = listeners[i][0];
-        let optionsItem = listeners[i][1];
-        if (listenerItem === listener && optionsItem === options) {
-          listeners.splice(i, 1);
-          i--;
-        }
-      }
-    }
-  }
-  dispatchEvent(event) {
-    ;
-    event._stopPropagation = event.stopPropagation;
-    event.stopPropagation = stopPropagation;
-    event._stopImmediatePropagation = event.stopImmediatePropagation;
-    event.stopImmediatePropagation = stopImmediatePropagation;
-    const type = event.type;
-    if (this.events.has(type)) {
-      const priorities = this.events.get(type);
-      for (const key in priorities) {
-        const listeners = priorities[key];
-        for (let i = 0; i < listeners.length; i++) {
-          const listener = listeners[i][0];
-          const options = listeners[i][1];
-          if (options) {
-            if (options.once) {
-              listeners.splice(i, 1);
-              i--;
-            }
-            if (options.passive) {
-              event.preventDefault = notAllowed;
-            }
-          }
-          listener(event);
-          if (event.stoppedImmediatePropagation) {
-            return;
-          }
-        }
-        if (event.stoppedPropagation) {
-          return;
-        }
-      }
-    }
-  }
-};
-
-// src/Classes/ContentEditableEditor.ts
-function eventKeyIsVisibleCharacter(event) {
-  if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey)
-    return true;
-  return false;
-}
-var ContentEditableEditor = class {
-  eventBus;
-  emotesManager;
-  messageHistory;
-  clipboard;
-  inputNode;
-  eventTarget = new PriorityEventTarget();
-  processInputContentDebounce;
-  inputEmpty = true;
-  characterCount = 0;
-  messageContent = "";
-  emotesInMessage = /* @__PURE__ */ new Set();
-  hasMouseDown = false;
-  constructor({
-    eventBus,
-    emotesManager,
-    messageHistory,
-    clipboard
-  }, contentEditableEl) {
-    this.eventBus = eventBus;
-    this.emotesManager = emotesManager;
-    this.messageHistory = messageHistory;
-    this.clipboard = clipboard;
-    this.inputNode = contentEditableEl;
-    this.processInputContentDebounce = debounce(this.processInputContent.bind(this), 25);
-  }
-  getInputNode() {
-    return this.inputNode;
-  }
-  getCharacterCount() {
-    return this.characterCount;
-  }
-  getMessageContent() {
-    this.processInputContent();
-    return this.messageContent;
-  }
-  getInputHTML() {
-    return this.inputNode.innerHTML;
-  }
-  getEmotesInMessage() {
-    return this.emotesInMessage;
-  }
-  isInputEmpty() {
-    return this.inputEmpty;
-  }
-  clearInput() {
-    this.inputNode.innerHTML = "";
-    this.processInputContent();
-  }
-  addEventListener(type, priority, listener, options) {
-    this.eventTarget.addEventListener(type, priority, listener, options);
-  }
-  attachEventListeners() {
-    const { inputNode, emotesManager, clipboard } = this;
-    document.addEventListener("selectionchange", (evt) => {
-      const activeElement = document.activeElement;
-      if (activeElement !== inputNode)
-        return;
-      this.adjustSelection();
-    });
-    inputNode.addEventListener("paste", (evt) => {
-      evt.preventDefault();
-      const messageParts = clipboard.parsePastedMessage(evt);
-      if (!messageParts || !messageParts.length)
-        return;
-      const newNodes = [];
-      for (let i = 0; i < messageParts.length; i++) {
-        const tokens = messageParts[i].split(" ");
-        for (let j = 0; j < tokens.length; j++) {
-          const token = tokens[j];
-          const emoteHid = emotesManager.getEmoteHidByName(token);
-          if (emoteHid) {
-            if (i > 0 && j > 0) {
-              newNodes.push(document.createTextNode(" "));
-            }
-            newNodes.push(
-              this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
-            );
-          } else if (i === 0 && j === 0) {
-            newNodes.push(document.createTextNode(token));
-          } else {
-            newNodes.push(document.createTextNode(" " + token));
-          }
-        }
-      }
-      this.insertNodes(newNodes);
-      this.processInputContent();
-      const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
-      if (this.inputEmpty && isNotEmpty) {
-        this.inputEmpty = isNotEmpty;
-        this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
-      }
-    });
-    this.eventTarget.addEventListener("keydown", 10, this.handleKeydown.bind(this));
-    inputNode.addEventListener("keydown", this.eventTarget.dispatchEvent.bind(this.eventTarget));
-    this.eventTarget.addEventListener("keyup", 10, this.handleKeyUp.bind(this));
-    inputNode.addEventListener("keyup", this.eventTarget.dispatchEvent.bind(this.eventTarget));
-    inputNode.addEventListener("mousedown", this.handleMouseDown.bind(this));
-    inputNode.addEventListener("mouseup", this.handleMouseUp.bind(this));
-  }
-  handleKeydown(event) {
-    if (event.ctrlKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
-      return this.handleCtrlArrowKeyDown(event);
-    }
-    switch (event.key) {
-      case "Backspace":
-        this.deleteBackwards(event);
-        break;
-      case "Delete":
-        this.deleteForwards(event);
-        break;
-      case "Enter":
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (!this.inputEmpty) {
-          this.eventBus.publish("ntv.input_controller.submit");
-        }
-        break;
-      case " ":
-        this.handleSpaceKey(event);
-        break;
-      default:
-        if (eventKeyIsVisibleCharacter(event)) {
-          event.preventDefault();
-          this.insertText(event.key);
-        }
-    }
-  }
-  handleMouseDown(event) {
-    this.hasMouseDown = true;
-  }
-  handleMouseUp(event) {
-    this.hasMouseDown = false;
-  }
-  handleKeyUp(event) {
-    const { inputNode } = this;
-    if (inputNode.children.length === 1 && inputNode.children[0].tagName === "BR") {
-      inputNode.children[0].remove();
-    }
-    if (event.key === "Backspace" || event.key === "Delete") {
-      this.normalizeComponents();
-    }
-    if (eventKeyIsVisibleCharacter(event) || event.key === "Backspace" || event.key === "Delete") {
-      this.processInputContentDebounce();
-    }
-    const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
-    if (this.inputEmpty === !isNotEmpty)
-      return;
-    this.inputEmpty = !this.inputEmpty;
-    this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
-  }
-  handleSpaceKey(event) {
-    const { inputNode } = this;
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount)
-      return;
-    const { focusNode } = selection;
-    if (focusNode?.parentElement?.classList.contains("ntv__input-component")) {
-      event.preventDefault();
-      return this.insertText(" ");
-    }
-    const { word, start, end, node } = Caret.getWordBeforeCaret();
-    if (!word)
-      return;
-    const emoteHid = this.emotesManager.getEmoteHidByName(word);
-    if (!emoteHid)
-      return;
-    const textContent = node.textContent;
-    if (!textContent)
-      return;
-    node.textContent = textContent.slice(0, start) + textContent.slice(end);
-    inputNode.normalize();
-    selection?.setPosition(node, start);
-    this.insertEmote(emoteHid);
-    event.preventDefault();
-  }
-  handleCtrlArrowKeyDown(event) {
-    event.preventDefault();
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount)
-      return;
-    const { focusNode, focusOffset } = selection;
-    const { inputNode } = this;
-    const direction = event.key === "ArrowRight";
-    const isFocusInComponent = selection.focusNode?.parentElement?.classList.contains("ntv__input-component");
-    if (isFocusInComponent) {
-      const component = focusNode.parentElement;
-      const isRightSideOfComp = !focusNode.nextSibling;
-      if (!isRightSideOfComp && direction || isRightSideOfComp && !direction) {
-        event.shiftKey ? selection.modify("extend", direction ? "forward" : "backward", "character") : selection.modify("move", direction ? "forward" : "backward", "character");
-      } else if (isRightSideOfComp && direction) {
-        if (component.nextSibling instanceof Text) {
-          event.shiftKey ? selection.extend(component.nextSibling, component.nextSibling.textContent?.length || 0) : selection.setPosition(component.nextSibling, component.nextSibling.textContent?.length || 0);
-        } else if (component.nextSibling instanceof HTMLElement && component.nextSibling.classList.contains("ntv__input-component")) {
-          event.shiftKey ? selection.extend(component.nextSibling.childNodes[2], 1) : selection.setPosition(component.nextSibling.childNodes[2], 1);
-        }
-      } else if (!isRightSideOfComp && !direction) {
-        if (component.previousSibling instanceof Text) {
-          event.shiftKey ? selection.extend(component.previousSibling, 0) : selection.setPosition(component.previousSibling, 0);
-        } else if (component.previousSibling instanceof HTMLElement && component.previousSibling.classList.contains("ntv__input-component")) {
-          event.shiftKey ? selection.extend(component.previousSibling.childNodes[0], 0) : selection.setPosition(component.previousSibling.childNodes[0], 0);
-        }
-      }
-    } else if (focusNode instanceof Text) {
-      if (direction) {
-        if (focusOffset === focusNode.textContent?.length) {
-          event.shiftKey ? selection.modify("extend", "forward", "character") : selection.modify("move", "forward", "character");
-        } else {
-          let nextSpaceIndex = focusNode.textContent?.indexOf(" ", focusOffset + 1);
-          if (nextSpaceIndex === -1)
-            nextSpaceIndex = focusNode.textContent?.length;
-          event.shiftKey ? selection.extend(focusNode, nextSpaceIndex || 0) : selection.setPosition(focusNode, nextSpaceIndex || 0);
-        }
-      } else {
-        if (focusOffset === 0) {
-          event.shiftKey ? selection.modify("extend", "backward", "character") : selection.modify("move", "backward", "character");
-        } else {
-          let prevSpaceIndex = focusNode.textContent?.lastIndexOf(" ", focusOffset - 1);
-          if (prevSpaceIndex === -1)
-            prevSpaceIndex = 0;
-          event.shiftKey ? selection.extend(focusNode, prevSpaceIndex) : selection.setPosition(focusNode, prevSpaceIndex);
-        }
-      }
-    } else if (direction && inputNode.childNodes[focusOffset] instanceof Text) {
-      const nodeAtOffset = inputNode.childNodes[focusOffset];
-      const firstSpaceIndexInTextnode = nodeAtOffset.textContent?.indexOf(" ") || 0;
-      event.shiftKey ? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode) : selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode);
-    } else if (!direction && inputNode.childNodes[focusOffset - 1] instanceof Text) {
-      const nodeAtOffset = inputNode.childNodes[focusOffset - 1];
-      let firstSpaceIndexInTextnode = nodeAtOffset.textContent?.lastIndexOf(" ") || -1;
-      if (firstSpaceIndexInTextnode === -1)
-        firstSpaceIndexInTextnode = 0;
-      else
-        firstSpaceIndexInTextnode += 1;
-      event.shiftKey ? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode) : selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode);
-    } else {
-      if (direction && inputNode.childNodes[focusOffset]) {
-        event.shiftKey ? selection.extend(inputNode, focusOffset + 1) : selection.setPosition(inputNode, focusOffset + 1);
-      } else if (!direction && inputNode.childNodes[focusOffset - 1]) {
-        event.shiftKey ? selection.extend(inputNode, focusOffset - 1) : selection.setPosition(inputNode, focusOffset - 1);
-      }
-    }
-  }
-  normalize() {
-    this.inputNode.normalize();
-  }
-  normalizeComponents() {
-    const { inputNode } = this;
-    const components = inputNode.querySelectorAll(".ntv__input-component");
-    for (let i = 0; i < components.length; i++) {
-      const component = components[i];
-      if (!component.childNodes[1] || component.childNodes[1].className !== "ntv__input-component__body") {
-        log("!! Cleaning up empty component", component);
-        component.remove();
-      }
-    }
-  }
-  createEmoteComponent(emoteHID, emoteHTML) {
-    const component = document.createElement("span");
-    component.className = "ntv__input-component";
-    component.appendChild(document.createTextNode(CHAR_ZWSP));
-    const componentBody = document.createElement("span");
-    componentBody.className = "ntv__input-component__body";
-    componentBody.setAttribute("contenteditable", "false");
-    const inlineEmoteBox = document.createElement("span");
-    inlineEmoteBox.className = "ntv__inline-emote-box";
-    inlineEmoteBox.setAttribute("data-emote-hid", emoteHID);
-    inlineEmoteBox.innerHTML = emoteHTML;
-    componentBody.appendChild(inlineEmoteBox);
-    component.appendChild(componentBody);
-    component.appendChild(document.createTextNode(CHAR_ZWSP));
-    return component;
-  }
-  setInputContent(content) {
-    this.inputNode.innerHTML = content;
-    this.processInputContent();
-  }
-  processInputContent() {
-    const { inputNode, eventBus, emotesManager } = this;
-    const buffer = [];
-    let bufferString = "";
-    let emotesInMessage = this.emotesInMessage;
-    emotesInMessage.clear();
-    for (const node of inputNode.childNodes) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        bufferString += node.textContent;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const componentBody = node.childNodes[1];
-        if (!componentBody) {
-          error("Invalid component node", node);
-          continue;
-        }
-        const emoteBox = componentBody.childNodes[0];
-        if (emoteBox) {
-          const emoteHid = emoteBox.dataset.emoteHid;
-          if (emoteHid) {
-            if (bufferString)
-              buffer.push(bufferString.trim());
-            bufferString = "";
-            emotesInMessage.add(emoteHid);
-            buffer.push(emotesManager.getEmoteEmbeddable(emoteHid));
-          } else {
-            error("Invalid emote node, missing HID", emoteBox);
-          }
-        } else {
-          error("Invalid component node", componentBody.childNodes);
-        }
-      }
-    }
-    if (bufferString)
-      buffer.push(bufferString.trim());
-    this.messageContent = buffer.join(" ");
-    this.emotesInMessage = emotesInMessage;
-    this.characterCount = this.messageContent.length;
-    eventBus.publish("ntv.input_controller.character_count", { value: this.characterCount });
-  }
-  deleteBackwards(evt) {
-    const { inputNode } = this;
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount)
-      return error("No ranges found in selection");
-    const { focusNode, focusOffset } = selection;
-    if (focusNode === inputNode && focusOffset === 0) {
-      evt.preventDefault();
-      return;
-    }
-    let range = selection.getRangeAt(0);
-    if (range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
-      this.adjustSelectionForceOutOfComponent(selection);
-      range = selection.getRangeAt(0);
-    }
-    const { startContainer, endContainer, startOffset } = range;
-    const isStartContainerTheInputNode = startContainer === inputNode;
-    if (!isStartContainerTheInputNode && startContainer.parentElement !== inputNode) {
-      return;
-    }
-    if (endContainer !== inputNode && endContainer.parentElement !== inputNode) {
-      return;
-    }
-    const isStartInComponent = startContainer instanceof Element && startContainer.classList.contains("ntv__input-component");
-    const prevSibling = startContainer.previousSibling;
-    let rangeIncludesComponent = false;
-    if (isStartInComponent) {
-      range.setStartBefore(startContainer);
-      rangeIncludesComponent = true;
-    } else if (startContainer instanceof Text && startOffset === 0 && prevSibling instanceof Element) {
-      range.setStartBefore(prevSibling);
-      rangeIncludesComponent = true;
-    } else if (isStartContainerTheInputNode && inputNode.childNodes[startOffset - 1] instanceof Element) {
-      range.setStartBefore(inputNode.childNodes[startOffset - 1]);
-      rangeIncludesComponent = true;
-    }
-    if (rangeIncludesComponent) {
-      evt.preventDefault();
-      range.deleteContents();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      inputNode.normalize();
-    }
-  }
-  deleteForwards(evt) {
-    const { inputNode } = this;
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount)
-      return error("No ranges found in selection");
-    let range = selection.getRangeAt(0);
-    this.adjustSelectionForceOutOfComponent(selection);
-    range = selection.getRangeAt(0);
-    const { startContainer, endContainer, collapsed, startOffset, endOffset } = range;
-    const isEndContainerTheInputNode = endContainer === inputNode;
-    if (!isEndContainerTheInputNode && endContainer.parentElement !== inputNode) {
-      return;
-    }
-    if (startContainer !== inputNode && startContainer.parentElement !== inputNode) {
-      return;
-    }
-    const isEndInComponent = endContainer instanceof Element && endContainer.classList.contains("ntv__input-component");
-    const nextSibling = endContainer.nextSibling;
-    let rangeIncludesComponent = false;
-    if (isEndInComponent) {
-      range.setEndAfter(endContainer);
-      rangeIncludesComponent = true;
-    } else if (endContainer instanceof Text && endOffset === endContainer.length && nextSibling instanceof Element) {
-      range.setEndAfter(nextSibling);
-      rangeIncludesComponent = true;
-    } else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
-      range.setEndAfter(inputNode.childNodes[endOffset]);
-      rangeIncludesComponent = true;
-    }
-    if (rangeIncludesComponent) {
-      evt.preventDefault();
-      range.deleteContents();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      inputNode.normalize();
-    }
-  }
-  /**
-   * Adjusts the selection to ensure that the selection focus and anchor are never
-   *  inbetween a component's body and it's adjecent zero-width space text nodes.
-   */
-  adjustSelection() {
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount)
-      return;
-    const { inputNode } = this;
-    if (selection.isCollapsed) {
-      const { startContainer, startOffset } = selection.getRangeAt(0);
-      if (!startContainer.parentElement?.classList.contains("ntv__input-component"))
-        return;
-      const nextSibling = startContainer.nextSibling;
-      const prevSibling = startContainer.previousSibling;
-      if (!nextSibling && startOffset === 0) {
-        const prevZWSP = prevSibling?.previousSibling;
-        if (prevZWSP)
-          selection.collapse(prevZWSP, 0);
-      } else if (startOffset === 1) {
-        const nextZWSP = nextSibling?.nextSibling;
-        if (nextZWSP)
-          selection.collapse(nextZWSP, 1);
-      }
-    } else {
-      const { focusNode, focusOffset, anchorNode, anchorOffset } = selection;
-      const { hasMouseDown } = this;
-      const isFocusInComponent = focusNode?.parentElement?.classList.contains("ntv__input-component");
-      const isAnchorInComponent = anchorNode?.parentElement?.classList.contains("ntv__input-component");
-      let adjustedFocusOffset = null, adjustedAnchorOffset = null;
-      if (isFocusInComponent) {
-        const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode?.parentElement);
-        if (focusNode?.nextSibling) {
-          if (hasMouseDown) {
-            adjustedFocusOffset = componentIndex;
-          } else {
-            if (focusOffset === 0) {
-              adjustedFocusOffset = componentIndex;
-            } else {
-              adjustedFocusOffset = componentIndex + 1;
-            }
-          }
-        } else {
-          if (hasMouseDown) {
-            adjustedFocusOffset = componentIndex + 1;
-          } else {
-            if (focusOffset === 0) {
-              adjustedFocusOffset = componentIndex;
-            } else {
-              adjustedFocusOffset = componentIndex + 1;
-            }
-          }
-        }
-      }
-      if (isAnchorInComponent) {
-        const componentIndex = Array.from(inputNode.childNodes).indexOf(
-          anchorNode?.parentElement
-        );
-        if (anchorNode?.nextSibling) {
-          if (anchorOffset === 0) {
-            adjustedAnchorOffset = componentIndex;
-          } else {
-            adjustedAnchorOffset = componentIndex + 1;
-          }
-        } else {
-          if (anchorOffset === 0) {
-            adjustedAnchorOffset = componentIndex;
-          } else {
-            adjustedAnchorOffset = componentIndex + 1;
-          }
-        }
-      }
-      if (adjustedFocusOffset !== null && adjustedAnchorOffset !== null) {
-        selection.setBaseAndExtent(inputNode, adjustedAnchorOffset, inputNode, adjustedFocusOffset);
-      } else if (adjustedFocusOffset !== null) {
-        selection.extend(inputNode, adjustedFocusOffset);
-      }
-    }
-  }
-  adjustSelectionForceOutOfComponent(selection) {
-    selection = selection || wwindow.getSelection();
-    if (!selection || !selection.rangeCount)
-      return;
-    const { inputNode } = this;
-    const { focusNode, focusOffset } = selection;
-    const componentNode = focusNode?.parentElement;
-    if (!componentNode || !componentNode.classList.contains("ntv__input-component")) {
-      return;
-    }
-    const range = selection.getRangeAt(0);
-    const { startContainer } = range;
-    const nextSibling = startContainer.nextSibling;
-    if (selection.isCollapsed) {
-      if (nextSibling) {
-        if (componentNode.previousSibling instanceof Text) {
-          selection.collapse(componentNode.previousSibling, componentNode.previousSibling.length);
-        } else {
-          const emptyTextNode = document.createTextNode("");
-          componentNode.before(emptyTextNode);
-          selection.collapse(emptyTextNode, 0);
-        }
-      } else {
-        if (componentNode.nextSibling instanceof Text) {
-          selection.collapse(componentNode.nextSibling, 0);
-        } else {
-          const emptyTextNode = new Text("");
-          inputNode.appendChild(emptyTextNode);
-          selection.collapse(emptyTextNode, 0);
-        }
-      }
-    } else {
-      error("Unadjusted selection focus somehow reached inside component. This should never happen.");
-    }
-  }
-  insertText(text) {
-    const { inputNode } = this;
-    const selection = wwindow.getSelection();
-    if (!selection) {
-      inputNode.append(new Text(text));
-      return;
-    }
-    let range;
-    if (selection.rangeCount) {
-      const { focusNode } = selection;
-      const componentNode = focusNode?.parentElement;
-      if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
-        const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
-        if (focusNode.nextSibling) {
-          if (selection.isCollapsed) {
-            selection.setPosition(inputNode, componentIndex);
-          } else {
-            selection.extend(inputNode, componentIndex);
-          }
-        } else {
-          if (selection.isCollapsed) {
-            selection.setPosition(inputNode, componentIndex + 1);
-          } else {
-            selection.extend(inputNode, componentIndex + 1);
-          }
-        }
-      }
-      range = selection.getRangeAt(0);
-    } else {
-      range = new Range();
-      range.setStart(inputNode, inputNode.childNodes.length);
-    }
-    range.deleteContents();
-    range.insertNode(document.createTextNode(text));
-    range.collapse();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    this.normalizeComponents();
-    inputNode.normalize();
-  }
-  insertNodes(nodes) {
-    const selection = document.getSelection();
-    if (!selection)
-      return;
-    if (!selection.rangeCount) {
-      for (let i = 0; i < nodes.length; i++) {
-        this.inputNode.appendChild(nodes[i]);
-      }
-      Caret.collapseToEndOfNode(this.inputNode.lastChild);
-      return;
-    }
-    const { inputNode } = this;
-    const { focusNode, focusOffset } = selection;
-    const componentNode = focusNode?.parentElement;
-    if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
-      const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
-      if (focusNode.nextSibling) {
-        if (selection.isCollapsed) {
-          selection.setPosition(inputNode, componentIndex);
-        } else {
-          selection.extend(inputNode, componentIndex);
-        }
-      } else {
-        if (selection.isCollapsed) {
-          selection.setPosition(inputNode, componentIndex + 1);
-        } else {
-          selection.extend(inputNode, componentIndex + 1);
-        }
-      }
-    }
-    let range = selection.getRangeAt(0);
-    selection.removeRange(range);
-    range.deleteContents();
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      range.insertNode(nodes[i]);
-    }
-    range.collapse();
-    selection.addRange(range);
-    inputNode.normalize();
-  }
-  insertComponent(component) {
-    const { inputNode } = this;
-    const selection = document.getSelection();
-    if (!selection) {
-      inputNode.appendChild(component);
-      return error("Selection API is not available, please use a modern browser supports the Selection API.");
-    }
-    if (!selection.rangeCount) {
-      const range2 = new Range();
-      range2.setStart(inputNode, inputNode.childNodes.length);
-      range2.insertNode(component);
-      range2.collapse();
-      selection.addRange(range2);
-      return;
-    }
-    const { focusNode, focusOffset } = selection;
-    const componentNode = focusNode?.parentElement;
-    if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
-      const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
-      if (focusNode.nextSibling) {
-        if (selection.isCollapsed) {
-          selection.setPosition(inputNode, componentIndex);
-        } else {
-          selection.extend(inputNode, componentIndex);
-        }
-      } else {
-        if (selection.isCollapsed) {
-          selection.setPosition(inputNode, componentIndex + 1);
-        } else {
-          selection.extend(inputNode, componentIndex + 1);
-        }
-      }
-    }
-    let range = selection.getRangeAt(0);
-    let { commonAncestorContainer } = range;
-    if (commonAncestorContainer !== inputNode && commonAncestorContainer !== inputNode.parentElement) {
-      range = new Range();
-      range.setStart(inputNode, inputNode.childNodes.length);
-      commonAncestorContainer = range.commonAncestorContainer;
-    }
-    range.deleteContents();
-    this.normalizeComponents();
-    const { startContainer, startOffset } = range;
-    const isFocusInInputNode = startContainer === inputNode;
-    if (!isFocusInInputNode && startContainer.parentElement !== inputNode) {
-      inputNode.appendChild(component);
-    } else if (isFocusInInputNode) {
-      if (inputNode.childNodes[startOffset]) {
-        inputNode.insertBefore(component, inputNode.childNodes[startOffset]);
-      } else {
-        inputNode.appendChild(component);
-      }
-    } else if (startContainer instanceof Text) {
-      range.insertNode(component);
-    } else {
-      return error("Encountered unexpected unprocessable node", component, startContainer, range);
-    }
-    range.setEnd(component.childNodes[2], 1);
-    range.collapse();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    inputNode.dispatchEvent(new Event("input"));
-  }
-  insertEmote(emoteHid) {
-    assertArgDefined(emoteHid);
-    const { emotesManager, messageHistory, eventTarget } = this;
-    messageHistory.resetCursor();
-    const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
-    if (!emoteHTML) {
-      error("Invalid emote embed");
-      return null;
-    }
-    const emoteComponent = this.createEmoteComponent(emoteHid, emoteHTML);
-    this.insertComponent(emoteComponent);
-    if (this.inputEmpty) {
-      this.inputEmpty = false;
-      eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: false } }));
-    }
-    this.processInputContent();
-    return emoteComponent;
-  }
-  replaceEmote(component, emoteHid) {
-    const { emotesManager } = this;
-    const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
-    if (!emoteHTML) {
-      error("Invalid emote embed");
-      return null;
-    }
-    const emoteBox = component.querySelector(".ntv__inline-emote-box");
-    if (!emoteBox) {
-      error("Component does not contain emote box");
-      return null;
-    }
-    emoteBox.innerHTML = emoteHTML;
-    emoteBox.setAttribute("data-emote-hid", emoteHid);
-    this.processInputContentDebounce();
-    return component;
-  }
-  replaceEmoteWithText(component, text) {
-    const { inputNode } = this;
-    const textNode = document.createTextNode(text);
-    component.replaceWith(textNode);
-    const selection = document.getSelection();
-    if (!selection)
-      return;
-    const range = document.createRange();
-    range.setStart(textNode, text.length);
-    range.setEnd(textNode, text.length);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    inputNode.normalize();
-    this.processInputContentDebounce();
-    return textNode;
-  }
-};
-
-// src/Classes/TabCompletor.ts
-var TabCompletor = class {
-  suggestions = [];
-  suggestionHids = [];
-  selectedIndex = 0;
-  mode = "";
-  $list;
-  $modal;
-  isShowingModal = false;
-  // Context
-  start = 0;
-  end = 0;
-  mentionEnd = 0;
-  node = null;
-  word = null;
-  emoteComponent = null;
-  emotesManager;
-  usersManager;
-  contentEditableEditor;
-  constructor({
-    contentEditableEditor,
-    emotesManager,
-    usersManager
-  }) {
-    this.emotesManager = emotesManager;
-    this.usersManager = usersManager;
-    this.contentEditableEditor = contentEditableEditor;
-  }
-  attachEventHandlers() {
-    const { contentEditableEditor } = this;
-    contentEditableEditor.addEventListener("keydown", 8, this.handleKeydown.bind(this));
-    contentEditableEditor.addEventListener("keyup", 10, (event) => {
-      if (this.isShowingModal && contentEditableEditor.isInputEmpty()) {
-        this.reset();
-      }
-    });
-  }
-  updateSuggestions() {
-    const { word, start, end, node } = Caret.getWordBeforeCaret();
-    if (!word)
-      return;
-    this.word = word;
-    this.start = start;
-    this.end = end;
-    this.node = node;
-    if (word[0] === "@") {
-      this.mode = "mention";
-      const searchResults = this.usersManager.searchUsers(word.substring(1, 20), 20);
-      this.suggestions = searchResults.map((result) => result.item.name);
-      this.suggestionHids = searchResults.map((result) => result.item.id);
-      if (!this.$list)
-        return error("Tab completion list not created");
-      this.$list.empty();
-      if (this.suggestions.length) {
-        for (let i = 0; i < this.suggestions.length; i++) {
-          const userName = this.suggestions[i];
-          const userId = this.suggestionHids[i];
-          this.$list.append(`<li data-user-id="${userId}"><span>@${userName}</span></li>`);
-        }
-        this.$list.find("li").eq(this.selectedIndex).addClass("selected");
-        this.renderInlineUserMention();
-        this.scrollSelectedIntoView();
-      }
-    } else {
-      this.mode = "emote";
-      const searchResults = this.emotesManager.searchEmotes(word.substring(0, 20), 20);
-      this.suggestions = searchResults.map((result) => result.item.name);
-      this.suggestionHids = searchResults.map(
-        (result) => this.emotesManager.getEmoteHidByName(result.item.name)
-      );
-      if (!this.$list)
-        return error("Tab completion list not created");
-      this.$list.empty();
-      if (this.suggestions.length) {
-        for (let i = 0; i < this.suggestions.length; i++) {
-          const emoteName = this.suggestions[i];
-          const emoteHid = this.suggestionHids[i];
-          const emoteRender = this.emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
-          this.$list.append(`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`);
-        }
-        this.$list.find("li").eq(this.selectedIndex).addClass("selected");
-        this.renderInlineEmote();
-        this.scrollSelectedIntoView();
-      }
-    }
-  }
-  createModal(containerEl) {
-    const $modal = this.$modal = $(
-      `<div class="ntv__tab-completion"><ul class="ntv__tab-completion__list"></ul></div>`
-    );
-    this.$list = $modal.find("ul");
-    $(containerEl).append($modal);
-    this.$list.on("click", "li", (e) => {
-      this.selectedIndex = $(e.currentTarget).index();
-      if (this.mode === "emote")
-        this.renderInlineEmote();
-      else if (this.mode === "mention") {
-        Caret.moveCaretTo(this.node, this.mentionEnd);
-        this.contentEditableEditor.insertText(" ");
-      }
-      this.hideModal();
-      this.reset();
-    });
-  }
-  showModal() {
-    if (this.isShowingModal || !this.suggestions.length)
-      return;
-    if (!this.$modal || !this.$list)
-      return error("Tab completion modal not created");
-    const selection = wwindow.getSelection();
-    if (selection) {
-      const range = selection.getRangeAt(0);
-      let startContainer = range.startContainer;
-      if (startContainer && startContainer.nodeType === Node.TEXT_NODE) {
-        startContainer = startContainer.parentElement;
-      }
-    }
-    this.$modal.show();
-    this.$list[0].scrollTop = 9999;
-    this.isShowingModal = true;
-  }
-  hideModal() {
-    if (!this.$modal)
-      return error("Tab completion modal not created");
-    this.$modal.hide();
-    this.isShowingModal = false;
-  }
-  scrollSelectedIntoView() {
-    if (!this.$list)
-      return error("Tab completion list not created");
-    const $selected = this.$list.find("li.selected");
-    const $list = this.$list;
-    const listHeight = $list.height() || 0;
-    const selectedTop = $selected.position().top;
-    const selectedHeight = $selected.height() || 0;
-    const selectedCenter = selectedTop + selectedHeight / 2;
-    const middleOfList = listHeight / 2;
-    const scroll = selectedCenter - middleOfList + ($list.scrollTop() || 0);
-    $list.scrollTop(scroll);
-  }
-  moveSelectorUp() {
-    if (this.selectedIndex < this.suggestions.length - 1) {
-      this.selectedIndex++;
-    } else if (this.selectedIndex === this.suggestions.length - 1) {
-      this.selectedIndex = 0;
-    }
-    this.$list?.find("li.selected").removeClass("selected");
-    this.$list?.find("li").eq(this.selectedIndex).addClass("selected");
-    if (this.mode === "emote")
-      this.renderInlineEmote();
-    else if (this.mode === "mention") {
-      this.restoreOriginalText();
-      this.renderInlineUserMention();
-    }
-    this.scrollSelectedIntoView();
-  }
-  moveSelectorDown() {
-    this.$list?.find("li.selected").removeClass("selected");
-    if (this.selectedIndex > 0) {
-      this.selectedIndex--;
-    } else {
-      this.selectedIndex = this.suggestions.length - 1;
-    }
-    this.$list?.find("li").eq(this.selectedIndex).addClass("selected");
-    if (this.mode === "emote")
-      this.renderInlineEmote();
-    else if (this.mode === "mention") {
-      this.restoreOriginalText();
-      this.renderInlineUserMention();
-    }
-    this.scrollSelectedIntoView();
-  }
-  renderInlineUserMention() {
-    const userId = this.suggestionHids[this.selectedIndex];
-    if (!userId)
-      return;
-    const userName = this.suggestions[this.selectedIndex];
-    const userMention = `@${userName}`;
-    if (!this.node)
-      return error("Invalid node to render inline user mention");
-    this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
-    Caret.moveCaretTo(this.node, this.mentionEnd);
-    this.contentEditableEditor.processInputContent();
-  }
-  restoreOriginalText() {
-    if (this.mode === "emote" && this.word) {
-      if (!this.emoteComponent)
-        return error("Invalid embed node to restore original text");
-      this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
-    } else if (this.mode === "mention") {
-      if (!this.node)
-        return error("Invalid node to restore original text");
-      Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || "");
-      Caret.moveCaretTo(this.node, this.end);
-      this.contentEditableEditor.processInputContent();
-    }
-  }
-  renderInlineEmote() {
-    const emoteHid = this.suggestionHids[this.selectedIndex];
-    if (!emoteHid)
-      return;
-    if (this.emoteComponent) {
-      this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
-    } else {
-      if (!this.node)
-        return error("Invalid node to restore original text");
-      const range = document.createRange();
-      range.setStart(this.node, this.start);
-      range.setEnd(this.node, this.end);
-      range.deleteContents();
-      this.contentEditableEditor.normalize();
-      this.emoteComponent = this.contentEditableEditor.insertEmote(emoteHid);
-    }
-  }
-  isClickInsideModal(target) {
-    if (!this.$modal)
-      return false;
-    return this.$modal[0]?.contains(target);
-  }
-  handleKeydown(evt) {
-    if (evt.key === "Tab") {
-      evt.preventDefault();
-      if (this.isShowingModal) {
-        if (evt.shiftKey) {
-          this.moveSelectorDown();
-        } else {
-          this.moveSelectorUp();
-        }
-      } else {
-        this.updateSuggestions();
-        if (this.suggestions.length)
-          this.showModal();
-        else
-          this.reset();
-      }
-    } else if (this.isShowingModal) {
-      if (evt.key === "ArrowUp") {
-        evt.preventDefault();
-        this.moveSelectorUp();
-      } else if (evt.key === "ArrowDown") {
-        evt.preventDefault();
-        this.moveSelectorDown();
-      } else if (evt.key === "ArrowRight" || evt.key === "Enter") {
-        if (evt.key === "Enter") {
-          evt.preventDefault();
-          evt.stopImmediatePropagation();
-        }
-        if (this.mode === "mention")
-          this.contentEditableEditor.insertText(" ");
-        this.hideModal();
-        this.reset();
-      } else if (evt.key === " ") {
-        if (this.mode === "emote")
-          evt.preventDefault();
-        this.reset();
-      } else if (evt.key === "ArrowLeft" || evt.key === "Escape") {
-        this.reset();
-      } else if (evt.key === "Backspace") {
-        evt.preventDefault();
-        evt.stopImmediatePropagation();
-        this.restoreOriginalText();
-        this.hideModal();
-        this.reset();
-      } else if (evt.key === "Shift") {
-      } else {
-        this.hideModal();
-        this.reset();
-      }
-    }
-  }
-  handleKeyup(evt) {
-  }
-  reset() {
-    this.mode = "";
-    this.suggestions = [];
-    this.selectedIndex = 0;
-    this.$list?.empty();
-    this.$modal?.hide();
-    this.isShowingModal = false;
-    this.start = 0;
-    this.end = 0;
-    this.mentionEnd = 0;
-    this.node = null;
-    this.word = null;
-    this.emoteComponent = null;
-  }
-};
-
-// src/Managers/InputController.ts
-var InputController = class {
-  contentEditableEditor;
-  settingsManager;
-  messageHistory;
-  emotesManager;
-  usersManager;
-  tabCompletor;
-  eventBus;
-  constructor({
-    settingsManager,
-    eventBus,
-    emotesManager,
-    usersManager,
-    clipboard
-  }, textFieldEl) {
-    this.settingsManager = settingsManager;
-    this.emotesManager = emotesManager;
-    this.usersManager = usersManager;
-    this.eventBus = eventBus;
-    this.messageHistory = new MessagesHistory();
-    this.contentEditableEditor = new ContentEditableEditor(
-      { eventBus, emotesManager, messageHistory: this.messageHistory, clipboard },
-      textFieldEl
-    );
-    this.tabCompletor = new TabCompletor({
-      emotesManager,
-      usersManager,
-      contentEditableEditor: this.contentEditableEditor
-    });
-  }
-  initialize() {
-    const { eventBus, contentEditableEditor } = this;
-    contentEditableEditor.attachEventListeners();
-    contentEditableEditor.addEventListener("keydown", 9, (event) => {
-      if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
-        this.messageHistory.resetCursor();
-      }
-    });
-    eventBus.subscribe("ntv.ui.input_submitted", this.handleInputSubmit.bind(this));
-  }
-  handleInputSubmit({ suppressEngagementEvent }) {
-    const { contentEditableEditor, emotesManager, messageHistory } = this;
-    if (!suppressEngagementEvent) {
-      const emotesInMessage = contentEditableEditor.getEmotesInMessage();
-      for (const emoteHid of emotesInMessage) {
-        emotesManager.registerEmoteEngagement(emoteHid);
-      }
-    }
-    if (!contentEditableEditor.isInputEmpty())
-      messageHistory.addMessage(contentEditableEditor.getInputHTML());
-    messageHistory.resetCursor();
-  }
-  isShowingTabCompletorModal() {
-    return this.tabCompletor.isShowingModal;
-  }
-  addEventListener(type, priority, listener, options) {
-    this.contentEditableEditor.addEventListener(type, priority, listener, options);
-  }
-  loadTabCompletionBehaviour(container) {
-    const { emotesManager, usersManager, contentEditableEditor } = this;
-    const tabCompletor = this.tabCompletor = new TabCompletor({
-      contentEditableEditor,
-      emotesManager,
-      usersManager
-    });
-    tabCompletor.attachEventHandlers();
-    tabCompletor.createModal(container);
-    document.addEventListener("click", (evt) => {
-      if (!evt.target)
-        return;
-      const isClickInsideModal = tabCompletor.isClickInsideModal(evt.target);
-      if (!isClickInsideModal)
-        tabCompletor.reset();
-    });
-  }
-  loadChatHistoryBehaviour() {
-    const { settingsManager, contentEditableEditor } = this;
-    if (!settingsManager.getSetting("shared.chat.input.history.enabled"))
-      return;
-    contentEditableEditor.addEventListener("keydown", 4, (event) => {
-      if (this.tabCompletor?.isShowingModal)
-        return;
-      const textFieldEl = contentEditableEditor.getInputNode();
-      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        if (Caret.isCaretAtStartOfNode(textFieldEl) && event.key === "ArrowUp") {
-          event.preventDefault();
-          if (!this.messageHistory.canMoveCursor(1))
-            return;
-          const leftoverHTML = contentEditableEditor.getInputHTML();
-          if (this.messageHistory.isCursorAtStart() && leftoverHTML) {
-            this.messageHistory.addMessage(leftoverHTML);
-            this.messageHistory.moveCursor(2);
-          } else {
-            this.messageHistory.moveCursor(1);
-          }
-          contentEditableEditor.setInputContent(this.messageHistory.getMessage());
-        } else if (Caret.isCaretAtEndOfNode(textFieldEl) && event.key === "ArrowDown") {
-          event.preventDefault();
-          if (this.messageHistory.canMoveCursor(-1)) {
-            this.messageHistory.moveCursor(-1);
-            contentEditableEditor.setInputContent(this.messageHistory.getMessage());
-          } else {
-            if (!contentEditableEditor.isInputEmpty())
-              this.messageHistory.addMessage(contentEditableEditor.getInputHTML());
-            this.messageHistory.resetCursor();
-            contentEditableEditor.clearInput();
-          }
-        }
-      }
-    });
-  }
-};
-
 // src/Classes/Clipboard.ts
 function flattenNestedElement(node) {
   const result = [];
@@ -3090,6 +2603,2091 @@ var Clipboard2 = class {
   }
 };
 
+// src/Classes/Toaster.ts
+var Toaster = class {
+  toasts = [];
+  addToast(message, duration, type = "info") {
+    const toastEl = parseHTML(
+      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
+      true
+    );
+    const timeout = Date.now() + duration;
+    const toast = { message, type, timeout, element: toastEl };
+    this.toasts.push(toast);
+    document.body.appendChild(toastEl);
+    setTimeout(() => {
+      const index = this.toasts.indexOf(toast);
+      if (index !== -1) {
+        this.toasts[index].element.remove();
+        this.toasts.splice(index, 1);
+      }
+    }, duration);
+    this.moveToasts();
+  }
+  moveToasts() {
+    const spacing = 20;
+    let y = 20;
+    const toasts = this.toasts.toReversed();
+    for (const toast of toasts) {
+      toast.element.style.top = `${y}px`;
+      y += toast.element.clientHeight + spacing;
+    }
+  }
+};
+
+// src/UserInterface/AbstractUserInterface.ts
+var AbstractUserInterface = class {
+  rootContext;
+  session;
+  inputController = null;
+  clipboard = new Clipboard2();
+  toaster = new Toaster();
+  messageHistory = new MessagesHistory();
+  replyMessageData;
+  replyMessageComponent;
+  maxMessageLength = 500;
+  /**
+   * @param {EventBus} eventBus
+   * @param {object} deps
+   */
+  constructor(rootContext, session) {
+    this.rootContext = rootContext;
+    this.session = session;
+  }
+  loadInterface() {
+    const { eventBus } = this.rootContext;
+    eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
+      assertArgDefined(data.username);
+      this.showUserInfoModal(data.username);
+    });
+  }
+  toastError(message) {
+    error(message);
+    this.toaster.addToast(message, 4e3, "error");
+  }
+  renderEmotesInElement(textElement, appendTo) {
+    const { emotesManager } = this.rootContext;
+    const text = textElement.textContent || "";
+    const tokens = text.split(" ");
+    const newNodes = [];
+    let textBuffer = "";
+    for (const token of tokens) {
+      const emoteHid = emotesManager.getEmoteHidByName(token);
+      if (emoteHid) {
+        if (textBuffer) {
+          const newNode2 = document.createElement("span");
+          newNode2.appendChild(document.createTextNode(textBuffer.trim()));
+          newNode2.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
+          newNodes.push(newNode2);
+          textBuffer = "";
+        }
+        const newNode = document.createElement("span");
+        newNode.innerHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
+        newNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
+        newNode.setAttribute("data-emote-hid", emoteHid);
+        newNode.setAttribute("contenteditable", "false");
+        newNodes.push(newNode);
+      } else if (token) {
+        textBuffer += token + " ";
+      }
+    }
+    if (textBuffer) {
+      const newNode = document.createElement("span");
+      newNode.appendChild(document.createTextNode(textBuffer.trim()));
+      newNode.classList.add("ntv__chat-message__part", "ntv__chat-message--text");
+      newNodes.push(newNode);
+    }
+    if (appendTo)
+      appendTo.append(...newNodes);
+    else
+      textElement.after(...newNodes);
+    textElement.remove();
+  }
+  showUserInfoModal(username) {
+    log("Showing user info modal..");
+    const modal = new UserInfoModal(
+      this.rootContext,
+      this.session,
+      {
+        toaster: this.toaster
+      },
+      username
+    ).init();
+  }
+  // Submits input to chat
+  submitInput(suppressEngagementEvent) {
+    const { eventBus, networkInterface } = this.rootContext;
+    const contentEditableEditor = this.inputController?.contentEditableEditor;
+    if (!contentEditableEditor)
+      return error("Unable to submit input, the input controller is not loaded yet.");
+    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
+      return this.toastError("Message is too long to send.");
+    }
+    const replyContent = contentEditableEditor.getMessageContent();
+    if (!replyContent.length)
+      return log("No message content to send.");
+    if (this.replyMessageData) {
+      const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData;
+      networkInterface.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername).then((res) => {
+        if (res.status.error) {
+          if (res.status.message)
+            this.toastError("Failed to send reply message because: " + res.status.message);
+          else
+            this.toaster.addToast("Failed to send reply message.", 4e3, "error");
+          error("Failed to send reply message:", res.status);
+        }
+      }).catch((err) => {
+        this.toaster.addToast("Failed to send reply message.", 4e3, "error");
+        error("Failed to send reply message:", err);
+      });
+      this.destroyReplyMessageContext();
+    } else {
+      networkInterface.sendMessage(replyContent).then((res) => {
+        if (res?.status.error) {
+          if (res.status.message)
+            this.toastError("Failed to send message because: " + res.status.message);
+          else
+            this.toaster.addToast("Failed to send message.", 4e3, "error");
+          error("Failed to send message:", res.status);
+        }
+      }).catch((err) => {
+        this.toaster.addToast("Failed to send emote to chat.", 4e3, "error");
+        error("Failed to send emote to chat:", err);
+      });
+    }
+    eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent });
+    contentEditableEditor.clearInput();
+  }
+  sendEmoteToChat(emoteHid) {
+    const { emotesManager, networkInterface } = this.rootContext;
+    const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
+    if (!emoteEmbedding)
+      return error("Failed to send emote to chat, emote embedding not found.");
+    networkInterface.sendMessage(emoteEmbedding).then((res) => {
+      if (res?.status.error) {
+        if (res.status.message)
+          this.toastError("Failed to send emote because: " + res.status.message);
+        else
+          this.toaster.addToast("Failed to send emote to chat.", 4e3, "error");
+        error("Failed to send emote to chat:", res.status);
+      }
+    }).catch((err) => {
+      this.toastError("Failed to send emote to chat.");
+    });
+  }
+  replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername) {
+    log(`Replying to message ${chatEntryId} of user ${chatEntryUsername} with ID ${chatEntryUserId}..`);
+    if (!this.inputController)
+      return error("Input controller not loaded for reply behaviour");
+    if (!this.elm.replyMessageWrapper)
+      return error("Unable to load reply message, reply message wrapper not found");
+    if (this.replyMessageData)
+      this.destroyReplyMessageContext();
+    this.replyMessageData = {
+      chatEntryId,
+      chatEntryContentString,
+      chatEntryUsername,
+      chatEntryUserId
+    };
+    this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init();
+    this.replyMessageComponent.addEventListener("close", () => {
+      this.destroyReplyMessageContext();
+    });
+  }
+  destroyReplyMessageContext() {
+    this.replyMessageComponent?.destroy();
+    delete this.replyMessageComponent;
+    delete this.replyMessageData;
+  }
+};
+
+// src/Classes/PriorityEventTarget.ts
+var notAllowed = function() {
+  throw new Error("PreventDefault cannot be called because the event was set as passive.");
+};
+var stopPropagation = function() {
+  this._stopPropagation();
+  this.stoppedPropagation = true;
+};
+var stopImmediatePropagation = function() {
+  this._stopImmediatePropagation();
+  this.stoppedImmediatePropagation = true;
+};
+var PriorityEventTarget = class {
+  events = /* @__PURE__ */ new Map();
+  /**
+   * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.
+   * @param type
+   * @param priority
+   * @param listener
+   * @param options
+   */
+  addEventListener(type, priority, listener, options) {
+    if (!this.events.has(type)) {
+      this.events.set(type, []);
+    }
+    const priorities = this.events.get(type);
+    if (!priorities[priority])
+      priorities[priority] = [];
+    const listeners = priorities[priority];
+    if (options)
+      listeners.push([listener, options]);
+    else
+      listeners.push([listener]);
+    if (options && options.signal) {
+      options.signal.addEventListener("abort", () => {
+        this.removeEventListener(type, priority, listener, options);
+      });
+    }
+  }
+  removeEventListener(type, priority, listener, options) {
+    if (this.events.has(type)) {
+      const priorities = this.events.get(type);
+      const listeners = priorities[priority];
+      if (!listeners)
+        return;
+      for (let i = 0; i < listeners.length; i++) {
+        let listenerItem = listeners[i][0];
+        let optionsItem = listeners[i][1];
+        if (listenerItem === listener && optionsItem === options) {
+          listeners.splice(i, 1);
+          i--;
+        }
+      }
+    }
+  }
+  dispatchEvent(event) {
+    ;
+    event._stopPropagation = event.stopPropagation;
+    event.stopPropagation = stopPropagation;
+    event._stopImmediatePropagation = event.stopImmediatePropagation;
+    event.stopImmediatePropagation = stopImmediatePropagation;
+    const type = event.type;
+    if (this.events.has(type)) {
+      const priorities = this.events.get(type);
+      for (const key in priorities) {
+        const listeners = priorities[key];
+        for (let i = 0; i < listeners.length; i++) {
+          const listener = listeners[i][0];
+          const options = listeners[i][1];
+          if (options) {
+            if (options.once) {
+              listeners.splice(i, 1);
+              i--;
+            }
+            if (options.passive) {
+              event.preventDefault = notAllowed;
+            }
+          }
+          listener(event);
+          if (event.stoppedImmediatePropagation) {
+            return;
+          }
+        }
+        if (event.stoppedPropagation) {
+          return;
+        }
+      }
+    }
+  }
+};
+
+// src/Classes/ContentEditableEditor.ts
+var ContentEditableEditor = class {
+  rootContext;
+  messageHistory;
+  clipboard;
+  inputNode;
+  eventTarget = new PriorityEventTarget();
+  processInputContentDebounce;
+  inputEmpty = true;
+  characterCount = 0;
+  messageContent = "";
+  emotesInMessage = /* @__PURE__ */ new Set();
+  hasMouseDown = false;
+  hasUnprocessedContentChanges = false;
+  constructor(rootContext, {
+    messageHistory,
+    clipboard
+  }, contentEditableEl) {
+    this.rootContext = rootContext;
+    this.messageHistory = messageHistory;
+    this.clipboard = clipboard;
+    this.inputNode = contentEditableEl;
+    this.processInputContentDebounce = debounce(this.processInputContent.bind(this), 25);
+  }
+  getInputNode() {
+    return this.inputNode;
+  }
+  getCharacterCount() {
+    return this.characterCount;
+  }
+  getFirstCharacter() {
+    const firstChild = this.inputNode.firstChild;
+    if (firstChild instanceof Text)
+      return firstChild.data[0];
+    return null;
+  }
+  getMessageContent() {
+    this.processInputContent();
+    return this.messageContent;
+  }
+  getInputHTML() {
+    return this.inputNode.innerHTML;
+  }
+  getEmotesInMessage() {
+    return this.emotesInMessage;
+  }
+  isInputEmpty() {
+    return this.inputEmpty;
+  }
+  clearInput() {
+    this.inputNode.innerHTML = "";
+    this.hasUnprocessedContentChanges = true;
+    this.processInputContent();
+  }
+  addEventListener(type, priority, listener, options) {
+    this.eventTarget.addEventListener(type, priority, listener, options);
+  }
+  forwardEvent(event) {
+    this.eventTarget.dispatchEvent(event);
+  }
+  attachEventListeners() {
+    const { emotesManager } = this.rootContext;
+    const { inputNode, clipboard } = this;
+    document.addEventListener("selectionchange", (evt) => {
+      const activeElement = document.activeElement;
+      if (activeElement !== inputNode)
+        return;
+      this.adjustSelection();
+    });
+    inputNode.addEventListener("paste", (evt) => {
+      evt.preventDefault();
+      const messageParts = clipboard.parsePastedMessage(evt);
+      if (!messageParts || !messageParts.length)
+        return;
+      const newNodes = [];
+      for (let i = 0; i < messageParts.length; i++) {
+        const tokens = messageParts[i].split(" ");
+        for (let j = 0; j < tokens.length; j++) {
+          const token = tokens[j];
+          const emoteHid = emotesManager.getEmoteHidByName(token);
+          if (emoteHid) {
+            if (i > 0 && j > 0) {
+              newNodes.push(document.createTextNode(" "));
+            }
+            newNodes.push(
+              this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
+            );
+          } else if (i === 0 && j === 0) {
+            newNodes.push(document.createTextNode(token));
+          } else {
+            newNodes.push(document.createTextNode(" " + token));
+          }
+        }
+      }
+      this.insertNodes(newNodes);
+      this.processInputContent();
+      const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
+      if (this.inputEmpty && isNotEmpty) {
+        this.inputEmpty = isNotEmpty;
+        this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
+      }
+    });
+    this.eventTarget.addEventListener("keydown", 10, this.handleKeydown.bind(this));
+    inputNode.addEventListener("keydown", this.eventTarget.dispatchEvent.bind(this.eventTarget));
+    this.eventTarget.addEventListener("keyup", 10, this.handleKeyUp.bind(this));
+    inputNode.addEventListener("keyup", this.eventTarget.dispatchEvent.bind(this.eventTarget));
+    inputNode.addEventListener("mousedown", this.handleMouseDown.bind(this));
+    inputNode.addEventListener("mouseup", this.handleMouseUp.bind(this));
+  }
+  handleKeydown(event) {
+    if (event.ctrlKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      return this.handleCtrlArrowKeyDown(event);
+    }
+    switch (event.key) {
+      case "Backspace":
+        this.deleteBackwards(event);
+        break;
+      case "Delete":
+        this.deleteForwards(event);
+        break;
+      case "Enter":
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!this.inputEmpty) {
+          this.rootContext.eventBus.publish("ntv.input_controller.submit");
+        }
+        break;
+      case " ":
+        this.handleSpaceKey(event);
+        break;
+      default:
+        if (eventKeyIsLetterDigitPuncSpaceChar(event)) {
+          event.preventDefault();
+          this.insertText(event.key);
+        }
+    }
+  }
+  handleMouseDown(event) {
+    this.hasMouseDown = true;
+  }
+  handleMouseUp(event) {
+    this.hasMouseDown = false;
+  }
+  handleKeyUp(event) {
+    const { inputNode } = this;
+    if (inputNode.children.length === 1 && inputNode.children[0].tagName === "BR") {
+      inputNode.children[0].remove();
+    }
+    if (event.key === "Backspace" || event.key === "Delete") {
+      this.normalizeComponents();
+    }
+    if (this.hasUnprocessedContentChanges) {
+      this.processInputContentDebounce();
+    }
+    const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
+    if (this.inputEmpty === !isNotEmpty)
+      return;
+    this.inputEmpty = !this.inputEmpty;
+    this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
+  }
+  handleSpaceKey(event) {
+    const { inputNode } = this;
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount)
+      return;
+    const { focusNode } = selection;
+    if (focusNode?.parentElement?.classList.contains("ntv__input-component")) {
+      event.preventDefault();
+      this.hasUnprocessedContentChanges = true;
+      return this.insertText(" ");
+    }
+    const { word, start, end, node } = Caret.getWordBeforeCaret();
+    if (!word) {
+      event.preventDefault();
+      return this.insertText(" ");
+    }
+    const emoteHid = this.rootContext.emotesManager.getEmoteHidByName(word);
+    if (!emoteHid) {
+      event.preventDefault();
+      return this.insertText(" ");
+    }
+    const textContent = node.textContent;
+    if (!textContent) {
+      event.preventDefault();
+      return this.insertText(" ");
+    }
+    node.textContent = textContent.slice(0, start) + textContent.slice(end);
+    inputNode.normalize();
+    selection?.setPosition(node, start);
+    this.insertEmote(emoteHid);
+    event.preventDefault();
+    this.hasUnprocessedContentChanges = true;
+  }
+  handleCtrlArrowKeyDown(event) {
+    event.preventDefault();
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount)
+      return;
+    const { focusNode, focusOffset } = selection;
+    const { inputNode } = this;
+    const direction = event.key === "ArrowRight";
+    const isFocusInComponent = selection.focusNode?.parentElement?.classList.contains("ntv__input-component");
+    if (isFocusInComponent) {
+      const component = focusNode.parentElement;
+      const isRightSideOfComp = !focusNode.nextSibling;
+      if (!isRightSideOfComp && direction || isRightSideOfComp && !direction) {
+        event.shiftKey ? selection.modify("extend", direction ? "forward" : "backward", "character") : selection.modify("move", direction ? "forward" : "backward", "character");
+      } else if (isRightSideOfComp && direction) {
+        if (component.nextSibling instanceof Text) {
+          event.shiftKey ? selection.extend(component.nextSibling, component.nextSibling.textContent?.length || 0) : selection.setPosition(component.nextSibling, component.nextSibling.textContent?.length || 0);
+        } else if (component.nextSibling instanceof HTMLElement && component.nextSibling.classList.contains("ntv__input-component")) {
+          event.shiftKey ? selection.extend(component.nextSibling.childNodes[2], 1) : selection.setPosition(component.nextSibling.childNodes[2], 1);
+        }
+      } else if (!isRightSideOfComp && !direction) {
+        if (component.previousSibling instanceof Text) {
+          event.shiftKey ? selection.extend(component.previousSibling, 0) : selection.setPosition(component.previousSibling, 0);
+        } else if (component.previousSibling instanceof HTMLElement && component.previousSibling.classList.contains("ntv__input-component")) {
+          event.shiftKey ? selection.extend(component.previousSibling.childNodes[0], 0) : selection.setPosition(component.previousSibling.childNodes[0], 0);
+        }
+      }
+    } else if (focusNode instanceof Text) {
+      if (direction) {
+        if (focusOffset === focusNode.textContent?.length) {
+          event.shiftKey ? selection.modify("extend", "forward", "character") : selection.modify("move", "forward", "character");
+        } else {
+          let nextSpaceIndex = focusNode.textContent?.indexOf(" ", focusOffset + 1);
+          if (nextSpaceIndex === -1)
+            nextSpaceIndex = focusNode.textContent?.length;
+          event.shiftKey ? selection.extend(focusNode, nextSpaceIndex || 0) : selection.setPosition(focusNode, nextSpaceIndex || 0);
+        }
+      } else {
+        if (focusOffset === 0) {
+          event.shiftKey ? selection.modify("extend", "backward", "character") : selection.modify("move", "backward", "character");
+        } else {
+          let prevSpaceIndex = focusNode.textContent?.lastIndexOf(" ", focusOffset - 1);
+          if (prevSpaceIndex === -1)
+            prevSpaceIndex = 0;
+          event.shiftKey ? selection.extend(focusNode, prevSpaceIndex) : selection.setPosition(focusNode, prevSpaceIndex);
+        }
+      }
+    } else if (direction && inputNode.childNodes[focusOffset] instanceof Text) {
+      const nodeAtOffset = inputNode.childNodes[focusOffset];
+      const firstSpaceIndexInTextnode = nodeAtOffset.textContent?.indexOf(" ") || 0;
+      event.shiftKey ? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode) : selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode);
+    } else if (!direction && inputNode.childNodes[focusOffset - 1] instanceof Text) {
+      const nodeAtOffset = inputNode.childNodes[focusOffset - 1];
+      let firstSpaceIndexInTextnode = nodeAtOffset.textContent?.lastIndexOf(" ") || -1;
+      if (firstSpaceIndexInTextnode === -1)
+        firstSpaceIndexInTextnode = 0;
+      else
+        firstSpaceIndexInTextnode += 1;
+      event.shiftKey ? selection.extend(nodeAtOffset, firstSpaceIndexInTextnode) : selection.setPosition(nodeAtOffset, firstSpaceIndexInTextnode);
+    } else {
+      if (direction && inputNode.childNodes[focusOffset]) {
+        event.shiftKey ? selection.extend(inputNode, focusOffset + 1) : selection.setPosition(inputNode, focusOffset + 1);
+      } else if (!direction && inputNode.childNodes[focusOffset - 1]) {
+        event.shiftKey ? selection.extend(inputNode, focusOffset - 1) : selection.setPosition(inputNode, focusOffset - 1);
+      }
+    }
+  }
+  normalize() {
+    this.inputNode.normalize();
+  }
+  normalizeComponents() {
+    const { inputNode } = this;
+    const components = inputNode.querySelectorAll(".ntv__input-component");
+    for (let i = 0; i < components.length; i++) {
+      const component = components[i];
+      if (!component.childNodes[1] || component.childNodes[1].className !== "ntv__input-component__body") {
+        log("!! Cleaning up empty component", component);
+        component.remove();
+      }
+    }
+  }
+  createEmoteComponent(emoteHID, emoteHTML) {
+    const component = document.createElement("span");
+    component.className = "ntv__input-component";
+    component.appendChild(document.createTextNode(CHAR_ZWSP));
+    const componentBody = document.createElement("span");
+    componentBody.className = "ntv__input-component__body";
+    componentBody.setAttribute("contenteditable", "false");
+    const inlineEmoteBox = document.createElement("span");
+    inlineEmoteBox.className = "ntv__inline-emote-box";
+    inlineEmoteBox.setAttribute("data-emote-hid", emoteHID);
+    inlineEmoteBox.innerHTML = emoteHTML;
+    componentBody.appendChild(inlineEmoteBox);
+    component.appendChild(componentBody);
+    component.appendChild(document.createTextNode(CHAR_ZWSP));
+    return component;
+  }
+  setInputContent(content) {
+    this.inputNode.innerHTML = content;
+    this.hasUnprocessedContentChanges = true;
+    this.processInputContent();
+  }
+  processInputContent() {
+    if (!this.hasUnprocessedContentChanges)
+      return;
+    const { eventBus, emotesManager } = this.rootContext;
+    const { inputNode } = this;
+    const buffer = [];
+    let bufferString = "";
+    let emotesInMessage = this.emotesInMessage;
+    emotesInMessage.clear();
+    for (const node of inputNode.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        bufferString += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const componentBody = node.childNodes[1];
+        if (!componentBody) {
+          error("Invalid component node", node);
+          continue;
+        }
+        const emoteBox = componentBody.childNodes[0];
+        if (emoteBox) {
+          const emoteHid = emoteBox.dataset.emoteHid;
+          if (emoteHid) {
+            if (bufferString)
+              buffer.push(bufferString.trim());
+            bufferString = "";
+            emotesInMessage.add(emoteHid);
+            buffer.push(emotesManager.getEmoteEmbeddable(emoteHid));
+          } else {
+            error("Invalid emote node, missing HID", emoteBox);
+          }
+        } else {
+          error("Invalid component node", componentBody.childNodes);
+        }
+      }
+    }
+    if (bufferString)
+      buffer.push(bufferString.trim());
+    this.messageContent = buffer.join(" ");
+    this.emotesInMessage = emotesInMessage;
+    this.characterCount = this.messageContent.length;
+    this.hasUnprocessedContentChanges = false;
+    eventBus.publish("ntv.input_controller.character_count", { value: this.characterCount });
+  }
+  deleteBackwards(evt) {
+    const { inputNode } = this;
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount)
+      return error("No ranges found in selection");
+    const { focusNode, focusOffset } = selection;
+    if (focusNode === inputNode && focusOffset === 0) {
+      evt.preventDefault();
+      return;
+    }
+    let range = selection.getRangeAt(0);
+    if (range.startContainer.parentElement?.classList.contains("ntv__input-component")) {
+      this.adjustSelectionForceOutOfComponent(selection);
+      range = selection.getRangeAt(0);
+    }
+    const { startContainer, endContainer, startOffset } = range;
+    const isStartContainerTheInputNode = startContainer === inputNode;
+    if (!isStartContainerTheInputNode && startContainer.parentElement !== inputNode) {
+      return;
+    }
+    if (endContainer !== inputNode && endContainer.parentElement !== inputNode) {
+      return;
+    }
+    const isStartInComponent = startContainer instanceof Element && startContainer.classList.contains("ntv__input-component");
+    const prevSibling = startContainer.previousSibling;
+    let rangeIncludesComponent = false;
+    if (isStartInComponent) {
+      range.setStartBefore(startContainer);
+      rangeIncludesComponent = true;
+    } else if (startContainer instanceof Text && startOffset === 0 && prevSibling instanceof Element) {
+      range.setStartBefore(prevSibling);
+      rangeIncludesComponent = true;
+    } else if (isStartContainerTheInputNode && inputNode.childNodes[startOffset - 1] instanceof Element) {
+      range.setStartBefore(inputNode.childNodes[startOffset - 1]);
+      rangeIncludesComponent = true;
+    }
+    if (rangeIncludesComponent) {
+      evt.preventDefault();
+      range.deleteContents();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      inputNode.normalize();
+    }
+    this.hasUnprocessedContentChanges = true;
+  }
+  deleteForwards(evt) {
+    const { inputNode } = this;
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount)
+      return error("No ranges found in selection");
+    let range = selection.getRangeAt(0);
+    this.adjustSelectionForceOutOfComponent(selection);
+    range = selection.getRangeAt(0);
+    const { startContainer, endContainer, collapsed, startOffset, endOffset } = range;
+    const isEndContainerTheInputNode = endContainer === inputNode;
+    if (!isEndContainerTheInputNode && endContainer.parentElement !== inputNode) {
+      return;
+    }
+    if (startContainer !== inputNode && startContainer.parentElement !== inputNode) {
+      return;
+    }
+    const isEndInComponent = endContainer instanceof Element && endContainer.classList.contains("ntv__input-component");
+    const nextSibling = endContainer.nextSibling;
+    let rangeIncludesComponent = false;
+    if (isEndInComponent) {
+      range.setEndAfter(endContainer);
+      rangeIncludesComponent = true;
+    } else if (endContainer instanceof Text && endOffset === endContainer.length && nextSibling instanceof Element) {
+      range.setEndAfter(nextSibling);
+      rangeIncludesComponent = true;
+    } else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
+      range.setEndAfter(inputNode.childNodes[endOffset]);
+      rangeIncludesComponent = true;
+    }
+    if (rangeIncludesComponent) {
+      evt.preventDefault();
+      range.deleteContents();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      inputNode.normalize();
+    }
+    this.hasUnprocessedContentChanges = true;
+  }
+  /**
+   * Adjusts the selection to ensure that the selection focus and anchor are never
+   *  inbetween a component's body and it's adjecent zero-width space text nodes.
+   */
+  adjustSelection() {
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount)
+      return;
+    const { inputNode } = this;
+    if (selection.isCollapsed) {
+      const { startContainer, startOffset } = selection.getRangeAt(0);
+      if (!startContainer.parentElement?.classList.contains("ntv__input-component"))
+        return;
+      const nextSibling = startContainer.nextSibling;
+      const prevSibling = startContainer.previousSibling;
+      if (!nextSibling && startOffset === 0) {
+        const prevZWSP = prevSibling?.previousSibling;
+        if (prevZWSP)
+          selection.collapse(prevZWSP, 0);
+      } else if (startOffset === 1) {
+        const nextZWSP = nextSibling?.nextSibling;
+        if (nextZWSP)
+          selection.collapse(nextZWSP, 1);
+      }
+    } else {
+      const { focusNode, focusOffset, anchorNode, anchorOffset } = selection;
+      const { hasMouseDown } = this;
+      const isFocusInComponent = focusNode?.parentElement?.classList.contains("ntv__input-component");
+      const isAnchorInComponent = anchorNode?.parentElement?.classList.contains("ntv__input-component");
+      let adjustedFocusOffset = null, adjustedAnchorOffset = null;
+      if (isFocusInComponent) {
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode?.parentElement);
+        if (focusNode?.nextSibling) {
+          if (hasMouseDown) {
+            adjustedFocusOffset = componentIndex;
+          } else {
+            if (focusOffset === 0) {
+              adjustedFocusOffset = componentIndex;
+            } else {
+              adjustedFocusOffset = componentIndex + 1;
+            }
+          }
+        } else {
+          if (hasMouseDown) {
+            adjustedFocusOffset = componentIndex + 1;
+          } else {
+            if (focusOffset === 0) {
+              adjustedFocusOffset = componentIndex;
+            } else {
+              adjustedFocusOffset = componentIndex + 1;
+            }
+          }
+        }
+      }
+      if (isAnchorInComponent) {
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(
+          anchorNode?.parentElement
+        );
+        if (anchorNode?.nextSibling) {
+          if (anchorOffset === 0) {
+            adjustedAnchorOffset = componentIndex;
+          } else {
+            adjustedAnchorOffset = componentIndex + 1;
+          }
+        } else {
+          if (anchorOffset === 0) {
+            adjustedAnchorOffset = componentIndex;
+          } else {
+            adjustedAnchorOffset = componentIndex + 1;
+          }
+        }
+      }
+      if (adjustedFocusOffset !== null && adjustedAnchorOffset !== null) {
+        selection.setBaseAndExtent(inputNode, adjustedAnchorOffset, inputNode, adjustedFocusOffset);
+      } else if (adjustedFocusOffset !== null) {
+        selection.extend(inputNode, adjustedFocusOffset);
+      }
+    }
+  }
+  adjustSelectionForceOutOfComponent(selection) {
+    selection = selection || wwindow.getSelection();
+    if (!selection || !selection.rangeCount)
+      return;
+    const { inputNode } = this;
+    const { focusNode, focusOffset } = selection;
+    const componentNode = focusNode?.parentElement;
+    if (!componentNode || !componentNode.classList.contains("ntv__input-component")) {
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    const { startContainer } = range;
+    const nextSibling = startContainer.nextSibling;
+    if (selection.isCollapsed) {
+      if (nextSibling) {
+        if (componentNode.previousSibling instanceof Text) {
+          selection.collapse(componentNode.previousSibling, componentNode.previousSibling.length);
+        } else {
+          const emptyTextNode = document.createTextNode("");
+          componentNode.before(emptyTextNode);
+          selection.collapse(emptyTextNode, 0);
+        }
+      } else {
+        if (componentNode.nextSibling instanceof Text) {
+          selection.collapse(componentNode.nextSibling, 0);
+        } else {
+          const emptyTextNode = new Text("");
+          inputNode.appendChild(emptyTextNode);
+          selection.collapse(emptyTextNode, 0);
+        }
+      }
+    } else {
+      error("Unadjusted selection focus somehow reached inside component. This should never happen.");
+    }
+  }
+  insertText(text) {
+    const { inputNode } = this;
+    const selection = wwindow.getSelection();
+    if (!selection) {
+      inputNode.append(new Text(text));
+      inputNode.normalize();
+      this.hasUnprocessedContentChanges = true;
+      return;
+    }
+    let range;
+    if (selection.rangeCount) {
+      const { focusNode, anchorNode } = selection;
+      const componentNode = focusNode?.parentElement;
+      if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
+        if (focusNode.nextSibling) {
+          if (selection.isCollapsed) {
+            selection.setPosition(inputNode, componentIndex);
+          } else {
+            selection.extend(inputNode, componentIndex);
+          }
+        } else {
+          if (selection.isCollapsed) {
+            selection.setPosition(inputNode, componentIndex + 1);
+          } else {
+            selection.extend(inputNode, componentIndex + 1);
+          }
+        }
+      } else if (focusNode !== inputNode && focusNode?.parentElement !== inputNode || anchorNode !== inputNode && anchorNode?.parentElement !== inputNode) {
+        inputNode.append(new Text(text));
+        inputNode.normalize();
+        this.hasUnprocessedContentChanges = true;
+        if (inputNode.lastChild) {
+          const range2 = document.createRange();
+          range2.setStartAfter(inputNode.lastChild);
+          selection.removeAllRanges();
+          selection.addRange(range2);
+        }
+        return;
+      }
+      range = selection.getRangeAt(0);
+    } else {
+      range = new Range();
+      range.setStart(inputNode, inputNode.childNodes.length);
+    }
+    range.deleteContents();
+    range.insertNode(document.createTextNode(text));
+    range.collapse();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    this.normalizeComponents();
+    inputNode.normalize();
+    this.hasUnprocessedContentChanges = true;
+  }
+  insertNodes(nodes) {
+    const selection = document.getSelection();
+    if (!selection)
+      return;
+    if (!selection.rangeCount) {
+      for (let i = 0; i < nodes.length; i++) {
+        this.inputNode.appendChild(nodes[i]);
+      }
+      Caret.collapseToEndOfNode(this.inputNode.lastChild);
+      this.hasUnprocessedContentChanges = true;
+      return;
+    }
+    const { inputNode } = this;
+    const { focusNode, focusOffset } = selection;
+    const componentNode = focusNode?.parentElement;
+    if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
+      const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
+      if (focusNode.nextSibling) {
+        if (selection.isCollapsed) {
+          selection.setPosition(inputNode, componentIndex);
+        } else {
+          selection.extend(inputNode, componentIndex);
+        }
+      } else {
+        if (selection.isCollapsed) {
+          selection.setPosition(inputNode, componentIndex + 1);
+        } else {
+          selection.extend(inputNode, componentIndex + 1);
+        }
+      }
+    }
+    let range = selection.getRangeAt(0);
+    selection.removeRange(range);
+    range.deleteContents();
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      range.insertNode(nodes[i]);
+    }
+    range.collapse();
+    selection.addRange(range);
+    inputNode.normalize();
+    this.hasUnprocessedContentChanges = true;
+  }
+  insertComponent(component) {
+    const { inputNode } = this;
+    const selection = document.getSelection();
+    if (!selection) {
+      inputNode.appendChild(component);
+      this.hasUnprocessedContentChanges = true;
+      return error("Selection API is not available, please use a modern browser supports the Selection API.");
+    }
+    if (!selection.rangeCount) {
+      const range2 = new Range();
+      range2.setStart(inputNode, inputNode.childNodes.length);
+      range2.insertNode(component);
+      range2.collapse();
+      selection.addRange(range2);
+      this.hasUnprocessedContentChanges = true;
+      return;
+    }
+    const { focusNode, focusOffset } = selection;
+    const componentNode = focusNode?.parentElement;
+    if (focusNode && componentNode && componentNode.classList.contains("ntv__input-component")) {
+      const componentIndex = Array.from(inputNode.childNodes).indexOf(componentNode);
+      if (focusNode.nextSibling) {
+        if (selection.isCollapsed) {
+          selection.setPosition(inputNode, componentIndex);
+        } else {
+          selection.extend(inputNode, componentIndex);
+        }
+      } else {
+        if (selection.isCollapsed) {
+          selection.setPosition(inputNode, componentIndex + 1);
+        } else {
+          selection.extend(inputNode, componentIndex + 1);
+        }
+      }
+    }
+    let range = selection.getRangeAt(0);
+    let { commonAncestorContainer } = range;
+    if (commonAncestorContainer !== inputNode && commonAncestorContainer.parentElement !== inputNode) {
+      range = new Range();
+      range.setStart(inputNode, inputNode.childNodes.length);
+      commonAncestorContainer = range.commonAncestorContainer;
+    }
+    range.deleteContents();
+    this.normalizeComponents();
+    const { startContainer, startOffset } = range;
+    const isFocusInInputNode = startContainer === inputNode;
+    if (!isFocusInInputNode && startContainer.parentElement !== inputNode) {
+      inputNode.appendChild(component);
+    } else if (isFocusInInputNode) {
+      if (inputNode.childNodes[startOffset]) {
+        inputNode.insertBefore(component, inputNode.childNodes[startOffset]);
+      } else {
+        inputNode.appendChild(component);
+      }
+    } else if (startContainer instanceof Text) {
+      range.insertNode(component);
+    } else {
+      return error("Encountered unexpected unprocessable node", component, startContainer, range);
+    }
+    range.setEnd(component.childNodes[2], 1);
+    range.collapse();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    this.hasUnprocessedContentChanges = true;
+    inputNode.dispatchEvent(new Event("input"));
+  }
+  insertEmote(emoteHid) {
+    assertArgDefined(emoteHid);
+    const { messageHistory, eventTarget } = this;
+    const { emotesManager } = this.rootContext;
+    messageHistory.resetCursor();
+    const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
+    if (!emoteHTML) {
+      error("Invalid emote embed");
+      return null;
+    }
+    const emoteComponent = this.createEmoteComponent(emoteHid, emoteHTML);
+    this.insertComponent(emoteComponent);
+    const wasNotEmpty = this.inputEmpty;
+    if (wasNotEmpty)
+      this.inputEmpty = false;
+    this.processInputContent();
+    if (wasNotEmpty) {
+      eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: false } }));
+    }
+    return emoteComponent;
+  }
+  replaceEmote(component, emoteHid) {
+    const { emotesManager } = this.rootContext;
+    const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
+    if (!emoteHTML) {
+      error("Invalid emote embed");
+      return null;
+    }
+    const emoteBox = component.querySelector(".ntv__inline-emote-box");
+    if (!emoteBox) {
+      error("Component does not contain emote box");
+      return null;
+    }
+    emoteBox.innerHTML = emoteHTML;
+    emoteBox.setAttribute("data-emote-hid", emoteHid);
+    this.hasUnprocessedContentChanges = true;
+    this.processInputContentDebounce();
+    return component;
+  }
+  replaceEmoteWithText(component, text) {
+    const { inputNode } = this;
+    const textNode = document.createTextNode(text);
+    component.replaceWith(textNode);
+    const selection = document.getSelection();
+    if (!selection)
+      return;
+    const range = document.createRange();
+    range.setStart(textNode, text.length);
+    range.setEnd(textNode, text.length);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    inputNode.normalize();
+    this.hasUnprocessedContentChanges = true;
+    this.processInputContentDebounce();
+    return textNode;
+  }
+};
+
+// src/UserInterface/Components/NavigatableEntriesWindowComponent.ts
+var NavigatableEntriesWindowComponent = class extends AbstractComponent {
+  entries = [];
+  entriesMap = /* @__PURE__ */ new Map();
+  selectedIndex = 0;
+  container;
+  element;
+  listEl;
+  classes;
+  clickCallback;
+  eventTarget = new EventTarget();
+  constructor(container, classes = "") {
+    super();
+    this.container = container;
+    this.classes = classes;
+    this.clickCallback = this.clickHandler.bind(this);
+  }
+  render() {
+    this.element = parseHTML(
+      `<div class="ntv__nav-window ${this.classes}"><ul class="ntv__nav-window__list"></ul></div>`,
+      true
+    );
+    this.listEl = this.element.querySelector("ul");
+    this.container.appendChild(this.element);
+  }
+  attachEventHandlers() {
+    this.element.addEventListener("click", this.clickCallback);
+  }
+  addEventListener(type, listener) {
+    this.eventTarget.addEventListener(type, listener);
+  }
+  clickHandler(e) {
+    let targetEntry = e.target;
+    while (targetEntry.parentElement !== this.listEl && targetEntry.parentElement !== null) {
+      targetEntry = targetEntry.parentElement;
+    }
+    const entry = this.entriesMap.get(targetEntry);
+    if (entry) {
+      this.setSelectedIndex(this.entries.indexOf(entry));
+      this.eventTarget.dispatchEvent(new CustomEvent("entry-click", { detail: entry }));
+    }
+  }
+  containsNode(node) {
+    return this.element.contains(node);
+  }
+  getEntriesCount() {
+    return this.entries.length;
+  }
+  addEntry(data, element) {
+    this.entries.push(data);
+    this.entriesMap.set(element, data);
+    this.listEl.appendChild(element);
+  }
+  addEntries(entries) {
+    entries.forEach((entry) => {
+      const element = entry.element;
+      this.addEntry(entry, element);
+    });
+  }
+  setEntries(entries) {
+    this.entries = [];
+    this.entriesMap.clear();
+    this.listEl.innerHTML = "";
+    entries.forEach((el) => {
+      this.addEntry({}, el);
+    });
+  }
+  clearEntries() {
+    this.selectedIndex = 0;
+    this.entries = [];
+    this.entriesMap.clear();
+    this.listEl.innerHTML = "";
+  }
+  getSelectedEntry() {
+    return this.entries[this.selectedIndex];
+  }
+  setSelectedIndex(index) {
+    this.selectedIndex = index;
+    this.listEl.querySelectorAll("li.selected").forEach((el) => el.classList.remove("selected"));
+    const selectedEl = this.listEl.children[this.selectedIndex];
+    selectedEl.classList.add("selected");
+    this.scrollToSelected();
+  }
+  show() {
+    this.element.style.display = "block";
+  }
+  hide() {
+    this.element.style.display = "none";
+  }
+  // Scroll selected element into middle of the list which has max height set and is scrollable
+  scrollToSelected() {
+    const selectedEl = this.listEl.children[this.selectedIndex];
+    const listHeight = this.listEl.clientHeight;
+    const selectedHeight = selectedEl.clientHeight;
+    const win = selectedEl.ownerDocument.defaultView;
+    const offsetTop = selectedEl.getBoundingClientRect().top + win.scrollY;
+    const offsetParent = selectedEl.offsetParent;
+    const offsetParentTop = offsetParent ? offsetParent.getBoundingClientRect().top : 0;
+    const relativeTop = offsetTop - offsetParentTop;
+    const selectedCenter = relativeTop + selectedHeight / 2;
+    const middleOfList = listHeight / 2;
+    const scroll = selectedCenter - middleOfList + this.listEl.scrollTop;
+    this.listEl.scrollTop = scroll;
+  }
+  moveSelectorUp() {
+    this.listEl.children[this.selectedIndex].classList.remove("selected");
+    if (this.selectedIndex < this.entries.length - 1) {
+      this.selectedIndex++;
+    } else {
+      this.selectedIndex = 0;
+    }
+    this.listEl.children[this.selectedIndex].classList.add("selected");
+    this.scrollToSelected();
+  }
+  moveSelectorDown() {
+    this.listEl.children[this.selectedIndex].classList.remove("selected");
+    if (this.selectedIndex > 0) {
+      this.selectedIndex--;
+    } else {
+      this.selectedIndex = this.entries.length - 1;
+    }
+    this.listEl.children[this.selectedIndex].classList.add("selected");
+    this.scrollToSelected();
+  }
+  destroy() {
+    this.element.removeEventListener("click", this.clickCallback);
+    this.element.remove();
+    delete this.element;
+    delete this.listEl;
+  }
+};
+
+// src/Classes/CompletionStrategies/AbstractCompletionStrategy.ts
+var AbstractCompletionStrategy = class {
+  navWindow;
+  containerEl;
+  destroyed = false;
+  constructor(containerEl) {
+    this.containerEl = containerEl;
+  }
+  createModal() {
+    if (this.navWindow)
+      return error("Tab completion window already exists");
+    const navWindow = new NavigatableEntriesWindowComponent(this.containerEl, "ntv__tab-completion");
+    this.navWindow = navWindow.init();
+  }
+  destroyModal() {
+    if (!this.navWindow)
+      return error("Tab completion window does not exist yet");
+    this.navWindow.destroy();
+    delete this.navWindow;
+  }
+  isClickInsideNavWindow(node) {
+    return this.navWindow?.containsNode(node) || false;
+  }
+  isShowingNavWindow() {
+    return !!this.navWindow;
+  }
+  handleKeyUp(event) {
+  }
+  destroy() {
+    if (this.navWindow)
+      this.destroyModal();
+    delete this.navWindow;
+    this.destroyed = true;
+  }
+};
+
+// src/Classes/CompletionStrategies/CommandCompletionStrategy.ts
+var commandsMap = [
+  {
+    name: "ban",
+    command: "ban <username> [reason]",
+    minAllowedRole: "moderator",
+    description: "Permanently ban an user from chat.",
+    argValidators: {
+      // Not doing a length check > 2 here because Kick doesn't do it..
+      "<username>": (arg) => !!arg ? null : "Username is required"
+    }
+  },
+  // {
+  // 	name: 'category',
+  // 	command: 'category',
+  // 	minAllowedRole: 'broadcaster',
+  // 	description: 'Sets the stream category.'
+  // },
+  {
+    name: "clear",
+    command: "clear",
+    minAllowedRole: "moderator",
+    description: "Clear the chat."
+  },
+  {
+    name: "emoteonly",
+    command: "emoteonly <on_off>",
+    minAllowedRole: "moderator",
+    description: "Enable emote party mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "followonly",
+    command: "followonly <on_off>",
+    minAllowedRole: "moderator",
+    description: "Enable followers only mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "host",
+    command: "host <username>",
+    minAllowedRole: "broadcaster",
+    description: "Host someone's channel",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "mod",
+    command: "mod <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your moderator list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "og",
+    command: "og <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your OG list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  // {
+  // 	name: 'poll',
+  // 	command: 'poll',
+  // 	minAllowedRole: 'moderator',
+  // 	description: 'Create a poll.'
+  // },
+  // {
+  // 	name: 'polldelete',
+  // 	command: 'polldelete',
+  // 	minAllowedRole: 'moderator',
+  // 	description: 'Delete the current poll.'
+  // },
+  {
+    name: "slow",
+    command: "slow <on_off> [seconds]",
+    minAllowedRole: "moderator",
+    description: "Enable slow mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "subonly",
+    command: "subonly <on_off>",
+    minAllowedRole: "moderator",
+    description: "Enable subscribers only mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "timeout",
+    command: "timeout <username> <minutes> [reason]",
+    minAllowedRole: "moderator",
+    description: "Temporarily ban an user from chat.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
+      "<minutes>": (arg) => {
+        const m = parseInt(arg, 10);
+        return !Number.isNaN(m) && m > 0 && m < 10080 ? null : "Minutes must be a number between 1 and 10080 (7 days).";
+      }
+    }
+  },
+  {
+    name: "title",
+    command: "title <title>",
+    minAllowedRole: "moderator",
+    description: "Set the stream title.",
+    argValidators: {
+      "<title>": (arg) => !!arg ? null : "Title is required"
+    }
+  },
+  {
+    name: "unban",
+    command: "unban <username>",
+    minAllowedRole: "moderator",
+    description: "Unban an user from chat.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unog",
+    command: "unog <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your OG list",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unmod",
+    command: "unmod <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your moderator list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unvip",
+    command: "unvip <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your VIP list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "user",
+    command: "user <username>",
+    minAllowedRole: "moderator",
+    description: "Display user information.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      log("User command executed with args:", args);
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.show_modal.user_info", { username: args[0] });
+    }
+  },
+  {
+    name: "vip",
+    command: "vip <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your VIP list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  }
+];
+var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
+  contentEditableEditor;
+  rootContext;
+  constructor(rootContext, {
+    contentEditableEditor
+  }, containerEl) {
+    super(containerEl);
+    this.rootContext = rootContext;
+    this.contentEditableEditor = contentEditableEditor;
+  }
+  static shouldUseStrategy(event, contentEditableEditor) {
+    const firstChar = contentEditableEditor.getFirstCharacter();
+    return firstChar === "/" || event.key === "/" && contentEditableEditor.isInputEmpty();
+  }
+  createModal() {
+    super.createModal();
+    this.navWindow.addEventListener("entry-click", (event) => {
+      this.renderInlineCompletion();
+    });
+  }
+  updateCompletionEntries(commandName, inputString) {
+    const availableCommands = this.getAvailableCommands();
+    const commandEntries = inputString.indexOf(" ") !== -1 ? [availableCommands.find((commandEntry) => commandEntry.name.startsWith(commandName))] : availableCommands.filter((commandEntry) => commandEntry.name.startsWith(commandName));
+    if (commandEntries) {
+      if (!this.navWindow)
+        this.createModal();
+      else
+        this.navWindow.clearEntries();
+      for (const commandEntry of commandEntries) {
+        const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true);
+        entryEl.childNodes[1].textContent = commandEntry.description;
+        if (commandEntries.length === 1) {
+          const commandParts = commandEntry.command.split(" ");
+          const command = commandParts[0];
+          const args = commandParts.slice(1);
+          const inputParts = inputString.split(" ");
+          const inputArgs = inputParts.slice(1);
+          const commandEl = document.createElement("span");
+          commandEl.textContent = command;
+          entryEl.childNodes[0].appendChild(commandEl);
+          for (let i = 0; i < args.length; i++) {
+            const argEl = document.createElement("span");
+            const arg = args[i];
+            const inputArg = inputArgs[i] || "";
+            const argValidator = commandEntry?.argValidators[arg];
+            if (argValidator) {
+              const argIsInvalid = argValidator(inputArg);
+              if (argIsInvalid) {
+                argEl.style.color = "red";
+              } else {
+                argEl.style.color = "green";
+              }
+            }
+            argEl.textContent = " " + arg;
+            entryEl.childNodes[0].appendChild(argEl);
+          }
+        } else {
+          const commandEl = document.createElement("span");
+          commandEl.textContent = "/" + commandEntry.command;
+          entryEl.childNodes[0].appendChild(commandEl);
+        }
+        this.navWindow.addEntry(commandEntry, entryEl);
+      }
+    }
+  }
+  renderInlineCompletion() {
+    if (!this.navWindow)
+      return error("Tab completion window does not exist yet");
+    const selectedEntry = this.navWindow.getSelectedEntry();
+    if (!selectedEntry)
+      return error("No selected entry to render completion");
+    const { name } = selectedEntry;
+    this.contentEditableEditor.clearInput();
+    this.contentEditableEditor.insertText("/" + name);
+  }
+  validateInputCommand(command) {
+    const inputParts = command.split(" ");
+    const inputCommandName = inputParts[0];
+    if (!inputCommandName)
+      return "No command provided.";
+    const availableCommands = this.getAvailableCommands();
+    const commandEntry = availableCommands.find((commandEntry2) => commandEntry2.name === inputCommandName);
+    if (!commandEntry)
+      return "Command not found.";
+    const commandParts = commandEntry.command.split(" ");
+    const args = commandParts.slice(1);
+    const argValidators = commandEntry.argValidators;
+    if (!argValidators)
+      return null;
+    const inputArgs = inputParts.slice(1);
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      const inputArg = inputArgs[i] || "";
+      const argValidator = argValidators[arg];
+      if (argValidator) {
+        const argIsInvalid = argValidator(inputArg);
+        if (argIsInvalid)
+          return "Invalid argument: " + arg;
+      }
+    }
+    return null;
+  }
+  getAvailableCommands() {
+    const channelData = this.rootContext.networkInterface.channelData;
+    const is_broadcaster = channelData?.me?.is_broadcaster || false;
+    const is_moderator = channelData?.me?.is_moderator || false;
+    return commandsMap.filter((commandEntry) => {
+      if (commandEntry.minAllowedRole === "broadcaster")
+        return is_broadcaster;
+      if (commandEntry.minAllowedRole === "moderator")
+        return is_moderator || is_broadcaster;
+      return true;
+    });
+  }
+  getParsedInputCommand(inputString) {
+    const inputParts = inputString.split(" ").filter((v) => v !== "");
+    const inputCommandName = inputParts[0];
+    const availableCommands = this.getAvailableCommands();
+    const commandEntry = availableCommands.find(
+      (commandEntry2) => commandEntry2.name === inputCommandName
+    );
+    if (!commandEntry)
+      return [error("Command not found.")];
+    const argCount = countStringOccurrences(commandEntry.command, "<");
+    if (inputParts.length - 1 > argCount) {
+      const start = inputParts.slice(1, argCount + 1);
+      const rest = inputParts.slice(argCount + 1).join(" ");
+      return [
+        {
+          name: inputCommandName,
+          args: start.concat(rest)
+        },
+        commandEntry
+      ];
+    }
+    return [
+      {
+        name: inputCommandName,
+        args: inputParts.slice(1, argCount + 1)
+      },
+      commandEntry
+    ];
+  }
+  moveSelectorUp() {
+    if (!this.navWindow)
+      return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow)
+      return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.renderInlineCompletion();
+  }
+  handleKeyDown(event) {
+    const { contentEditableEditor } = this;
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      return this.moveSelectorUp();
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      return this.moveSelectorDown();
+    }
+    const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event);
+    if (keyIsLetterDigitPuncSpaceChar) {
+      event.stopPropagation();
+      contentEditableEditor.handleKeydown(event);
+    }
+    const firstNode = contentEditableEditor.getInputNode().firstChild;
+    if (!firstNode || !(firstNode instanceof Text)) {
+      this.destroy();
+      return;
+    }
+    const nodeData = firstNode.data;
+    const firstChar = nodeData[0];
+    if (firstChar !== "/") {
+      this.destroy();
+      return;
+    }
+    if (keyIsLetterDigitPuncSpaceChar || event.key === "Backspace" || event.key === "Delete") {
+      let i = 1;
+      while (nodeData[i] && nodeData[i] !== " ")
+        i++;
+      const commandName = nodeData.substring(1, i);
+      this.updateCompletionEntries(commandName, nodeData);
+    }
+    if (event.key === "Enter") {
+      const isInvalid = this.validateInputCommand(nodeData.substring(1));
+      const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1));
+      event.stopPropagation();
+      event.preventDefault();
+      if (isInvalid || !commandData) {
+        return;
+      }
+      const { networkInterface, eventBus } = this.rootContext;
+      if (commandEntry && typeof commandEntry.execute === "function") {
+        commandEntry.execute({ eventBus, networkInterface }, commandData.args);
+      } else {
+        networkInterface.sendCommand(commandData);
+      }
+      contentEditableEditor.clearInput();
+    }
+  }
+  handleKeyUp(event) {
+  }
+};
+
+// src/Classes/CompletionStrategies/MentionCompletionStrategy.ts
+var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
+  contentEditableEditor;
+  rootContext;
+  start = 0;
+  end = 0;
+  node = null;
+  word = null;
+  mentionEnd = 0;
+  constructor(rootContext, { contentEditableEditor }, containerEl) {
+    super(containerEl);
+    this.contentEditableEditor = contentEditableEditor;
+    this.rootContext = rootContext;
+  }
+  static shouldUseStrategy(event) {
+    const word = Caret.getWordBeforeCaret().word;
+    return event.key === "@" && !word || word !== null && word.startsWith("@");
+  }
+  createModal() {
+    super.createModal();
+    this.navWindow.addEventListener("entry-click", (event) => {
+      Caret.moveCaretTo(this.node, this.mentionEnd);
+      this.contentEditableEditor.insertText(" ");
+      this.destroy();
+    });
+  }
+  updateCompletionEntries() {
+    if (!this.navWindow)
+      return error("Tab completion window does not exist yet");
+    const { word, start, end, node } = Caret.getWordBeforeCaret();
+    if (!word) {
+      this.destroy();
+      return;
+    }
+    this.word = word;
+    this.start = start;
+    this.end = end;
+    this.node = node;
+    const searchResults = this.rootContext.usersManager.searchUsers(word.substring(1, 20), 20);
+    const userNames = searchResults.map((result) => result.item.name);
+    const userIds = searchResults.map((result) => result.item.id);
+    if (userNames.length) {
+      for (let i = 0; i < userNames.length; i++) {
+        const userName = userNames[i];
+        const userId = userIds[i];
+        this.navWindow.addEntry(
+          { userId, userName },
+          parseHTML(`<li data-user-id="${userId}"><span>@${userName}</span></li>`, true)
+        );
+      }
+      this.navWindow.setSelectedIndex(0);
+      this.renderInlineCompletion();
+      if (!this.navWindow.getEntriesCount()) {
+        this.destroy();
+      }
+    } else {
+      this.destroy();
+    }
+  }
+  renderInlineCompletion() {
+    if (!this.navWindow)
+      return error("Tab completion window does not exist yet");
+    if (!this.node)
+      return error("Invalid node to render inline user mention");
+    const entry = this.navWindow.getSelectedEntry();
+    if (!entry)
+      return error("No selected entry to render inline user mention");
+    const { userId, userName } = entry;
+    const userMention = `@${userName}`;
+    this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
+    Caret.moveCaretTo(this.node, this.mentionEnd);
+    this.contentEditableEditor.processInputContent();
+  }
+  moveSelectorUp() {
+    if (!this.navWindow)
+      return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.restoreOriginalText();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow)
+      return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.restoreOriginalText();
+    this.renderInlineCompletion();
+  }
+  restoreOriginalText() {
+    if (!this.node)
+      return error("Invalid node to restore original text");
+    Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || "");
+    Caret.moveCaretTo(this.node, this.end);
+    this.contentEditableEditor.processInputContent();
+  }
+  handleKeyDown(event) {
+    if (this.navWindow) {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          this.moveSelectorDown();
+        } else {
+          this.moveSelectorUp();
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        this.moveSelectorUp();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        this.moveSelectorDown();
+      } else if (event.key === "ArrowRight" || event.key === "Enter") {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        this.contentEditableEditor.insertText(" ");
+        this.destroy();
+      } else if (event.key === " ") {
+        this.destroy();
+      } else if (event.key === "ArrowLeft" || event.key === "Escape") {
+        this.destroy();
+      } else if (event.key === "Backspace") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.restoreOriginalText();
+        this.destroy();
+      } else if (event.key === "Shift") {
+      } else {
+        this.destroy();
+      }
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      this.createModal();
+      this.updateCompletionEntries();
+    }
+  }
+  destroy() {
+    super.destroy();
+    this.start = 0;
+    this.end = 0;
+    this.mentionEnd = 0;
+    this.node = null;
+    this.word = null;
+  }
+};
+
+// src/Classes/CompletionStrategies/EmoteCompletionStrategy.ts
+var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
+  rootContext;
+  contentEditableEditor;
+  start = 0;
+  end = 0;
+  node = null;
+  word = null;
+  emoteComponent = null;
+  constructor(rootContext, { contentEditableEditor }, containerEl) {
+    super(containerEl);
+    this.rootContext = rootContext;
+    this.contentEditableEditor = contentEditableEditor;
+  }
+  static shouldUseStrategy(event) {
+    const word = Caret.getWordBeforeCaret().word;
+    return event.key === "Tab" && word !== null;
+  }
+  createModal() {
+    super.createModal();
+    this.navWindow.addEventListener("entry-click", (event) => {
+      this.renderInlineCompletion();
+      this.destroy();
+    });
+  }
+  updateCompletionEntries() {
+    if (!this.navWindow)
+      return error("Tab completion window does not exist yet");
+    const { word, start, end, node } = Caret.getWordBeforeCaret();
+    if (!word) {
+      this.destroy();
+      return;
+    }
+    const { emotesManager } = this.rootContext;
+    this.word = word;
+    this.start = start;
+    this.end = end;
+    this.node = node;
+    const searchResults = emotesManager.searchEmotes(word.substring(0, 20), 20);
+    const emoteNames = searchResults.map((result) => result.item.name);
+    const emoteHids = searchResults.map((result) => emotesManager.getEmoteHidByName(result.item.name));
+    if (emoteNames.length) {
+      for (let i = 0; i < emoteNames.length; i++) {
+        const emoteName = emoteNames[i];
+        const emoteHid = emoteHids[i];
+        const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
+        this.navWindow.addEntry(
+          { emoteHid },
+          parseHTML(
+            `<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
+            true
+          )
+        );
+      }
+      this.navWindow.setSelectedIndex(0);
+      this.renderInlineCompletion();
+      if (!this.navWindow.getEntriesCount()) {
+        this.destroy();
+      }
+    } else {
+      this.destroy();
+    }
+  }
+  moveSelectorUp() {
+    if (!this.navWindow)
+      return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow)
+      return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.renderInlineCompletion();
+  }
+  renderInlineCompletion() {
+    if (!this.navWindow)
+      return error("Tab completion window does not exist yet");
+    const selectedEntry = this.navWindow.getSelectedEntry();
+    if (!selectedEntry)
+      return error("No selected entry to render completion");
+    const { emoteHid } = selectedEntry;
+    if (!emoteHid)
+      return error("No emote hid to render inline emote");
+    if (this.emoteComponent) {
+      this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
+    } else {
+      if (!this.node)
+        return error("Invalid node to restore original text");
+      const range = document.createRange();
+      range.setStart(this.node, this.start);
+      range.setEnd(this.node, this.end);
+      range.deleteContents();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      this.contentEditableEditor.normalize();
+      this.emoteComponent = this.contentEditableEditor.insertEmote(emoteHid);
+    }
+  }
+  restoreOriginalText() {
+    if (this.word) {
+      if (!this.emoteComponent)
+        return error("Invalid embed node to restore original text");
+      this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
+    }
+  }
+  handleKeyDown(event) {
+    if (this.navWindow) {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          this.moveSelectorDown();
+        } else {
+          this.moveSelectorUp();
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        this.moveSelectorUp();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        this.moveSelectorDown();
+      } else if (event.key === "ArrowRight" || event.key === "Enter") {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        this.destroy();
+      } else if (event.key === " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.destroy();
+      } else if (event.key === "ArrowLeft" || event.key === "Escape") {
+        this.destroy();
+      } else if (event.key === "Backspace") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.restoreOriginalText();
+        this.destroy();
+      } else if (event.key === "Shift") {
+      } else {
+        this.destroy();
+      }
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      this.createModal();
+      this.updateCompletionEntries();
+    }
+  }
+  destroy() {
+    super.destroy();
+    this.start = 0;
+    this.end = 0;
+    this.node = null;
+    this.word = null;
+    this.emoteComponent = null;
+  }
+};
+
+// src/Classes/InputCompletor.ts
+var InputCompletor = class {
+  currentActiveStrategy;
+  rootContext;
+  contentEditableEditor;
+  containerEl;
+  constructor(rootContext, {
+    contentEditableEditor
+  }, containerEl) {
+    this.rootContext = rootContext;
+    this.contentEditableEditor = contentEditableEditor;
+    this.containerEl = containerEl;
+  }
+  attachEventHandlers() {
+    this.contentEditableEditor.addEventListener("keydown", 8, this.handleKeyDown.bind(this));
+    this.contentEditableEditor.addEventListener("keyup", 10, this.handleKeyUp.bind(this));
+  }
+  isShowingModal() {
+    return this.currentActiveStrategy?.isShowingNavWindow() || false;
+  }
+  maybeCloseWindowClick(node) {
+    if (this.currentActiveStrategy && !this.currentActiveStrategy.isClickInsideNavWindow(node)) {
+      this.reset();
+    }
+  }
+  handleKeyDown(event) {
+    if (!this.currentActiveStrategy) {
+      if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
+        this.currentActiveStrategy = new CommandCompletionStrategy(
+          this.rootContext,
+          {
+            contentEditableEditor: this.contentEditableEditor
+          },
+          this.containerEl
+        );
+      } else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
+        this.currentActiveStrategy = new MentionCompletionStrategy(
+          this.rootContext,
+          {
+            contentEditableEditor: this.contentEditableEditor
+          },
+          this.containerEl
+        );
+      } else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
+        this.currentActiveStrategy = new EmoteCompletionStrategy(
+          this.rootContext,
+          {
+            contentEditableEditor: this.contentEditableEditor
+          },
+          this.containerEl
+        );
+      }
+    }
+    if (this.currentActiveStrategy) {
+      this.currentActiveStrategy.handleKeyDown(event);
+      if (this.currentActiveStrategy.destroyed) {
+        delete this.currentActiveStrategy;
+      }
+    }
+  }
+  handleKeyUp(event) {
+    const { contentEditableEditor } = this;
+    if (this.currentActiveStrategy) {
+      if (contentEditableEditor.isInputEmpty()) {
+        this.reset();
+        return;
+      }
+      this.currentActiveStrategy.handleKeyUp(event);
+      if (this.currentActiveStrategy.destroyed) {
+        delete this.currentActiveStrategy;
+      }
+    }
+  }
+  reset() {
+    this.currentActiveStrategy?.destroy();
+    delete this.currentActiveStrategy;
+  }
+};
+
+// src/Managers/InputController.ts
+var InputController = class {
+  rootContext;
+  messageHistory;
+  tabCompletor;
+  contentEditableEditor;
+  constructor(rootContext, {
+    clipboard
+  }, textFieldEl) {
+    this.rootContext = rootContext;
+    this.messageHistory = new MessagesHistory();
+    this.contentEditableEditor = new ContentEditableEditor(
+      this.rootContext,
+      { messageHistory: this.messageHistory, clipboard },
+      textFieldEl
+    );
+    this.tabCompletor = new InputCompletor(
+      this.rootContext,
+      {
+        contentEditableEditor: this.contentEditableEditor
+      },
+      textFieldEl.parentElement
+    );
+  }
+  initialize() {
+    const { eventBus } = this.rootContext;
+    const { contentEditableEditor } = this;
+    contentEditableEditor.attachEventListeners();
+    contentEditableEditor.addEventListener("keydown", 9, (event) => {
+      if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+        this.messageHistory.resetCursor();
+      }
+    });
+    eventBus.subscribe("ntv.ui.input_submitted", this.handleInputSubmit.bind(this));
+  }
+  handleInputSubmit({ suppressEngagementEvent }) {
+    const { emotesManager } = this.rootContext;
+    const { contentEditableEditor, messageHistory } = this;
+    if (!suppressEngagementEvent) {
+      const emotesInMessage = contentEditableEditor.getEmotesInMessage();
+      for (const emoteHid of emotesInMessage) {
+        emotesManager.registerEmoteEngagement(emoteHid);
+      }
+    }
+    if (!contentEditableEditor.isInputEmpty())
+      messageHistory.addMessage(contentEditableEditor.getInputHTML());
+    messageHistory.resetCursor();
+  }
+  isShowingTabCompletorModal() {
+    return this.tabCompletor.isShowingModal();
+  }
+  addEventListener(type, priority, listener, options) {
+    this.contentEditableEditor.addEventListener(type, priority, listener, options);
+  }
+  loadTabCompletionBehaviour() {
+    this.tabCompletor.attachEventHandlers();
+    document.addEventListener("click", (e) => {
+      this.tabCompletor.maybeCloseWindowClick(e.target);
+    });
+  }
+  loadChatHistoryBehaviour() {
+    const { settingsManager } = this.rootContext;
+    const { contentEditableEditor } = this;
+    if (!settingsManager.getSetting("shared.chat.input.history.enabled"))
+      return;
+    contentEditableEditor.addEventListener("keydown", 4, (event) => {
+      if (this.tabCompletor.isShowingModal())
+        return;
+      const textFieldEl = contentEditableEditor.getInputNode();
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        if (Caret.isCaretAtStartOfNode(textFieldEl) && event.key === "ArrowUp") {
+          event.preventDefault();
+          if (!this.messageHistory.canMoveCursor(1))
+            return;
+          const leftoverHTML = contentEditableEditor.getInputHTML();
+          if (this.messageHistory.isCursorAtStart() && leftoverHTML) {
+            this.messageHistory.addMessage(leftoverHTML);
+            this.messageHistory.moveCursor(2);
+          } else {
+            this.messageHistory.moveCursor(1);
+          }
+          contentEditableEditor.setInputContent(this.messageHistory.getMessage());
+        } else if (Caret.isCaretAtEndOfNode(textFieldEl) && event.key === "ArrowDown") {
+          event.preventDefault();
+          if (this.messageHistory.canMoveCursor(-1)) {
+            this.messageHistory.moveCursor(-1);
+            contentEditableEditor.setInputContent(this.messageHistory.getMessage());
+          } else {
+            if (!contentEditableEditor.isInputEmpty())
+              this.messageHistory.addMessage(contentEditableEditor.getInputHTML());
+            this.messageHistory.resetCursor();
+            contentEditableEditor.clearInput();
+          }
+        }
+      }
+    });
+  }
+};
+
 // src/UserInterface/KickUserInterface.ts
 function getEmojiAttributes() {
   return {
@@ -3099,59 +4697,55 @@ function getEmojiAttributes() {
 }
 var KickUserInterface = class extends AbstractUserInterface {
   abortController = new AbortController();
-  clipboard = new Clipboard2();
-  inputController = null;
   chatObserver = null;
+  replyObserver = null;
   pinnedMessageObserver = null;
   emoteMenu = null;
   emoteMenuButton = null;
   quickEmotesHolder = null;
   elm = {
-    originalTextField: null,
-    originalSubmitButton: null,
     chatMessagesContainer: null,
+    replyMessageWrapper: null,
     submitButton: null,
     textField: null
   };
   stickyScroll = true;
   maxMessageLength = 500;
-  constructor(deps) {
-    super(deps);
+  constructor(rootContext, session) {
+    super(rootContext, session);
   }
   async loadInterface() {
     info("Creating user interface..");
-    const { eventBus, settingsManager, abortController } = this;
+    super.loadInterface();
+    const { eventBus, settingsManager } = this.rootContext;
+    const { channelData } = this.session;
+    const { abortController } = this;
     const abortSignal = abortController.signal;
     this.loadSettings();
     waitForElements(["#message-input", "#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
       this.loadShadowProxyElements();
       this.loadEmoteMenu();
       this.loadEmoteMenuButton();
-      if (settingsManager.getSetting("shared.chat.appearance.hide_emote_menu_button")) {
-        $("#chatroom").addClass("ntv__hide-emote-menu-button");
-      }
-      if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
-        $("#chatroom").addClass("ntv__smooth-scrolling");
-      }
-    }).catch(() => {
-    });
-    waitForElements(["#chatroom-footer .quick-emotes-holder"], 5e3, abortSignal).then(() => {
       this.loadQuickEmotesHolder();
+      if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
+        document.getElementById("chatroom")?.classList.add("ntv__smooth-scrolling");
+      }
     }).catch(() => {
     });
-    const chatMessagesContainerSelector = this.channelData.is_vod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
+    const chatMessagesContainerSelector = channelData.is_vod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
     waitForElements([chatMessagesContainerSelector], 5e3, abortSignal).then(() => {
       this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector);
       if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
-        $("#chatroom").addClass("ntv__alternating-background");
+        document.getElementById("chatroom")?.classList.add("ntv__alternating-background");
       }
       const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
       if (seperatorSettingVal && seperatorSettingVal !== "none") {
-        $("#chatroom").addClass(`ntv__seperators-${seperatorSettingVal}`);
+        document.getElementById("chatroom")?.classList.add(`ntv__seperators-${seperatorSettingVal}`);
       }
       eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
       this.observeChatMessages();
       this.loadScrollingBehaviour();
+      this.loadReplyBehaviour();
     }).catch(() => {
     });
     waitForElements(["#chatroom-top"], 5e3).then(() => {
@@ -3170,97 +4764,133 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     eventBus.subscribe("ntv.input_controller.submit", this.submitInput.bind(this));
-    eventBus.subscribe("ntv.settings.change.shared.chat.appearance.alternating_background", (value) => {
-      $("#chatroom").toggleClass("ntv__alternating-background", value);
-    });
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.behavior.smooth_scrolling",
+      ({ value, prevValue }) => {
+        document.getElementById("chatroom")?.classList.toggle("ntv__smooth-scrolling", !!value);
+      }
+    );
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.appearance.alternating_background",
+      ({ value, prevValue }) => {
+        document.getElementById("chatroom")?.classList.toggle("ntv__alternating-background", !!value);
+      }
+    );
     eventBus.subscribe(
       "ntv.settings.change.shared.chat.appearance.seperators",
       ({ value, prevValue }) => {
         if (prevValue !== "none")
-          $("#chatroom").removeClass(`ntv__seperators-${prevValue}`);
+          document.getElementById("chatroom")?.classList.remove(`ntv__seperators-${prevValue}`);
         if (!value || value === "none")
           return;
-        $("#chatroom").addClass(`ntv__seperators-${value}`);
+        document.getElementById("chatroom")?.classList.add(`ntv__seperators-${value}`);
       }
     );
     eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
   }
+  // TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
   async loadEmoteMenu() {
-    const { channelData, eventBus, settingsManager, emotesManager } = this;
     if (!this.elm.textField)
       return error("Text field not loaded for emote menu");
     const container = this.elm.textField.parentElement.parentElement;
-    this.emoteMenu = new EmoteMenuComponent(
-      { channelData, eventBus, emotesManager, settingsManager },
-      container
-    ).init();
+    this.emoteMenu = new EmoteMenuComponent(this.rootContext, this.session, container).init();
     this.elm.textField.addEventListener("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
   }
   async loadEmoteMenuButton() {
-    const { ENV_VARS, eventBus, settingsManager } = this;
-    this.emoteMenuButton = new EmoteMenuButtonComponent({ ENV_VARS, eventBus, settingsManager }).init();
+    this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session).init();
   }
   async loadQuickEmotesHolder() {
-    const { eventBus, settingsManager, emotesManager } = this;
+    const { eventBus, settingsManager } = this.rootContext;
     const quickEmotesHolderEnabled = settingsManager.getSetting("shared.chat.quick_emote_holder.enabled");
     if (quickEmotesHolderEnabled) {
-      this.quickEmotesHolder = new QuickEmotesHolderComponent({ eventBus, settingsManager, emotesManager }).init();
+      const placeholder = document.createElement("div");
+      document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
+      this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init();
     }
     eventBus.subscribe(
       "ntv.settings.change.shared.chat.quick_emote_holder.enabled",
       ({ value, prevValue }) => {
         if (value) {
-          this.quickEmotesHolder = new QuickEmotesHolderComponent({
-            eventBus,
-            settingsManager,
-            emotesManager
-          }).init();
+          const placeholder = document.createElement("div");
+          document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
+          this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init();
         } else {
           this.quickEmotesHolder?.destroy();
           this.quickEmotesHolder = null;
         }
       }
     );
+    waitForElements(["#chatroom-footer .quick-emotes-holder"], 7e3, this.abortController.signal).then(() => {
+      document.querySelector("#chatroom-footer .quick-emotes-holder")?.remove();
+    }).catch(() => {
+    });
   }
   loadSettings() {
-    const { eventBus, settingsManager } = this;
+    const { eventBus, settingsManager } = this.rootContext;
     const firstMessageHighlightColor = settingsManager.getSetting("shared.chat.appearance.highlight_color");
     if (firstMessageHighlightColor) {
       const rgb = hex2rgb(firstMessageHighlightColor);
-      document.documentElement.style.setProperty("--color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+      document.documentElement.style.setProperty(
+        "--ntv-background-highlight-accent-1",
+        `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+      );
     }
-    eventBus.subscribe("ntv.settings.change.shared.chat.appearance.highlight_color", (data) => {
-      if (!data.value)
-        return;
-      const rgb = hex2rgb(data.value);
-      document.documentElement.style.setProperty("--color-accent", `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
-    });
+    eventBus.subscribe(
+      "ntv.settings.change.shared.chat.appearance.highlight_color",
+      ({ value, prevValue }) => {
+        if (!value)
+          return;
+        const rgb = hex2rgb(value);
+        document.documentElement.style.setProperty(
+          "--ntv-background-highlight-accent-1",
+          `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+        );
+      }
+    );
   }
   loadShadowProxyElements() {
-    const originalSubmitButtonEl = this.elm.originalSubmitButton = $("#chatroom-footer button.base-button")[0];
-    const submitButtonEl = this.elm.submitButton = $(
-      `<button class="ntv__submit-button disabled">Chat</button>`
-    )[0];
-    originalSubmitButtonEl.after(submitButtonEl);
-    const originalTextFieldEl = this.elm.originalTextField = $("#message-input")[0];
-    const placeholder = originalTextFieldEl.dataset.placeholder;
-    const textFieldEl = this.elm.textField = $(
-      `<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`
-    )[0];
-    const textFieldWrapperEl = $(
-      `<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`
-    )[0];
-    textFieldWrapperEl.append(textFieldEl);
+    if (!this.session.channelData.me.is_logged_in)
+      return;
+    const submitButtonEl = this.elm.submitButton = parseHTML(
+      `<button class="ntv__submit-button disabled">Chat</button>`,
+      true
+    );
+    const originalSubmitButtonEl = document.querySelector("#chatroom-footer button.base-button");
+    if (originalSubmitButtonEl) {
+      originalSubmitButtonEl.after(submitButtonEl);
+    } else {
+      error("Submit button not found");
+    }
+    const originalTextFieldEl = document.querySelector("#message-input");
+    if (!originalTextFieldEl)
+      return error("Original text field not found");
+    const placeholder = originalTextFieldEl.dataset.placeholder || "Send message...";
+    const textFieldEl = this.elm.textField = parseHTML(
+      `<div id="ntv__message-input" tabindex="0" contenteditable="true" spellcheck="false" placeholder="${placeholder}"></div>`,
+      true
+    );
+    const textFieldWrapperEl = parseHTML(
+      `<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`,
+      true
+    );
     originalTextFieldEl.parentElement.parentElement?.append(textFieldWrapperEl);
-    const $moderatorChatIdentityBadgeIcon = $(".chat-input-wrapper .chat-input-icon");
-    if ($moderatorChatIdentityBadgeIcon.length)
-      $(textFieldEl).before($moderatorChatIdentityBadgeIcon);
+    textFieldWrapperEl.append(textFieldEl);
+    const moderatorChatIdentityBadgeIconEl = document.querySelector(".chat-input-wrapper .chat-input-icon");
+    if (moderatorChatIdentityBadgeIconEl)
+      textFieldEl.before(moderatorChatIdentityBadgeIconEl);
+    document.getElementById("chatroom")?.classList.add("ntv__hide-chat-input");
     submitButtonEl.addEventListener("click", () => this.submitInput());
-    this.inputController = new InputController(this, textFieldEl);
-    this.inputController.initialize();
-    this.inputController.loadTabCompletionBehaviour(textFieldEl.parentElement.parentElement);
-    this.inputController.loadChatHistoryBehaviour();
-    this.inputController.addEventListener("is_empty", 10, (event) => {
+    const inputController = this.inputController = new InputController(
+      this.rootContext,
+      {
+        clipboard: this.clipboard
+      },
+      textFieldEl
+    );
+    inputController.initialize();
+    inputController.loadTabCompletionBehaviour();
+    inputController.loadChatHistoryBehaviour();
+    inputController.addEventListener("is_empty", 10, (event) => {
       if (event.detail.isEmpty) {
         submitButtonEl.setAttribute("disabled", "");
         submitButtonEl.classList.add("disabled");
@@ -3279,7 +4909,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldEl.addEventListener("copy", (evt) => {
       this.clipboard.handleCopyEvent(evt);
     });
-    this.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
+    this.rootContext.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
       if (value > this.maxMessageLength) {
         textFieldWrapperEl.setAttribute("data-char-count", value);
         textFieldWrapperEl.classList.add("ntv__message-input__wrapper--char-limit-reached");
@@ -3334,11 +4964,12 @@ var KickUserInterface = class extends AbstractUserInterface {
       Pause: true,
       NumLock: true
     };
-    $(document.body).on("keydown", (evt) => {
-      if (evt.ctrlKey || evt.altKey || evt.metaKey || this.inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable")) {
+    document.body.addEventListener("keydown", (evt) => {
+      if (evt.ctrlKey || evt.altKey || evt.metaKey || inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus")) {
         return;
       }
       textFieldEl.focus();
+      this.inputController?.contentEditableEditor.forwardEvent(evt);
     });
   }
   loadScrollingBehaviour() {
@@ -3373,13 +5004,112 @@ var KickUserInterface = class extends AbstractUserInterface {
       { passive: true }
     );
   }
+  getMessageContentString(chatMessageEl) {
+    const messageNodes = Array.from(
+      chatMessageEl.querySelectorAll(".chat-entry .chat-message-identity + span ~ span")
+    );
+    let messageContent = [];
+    for (const messageNode of messageNodes) {
+      if (messageNode.textContent)
+        messageContent.push(messageNode.textContent);
+      else if (messageNode.querySelector("img")) {
+        const emoteName = messageNode.querySelector("img")?.getAttribute("data-emote-name");
+        if (emoteName)
+          messageContent.push(emoteName);
+      }
+    }
+    return messageContent.join(" ");
+  }
+  loadReplyBehaviour() {
+    const { inputController } = this;
+    const { channelData } = this.session;
+    if (!inputController)
+      return error("Input controller not loaded for reply behaviour");
+    const chatMessagesContainerEl = this.elm.chatMessagesContainer;
+    if (!chatMessagesContainerEl)
+      return error("Chat messages container not loaded for reply behaviour");
+    const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement;
+    const replyMessageWrapperEl = document.createElement("div");
+    replyMessageWrapperEl.classList.add("ntv__reply-message__wrapper");
+    document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(replyMessageWrapperEl);
+    this.elm.replyMessageWrapper = replyMessageWrapperEl;
+    const replyMessageButtonCallback = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!this.inputController)
+        return error("Input controller not loaded for reply behaviour");
+      const targetMessage = chatMessagesContainerEl.querySelector(
+        ".chat-entry.bg-secondary-lighter"
+      )?.parentElement;
+      if (!targetMessage)
+        return this.toastError("Reply target message not found");
+      const messageNodes = Array.from(
+        // targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
+        targetMessage.classList.contains("ntv__chat-message") ? targetMessage.querySelectorAll(".chat-entry > span") : targetMessage.querySelectorAll(".chat-message-identity, .chat-message-identity ~ span")
+      );
+      if (!messageNodes.length)
+        return this.toastError("Unable to reply to message, target message content not found");
+      const chatEntryContentString = this.getMessageContentString(targetMessage);
+      const chatEntryId = targetMessage.getAttribute("data-chat-entry");
+      if (!chatEntryId)
+        return this.toastError("Unable to reply to message, target message ID not found");
+      const chatEntryUsernameEl = targetMessage.querySelector(".chat-entry-username");
+      const chatEntryUserId = chatEntryUsernameEl?.getAttribute("data-chat-entry-user-id");
+      if (!chatEntryUserId)
+        return this.toastError("Unable to reply to message, target message user ID not found");
+      const chatEntryUsername = chatEntryUsernameEl?.textContent;
+      if (!chatEntryUsername)
+        return this.toastError("Unable to reply to message, target message username not found");
+      this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername);
+    };
+    const observer = this.replyObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length) {
+          for (const messageNode of mutation.addedNodes) {
+            if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
+              messageNode.querySelector;
+              const replyBtnEl = messageNode.querySelector(
+                '[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+              )?.parentElement?.parentElement?.parentElement;
+              if (!replyBtnEl)
+                return;
+              const newButtonEl = replyBtnEl.cloneNode(true);
+              replyBtnEl.replaceWith(newButtonEl);
+              newButtonEl.addEventListener("click", replyMessageButtonCallback);
+            }
+          }
+        } else if (mutation.removedNodes.length) {
+          for (const messageNode of mutation.removedNodes) {
+            if (messageNode instanceof HTMLElement) {
+              if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
+                const replyBtnEl = messageNode.querySelector(
+                  '[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+                )?.parentElement?.parentElement?.parentElement;
+                replyBtnEl?.removeEventListener("click", replyMessageButtonCallback);
+              }
+            }
+          }
+        }
+      });
+    });
+    observer.observe(chatMessagesContainerWrapperEl, { childList: true });
+    inputController.addEventListener("keydown", 9, (event) => {
+      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
+        this.destroyReplyMessageContext();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
+        this.destroyReplyMessageContext();
+      }
+    });
+  }
   observeChatMessages() {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
     if (!chatMessagesContainerEl)
       return error("Chat messages container not loaded for observing");
-    const $chatMessagesContainer = $(chatMessagesContainerEl);
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
-    this.eventBus.subscribe("ntv.providers.loaded", () => {
+    this.rootContext.eventBus.subscribe("ntv.providers.loaded", () => {
       const observer = this.chatObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes.length) {
@@ -3396,33 +5126,32 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
       observer.observe(chatMessagesContainerEl, { childList: true });
     });
-    const showTooltips = this.settingsManager.getSetting("shared.chat.tooltips.images");
-    $chatMessagesContainer.on("mouseover", ".ntv__inline-emote-box img", (evt) => {
-      const emoteName = evt.target.dataset.emoteName;
-      const emoteHid = evt.target.dataset.emoteHid;
-      if (!emoteName || !emoteHid)
-        return;
+    const showTooltips = this.rootContext.settingsManager.getSetting("shared.chat.tooltips.images");
+    chatMessagesContainerEl.addEventListener("mouseover", (evt) => {
       const target = evt.target;
-      const $tooltip = $(
-        cleanupHTML(`
-					<div class="ntv__emote-tooltip__wrapper">
-						<div class="ntv__emote-tooltip ${showTooltips ? "ntv__emote-tooltip--has-image" : ""}">
-							${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}
-							<span>${emoteName}</span>
-						</div>
-					</div>`)
+      if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
+        return;
+      const emoteName = target.getAttribute("data-emote-name");
+      if (!emoteName)
+        return;
+      const tooltipEl = parseHTML(
+        `<div class="ntv__emote-tooltip__wrapper"><div class="ntv__emote-tooltip ${showTooltips ? "ntv__emote-tooltip--has-image" : ""}">${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}<span>${emoteName}</span></div></div>`,
+        true
       );
-      $(target).after($tooltip);
-      evt.target.addEventListener(
+      target.after(tooltipEl);
+      target.addEventListener(
         "mouseleave",
         () => {
-          $tooltip.remove();
+          tooltipEl.remove();
         },
         { once: true, passive: true }
       );
     });
-    $chatMessagesContainer.on("click", ".ntv__inline-emote-box img", (evt) => {
-      const emoteHid = evt.target.getAttribute("data-emote-hid");
+    chatMessagesContainerEl.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
+        return;
+      const emoteHid = target.getAttribute("data-emote-hid");
       if (emoteHid)
         this.inputController?.contentEditableEditor.insertEmote(emoteHid);
     });
@@ -3431,7 +5160,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatroomTopEl = document.getElementById("chatroom-top");
     if (!chatroomTopEl)
       return error("Chatroom top not loaded for observing pinned message");
-    this.eventBus.subscribe("ntv.providers.loaded", () => {
+    this.rootContext.eventBus.subscribe("ntv.providers.loaded", () => {
       const observer = this.pinnedMessageObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes.length) {
@@ -3460,24 +5189,30 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
   }
   renderChatMessage(messageNode) {
-    if (!this.channelData.is_vod) {
+    const { usersManager, settingsManager, emotesManager } = this.rootContext;
+    const { channelData } = this.session;
+    if (!channelData.is_vod) {
       const usernameEl = messageNode.querySelector(".chat-entry-username");
       if (usernameEl) {
         const { chatEntryUser, chatEntryUserId } = usernameEl.dataset;
         const chatEntryUserName = usernameEl.textContent;
         if (chatEntryUserId && chatEntryUserName) {
-          if (!this.usersManager.hasSeenUser(chatEntryUserName)) {
-            const enableFirstMessageHighlight = this.settingsManager.getSetting(
+          if (usersManager.hasMutedUser(chatEntryUserId)) {
+            messageNode.remove();
+            return;
+          }
+          if (!usersManager.hasSeenUser(chatEntryUserId)) {
+            const enableFirstMessageHighlight = settingsManager.getSetting(
               "shared.chat.appearance.highlight_first_message"
             );
-            const highlightWhenModeratorOnly = this.settingsManager.getSetting(
+            const highlightWhenModeratorOnly = settingsManager.getSetting(
               "shared.chat.appearance.highlight_first_message_moderator"
             );
-            if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && this.channelData.me.is_moderator)) {
+            if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.is_moderator)) {
               messageNode.classList.add("ntv__highlight-first-message");
             }
           }
-          this.usersManager.registerUser(chatEntryUserId, chatEntryUserName);
+          usersManager.registerUser(chatEntryUserId, chatEntryUserName);
         }
       }
     }
@@ -3487,6 +5222,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (!chatEntryNode) {
       return error("Message has no content loaded yet..", messageNode);
     }
+    chatEntryNode.classList.add("ntv__chat-message");
     let messageWrapperNode;
     if (messageNode.querySelector('[title*="Replying to"]')) {
       messageWrapperNode = chatEntryNode.children[1];
@@ -3508,7 +5244,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
     if (!contentNodes[firstContentNodeIndex])
       return;
-    const emotesManager = this.emotesManager;
     for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
       const contentNode = contentNodes[i];
       const componentNode = contentNode.children[0];
@@ -3578,55 +5313,6 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.renderEmotesInElement(chatEntryContentNode);
     }
   }
-  // Submits input to chat
-  submitInput(suppressEngagementEvent) {
-    const { eventBus } = this;
-    const contentEditableEditor = this.inputController?.contentEditableEditor;
-    if (!contentEditableEditor)
-      return error("Unable to submit input, the input controller is not loaded yet.");
-    if (!this.elm.textField || !this.elm.originalTextField || !this.elm.originalSubmitButton) {
-      return error("Text field not loaded for submitting input");
-    }
-    const originalTextFieldEl = this.elm.originalTextField;
-    const originalSubmitButtonEl = this.elm.originalSubmitButton;
-    const textFieldEl = this.elm.textField;
-    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
-      error(
-        `Message too long, it is ${contentEditableEditor.getCharacterCount()} characters but max limit is ${this.maxMessageLength}.`
-      );
-      return;
-    }
-    originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent();
-    originalSubmitButtonEl.dispatchEvent(new Event("click"));
-    eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent });
-    contentEditableEditor.clearInput();
-    textFieldEl.dispatchEvent(new Event("input"));
-  }
-  // Sends emote to chat and restores previous message
-  sendEmoteToChat(emoteHid) {
-    assertArgDefined(emoteHid);
-    if (!this.elm.textField || !this.elm.originalTextField || !this.elm.submitButton) {
-      return error("Text field not loaded for sending emote");
-    }
-    const { inputController } = this;
-    const contentEditableEditor = inputController?.contentEditableEditor;
-    if (!contentEditableEditor)
-      return error("Content editable editor not loaded for sending emote");
-    const originalTextFieldEl = this.elm.originalTextField;
-    const originalSubmitButtonEl = this.elm.originalSubmitButton;
-    if (!originalSubmitButtonEl)
-      return error("Original submit button not loaded for sending emote");
-    const oldMessage = contentEditableEditor.getInputHTML();
-    contentEditableEditor.clearInput();
-    contentEditableEditor.insertEmote(emoteHid);
-    originalTextFieldEl.innerHTML = contentEditableEditor.getMessageContent();
-    originalTextFieldEl.dispatchEvent(new Event("input"));
-    originalSubmitButtonEl.dispatchEvent(new Event("click"));
-    this.eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent: true });
-    contentEditableEditor.setInputContent(oldMessage);
-    originalTextFieldEl.innerHTML = oldMessage;
-    originalTextFieldEl.dispatchEvent(new Event("input"));
-  }
   insertNodesInChat(embedNodes) {
     if (!embedNodes.length)
       return error("No nodes to insert in chat");
@@ -3682,6 +5368,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.abortController.abort();
     if (this.chatObserver)
       this.chatObserver.disconnect();
+    if (this.replyObserver)
+      this.replyObserver.disconnect();
     if (this.pinnedMessageObserver)
       this.pinnedMessageObserver.disconnect();
     if (this.emoteMenu)
@@ -3695,7 +5383,7 @@ var KickUserInterface = class extends AbstractUserInterface {
 
 // src/Providers/AbstractProvider.ts
 var AbstractProvider = class {
-  id = PROVIDER_ENUM.NULL;
+  id = 0 /* NULL */;
   settingsManager;
   datastore;
   constructor({ settingsManager, datastore }) {
@@ -3706,7 +5394,7 @@ var AbstractProvider = class {
 
 // src/Providers/KickProvider.ts
 var KickProvider = class extends AbstractProvider {
-  id = PROVIDER_ENUM.KICK;
+  id = 1 /* KICK */;
   status = "unloaded";
   constructor(dependencies) {
     super(dependencies);
@@ -3726,7 +5414,7 @@ var KickProvider = class extends AbstractProvider {
     );
     const includeEmojiEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_emojis");
     info("Fetching emote data from Kick..");
-    const data = await fetchJSON(`https://kick.com/emotes/${channel_name}`);
+    const data = await REST.get(`https://kick.com/emotes/${channel_name}`);
     let dataFiltered = data;
     if (!includeGlobalEmoteSet) {
       dataFiltered = dataFiltered.filter((entry) => entry.id !== "Global");
@@ -3753,7 +5441,7 @@ var KickProvider = class extends AbstractProvider {
           hid: md5(emote.name),
           name: emote.name,
           subscribers_only: emote.subscribers_only,
-          provider: PROVIDER_ENUM.KICK,
+          provider: 1 /* KICK */,
           width: 32,
           size: 1
         };
@@ -3795,7 +5483,7 @@ var KickProvider = class extends AbstractProvider {
     return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
   }
   getEmbeddableEmote(emote) {
-    return `[emote:${emote.id}:]`;
+    return `[emote:${emote.id}:_]`;
   }
   getEmoteSrc(emote) {
     return `https://files.kick.com/emotes/${emote.id}/fullsize`;
@@ -3804,7 +5492,7 @@ var KickProvider = class extends AbstractProvider {
 
 // src/Providers/SevenTVProvider.ts
 var SevenTVProvider = class extends AbstractProvider {
-  id = PROVIDER_ENUM.SEVENTV;
+  id = 2 /* SEVENTV */;
   status = "unloaded";
   constructor(dependencies) {
     super(dependencies);
@@ -3813,7 +5501,7 @@ var SevenTVProvider = class extends AbstractProvider {
     info("Fetching emote data from SevenTV..");
     if (!user_id)
       return error("Missing Kick channel id for SevenTV provider.");
-    const data = await fetchJSON(`https://7tv.io/v3/users/KICK/${user_id}`).catch((err) => {
+    const data = await REST.get(`https://7tv.io/v3/users/KICK/${user_id}`).catch((err) => {
       error("Failed to fetch SevenTV emotes.", err);
       this.status = "connection_failed";
       return [];
@@ -3843,7 +5531,7 @@ var SevenTVProvider = class extends AbstractProvider {
         id: "" + emote.id,
         hid: md5(emote.name),
         name: emote.name,
-        provider: PROVIDER_ENUM.SEVENTV,
+        provider: 2 /* SEVENTV */,
         subscribers_only: false,
         spacing: true,
         width: file.width,
@@ -3879,28 +5567,32 @@ var SevenTVProvider = class extends AbstractProvider {
 
 // src/UserInterface/Components/CheckboxComponent.ts
 var CheckboxComponent = class extends AbstractComponent {
-  event = new EventTarget();
-  $element;
   checked;
   label;
   id;
+  event = new EventTarget();
+  element;
   constructor(id, label, checked = false) {
     super();
     this.id = id;
     this.label = label;
     this.checked = checked;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__checkbox">
                 <input type="checkbox" id="${this.id}" ${this.checked ? "checked" : ""}>
                 <label for="${this.id}">${this.label}</label>
             </div>
-        `);
+        `),
+      true
+    );
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("input").on("change", (e) => {
-      this.checked = e.target.checked;
+    const inputEl = this.element?.querySelector("input");
+    inputEl.addEventListener("change", (event) => {
+      this.checked = event.target.checked;
       this.event.dispatchEvent(new Event("change"));
     });
   }
@@ -3911,52 +5603,57 @@ var CheckboxComponent = class extends AbstractComponent {
 
 // src/UserInterface/Components/DropdownComponent.ts
 var DropdownComponent = class extends AbstractComponent {
-  event = new EventTarget();
   id;
   label;
   options;
   selectedOption;
-  $element;
+  selectEl;
+  event = new EventTarget();
+  element;
   constructor(id, label, options = [], selectedOption = null) {
     super();
     this.id = id;
     this.label = label;
     this.options = options;
     this.selectedOption = selectedOption;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__dropdown">
                 <label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
                     ${this.options.map((option) => {
-      const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
-      return `<option value="${option.value}" ${selected}>${option.label}</option>`;
-    }).join("")}
+        const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
+        return `<option value="${option.value}" ${selected}>${option.label}</option>`;
+      }).join("")}
                 </select>
             </div>
-        `);
+        `),
+      true
+    );
+    this.selectEl = this.element?.querySelector("select");
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("select").on("change", (e) => {
+    this.selectEl.addEventListener("change", (event) => {
       this.event.dispatchEvent(new Event("change"));
     });
   }
   getValue() {
-    return this.$element?.find("select").val();
+    return this.selectEl.value;
   }
 };
 
 // src/UserInterface/Components/NumberComponent.ts
 var NumberComponent = class extends AbstractComponent {
-  event = new EventTarget();
-  $element;
   id;
   label;
   value;
   min;
   max;
   step;
+  event = new EventTarget();
+  element;
   constructor(id, label, value = 0, min = 0, max = 10, step = 1) {
     super();
     this.id = id;
@@ -3965,18 +5662,22 @@ var NumberComponent = class extends AbstractComponent {
     this.min = min;
     this.max = max;
     this.step = step;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__number">
 				<label for="${this.id}">${this.label}</label>
                 <input type="number" id="${this.id}" name="${this.id}" value="${this.value}" min="${this.min}" max="${this.max}" step="${this.step}">
             </div>
-        `);
+        `),
+      true
+    );
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("input").on("input", (e) => {
-      this.value = +e.target.value;
+    const inputEl = this.element.querySelector("input");
+    inputEl.addEventListener("input", (event) => {
+      this.value = +event.target.value;
       this.event.dispatchEvent(new Event("change"));
     });
   }
@@ -3987,28 +5688,32 @@ var NumberComponent = class extends AbstractComponent {
 
 // src/UserInterface/Components/ColorComponent.ts
 var ColorComponent = class extends AbstractComponent {
-  event = new EventTarget();
-  $element;
   value;
   label;
   id;
+  event = new EventTarget();
+  element;
   constructor(id, label, value = "#000000") {
     super();
     this.id = id;
     this.label = label;
     this.value = value;
-  }
-  render() {
-    this.$element = $(`
+    this.element = parseHTML(
+      cleanupHTML(`
             <div class="ntv__color">
                 <label for="${this.id}">${this.label}</label>
                 <input type="color" id="${this.id}" value="${this.value}">
             </div>
-        `);
+        `),
+      true
+    );
+  }
+  render() {
   }
   attachEventHandlers() {
-    this.$element?.find("input").on("change", (e) => {
-      this.value = e.target.value;
+    const inputEl = this.element.querySelector("input");
+    inputEl.addEventListener("change", (event) => {
+      this.value = event.target.value;
       this.event.dispatchEvent(new Event("change"));
     });
   }
@@ -4017,101 +5722,18 @@ var ColorComponent = class extends AbstractComponent {
   }
 };
 
-// src/UserInterface/Modals/AbstractModal.ts
-var AbstractModal = class extends AbstractComponent {
-  event = new EventTarget();
-  className;
-  $modal;
-  $modalHeader;
-  $modalBody;
-  $modalClose;
-  constructor(className) {
-    super();
-    this.className = className;
-  }
-  init() {
-    super.init();
-    return this;
-  }
-  // Renders the modal container, header and body
-  render() {
-    this.$modal = $(`
-            <div class="ntv__modal ${this.className ? `ntv__${this.className}-modal` : ""}">
-                <div class="ntv__modal__header">
-                    <h3 class="ntv__modal__title"></h3>
-                    <button class="ntv__modal__close-btn">\u{1F7A8}</button>
-                </div>
-                <div class="ntv__modal__body"></div>
-            </div>
-        `);
-    this.$modalHeader = this.$modal.find(".ntv__modal__header");
-    this.$modalBody = this.$modal.find(".ntv__modal__body");
-    this.$modalClose = this.$modalHeader.find(".ntv__modal__close-btn");
-    $("body").append(this.$modal);
-    this.centerModal();
-  }
-  // Attaches event handlers for the modal
-  attachEventHandlers() {
-    this.$modalClose?.on("click", () => {
-      this.destroy();
-      this.event.dispatchEvent(new Event("close"));
-    });
-    this.$modalHeader?.on("mousedown", this.handleModalDrag.bind(this));
-    $(window).on("resize", this.centerModal.bind(this));
-  }
-  destroy() {
-    this.$modal?.remove();
-  }
-  centerModal() {
-    const windowHeight = $(window).height();
-    const windowWidth = $(window).width();
-    this.$modal?.css({
-      left: windowWidth / 2,
-      top: windowHeight / 2
-    });
-  }
-  handleModalDrag(evt) {
-    const $modal = this.$modal;
-    const modalOffset = $modal.offset();
-    const offsetX = evt.pageX - modalOffset.left;
-    const offsetY = evt.pageY - modalOffset.top;
-    const windowHeight = $(window).height();
-    const windowWidth = $(window).width();
-    const modalWidth = $modal.width();
-    const modalHeight = $modal.height();
-    const handleDrag = (evt2) => {
-      let x = evt2.pageX - offsetX;
-      let y = evt2.pageY - offsetY;
-      if (x < 0)
-        x = 0;
-      if (y < 0)
-        y = 0;
-      if (x + modalWidth > windowWidth)
-        x = windowWidth - modalWidth;
-      if (y + modalHeight > windowHeight)
-        y = windowHeight - modalHeight;
-      $modal.offset({
-        left: x,
-        top: y
-      });
-    };
-    const handleDragEnd = () => {
-      $(document).off("mousemove", handleDrag);
-      $(document).off("mouseup", handleDragEnd);
-    };
-    $(document).on("mousemove", handleDrag);
-    $(document).on("mouseup", handleDragEnd);
-  }
-};
-
 // src/UserInterface/Modals/SettingsModal.ts
 var SettingsModal = class extends AbstractModal {
   eventBus;
   settingsOpts;
-  $panels;
-  $sidebar;
+  panelsEl;
+  sidebarEl;
+  sidebarBtnEl;
   constructor(eventBus, settingsOpts) {
-    super("settings");
+    const geometry = {
+      position: "center"
+    };
+    super("settings", geometry);
     this.eventBus = eventBus;
     this.settingsOpts = settingsOpts;
   }
@@ -4124,52 +5746,66 @@ var SettingsModal = class extends AbstractModal {
     log("Rendering settings modal..");
     const sharedSettings = this.settingsOpts.sharedSettings;
     const settingsMap = this.settingsOpts.settingsMap;
-    const $modalBody = this.$modalBody;
-    const $panels = $(`<div class="ntv__settings-modal__panels"></div>`);
-    this.$panels = $panels;
-    const $sidebar = $(`
-			<div class="ntv__settings-modal__sidebar">
-				<ul></ul>
-			</div>
-		`);
-    this.$sidebar = $sidebar;
-    const $sidebarList = $sidebar.find("ul");
+    const modalBodyEl = this.modalBodyEl;
+    const windowWidth = window.innerWidth;
+    this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true);
+    this.sidebarEl = parseHTML(
+      `<div class="ntv__settings-modal__sidebar ${windowWidth < 768 ? "" : "ntv__settings-modal__sidebar--open"}"><ul></ul></div>`,
+      true
+    );
+    this.sidebarBtnEl = parseHTML(
+      `<div class="ntv__settings-modal__mobile-btn-wrapper"><button><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+			<path fill="currentColor" d="M2.753 18h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm0-6.497h18.5a.75.75 0 0 1 .101 1.493l-.101.007h-18.5a.75.75 0 0 1-.102-1.494zh18.5zm-.001-6.5h18.5a.75.75 0 0 1 .102 1.493l-.102.007h-18.5A.75.75 0 0 1 2.65 5.01zh18.5z" />
+		</svg> Menu</button></div>`,
+      true
+    );
+    const sidebarList = this.sidebarEl.querySelector("ul");
     for (const category of sharedSettings) {
-      const $category = $(`
+      const categoryEl = parseHTML(
+        cleanupHTML(`
 				<li class="ntv__settings-modal__category">
 					<span>${category.label}</span>
 					<ul></ul>
 				</li>
-			`);
-      const $categoryList = $category.find("ul");
-      $sidebarList.append($category);
+			`),
+        true
+      );
+      const categoryListEl = categoryEl.querySelector("ul");
+      sidebarList.appendChild(categoryEl);
       for (const subCategory of category.children) {
         const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`;
-        const $subCategory = $(`
-					<li data-panel="${categoryId}" class="ntv__settings-modal__sub-category">
+        const subCategoryEl = parseHTML(
+          cleanupHTML(
+            `<li data-panel="${categoryId}" class="ntv__settings-modal__sub-category">
 						<span>${subCategory.label}</span>
-					</li>
-				`);
-        $categoryList.append($subCategory);
+					</li>`
+          ),
+          true
+        );
+        categoryListEl.appendChild(subCategoryEl);
       }
     }
     for (const category of sharedSettings) {
       for (const subCategory of category.children) {
         const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`;
-        const $subCategoryPanel = $(
-          `<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`
+        const subCategoryPanelEl = parseHTML(
+          `<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`,
+          true
         );
-        $panels.append($subCategoryPanel);
+        this.panelsEl.appendChild(subCategoryPanelEl);
         for (const group of subCategory.children) {
-          const $group = $(
-            `<div class="ntv__settings-modal__group">
+          const groupEl = parseHTML(
+            cleanupHTML(
+              `<div class="ntv__settings-modal__group">
 							<div class="ntv__settings-modal__group-header">
 								<h4>${group.label}</h4>
 								${group.description ? `<p>${group.description}</p>` : ""}
 							</div>
 						</div>`
+            ),
+            true
           );
-          $subCategoryPanel.append($group);
+          subCategoryPanelEl.append(groupEl);
           for (const setting of group.children) {
             let settingComponent;
             let settingValue = settingsMap.get(setting.id);
@@ -4206,7 +5842,7 @@ var SettingsModal = class extends AbstractModal {
                 continue;
             }
             settingComponent?.init();
-            $group.append(settingComponent.$element);
+            groupEl.append(settingComponent.element);
             settingComponent.event.addEventListener("change", () => {
               const value = settingComponent.getValue();
               this.event.dispatchEvent(
@@ -4218,23 +5854,36 @@ var SettingsModal = class extends AbstractModal {
       }
     }
     const defaultPanel = "chat.appearance";
-    $panels.find(`[data-panel="${defaultPanel}]"`).show();
-    $sidebar.find(`[data-panel="${defaultPanel}"]`).addClass("ntv__settings-modal__sub-category--active");
-    $modalBody?.append($sidebar);
-    $modalBody?.append($panels);
+    this.panelsEl.querySelector(`[data-panel="${defaultPanel}"]`)?.setAttribute("style", "display: block");
+    this.sidebarEl.querySelector(`[data-panel="${defaultPanel}"]`)?.classList.add("ntv__settings-modal__sub-category--active");
+    modalBodyEl.appendChild(this.sidebarBtnEl);
+    modalBodyEl.appendChild(this.sidebarEl);
+    modalBodyEl.appendChild(this.panelsEl);
   }
   getSettingElement(setting) {
   }
   attachEventHandlers() {
     super.attachEventHandlers();
-    $(".ntv__settings-modal__sub-category", this.$sidebar).on("click", (evt) => {
-      const panelId = $(evt.currentTarget).data("panel");
-      $(".ntv__settings-modal__sub-category", this.$sidebar).removeClass(
-        "ntv__settings-modal__sub-category--active"
-      );
-      $(evt.currentTarget).addClass("ntv__settings-modal__sub-category--active");
-      $(".ntv__settings-modal__panel", this.$panels).hide();
-      $(`[data-panel="${panelId}"]`, this.$panels).show();
+    if (!this.panelsEl || !this.sidebarEl) {
+      error("SettingsModal: panelsEl or sidebarEl not found");
+      return;
+    }
+    this.sidebarEl.querySelectorAll(".ntv__settings-modal__sub-category").forEach((el1) => {
+      el1.addEventListener("click", (evt) => {
+        const panelId = el1.dataset.panel;
+        this.sidebarEl.querySelectorAll(".ntv__settings-modal__sub-category").forEach((el2) => {
+          el2.classList.remove("ntv__settings-modal__sub-category--active");
+        });
+        el1.classList.add("ntv__settings-modal__sub-category--active");
+        this.panelsEl.querySelectorAll(".ntv__settings-modal__panel").forEach((el2) => {
+          ;
+          el2.style.display = "none";
+        });
+        this.panelsEl.querySelector(`[data-panel="${panelId}"]`)?.setAttribute("style", "display: block");
+      });
+    });
+    this.sidebarBtnEl.addEventListener("click", () => {
+      this.sidebarEl.classList.toggle("ntv__settings-modal__sidebar--open");
     });
   }
 };
@@ -4305,12 +5954,6 @@ var SettingsManager = class {
             {
               label: "Appearance",
               children: [
-                {
-                  label: "Hide Kick's emote menu button",
-                  id: "shared.chat.appearance.hide_emote_menu_button",
-                  default: true,
-                  type: "checkbox"
-                },
                 {
                   label: "Highlight first user messages",
                   id: "shared.chat.appearance.highlight_first_message",
@@ -4616,10 +6259,10 @@ var SettingsManager = class {
   ];
   settingsMap = /* @__PURE__ */ new Map();
   isShowingModal = false;
-  isLoaded = false;
   database;
   eventBus;
   modal;
+  isLoaded = false;
   constructor({ database, eventBus }) {
     this.database = database;
     this.eventBus = eventBus;
@@ -4696,18 +6339,35 @@ var SettingsManager = class {
 
 // src/Classes/Database.ts
 var Database = class {
-  handle;
-  constructor({ ENV_VARS }) {
-    this.handle = new Dexie(ENV_VARS.DATABASE_NAME);
-    this.handle.version(1).stores({
+  idb;
+  databaseName = "NipahTV";
+  ready = false;
+  constructor(SWDexie) {
+    this.idb = SWDexie ? new SWDexie(this.databaseName) : new Dexie(this.databaseName);
+    this.idb.version(2).stores({
       settings: "&id",
-      emoteHistory: "&[channelId+emoteHid]"
+      emoteUsage: "&[channelId+emoteHid]",
+      emoteHistory: null
+    }).upgrade(async (tx) => {
+      const emoteHistoryRecords = await tx.table("emoteHistory").toArray();
+      return tx.table("emoteUsage").bulkPut(
+        emoteHistoryRecords.map((record) => {
+          return {
+            channelId: record.channelId,
+            emoteHid: record.emoteHid,
+            count: record.timestamps.length
+          };
+        })
+      );
     });
   }
   checkCompatibility() {
     return new Promise((resolve, reject) => {
-      this.handle.open().then(() => {
+      if (this.ready)
+        return resolve(void 0);
+      this.idb.open().then(async () => {
         log("Database passed compatibility check.");
+        this.ready = true;
         resolve(void 0);
       }).catch((err) => {
         if (err.name === "InvalidStateError") {
@@ -4718,127 +6378,504 @@ var Database = class {
       });
     });
   }
-};
-
-// src/Classes/DatabaseInterface.ts
-var DatabaseInterface = class {
-  db;
-  handle;
-  constructor(database) {
-    if (database) {
-      this.db = database;
-      this.handle = database.handle;
-    }
-  }
   async getSettings() {
-    if (this.handle) {
-      return await this.handle.settings.toArray();
-    }
-    return [];
+    return this.idb.settings.toArray();
+  }
+  async getSetting(id) {
+    return this.idb.settings.get(id);
+  }
+  async getTableCount(tableName) {
+    return this.idb.table(tableName).count();
   }
   async putSetting(setting) {
-    if (this.handle) {
-      return await this.handle.settings.put(setting);
+    return this.idb.settings.put(setting);
+  }
+  async getEmoteUsageRecords(channelId) {
+    return this.idb.emoteUsage.where("channelId").equals(channelId).toArray();
+  }
+  async bulkPutEmoteUsage(records) {
+    return this.idb.emoteUsage.bulkPut(records);
+  }
+  async bulkDeleteEmoteUsage(records) {
+    return this.idb.emoteUsage.bulkDelete(records);
+  }
+};
+
+// src/Classes/DatabaseProxy.ts
+var DatabaseProxyHandler = {
+  get: function(target, prop, receiver) {
+    if (false) {
+      return (...args) => new Promise((resolve, reject) => {
+        browser.runtime.sendMessage({ action: "database", method: prop, args }).then((r) => !r || "error" in r ? reject(r && r.error) : resolve(r.data));
+      });
+    } else if (typeof target[prop] === "function") {
+      return target[prop].bind(target);
+    } else {
+      error(`Method "${prop}" not found on database.`);
     }
   }
-  async getHistoryRecords(plaform, channelId) {
-    if (this.handle) {
-      return await this.handle.emoteHistory.where("channelId").equals(channelId).toArray();
-    }
-    return [];
+};
+var DatabaseProxyFactory = class {
+  static create(database) {
+    if (!database)
+      throw new Error("Database instance required for userscripts.");
+    return new Proxy(database || {}, DatabaseProxyHandler);
   }
-  async bulkPutEmoteHistory(records) {
-    if (this.handle) {
-      return await this.handle.emoteHistory.bulkPut(records);
+};
+
+// src/NetworkInterfaces/AbstractNetworkInterface.ts
+var AbstractNetworkInterface = class {
+  ENV_VARS;
+  channelData;
+  constructor({ ENV_VARS }) {
+    this.ENV_VARS = ENV_VARS;
+  }
+};
+
+// src/NetworkInterfaces/KickNetworkInterface.ts
+var KickNetworkInterface = class extends AbstractNetworkInterface {
+  constructor(deps) {
+    super(deps);
+  }
+  async connect() {
+    return Promise.resolve();
+  }
+  async disconnect() {
+    return Promise.resolve();
+  }
+  async loadChannelData() {
+    const pathArr = wwindow.location.pathname.substring(1).split("/");
+    const channelData = {};
+    if (pathArr[0] === "video") {
+      info("VOD video detected..");
+      const videoId = pathArr[1];
+      if (!videoId)
+        throw new Error("Failed to extract video ID from URL");
+      const responseChannelData = await REST.get(`https://kick.com/api/v1/video/${videoId}`).catch(() => {
+      });
+      if (!responseChannelData) {
+        throw new Error("Failed to fetch VOD data");
+      }
+      if (!responseChannelData.livestream) {
+        throw new Error('Invalid VOD data, missing property "livestream"');
+      }
+      const { id, user_id, slug, user } = responseChannelData.livestream.channel;
+      if (!id) {
+        throw new Error('Invalid VOD data, missing property "id"');
+      }
+      if (!user_id) {
+        throw new Error('Invalid VOD data, missing property "user_id"');
+      }
+      if (!user) {
+        throw new Error('Invalid VOD data, missing property "user"');
+      }
+      Object.assign(channelData, {
+        user_id,
+        channel_id: id,
+        channel_name: user.username,
+        is_vod: true,
+        me: {}
+      });
+    } else {
+      const channelName2 = pathArr[0];
+      if (!channelName2)
+        throw new Error("Failed to extract channel name from URL");
+      const responseChannelData = await REST.get(`https://kick.com/api/v2/channels/${channelName2}`);
+      if (!responseChannelData) {
+        throw new Error("Failed to fetch channel data");
+      }
+      if (!responseChannelData.id) {
+        throw new Error('Invalid channel data, missing property "id"');
+      }
+      if (!responseChannelData.user_id) {
+        throw new Error('Invalid channel data, missing property "user_id"');
+      }
+      if (!responseChannelData.chatroom?.id) {
+        throw new Error('Invalid channel data, missing property "chatroom.id"');
+      }
+      Object.assign(channelData, {
+        user_id: responseChannelData.user_id,
+        channel_id: responseChannelData.id,
+        channel_name: channelName2,
+        chatroom: {
+          id: responseChannelData.chatroom.id,
+          message_interval: responseChannelData.chatroom.message_interval || 0
+        },
+        me: { is_logged_in: false }
+      });
+    }
+    const channelName = channelData.channel_name;
+    const responseChannelMeData = await REST.get(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
+      () => {
+      }
+    );
+    if (responseChannelMeData) {
+      Object.assign(channelData, {
+        me: {
+          is_logged_in: true,
+          is_subscribed: !!responseChannelMeData.subscription,
+          is_following: !!responseChannelMeData.is_following,
+          is_super_admin: !!responseChannelMeData.is_super_admin,
+          is_broadcaster: !!responseChannelMeData.is_broadcaster,
+          is_moderator: !!responseChannelMeData.is_moderator,
+          is_banned: !!responseChannelMeData.banned
+        }
+      });
+    } else {
+      info("User is not logged in.");
+    }
+    this.channelData = channelData;
+  }
+  async sendMessage(message) {
+    if (!this.channelData)
+      throw new Error("Channel data is not loaded yet.");
+    const chatroomId = this.channelData.chatroom.id;
+    return REST.post("https://kick.com/api/v2/messages/send/" + chatroomId, { content: message, type: "message" });
+  }
+  async sendReply(message, originalMessageId, originalMessageContent, originalSenderId, originalSenderUsername) {
+    if (!this.channelData)
+      throw new Error("Channel data is not loaded yet.");
+    const chatroomId = this.channelData.chatroom.id;
+    return REST.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
+      content: message,
+      type: "reply",
+      metadata: {
+        original_message: {
+          id: originalMessageId
+          // content: originalMessageContent
+        },
+        original_sender: {
+          id: +originalSenderId
+          // username: originalSenderUsername
+        }
+      }
+    });
+  }
+  async sendCommand(command) {
+    if (!this.channelData)
+      throw new Error("Channel data is not loaded yet.");
+    const { channelData } = this;
+    const { channel_name } = channelData;
+    const args = command.args;
+    if (command.name === "ban") {
+      const data = {
+        banned_username: args[0],
+        permanent: true
+      };
+      if (args[1])
+        data.reason = args[1];
+      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/bans`, data);
+    } else if (command.name === "unban") {
+      return REST.delete(`https://kick.com/api/v2/channels/${channel_name}/bans/` + args[0]);
+    } else if (command.name === "clear") {
+      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/chat-commands`, { command: "clear" });
+    } else if (command.name === "emoteonly") {
+      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+        emotes_mode: args[0] === "on"
+      });
+    } else if (command.name === "followonly") {
+      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+        followers_mode: args[0] === "on"
+      });
+    } else if (command.name === "host") {
+      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/chat-commands`, {
+        command: "host",
+        parameter: args[0]
+      });
+    } else if (command.name === "mod") {
+      return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/moderators`, {
+        username: args[0]
+      });
+    } else if (command.name === "og") {
+      return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/ogs`, {
+        username: args[0]
+      });
+    } else if (command.name === "slow") {
+      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+        slow_mode: args[0] === "on"
+      });
+    } else if (command.name === "subonly") {
+      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+        subscribers_mode: args[0] === "on"
+      });
+    } else if (command.name === "timeout") {
+      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/bans`, {
+        banned_username: args[0],
+        duration: args[1],
+        reason: args[2],
+        permanent: false
+      });
+    } else if (command.name === "title") {
+      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/chat-commands`, {
+        command: "title",
+        parameter: args[0]
+      });
+    } else if (command.name === "unog") {
+      return REST.delete(`https://kick.com/api/internal/v1/channels/${channel_name}/community/ogs/` + args[0]);
+    } else if (command.name === "unmod") {
+      return REST.delete(
+        `https://kick.com/api/internal/v1/channels/${channel_name}/community/moderators/` + args[0]
+      );
+    } else if (command.name === "unvip") {
+      return REST.delete(`https://kick.com/api/internal/v1/channels/${channel_name}/community/vips/` + args[0]);
+    } else if (command.name === "vip") {
+      return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/vips`, {
+        username: args[0]
+      });
     }
   }
-  async bulkDeleteEmoteHistory(records) {
-    if (this.handle) {
-      return await this.handle.emoteHistory.bulkDelete(records);
+  async followUser(username) {
+    const slug = username.replace("_", "-").toLowerCase();
+    return REST.post(`https://kick.com/api/v2/channels/${slug}/follow`);
+  }
+  async unfollowUser(username) {
+    const slug = username.replace("_", "-").toLowerCase();
+    return REST.delete(`https://kick.com/api/v2/channels/${slug}/follow`);
+  }
+  // TODO separate this into getUserInfo and getUserChannelInfo
+  async getUserInfo(username) {
+    if (!this.channelData)
+      throw new Error("Channel data is not loaded yet.");
+    const { channelData } = this;
+    const { channel_name } = channelData;
+    const slug = username.replace("_", "-").toLowerCase();
+    const [res1, res2] = await Promise.allSettled([
+      // The reason underscores are replaced with dashes is likely because it's a slug
+      REST.get(`https://kick.com/api/v2/channels/${slug}/me`),
+      REST.get(`https://kick.com/api/v2/channels/${slug}`)
+    ]);
+    if (res1.status === "rejected" || res2.status === "rejected") {
+      throw new Error("Failed to fetch user data");
     }
+    const userMeInfo = res1.value;
+    const userOwnChannelInfo = res2.value;
+    return {
+      id: userOwnChannelInfo.user.id,
+      username: userOwnChannelInfo.user.username,
+      profilePic: userOwnChannelInfo.user.profile_pic || RESOURCE_ROOT + "assets/img/kick/default-user-profile.png",
+      bannerImg: userOwnChannelInfo?.banner_image?.url || "",
+      createdAt: userOwnChannelInfo?.chatroom?.created_at ? new Date(userOwnChannelInfo?.chatroom?.created_at) : null,
+      isFollowing: userMeInfo.is_following
+    };
+  }
+  async getUserChannelInfo(channelName, username) {
+    const channelUserInfo = await REST.get(`https://kick.com/api/v2/channels/${channelName}/users/${username}`);
+    return {
+      id: channelUserInfo.id,
+      username: channelUserInfo.username,
+      channel: channelName,
+      badges: channelUserInfo.badges || [],
+      followingSince: channelUserInfo.following_since ? new Date(channelUserInfo.following_since) : null,
+      banned: channelUserInfo.banned ? {
+        reason: channelUserInfo.banned?.reason || "No reason provided",
+        since: channelUserInfo.banned?.created_at ? new Date(channelUserInfo.banned?.created_at) : null,
+        expiresAt: channelUserInfo.banned?.expires_at ? new Date(channelUserInfo.banned?.expires_at) : null,
+        permanent: channelUserInfo.banned?.permanent || false
+      } : void 0
+    };
+  }
+  async getUserMessages(channelId, userId, cursor) {
+    const res = await REST.get(
+      `https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages?cursor=${cursor}`
+    );
+    const { data, status } = res;
+    if (status.error) {
+      error("Failed to fetch user messages", status);
+      throw new Error("Failed to fetch user messages");
+    }
+    const messages = data.messages;
+    return {
+      cursor: data.cursor,
+      messages: messages.map((message) => {
+        return {
+          id: message.id,
+          content: message.content,
+          createdAt: message.created_at,
+          sender: {
+            id: message.sender?.id || "Unknown",
+            username: message.sender?.username || "Unknown",
+            badges: message.sender?.identity?.badges || [],
+            color: message.sender?.identity?.color || "#dec859"
+          }
+        };
+      })
+    };
+  }
+};
+
+// src/Datastores/UsersDatastore.ts
+var UsersDatastore = class {
+  eventBus;
+  usersNameMap = /* @__PURE__ */ new Map();
+  usersIdMap = /* @__PURE__ */ new Map();
+  users = [];
+  usersCount = 0;
+  maxUsers = 5e4;
+  fuse = new Fuse([], {
+    includeScore: true,
+    shouldSort: true,
+    includeMatches: true,
+    // isCaseSensitive: true,
+    findAllMatches: true,
+    threshold: 0.4,
+    keys: [["name"]]
+  });
+  constructor({ eventBus }) {
+    this.eventBus = eventBus;
+    eventBus.subscribe("ntv.session.destroy", () => {
+      delete this.users;
+      delete this.usersIdMap;
+      delete this.usersNameMap;
+    });
+  }
+  hasUser(id) {
+    return this.usersIdMap.has(id);
+  }
+  hasMutedUser(id) {
+    const user = this.usersIdMap.get(id);
+    if (!user)
+      return false;
+    return user.muted ?? false;
+  }
+  registerUser(id, name) {
+    typeof id === "string" || error("Invalid user id:", id);
+    if (this.usersIdMap.has(id))
+      return;
+    if (this.usersCount >= this.maxUsers) {
+      error(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`);
+      return;
+    }
+    const user = { id, name };
+    this.usersNameMap.set(name, user);
+    this.usersIdMap.set(id, user);
+    this.users.push(user);
+    this.fuse.add(user);
+    this.usersCount++;
+  }
+  getUserById(id) {
+    return this.usersIdMap.get(id + "");
+  }
+  searchUsers(searchVal) {
+    return this.fuse.search(searchVal);
+  }
+  muteUserById(id) {
+    const user = this.usersIdMap.get(id + "");
+    if (!user)
+      return;
+    user.muted = true;
+    this.eventBus.publish("ntv.user.muted", user);
+  }
+  unmuteUserById(id) {
+    const user = this.usersIdMap.get(id + "");
+    if (!user)
+      return;
+    user.muted = false;
+    this.eventBus.publish("ntv.user.unmuted", user);
+  }
+};
+
+// src/Managers/UsersManager.ts
+var UsersManager = class {
+  datastore;
+  constructor({ eventBus, settingsManager }) {
+    this.datastore = new UsersDatastore({ eventBus });
+  }
+  hasSeenUser(id) {
+    return this.datastore.hasUser(id);
+  }
+  hasMutedUser(id) {
+    return this.datastore.hasMutedUser(id);
+  }
+  registerUser(id, name) {
+    this.datastore.registerUser(id, name);
+  }
+  getUserById(id) {
+    return this.datastore.getUserById(id);
+  }
+  searchUsers(searchVal, limit = 20) {
+    return this.datastore.searchUsers(searchVal).slice(0, limit);
+  }
+  muteUserById(id) {
+    this.datastore.muteUserById(id);
+  }
+  unmuteUserById(id) {
+    this.datastore.unmuteUserById(id);
   }
 };
 
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.3.9",
-    PLATFORM: PLATFORM_ENUM.NULL,
-    RESOURCE_ROOT: null,
+    VERSION: "1.4.8",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
     GITHUB_ROOT: "https://raw.githubusercontent.com/Xzensi/NipahTV",
-    RELEASE_BRANCH: "master",
-    DATABASE_NAME: "NipahTV"
+    RELEASE_BRANCH: "master"
   };
   userInterface = null;
   stylesLoaded = false;
   eventBus = null;
+  networkInterface = null;
   emotesManager = null;
   database = null;
-  channelData = null;
+  sessions = [];
   initialize() {
     const { ENV_VARS } = this;
     info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
     if (false) {
       info("Running in debug mode enabled..");
-      ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
+      RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
       wwindow.NipahTV = this;
     } else if (false) {
       info("Running in extension mode..");
-      ENV_VARS.RESOURCE_ROOT = browser.runtime.getURL("/");
+      RESOURCE_ROOT = browser.runtime.getURL("/");
     } else {
-      ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
+      RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
     }
+    Object.freeze(RESOURCE_ROOT);
     if (wwindow.location.host === "kick.com") {
-      ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK;
+      PLATFORM = 1 /* KICK */;
       info("Platform detected: Kick");
     } else if (wwindow.location.host === "www.twitch.tv") {
-      ENV_VARS.PLATFORM = PLATFORM_ENUM.TWITCH;
+      PLATFORM = 2 /* TWITCH */;
       info("Platform detected: Twitch");
     } else {
       return error("Unsupported platform", wwindow.location.host);
     }
+    Object.freeze(PLATFORM);
     this.attachPageNavigationListener();
     this.setupDatabase().then(() => {
       this.setupClientEnvironment().catch((err) => error("Failed to setup client environment.\n\n", err.message));
     });
   }
   setupDatabase() {
-    const { ENV_VARS } = this;
-    if (navigator.storage && navigator.storage.persist) {
-      navigator.storage.persist().then((persistent) => {
-        if (persistent) {
-          info("Storage will not be cleared except by explicit user action");
-        } else {
-          info("Storage may be cleared by the UA under storage pressure.");
-        }
-      });
-    }
     return new Promise((resolve, reject) => {
-      if (true) {
-        const database = new Database({ ENV_VARS });
-        database.checkCompatibility().then(() => {
-          this.database = new DatabaseInterface(database);
-          resolve(void 0);
-        }).catch((err) => {
-          error("Failed to open database because:", err);
-          reject();
-        });
-      } else {
-        this.database = new DatabaseInterface();
+      const database = true ? DatabaseProxyFactory.create(new Database()) : DatabaseProxyFactory.create();
+      database.checkCompatibility().then(() => {
+        this.database = database;
         resolve(void 0);
-      }
+      }).catch((err) => {
+        error("Failed to open database because:", err);
+        reject();
+      });
     });
   }
   async setupClientEnvironment() {
     const { ENV_VARS, database } = this;
     if (!database)
       throw new Error("Database is not initialized.");
-    log("Setting up client environment..");
+    info("Setting up client environment..");
     const eventBus = new Publisher();
     this.eventBus = eventBus;
+    if (PLATFORM === 1 /* KICK */) {
+      this.networkInterface = new KickNetworkInterface({ ENV_VARS });
+    } else if (PLATFORM === 2 /* TWITCH */) {
+      throw new Error("Twitch platform is not supported yet.");
+    } else {
+      throw new Error("Unsupported platform");
+    }
+    const networkInterface = this.networkInterface;
     const settingsManager = new SettingsManager({ database, eventBus });
     settingsManager.initialize();
     const promises = [];
@@ -4848,25 +6885,43 @@ var NipahClient = class {
       })
     );
     promises.push(
-      this.loadChannelData().catch((err) => {
+      networkInterface.loadChannelData().catch((err) => {
         throw new Error(`Couldn't load channel data because: ${err}`);
       })
     );
-    await Promise.all(promises);
-    const channelData = this.channelData;
-    if (!channelData)
+    await Promise.allSettled(promises);
+    if (!networkInterface.channelData)
       throw new Error("Channel data has not loaded yet.");
+    const channelData = networkInterface.channelData;
     const emotesManager = this.emotesManager = new EmotesManager(
       { database, eventBus, settingsManager },
       channelData.channel_id
     );
     emotesManager.initialize();
+    const usersManager = new UsersManager({ eventBus, settingsManager });
+    const rootContext = {
+      eventBus,
+      networkInterface,
+      database,
+      emotesManager,
+      settingsManager,
+      usersManager
+    };
+    this.createChannelSession(rootContext, channelData);
+  }
+  createChannelSession(rootContext, channelData) {
+    const { emotesManager } = rootContext;
+    const session = {
+      channelData
+    };
     let userInterface;
-    if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-      userInterface = new KickUserInterface({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager });
+    if (PLATFORM === 1 /* KICK */) {
+      userInterface = new KickUserInterface(rootContext, session);
     } else {
-      return error("Platform has no user interface implemented..", ENV_VARS.PLATFORM);
+      return error("Platform has no user interface implemented..", PLATFORM);
     }
+    session.userInterface = userInterface;
+    this.sessions.push(session);
     if (!this.stylesLoaded) {
       this.loadStyles().then(() => {
         this.stylesLoaded = true;
@@ -4875,10 +6930,9 @@ var NipahClient = class {
     } else {
       userInterface.loadInterface();
     }
-    this.userInterface = userInterface;
     emotesManager.registerProvider(KickProvider);
     emotesManager.registerProvider(SevenTVProvider);
-    const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV];
+    const providerLoadOrder = [1 /* KICK */, 2 /* SEVENTV */];
     emotesManager.loadProviderEmotes(channelData, providerLoadOrder);
   }
   loadStyles() {
@@ -4889,7 +6943,7 @@ var NipahClient = class {
       if (false) {
         GM_xmlhttpRequest({
           method: "GET",
-          url: this.ENV_VARS.RESOURCE_ROOT + "dist/css/kick.css",
+          url: RESOURCE_ROOT + "dist/css/kick.css",
           onerror: () => reject("Failed to load local stylesheet"),
           onload: function(response) {
             log("Loaded styles from local resource..");
@@ -4899,8 +6953,8 @@ var NipahClient = class {
         });
       } else {
         let style;
-        switch (this.ENV_VARS.PLATFORM) {
-          case PLATFORM_ENUM.KICK:
+        switch (PLATFORM) {
+          case 1 /* KICK */:
             style = "KICK_CSS";
             break;
           default:
@@ -4916,83 +6970,6 @@ var NipahClient = class {
         resolve(void 0);
       }
     });
-  }
-  async loadChannelData() {
-    if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-      const channelData = {};
-      const pathArr = wwindow.location.pathname.substring(1).split("/");
-      if (pathArr[0] === "video") {
-        info("VOD video detected..");
-        const videoId = pathArr[1];
-        if (!videoId)
-          throw new Error("Failed to extract video ID from URL");
-        const responseChannelData = await fetchJSON(`https://kick.com/api/v1/video/${videoId}`).catch(() => {
-        });
-        if (!responseChannelData) {
-          throw new Error("Failed to fetch VOD data");
-        }
-        if (!responseChannelData.livestream) {
-          throw new Error('Invalid VOD data, missing property "livestream"');
-        }
-        const { id, user_id, slug, user } = responseChannelData.livestream.channel;
-        if (!id) {
-          throw new Error('Invalid VOD data, missing property "id"');
-        }
-        if (!user_id) {
-          throw new Error('Invalid VOD data, missing property "user_id"');
-        }
-        if (!user) {
-          throw new Error('Invalid VOD data, missing property "user"');
-        }
-        Object.assign(channelData, {
-          user_id,
-          channel_id: id,
-          channel_name: user.username,
-          is_vod: true,
-          me: {}
-        });
-      } else {
-        const channelName2 = pathArr[0];
-        if (!channelName2)
-          throw new Error("Failed to extract channel name from URL");
-        const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName2}`);
-        if (!responseChannelData) {
-          throw new Error("Failed to fetch channel data");
-        }
-        if (!responseChannelData.id) {
-          throw new Error('Invalid channel data, missing property "id"');
-        }
-        if (!responseChannelData.user_id) {
-          throw new Error('Invalid channel data, missing property "user_id"');
-        }
-        Object.assign(channelData, {
-          user_id: responseChannelData.user_id,
-          channel_id: responseChannelData.id,
-          channel_name: channelName2,
-          me: {}
-        });
-      }
-      const channelName = channelData.channel_name;
-      const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
-        () => {
-        }
-      );
-      if (responseChannelMeData) {
-        Object.assign(channelData, {
-          me: {
-            is_subscribed: !!responseChannelMeData.subscription,
-            is_following: !!responseChannelMeData.is_following,
-            is_super_admin: !!responseChannelMeData.is_super_admin,
-            is_broadcaster: !!responseChannelMeData.is_broadcaster,
-            is_moderator: !!responseChannelMeData.is_moderator,
-            is_banned: !!responseChannelMeData.banned
-          }
-        });
-      } else {
-        info("User is not logged in.");
-      }
-      this.channelData = channelData;
-    }
   }
   attachPageNavigationListener() {
     info("Current URL:", wwindow.location.href);
@@ -5029,29 +7006,31 @@ var NipahClient = class {
   }
 };
 (() => {
-  const wwindow2 = true ? unsafeWindow : window;
+  const wwindow2 = window;
   wwindow2.wwindow = wwindow2;
-  wwindow2.__USERSCRIPT__ = true;
   if (true) {
     info("Running in userscript mode..");
   }
   if (false) {
-    if (!wwindow2["browser"]) {
+    if (!wwindow2["browser"] && !globalThis["browser"]) {
       if (typeof chrome === "undefined") {
         return error("Unsupported browser, please use a modern browser to run NipahTV.");
       }
       wwindow2.browser = chrome;
     }
   }
-  if (!window["Dexie"]) {
+  var Dexie2;
+  if (!Dexie2 && !wwindow2["Dexie"]) {
     return error("Failed to import Dexie");
   }
-  if (!Fuse) {
+  if (!Fuse && !wwindow2["Fuse"]) {
     return error("Failed to import Fuse");
   }
-  if (!twemoji) {
+  if (!twemoji && !wwindow2["twemoji"]) {
     return error("Failed to import Twemoji");
   }
+  PLATFORM = 0 /* NULL */;
+  RESOURCE_ROOT = "";
   const nipahClient = new NipahClient();
   nipahClient.initialize();
 })();

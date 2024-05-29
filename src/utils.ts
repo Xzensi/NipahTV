@@ -28,29 +28,76 @@ export const assertArgDefined = (arg: any) => {
 	}
 }
 
-export async function fetchJSON(url: URL | RequestInfo) {
-	return new Promise((resolve, reject) => {
-		fetch(url, {
-			credentials: 'include'
-			// headers: { Accept: 'application/json, text/plain, */*' }
-		})
-			.then(async res => {
-				if (res.redirected) {
-					reject('Request failed, redirected to ' + res.url)
-				} else if (res.status !== 200 && res.status !== 304) {
-					await res
-						.json()
-						.then(reject)
-						.catch(() => {
-							reject('Request failed with status code ' + res.status)
-						})
-				}
-				return res
+export class REST {
+	static get(url: string) {
+		return this.fetch(url)
+	}
+	static post(url: string, data?: object) {
+		if (data) {
+			return this.fetch(url, {
+				method: 'POST',
+				body: JSON.stringify(data)
 			})
-			.then(res => res.json())
-			.then(resolve)
-			.catch(reject)
-	}) as Promise<any | void>
+		} else {
+			return this.fetch(url, {
+				method: 'POST'
+			})
+		}
+	}
+	static put(url: string, data: object) {
+		return this.fetch(url, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		})
+	}
+	static delete(url: string) {
+		return this.fetch(url, {
+			method: 'DELETE'
+		})
+	}
+	static fetch(url: URL | RequestInfo, options: RequestInit = {}) {
+		return new Promise((resolve, reject) => {
+			if (options.body || options.method !== 'GET') {
+				options.headers = Object.assign(options.headers || {}, {
+					'Content-Type': 'application/json',
+					Accept: 'application/json, text/plain, */*'
+				})
+			}
+
+			const currentDomain = window.location.host.split('.').slice(-2).join('.')
+			const urlDomain = new URL(url as string).host.split('.').slice(-2).join('.')
+			if (currentDomain === urlDomain) {
+				options.credentials = 'include'
+
+				const XSRFToken = getCookie('XSRF')
+				if (XSRFToken) {
+					options.headers = Object.assign(options.headers || {}, {
+						'X-XSRF-TOKEN': XSRFToken
+						// Authorization: 'Bearer ' + XSRFToken
+					})
+				}
+			}
+
+			fetch(url, options)
+				.then(async res => {
+					const statusString = res.status.toString()
+					if (res.redirected) {
+						reject('Request failed, redirected to ' + res.url)
+					} else if (statusString[0] !== '2' && res.status !== 304) {
+						await res
+							.json()
+							.then(reject)
+							.catch(() => {
+								reject('Request failed with status code ' + res.status)
+							})
+					}
+					return res
+				})
+				.then(res => res.json())
+				.then(resolve)
+				.catch(reject)
+		}) as Promise<any | void>
+	}
 }
 
 export function isEmpty(obj: object) {
@@ -58,6 +105,28 @@ export function isEmpty(obj: object) {
 		return false
 	}
 	return true
+}
+
+export function getCookies() {
+	return Object.fromEntries(document.cookie.split('; ').map(v => v.split(/=(.*)/s).map(decodeURIComponent)))
+}
+
+export function getCookie(name: string) {
+	const c = document.cookie
+		.split('; ')
+		.find(v => v.startsWith(name))
+		?.split(/=(.*)/s)
+	return c && c[1] ? decodeURIComponent(c[1]) : null
+}
+
+export function eventKeyIsLetterDigitPuncSpaceChar(event: KeyboardEvent) {
+	if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) return true
+	return false
+}
+
+export function eventKeyIsLetterDigitPuncChar(event: KeyboardEvent) {
+	if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.altKey && !event.metaKey) return true
+	return false
 }
 
 export function debounce(fn: Function, delay: number) {
@@ -115,8 +184,29 @@ export function waitForElements(selectors: Array<string>, timeout = 10000, signa
 	})
 }
 
+export function parseHTML(html: string, firstElement = false) {
+	const template = document.createElement('template')
+	template.innerHTML = html
+	if (firstElement) {
+		return template.content.childNodes[0] as HTMLElement
+	} else {
+		return template.content
+	}
+}
+
 export function cleanupHTML(html: string) {
-	return html.replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+	return html.trim().replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+}
+
+export function countStringOccurrences(str: string, substr: string) {
+	let count = 0,
+		sl = substr.length,
+		post = str.indexOf(substr)
+	while (post !== -1) {
+		count++
+		post = str.indexOf(substr, post + sl)
+	}
+	return count
 }
 
 // Split emote name into parts for more relevant search results
@@ -270,4 +360,31 @@ async function tryPersistWithoutPromtingUser() {
 		return 'prompt'
 	}
 	return 'never'
+}
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+	numeric: 'auto'
+})
+const RELATIVE_TIME_DIVISIONS = [
+	{ amount: 60, name: 'seconds' },
+	{ amount: 60, name: 'minutes' },
+	{ amount: 24, name: 'hours' },
+	{ amount: 7, name: 'days' },
+	{ amount: 4.34524, name: 'weeks' },
+	{ amount: 12, name: 'months' },
+	{ amount: Number.POSITIVE_INFINITY, name: 'years' }
+]
+export function formatRelativeTime(date: Date) {
+	let duration = (+date - Date.now()) / 1000
+
+	for (let i = 0; i < RELATIVE_TIME_DIVISIONS.length; i++) {
+		const division = RELATIVE_TIME_DIVISIONS[i]
+		if (Math.abs(duration) < division.amount) {
+			return relativeTimeFormatter.format(Math.round(duration), division.name as Intl.RelativeTimeFormatUnit)
+		}
+		duration /= division.amount
+	}
+
+	error('Unable to format relative time', date)
+	return 'error'
 }

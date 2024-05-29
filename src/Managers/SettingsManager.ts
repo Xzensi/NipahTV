@@ -45,7 +45,7 @@ export class SettingsManager {
 				- Display images in tooltips
     */
 
-	sharedSettings = [
+	private sharedSettings = [
 		{
 			label: 'Appearance',
 			children: [
@@ -69,12 +69,6 @@ export class SettingsManager {
 						{
 							label: 'Appearance',
 							children: [
-								{
-									label: "Hide Kick's emote menu button",
-									id: 'shared.chat.appearance.hide_emote_menu_button',
-									default: true,
-									type: 'checkbox'
-								},
 								{
 									label: 'Highlight first user messages',
 									id: 'shared.chat.appearance.highlight_first_message',
@@ -379,13 +373,13 @@ export class SettingsManager {
 		}
 	]
 
-	settingsMap = new Map()
-	isShowingModal = false
-	isLoaded = false
+	private settingsMap = new Map()
+	private isShowingModal = false
+	private database: DatabaseProxy
+	private eventBus: Publisher
+	private modal?: SettingsModal
 
-	database: DatabaseProxy
-	eventBus: Publisher
-	modal?: SettingsModal
+	isLoaded = false
 
 	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }) {
 		this.database = database

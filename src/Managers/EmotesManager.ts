@@ -6,13 +6,12 @@ import { SettingsManager } from './SettingsManager'
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
 
 export class EmotesManager {
-	providers = new Map()
+	private providers = new Map()
 	loaded = false
 
-	database: DatabaseProxy
-	eventBus: Publisher
-	settingsManager: SettingsManager
-	datastore: EmoteDatastore
+	private eventBus: Publisher
+	private settingsManager: SettingsManager
+	private datastore: EmoteDatastore
 
 	constructor(
 		{
@@ -22,7 +21,6 @@ export class EmotesManager {
 		}: { database: DatabaseProxy; eventBus: Publisher; settingsManager: SettingsManager },
 		channelId: string
 	) {
-		this.database = database
 		this.eventBus = eventBus
 		this.settingsManager = settingsManager
 		this.datastore = new EmoteDatastore({ database, eventBus }, channelId)
@@ -67,6 +65,7 @@ export class EmotesManager {
 			for (const emoteSets of providerSets) {
 				for (const emoteSet of emoteSets) {
 					for (const emote of emoteSet.emotes) {
+						// Map of emote names splitted into parts for more relevant search results
 						const parts = splitEmoteName(emote.name, 2)
 						if (parts.length && parts[0] !== emote.name) {
 							emote.parts = parts
@@ -118,12 +117,12 @@ export class EmotesManager {
 		return this.datastore.emoteSets
 	}
 
-	getEmoteHistory() {
-		return this.datastore.emoteHistory
+	getEmoteUsageCounts() {
+		return this.datastore.emoteUsage
 	}
 
-	getEmoteHistoryCount(emoteHid: string) {
-		return this.datastore.getEmoteHistoryCount(emoteHid)
+	getEmoteUsageCount(emoteHid: string) {
+		return this.datastore.getEmoteUsageCount(emoteHid)
 	}
 
 	getRenderableEmote(emote: Emote, classes = '') {
@@ -159,8 +158,8 @@ export class EmotesManager {
 		this.datastore.registerEmoteEngagement(emoteHid)
 	}
 
-	removeEmoteHistory(emoteHid: string) {
-		this.datastore.removeEmoteHistory(emoteHid)
+	removeEmoteUsage(emoteHid: string) {
+		this.datastore.removeEmoteUsage(emoteHid)
 	}
 
 	searchEmotes(search: string, limit = 0) {

@@ -9,17 +9,18 @@ import { SevenTVProvider } from './Providers/SevenTVProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error, fetchJSON } from './utils'
+import { log, info, error } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 import { Database } from './Classes/Database'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
+import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
+import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
+import { UsersManager } from './Managers/UsersManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.3.9',
-		PLATFORM: PLATFORM_ENUM.NULL,
-		RESOURCE_ROOT: null as string | null,
+		VERSION: '1.4.8',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -30,9 +31,10 @@ class NipahClient {
 	userInterface: AbstractUserInterface | null = null
 	stylesLoaded = !__USERSCRIPT__
 	eventBus: Publisher | null = null
+	networkInterface: KickNetworkInterface | null = null
 	emotesManager: EmotesManager | null = null
 	private database: DatabaseProxy | null = null
-	private channelData: ChannelData | null = null
+	private sessions: Session[] = []
 
 	initialize() {
 		const { ENV_VARS } = this
@@ -41,24 +43,28 @@ class NipahClient {
 
 		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')
-			ENV_VARS.RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
+			RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
 			wwindow.NipahTV = this
 		} else if (!__USERSCRIPT__) {
 			info('Running in extension mode..')
-			ENV_VARS.RESOURCE_ROOT = browser.runtime.getURL('/')
+			RESOURCE_ROOT = browser.runtime.getURL('/')
 		} else {
-			ENV_VARS.RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
+			RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
 		}
 
+		Object.freeze(RESOURCE_ROOT)
+
 		if (wwindow.location.host === 'kick.com') {
-			ENV_VARS.PLATFORM = PLATFORM_ENUM.KICK
+			PLATFORM = PLATFORM_ENUM.KICK
 			info('Platform detected: Kick')
 		} else if (wwindow.location.host === 'www.twitch.tv') {
-			ENV_VARS.PLATFORM = PLATFORM_ENUM.TWITCH
+			PLATFORM = PLATFORM_ENUM.TWITCH
 			info('Platform detected: Twitch')
 		} else {
 			return error('Unsupported platform', wwindow.location.host)
 		}
+
+		Object.freeze(PLATFORM)
 
 		this.attachPageNavigationListener()
 		this.setupDatabase().then(() => {
@@ -67,7 +73,7 @@ class NipahClient {
 	}
 
 	setupDatabase() {
-		// Only ask for persistent storage when we low on of space
+		// TODO Only ask for persistent storage when we low on of space
 		// if (navigator.storage && navigator.storage.persist) {
 		// 	navigator.storage.persist().then(persistent => {
 		// 		if (persistent) {
@@ -100,10 +106,20 @@ class NipahClient {
 		const { ENV_VARS, database } = this
 		if (!database) throw new Error('Database is not initialized.')
 
-		log('Setting up client environment..')
+		info('Setting up client environment..')
 
 		const eventBus = new Publisher()
 		this.eventBus = eventBus
+
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
+			this.networkInterface = new KickNetworkInterface({ ENV_VARS })
+		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
+			// this.networkInterface = new TwitchNetworkInterface()
+			throw new Error('Twitch platform is not supported yet.')
+		} else {
+			throw new Error('Unsupported platform')
+		}
+		const networkInterface = this.networkInterface
 
 		const settingsManager = new SettingsManager({ database, eventBus })
 		settingsManager.initialize()
@@ -115,14 +131,14 @@ class NipahClient {
 			})
 		)
 		promises.push(
-			this.loadChannelData().catch(err => {
+			networkInterface.loadChannelData().catch(err => {
 				throw new Error(`Couldn't load channel data because: ${err}`)
 			})
 		)
-		await Promise.all(promises)
+		await Promise.allSettled(promises)
 
-		const channelData = this.channelData
-		if (!channelData) throw new Error('Channel data has not loaded yet.')
+		if (!networkInterface.channelData) throw new Error('Channel data has not loaded yet.')
+		const channelData = networkInterface.channelData
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
@@ -130,12 +146,37 @@ class NipahClient {
 		))
 		emotesManager.initialize()
 
-		let userInterface: KickUserInterface
-		if (ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-			userInterface = new KickUserInterface({ ENV_VARS, channelData, eventBus, settingsManager, emotesManager })
-		} else {
-			return error('Platform has no user interface implemented..', ENV_VARS.PLATFORM)
+		const usersManager = new UsersManager({ eventBus, settingsManager })
+
+		//* The shared context for all sessions
+		const rootContext: RootContext = {
+			eventBus,
+			networkInterface,
+			database,
+			emotesManager,
+			settingsManager,
+			usersManager
 		}
+
+		this.createChannelSession(rootContext, channelData)
+	}
+
+	createChannelSession(rootContext: RootContext, channelData: ChannelData) {
+		const { emotesManager } = rootContext
+
+		const session: Session = {
+			channelData
+		}
+
+		let userInterface: KickUserInterface
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
+			userInterface = new KickUserInterface(rootContext, session)
+		} else {
+			return error('Platform has no user interface implemented..', PLATFORM)
+		}
+
+		session.userInterface = userInterface
+		this.sessions.push(session)
 
 		if (!this.stylesLoaded) {
 			this.loadStyles()
@@ -148,16 +189,11 @@ class NipahClient {
 			userInterface.loadInterface()
 		}
 
-		this.userInterface = userInterface
-
 		emotesManager.registerProvider(KickProvider)
 		emotesManager.registerProvider(SevenTVProvider)
 
 		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
-
-		// Test whether UI works correctly when loading is delayed
-		// setTimeout(() => userInterface.loadInterface(), 3000)
 	}
 
 	loadStyles() {
@@ -172,7 +208,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: this.ENV_VARS.RESOURCE_ROOT + 'dist/css/kick.css',
+					url: RESOURCE_ROOT + 'dist/css/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
 						log('Loaded styles from local resource..')
@@ -182,7 +218,7 @@ class NipahClient {
 				})
 			} else {
 				let style
-				switch (this.ENV_VARS.PLATFORM) {
+				switch (PLATFORM) {
 					case PLATFORM_ENUM.KICK:
 						style = 'KICK_CSS'
 						break
@@ -201,93 +237,6 @@ class NipahClient {
 				resolve(void 0)
 			}
 		})
-	}
-
-	async loadChannelData() {
-		if (this.ENV_VARS.PLATFORM === PLATFORM_ENUM.KICK) {
-			const channelData = {}
-
-			const pathArr = wwindow.location.pathname.substring(1).split('/')
-			if (pathArr[0] === 'video') {
-				info('VOD video detected..')
-
-				// We are on a VOD page
-				const videoId = pathArr[1]
-				if (!videoId) throw new Error('Failed to extract video ID from URL')
-
-				// We extract channel data from the Kick API
-				const responseChannelData = await fetchJSON(`https://kick.com/api/v1/video/${videoId}`).catch(() => {})
-				if (!responseChannelData) {
-					throw new Error('Failed to fetch VOD data')
-				}
-				if (!responseChannelData.livestream) {
-					throw new Error('Invalid VOD data, missing property "livestream"')
-				}
-
-				const { id, user_id, slug, user } = responseChannelData.livestream.channel
-				if (!id) {
-					throw new Error('Invalid VOD data, missing property "id"')
-				}
-				if (!user_id) {
-					throw new Error('Invalid VOD data, missing property "user_id"')
-				}
-				if (!user) {
-					throw new Error('Invalid VOD data, missing property "user"')
-				}
-
-				Object.assign(channelData, {
-					user_id,
-					channel_id: id,
-					channel_name: user.username,
-					is_vod: true,
-					me: {}
-				})
-			} else {
-				// We extract channel name from the URL
-				const channelName = pathArr[0]
-				if (!channelName) throw new Error('Failed to extract channel name from URL')
-
-				// We extract channel data from the Kick API
-				const responseChannelData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}`)
-				if (!responseChannelData) {
-					throw new Error('Failed to fetch channel data')
-				}
-				if (!responseChannelData.id) {
-					throw new Error('Invalid channel data, missing property "id"')
-				}
-				if (!responseChannelData.user_id) {
-					throw new Error('Invalid channel data, missing property "user_id"')
-				}
-
-				Object.assign(channelData, {
-					user_id: responseChannelData.user_id,
-					channel_id: responseChannelData.id,
-					channel_name: channelName,
-					me: {}
-				})
-			}
-
-			const channelName = (channelData as any).channel_name as string
-			const responseChannelMeData = await fetchJSON(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
-				() => {}
-			)
-			if (responseChannelMeData) {
-				Object.assign(channelData, {
-					me: {
-						is_subscribed: !!responseChannelMeData.subscription,
-						is_following: !!responseChannelMeData.is_following,
-						is_super_admin: !!responseChannelMeData.is_super_admin,
-						is_broadcaster: !!responseChannelMeData.is_broadcaster,
-						is_moderator: !!responseChannelMeData.is_moderator,
-						is_banned: !!responseChannelMeData.banned
-					}
-				})
-			} else {
-				info('User is not logged in.')
-			}
-
-			this.channelData = channelData as ChannelData
-		}
 	}
 
 	attachPageNavigationListener() {
@@ -363,8 +312,9 @@ class NipahClient {
 		return error('Failed to import Twemoji')
 	}
 
-	// setTimeout(() => {
-	// }, 30 * 1000)
+	PLATFORM = PLATFORM_ENUM.NULL
+	RESOURCE_ROOT = ''
+
 	const nipahClient = new NipahClient()
 	nipahClient.initialize()
 })()

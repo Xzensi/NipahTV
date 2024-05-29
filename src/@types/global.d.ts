@@ -1,4 +1,16 @@
+import type { KickNetworkInterface } from '../NetworkInterfaces/KickNetworkInterface'
+import type { AbstractUserInterface } from '../UserInterface/AbstractUserInterface'
+import type { SettingsManager } from '../Managers/SettingsManager'
+import type { EmotesManager } from '../Managers/EmotesManager'
+import type { UsersManager } from '../Managers/UsersManager'
+import type { Publisher } from '../Classes/Publisher'
+import type { Database } from '../Classes/Database'
+import type { PLATFORM_ENUM } from '../constants'
 import type Twemoji from 'twemoji'
+
+declare global {
+	type ValueOf<T> = T[keyof T]
+}
 
 declare global {
 	var __LOCAL__: boolean
@@ -16,6 +28,9 @@ declare global {
 	var twemoji: typeof Twemoji
 	var Fuse: Fuse
 
+	var PLATFORM: ValueOf<typeof PLATFORM_ENUM>
+	var RESOURCE_ROOT: string
+
 	interface CustomWindow extends Window {
 		wwindow: CustomWindow
 		browser: typeof browser | typeof chrome
@@ -24,8 +39,6 @@ declare global {
 		__USERSCRIPT__: boolean
 		__LOCAL__?: boolean
 		NipahTV?: any // Export class NipahClient not allowed for Userscripts
-		jQuery: JQuery
-		$: JQuery
 		Fuse: Fuse
 		twemoji: any
 	}
@@ -35,12 +48,31 @@ declare global {
 		search: Function
 	}
 
+	type RootContext = {
+		eventBus: Publisher
+		networkInterface: KickNetworkInterface
+		database: Database
+		emotesManager: EmotesManager
+		settingsManager: SettingsManager
+		usersManager: UsersManager
+	}
+
+	type Session = {
+		channelData: ChannelData
+		userInterface?: AbstractUserInterface
+	}
+
 	type ChannelData = {
 		channel_id: string
 		channel_name: string
 		user_id: string
 		is_vod?: boolean
+		chatroom: {
+			id: string | number
+			message_interval: number
+		}
 		me: {
+			is_logged_in: boolean
 			is_subscribed?: boolean
 			is_following?: boolean
 			is_super_admin?: boolean

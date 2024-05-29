@@ -1,4 +1,3 @@
-import { Database } from '../Classes/Database'
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import { Publisher } from '../Classes/Publisher'
 import { SlidingTimestampWindow } from '../Classes/SlidingTimestampWindow'
@@ -6,23 +5,21 @@ import { PLATFORM_ENUM } from '../constants'
 import { log, info, error, isEmpty } from '../utils'
 
 export class EmoteDatastore {
-	emoteSets: Array<any> = []
-	emoteMap = new Map()
-	emoteIdMap = new Map()
-	emoteNameMap = new Map()
-	emoteHistory = new Map()
-	emoteEmoteSetMap = new Map()
+	private emoteMap = new Map()
+	private emoteIdMap = new Map()
+	private emoteNameMap = new Map()
+	private emoteEmoteSetMap = new Map()
 
-	// Map of emote names splitted into parts for more relevant search results
-	splittedNamesMap = new Map()
+	emoteSets: Array<any> = []
+	emoteUsage = new Map()
 
 	// Map of provider ids containing map of emote names to emote hids
-	emoteProviderNameMap = new Map()
+	private emoteProviderNameMap = new Map()
 
-	// Map of pending history changes to be synced to database
-	pendingHistoryChanges: { [key: string]: boolean } = {}
+	// Map of pending emote usage changes to be synced to database
+	private pendingEmoteUsageChanges: { [key: string]: boolean } = {}
 
-	fuse = new Fuse([], {
+	private fuse = new Fuse([], {
 		includeScore: true,
 		shouldSort: false,
 		// includeMatches: true,
@@ -32,9 +29,9 @@ export class EmoteDatastore {
 		keys: [['name'], ['parts']]
 	})
 
-	database: DatabaseProxy
-	eventBus: Publisher
-	channelId: string
+	private database: DatabaseProxy
+	private eventBus: Publisher
+	private channelId: string
 
 	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }, channelId: string) {
 		this.database = database
@@ -49,56 +46,42 @@ export class EmoteDatastore {
 		setInterval(() => this.storeDatabase(), 3 * 1000)
 
 		eventBus.subscribe('ntv.session.destroy', () => {
-			// @ts-ignore
-			delete this.emoteSets // @ts-ignore
-			delete this.emoteMap // @ts-ignore
-			delete this.emoteNameMap // @ts-ignore
-			delete this.emoteHistory // @ts-ignore
-			delete this.emoteProviderNameMap // @ts-ignore
-			delete this.pendingHistoryChanges
+			this.emoteProviderNameMap.clear()
+			this.emoteNameMap.clear()
+			this.emoteUsage.clear()
+			this.emoteMap.clear()
 		})
 	}
 
 	async loadDatabase() {
 		info('Reading out emotes data from database..')
 		const { database, eventBus } = this
-		const emoteHistory = new Map()
 
-		const historyRecords = await database.getHistoryRecords(PLATFORM_ENUM.KICK, this.channelId)
-		if (historyRecords.length) {
-			for (const record of historyRecords) {
-				emoteHistory.set(record.emoteHid, new SlidingTimestampWindow(record.timestamps))
+		const usageRecords = await database.getEmoteUsageRecords(this.channelId)
+		if (usageRecords.length) {
+			for (const record of usageRecords) {
+				this.emoteUsage.set(record.emoteHid, record.count)
 			}
 		}
 
-		this.emoteHistory = emoteHistory
-		eventBus.publish('ntv.datastore.emotes.history.loaded')
+		eventBus.publish('ntv.datastore.emotes.usage.loaded')
 	}
 
 	storeDatabase() {
 		// info('Syncing emote data to database..')
 
-		if (isEmpty(this.pendingHistoryChanges)) return
+		if (isEmpty(this.pendingEmoteUsageChanges)) return
 
 		const { database } = this
+		const puts = []
 
-		const puts = [],
-			deletes = []
-
-		for (const emoteHid in this.pendingHistoryChanges) {
-			const history = this.emoteHistory.get(emoteHid)
-
-			if (!history) {
-				deletes.push({ channelId: this.channelId, emoteHid })
-			} else {
-				puts.push({ channelId: this.channelId, emoteHid, timestamps: history.entries })
-			}
+		for (const emoteHid in this.pendingEmoteUsageChanges) {
+			const emoteUsages = this.emoteUsage.get(emoteHid)
+			puts.push({ channelId: this.channelId, emoteHid, count: emoteUsages })
 		}
 
-		if (puts.length) database.bulkPutEmoteHistory(puts)
-		if (deletes.length) database.bulkDeleteEmoteHistory(deletes)
-
-		this.pendingHistoryChanges = {}
+		if (puts.length) database.bulkPutEmoteUsage(puts)
+		this.pendingEmoteUsageChanges = {}
 	}
 
 	registerEmoteSet(emoteSet: EmoteSet) {
@@ -129,23 +112,12 @@ export class EmoteDatastore {
 			this.emoteNameMap.set(emote.name, emote)
 			this.emoteEmoteSetMap.set(emote.hid, emoteSet)
 
-			// const emoteParts = splitEmoteName(emote.name, 2)
-			// for (const part of emoteParts) {
-			// 	if (!this.splittedNamesMap.has(part)) {
-			// 		this.splittedNamesMap.set(part, [])
-			// 	}
-			// 	this.splittedNamesMap.get(part).push(emote.id)
-			// }
-
 			let providerEmoteNameMap = this.emoteProviderNameMap.get(emote.provider)
 			if (!providerEmoteNameMap) {
 				providerEmoteNameMap = new Map()
 				this.emoteProviderNameMap.set(emote.provider, providerEmoteNameMap)
 			}
 			providerEmoteNameMap.set(emote.name, emote.hid)
-
-			// const emoteHistoryWindow = this.emoteHistory.get(emote.id)
-			// if (emoteHistoryWindow) emote.weight = emoteHistorywwindow.getTotal()
 
 			this.fuse.add(emote)
 		})
@@ -177,41 +149,35 @@ export class EmoteDatastore {
 		return this.emoteIdMap.get(id)
 	}
 
-	getEmoteHistoryCount(emoteHid: string) {
-		return this.emoteHistory.get(emoteHid)?.getTotal() || 0
+	getEmoteUsageCount(emoteHid: string) {
+		return this.emoteUsage.get(emoteHid) || 0
 	}
 
-	registerEmoteEngagement(emoteHid: string, historyEntries?: Array<number>) {
+	registerEmoteEngagement(emoteHid: string) {
 		if (!emoteHid) return error('Undefined required emoteHid argument')
 
-		if (!this.emoteHistory.has(emoteHid) || historyEntries) {
-			this.emoteHistory.set(emoteHid, new SlidingTimestampWindow(historyEntries as Array<number>))
+		if (!this.emoteUsage.has(emoteHid)) {
+			this.emoteUsage.set(emoteHid, 0)
 		}
 
-		// const emote = this.emoteMap.get(emoteHid)
-		// if (emote) emote.weight = this.emoteHistory.get(emoteHid).getTotal()
-
-		// const name = this.emoteMap.get(emoteHid)?.name || emoteHid
-		// log('Updated emote history:', name)
-
-		this.pendingHistoryChanges[emoteHid] = true
-		this.emoteHistory.get(emoteHid).addEntry()
-		this.eventBus.publish('ntv.datastore.emotes.history.changed', { emoteHid })
+		this.pendingEmoteUsageChanges[emoteHid] = true
+		this.emoteUsage.set(emoteHid, this.emoteUsage.get(emoteHid) + 1)
+		this.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
 	}
 
-	removeEmoteHistory(emoteHid: string) {
+	removeEmoteUsage(emoteHid: string) {
 		if (!emoteHid) return error('Undefined required emoteHid argument')
 
-		this.emoteHistory.delete(emoteHid)
-		this.pendingHistoryChanges[emoteHid] = true
-		this.eventBus.publish('ntv.datastore.emotes.history.changed', { emoteHid })
+		this.emoteUsage.delete(emoteHid)
+		this.pendingEmoteUsageChanges[emoteHid] = true
+		this.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
 	}
 
 	searchEmotesWithWeightedHistory(searchVal: string) {
 		return this.fuse.search(searchVal).sort((a: any, b: any) => {
 			// Take into consideration the emote history count as weight when sorting as well as the search score.
-			const aHistory = (this.emoteHistory.get(a.item.hid)?.getTotal() || 0) + 1 // Add 1 to avoid division by zero
-			const bHistory = (this.emoteHistory.get(b.item.hid)?.getTotal() || 0) + 1
+			const aHistory = (this.emoteUsage.get(a.item.hid) || 0) + 1 // Add 1 to avoid division by zero
+			const bHistory = (this.emoteUsage.get(b.item.hid) || 0) + 1
 
 			// Calculate the total score for each item
 			// ? I have absolutely no idea why flipping ab works, but it does
