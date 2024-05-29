@@ -1,12 +1,12 @@
 export class Logger {
-	prefix: string
-	brandStyle: string
-	okStyle: string
-	infoStyle: string
-	errorStyle: string
-	eventStyle: string
-	extraMargin: (x?: number) => string
-	tagStyle: string
+	private prefix: string
+	private brandStyle: string
+	private okStyle: string
+	private infoStyle: string
+	private errorStyle: string
+	private eventStyle: string
+	private extraMargin: (x?: number) => string
+	private tagStyle: string
 
 	constructor() {
 		this.prefix = 'NIPAH'

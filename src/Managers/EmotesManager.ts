@@ -6,13 +6,12 @@ import { SettingsManager } from './SettingsManager'
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
 
 export class EmotesManager {
-	providers = new Map()
+	private providers = new Map()
 	loaded = false
 
-	database: DatabaseProxy
-	eventBus: Publisher
-	settingsManager: SettingsManager
-	datastore: EmoteDatastore
+	private eventBus: Publisher
+	private settingsManager: SettingsManager
+	private datastore: EmoteDatastore
 
 	constructor(
 		{
@@ -22,7 +21,6 @@ export class EmotesManager {
 		}: { database: DatabaseProxy; eventBus: Publisher; settingsManager: SettingsManager },
 		channelId: string
 	) {
-		this.database = database
 		this.eventBus = eventBus
 		this.settingsManager = settingsManager
 		this.datastore = new EmoteDatastore({ database, eventBus }, channelId)
@@ -67,6 +65,7 @@ export class EmotesManager {
 			for (const emoteSets of providerSets) {
 				for (const emoteSet of emoteSets) {
 					for (const emote of emoteSet.emotes) {
+						// Map of emote names splitted into parts for more relevant search results
 						const parts = splitEmoteName(emote.name, 2)
 						if (parts.length && parts[0] !== emote.name) {
 							emote.parts = parts

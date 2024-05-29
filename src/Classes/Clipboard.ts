@@ -29,7 +29,7 @@ function flattenNestedElement(node: Node) {
 }
 
 export class Clipboard2 {
-	domParser = new DOMParser()
+	private domParser = new DOMParser()
 
 	handleCopyEvent(event: ClipboardEvent) {
 		const selection = document.getSelection()

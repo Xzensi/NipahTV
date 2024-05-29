@@ -3,9 +3,9 @@
  *  where data entries older than (now - timestamp) are removed from the total as new entries are added.
  */
 export class SlidingTimestampWindow {
-	timestampWindow: number
-	entries: Array<number>
-	maxEntries: number
+	private timestampWindow: number
+	private entries: Array<number>
+	private maxEntries: number
 
 	constructor(historyEntries: Array<number>) {
 		this.timestampWindow = 14 * 24 * 60 * 60 * 1000 // 2 weeks

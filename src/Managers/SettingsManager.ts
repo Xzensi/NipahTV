@@ -45,7 +45,7 @@ export class SettingsManager {
 				- Display images in tooltips
     */
 
-	sharedSettings = [
+	private sharedSettings = [
 		{
 			label: 'Appearance',
 			children: [
@@ -373,13 +373,13 @@ export class SettingsManager {
 		}
 	]
 
-	settingsMap = new Map()
-	isShowingModal = false
-	isLoaded = false
+	private settingsMap = new Map()
+	private isShowingModal = false
+	private database: DatabaseProxy
+	private eventBus: Publisher
+	private modal?: SettingsModal
 
-	database: DatabaseProxy
-	eventBus: Publisher
-	modal?: SettingsModal
+	isLoaded = false
 
 	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }) {
 		this.database = database

@@ -5,23 +5,21 @@ import { PLATFORM_ENUM } from '../constants'
 import { log, info, error, isEmpty } from '../utils'
 
 export class EmoteDatastore {
-	emoteSets: Array<any> = []
-	emoteMap = new Map()
-	emoteIdMap = new Map()
-	emoteNameMap = new Map()
-	emoteUsage = new Map()
-	emoteEmoteSetMap = new Map()
+	private emoteMap = new Map()
+	private emoteIdMap = new Map()
+	private emoteNameMap = new Map()
+	private emoteEmoteSetMap = new Map()
 
-	// Map of emote names splitted into parts for more relevant search results
-	splittedNamesMap = new Map()
+	emoteSets: Array<any> = []
+	emoteUsage = new Map()
 
 	// Map of provider ids containing map of emote names to emote hids
-	emoteProviderNameMap = new Map()
+	private emoteProviderNameMap = new Map()
 
 	// Map of pending emote usage changes to be synced to database
-	pendingEmoteUsageChanges: { [key: string]: boolean } = {}
+	private pendingEmoteUsageChanges: { [key: string]: boolean } = {}
 
-	fuse = new Fuse([], {
+	private fuse = new Fuse([], {
 		includeScore: true,
 		shouldSort: false,
 		// includeMatches: true,
@@ -31,9 +29,9 @@ export class EmoteDatastore {
 		keys: [['name'], ['parts']]
 	})
 
-	database: DatabaseProxy
-	eventBus: Publisher
-	channelId: string
+	private database: DatabaseProxy
+	private eventBus: Publisher
+	private channelId: string
 
 	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }, channelId: string) {
 		this.database = database
@@ -113,14 +111,6 @@ export class EmoteDatastore {
 			this.emoteIdMap.set('' + emote.id, emote)
 			this.emoteNameMap.set(emote.name, emote)
 			this.emoteEmoteSetMap.set(emote.hid, emoteSet)
-
-			// const emoteParts = splitEmoteName(emote.name, 2)
-			// for (const part of emoteParts) {
-			// 	if (!this.splittedNamesMap.has(part)) {
-			// 		this.splittedNamesMap.set(part, [])
-			// 	}
-			// 	this.splittedNamesMap.get(part).push(emote.id)
-			// }
 
 			let providerEmoteNameMap = this.emoteProviderNameMap.get(emote.provider)
 			if (!providerEmoteNameMap) {

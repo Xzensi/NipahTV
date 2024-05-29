@@ -2,11 +2,11 @@ import { AbstractComponent } from './AbstractComponent'
 import { cleanupHTML, parseHTML } from '../../utils'
 
 export class SteppedInputSliderComponent extends AbstractComponent {
-	container: HTMLElement
-	labels: string[]
-	steps: any[]
-	eventTarget = new EventTarget()
+	private container: HTMLElement
+	private labels: string[]
+	private steps: any[]
 
+	eventTarget = new EventTarget()
 	element?: HTMLElement
 
 	constructor(container: HTMLElement, labels: string[], steps: any[]) {
