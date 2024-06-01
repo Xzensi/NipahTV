@@ -665,34 +665,29 @@ export class UserInfoModal extends AbstractModal {
 			// 		label: 'Verified',
 			// 		active: true
 			// 	},
-			// 	{
-			// 		type: 'staff',
-			// 		label: 'Staff',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'Partner',
-			// 		label: 'partner',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'global_moderator',
-			// 		label: 'Global moderator',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'global_admin',
-			// 		label: 'Global admin',
-			// 		active: true
-			// 	},
+			// 	// {
+			// 	// 	type: 'staff',
+			// 	// 	label: 'Staff',
+			// 	// 	active: true
+			// 	// },
+			// 	// {
+			// 	// 	type: 'Partner',
+			// 	// 	label: 'partner',
+			// 	// 	active: true
+			// 	// },
+			// 	// {
+			// 	// 	type: 'global_moderator',
+			// 	// 	label: 'Global moderator',
+			// 	// 	active: true
+			// 	// },
+			// 	// {
+			// 	// 	type: 'global_admin',
+			// 	// 	label: 'Global admin',
+			// 	// 	active: true
+			// 	// },
 			// 	{
 			// 		type: 'moderator',
 			// 		label: 'Moderator',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'vip',
-			// 		label: 'VIP',
 			// 		active: true
 			// 	},
 			// 	{
@@ -706,10 +701,15 @@ export class UserInfoModal extends AbstractModal {
 			// 		active: true
 			// 	},
 			// 	{
-			// 		type: 'sidekick',
-			// 		label: 'Sidekick',
+			// 		type: 'vip',
+			// 		label: 'VIP',
 			// 		active: true
 			// 	},
+			// 	// {
+			// 	// 	type: 'sidekick',
+			// 	// 	label: 'Sidekick',
+			// 	// 	active: true
+			// 	// },
 			// 	{
 			// 		type: 'subscriber',
 			// 		label: 'Subscriber',
