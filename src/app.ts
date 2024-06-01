@@ -259,7 +259,6 @@ class NipahClient {
 			setInterval(() => {
 				if (locationURL !== wwindow.location.href) {
 					locationURL = wwindow.location.href
-
 					info('Navigated to:', locationURL)
 
 					this.cleanupOldClientEnvironment()
