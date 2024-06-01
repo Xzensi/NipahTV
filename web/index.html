@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>NipahTV</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<header>
+			<div class="container">
+				<img src="img/NTV_icon_128.png" alt="Logo icon" />
+				<nav>
+					<ul>
+						<li class="active"><a href="/">HOME</a></li>
+						<li><a href="userscript">USERSCRIPT</a></li>
+					</ul>
+				</nav>
+			</div>
+		</header>
+
+		<main>
+			<section id="banner">
+				<div class="emotes_box"></div>
+				<img src="img/logo_full.png" alt="NipahTV Logo" />
+				<h2>A Better Kick and 7TV Emote Integration for Kick.</h2>
+				<!-- <a href="#" class="button">Install for Chrome</a> -->
+				<a href="userscript.html" class="button">Get Userscript</a>
+			</section>
+			<section>
+				<img src="img/emote_menu.png" alt="Emote menu" class="elevation-3" />
+				<h3>Easy to use emote menu</h3>
+			</section>
+			<section>
+				<img src="img/quick_emote_picker.png" alt="Quick emote picker" class="elevation-3" />
+				<h3>Quick emote picker for easy access</h3>
+			</section>
+			<section>
+				<img src="img/commands_menu.png" alt="Commands menu" class="elevation-3" />
+				<h3>Improved moderator experience with enhanced Kick commands</h3>
+			</section>
+			<section>
+				<img src="img/settings_panel.png" alt="Settings panel" class="elevation-3" />
+				<h3>Quality of life features</h3>
+			</section>
+			<section>
+				<div class="container grid-center">
+					<h3>Follow us on Github</h3>
+					<a href="https://github.com/Xzensi/NipahTV" target="_blank" rel="noopener">
+						<img src="img/icons/github-mark-white.svg" alt="Github logo" target="_blank" />
+					</a>
+				</div>
+			</section>
+		</main>
+
+		<script>
+			const emojis = [
+				'peped',
+				'petthemods',
+				'pog',
+				'pogu',
+				'prayge',
+				'ratjam',
+				'sniffa',
+				'sussy',
+				'xdd',
+				'bedge',
+				'booba',
+				'clueless',
+				'donowall',
+				'gigachad',
+				'hmm',
+				'huh',
+				'letsgo',
+				'monkasteer',
+				'noooo',
+				'omegalul',
+				'ooo',
+				'peepodj',
+				'peepohey',
+				'peeporiot',
+				'peeposhy'
+			]
+
+			function debounce(func, wait, immediate) {
+				let timeout
+				return function () {
+					const context = this
+					const args = arguments
+					const later = function () {
+						timeout = null
+						if (!immediate) func.apply(context, args)
+					}
+					const callNow = immediate && !timeout
+					clearTimeout(timeout)
+					timeout = setTimeout(later, wait)
+					if (callNow) func.apply(context, args)
+				}
+			}
+
+			function splitmix32(a) {
+				return function () {
+					a |= 0
+					a = (a + 0x9e3779b9) | 0
+					let t = a ^ (a >>> 16)
+					t = Math.imul(t, 0x21f0aaad)
+					t = t ^ (t >>> 15)
+					t = Math.imul(t, 0x735a2d97)
+					return ((t = t ^ (t >>> 15)) >>> 0) / 4294967296
+				}
+			}
+
+			const prng = splitmix32((Math.random() * 2 ** 32) >>> 0)
+			const interval = 500
+			const imgSize = 48
+			const rand = Math.random
+
+			let clientWidth = document.body.clientWidth
+
+			function loop(width) {
+				if (width !== clientWidth) return
+
+				const emoji = emojis[(prng() * emojis.length) << 0]
+				const img = document.createElement('img')
+
+				img.src = `img/emotes/${emoji}.webp`
+				img.style.position = 'absolute'
+				img.style.left = `${prng() * 100}%`
+				img.addEventListener('animationend', img.remove)
+
+				document.querySelector('#banner .emotes_box').appendChild(img)
+
+				requestAnimationFrame(() => {
+					setTimeout(loop.bind(this, width), prng() * interval + interval / 2)
+				})
+			}
+
+			const loopCount = document.body.clientWidth / 700
+			for (let i = loopCount; i > 0; i--) loop(clientWidth)
+
+			function resize() {
+				if (clientWidth === document.body.clientWidth) return
+
+				clientWidth = document.body.clientWidth
+				const loopCount = document.body.clientWidth / 700 + 0.5
+				for (let i = loopCount; i > 0; i--) loop(clientWidth)
+			}
+
+			window.addEventListener('resize', debounce(resize, 500))
+		</script>
+	</body>
+</html>
