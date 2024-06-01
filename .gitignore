@@ -3,6 +3,7 @@ node_modules
 vendor
 @excluded
 dist/**/*
+assets/**/*.css
 !dist/userscript
 !dist/userscript/client.user.js
 !dist/css
