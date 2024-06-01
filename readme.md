@@ -10,11 +10,11 @@
 
   <p align="center">
     <br />
-    <a href="#demo-video">View Demo</a>
+    <a href="https://nipahtv.com">Releases</a>
+    .
+    <a href="https://github.com/Xzensi/NipahTV/issues">Request Feature</a>
     ·
     <a href="https://github.com/Xzensi/NipahTV/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/Xzensi/NipahTV/issues">Request Feature</a>
   </p>
   <br />
   
@@ -40,7 +40,7 @@ NipahTV aims to enhance the emote integration experience within Kick chat by pro
 
 ## Getting NipahTV
 
-Refer to this [wiki page](https://github.com/Xzensi/NipahTV/wiki/Installation-instructions) for installation instructions (it'll be simple, I promise).
+Go to [NipahTV.com](https://nipahtv.com/) for releases.
 
 ## Roadmap
 
@@ -60,7 +60,6 @@ Refer to this [wiki page](https://github.com/Xzensi/NipahTV/wiki/Installation-in
 -   Settings option to sort by size or not.
 -   Settings option to add settings panel to kick menu to keep UI tidy.
 -   Settings option for most used emotes tracking to be global instead of per channel.
--   Settings option to automatically expand quick emote holder on hover.
 -   More to come...
 
 ## Contributing
