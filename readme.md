@@ -2,11 +2,11 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/Xzensi/NipahTV">
+  <a href="https://nipahtv.com">
     <img src="assets/img/logo_full.png" alt="NipahTV" height="90">
   </a>
 
-  <h3 align="center">Better Kick and 7TV Emote Integration for Kick</h3>
+  <h3 align="center">Better Kick and 7TV Emote Extension for Kick</h3>
 
   <p align="center">
     <br />
@@ -18,29 +18,40 @@
   </p>
   <br />
   
-  <img src="demo/screenshot_2.png" />
-  <img src="demo/screenshot_3.png" />
+  <table>
+    <tbody>
+      <tr>
+        <td><img src="demo/screenshot_2.png" /></td>
+        <td><img src="demo/screenshot_3.png" /></td>
+        <td><video src="https://github.com/Xzensi/NipahTV/assets/14015478/45d492b6-a51c-4a2c-92fe-45aaf3899b81"></video></td>
+      </tr>
+    </tbody>
+  </table>
 </div>
 
 <br />
 
-## About The Project
 
-NipahTV aims to enhance the emote integration experience within Kick chat by providing support for multiple emote providers and improving the user interface. Current options for emote integration in Kick are limited and lack support for multiple emote sources. NipahTV addresses these shortcomings by offering a better interface and compatibility with multiple emote providers.
+Transform your Kick chat experience with new features, emotes and performance improvements.
+
+NipahTV integrates emotes from multiple providers, including native Kick and 7TV emotes, eliminating the need for multiple emote extensions.
+
+Key Features:
+- User-friendly emote menu
+- Global and per-channel emotes for both native Kick and 7TV
+- Improved moderator experience with enhanced Kick commands
+- Message history feature for re-sending messages
+- Quality of life options like message highlighting
 
 <b>Please note:</b> This project is under active development and may contain bugs. Feedback is appreciated as we continue to refine and improve NipahTV.
 
-<a name="demo-video"></a>
 <br />
 
-<div align="center">
-  <video src="https://github.com/Xzensi/NipahTV/assets/14015478/45d492b6-a51c-4a2c-92fe-45aaf3899b81" align="center" width="336"></video>
-</div>
+## Where to download?
+
+Go to [NipahTV.com](https://nipahtv.com) for releases.
+
 <br />
-
-## Getting NipahTV
-
-Go to [NipahTV.com](https://nipahtv.com/) for releases.
 
 ## Roadmap
 
@@ -54,13 +65,13 @@ Go to [NipahTV.com](https://nipahtv.com/) for releases.
 -   [x] Chat emotes rendering, so that 7TV extension does not need to be enabled.
 -   [x] Emote tab completion (incompatible with 7TV extension).
 -   [x] Show emote sets of other subscribed kick channels other than the current one.
+-   [x] Implement better moderator commands handling
 -   [x] Settings option for quick emote holder height.
 
 -   BetterTTV provider support
--   Settings option to sort by size or not.
--   Settings option to add settings panel to kick menu to keep UI tidy.
--   Settings option for most used emotes tracking to be global instead of per channel.
 -   More to come...
+
+<br />
 
 ## Contributing
 
@@ -71,6 +82,8 @@ If you have a suggestion that would make this better, please fork the repo and c
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+<br />
 
 ## How to set up the project for development
 
