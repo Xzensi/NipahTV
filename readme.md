@@ -3,7 +3,7 @@
 <br />
 <div align="center">
   <a href="https://nipahtv.com">
-    <img src="assets/img/logo_full.png" alt="NipahTV" height="90">
+    <img src="assets/img/logo_full.png" alt="NipahTV" width="650">
   </a>
 
   <h3 align="center">A Better Kick and 7TV Emote Extension for Kick</h3>
