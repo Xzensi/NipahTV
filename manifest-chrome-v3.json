@@ -4,7 +4,7 @@
 	"short_name": "NTV",
 	"author": "Xzensi",
 	"homepage_url": "https://github.com/Xzensi/NipahTV",
-	"description": "A Better Kick and 7TV Emote Integration for Kick.",
+	"description": "Transform your Kick chat experience with new features, emotes and performance improvements.",
 	"version": "{{VERSION}}",
 	"minimum_chrome_version": "123",
 	"icons": {
