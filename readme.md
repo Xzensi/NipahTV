@@ -49,7 +49,7 @@ Key Features:
 
 ## Where to download?
 
-Go to [NipahTV.com](https://nipahtv.com) for releases.
+Releases are available at [NipahTV.com](https://nipahtv.com)
 
 <br />
 
