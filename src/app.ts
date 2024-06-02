@@ -20,7 +20,7 @@ import { UsersManager } from './Managers/UsersManager'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.8',
+		VERSION: '1.4.9',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
