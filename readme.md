@@ -6,7 +6,7 @@
     <img src="assets/img/logo_full.png" alt="NipahTV" height="90">
   </a>
 
-  <h3 align="center">Better Kick and 7TV Emote Extension for Kick</h3>
+  <h3 align="center">A Better Kick and 7TV Emote Extension for Kick</h3>
 
   <p align="center">
     <br />
