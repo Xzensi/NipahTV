@@ -22,7 +22,6 @@
     <tbody>
       <tr>
         <td><img src="demo/screenshot_2.png" /></td>
-        <td><img src="demo/screenshot_3.png" /></td>
         <td><video src="https://github.com/Xzensi/NipahTV/assets/14015478/45d492b6-a51c-4a2c-92fe-45aaf3899b81"></video></td>
       </tr>
     </tbody>
@@ -65,7 +64,7 @@ Releases are available at [NipahTV.com](https://nipahtv.com)
 -   [x] Chat emotes rendering, so that 7TV extension does not need to be enabled.
 -   [x] Emote tab completion (incompatible with 7TV extension).
 -   [x] Show emote sets of other subscribed kick channels other than the current one.
--   [x] Implement better moderator commands handling
+-   [x] Revamped moderator commands
 -   [x] Settings option for quick emote holder height.
 
 -   BetterTTV provider support
