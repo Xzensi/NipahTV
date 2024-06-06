@@ -88,6 +88,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		const responseChannelMeData = await REST.get(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
 			() => {}
 		)
+
 		if (responseChannelMeData) {
 			Object.assign(channelData, {
 				me: {

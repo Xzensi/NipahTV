@@ -3,12 +3,16 @@
 	"name": "NipahTV",
 	"short_name": "NTV",
 	"author": "Xzensi",
-	"description": "A Better Kick and 7TV Emote Integration for Kick.",
+	"homepage_url": "https://nipahtv.com",
+	"description": "Transform your chat experience on Kick with new features, emotes and performance improvements.",
 	"version": "{{VERSION}}",
 	"icons": {
-		"48": "assets/img/icons/border-48.png"
+		"16": "assets/img/NTV_icon_16.png",
+		"48": "assets/img/NTV_icon_48.png",
+		"96": "assets/img/NTV_icon_96.png",
+		"128": "assets/img/NTV_icon_128.png"
 	},
-	"permissions": ["https://7tv.io/*"],
+	"permissions": ["https://kick.com/*", "https://7tv.io/*"],
 	"background": {
 		"scripts": ["service-worker.js"],
 		"persistent": false,
@@ -21,7 +25,7 @@
 			"css": ["style.min.css"]
 		}
 	],
-	"web_accessible_resources": ["assets/*.png", "assets/btn/*.png"],
+	"web_accessible_resources": ["assets/img/*.png", "assets/btn/*.png"],
 	"browser_specific_settings": {
 		"gecko": {
 			"id": "{69696969-6969-6969-6969-696969696969}"

@@ -68,6 +68,7 @@ export class REST {
 			const urlDomain = new URL(url as string).host.split('.').slice(-2).join('.')
 			if (currentDomain === urlDomain) {
 				options.credentials = 'include'
+				options.referrer = window.location.origin + window.location.pathname
 
 				const XSRFToken = getCookie('XSRF')
 				if (XSRFToken) {
