@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.10
+// @version 1.4.11
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-131aef06.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e44e1c32.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -155,6 +155,7 @@ var REST = class {
       const urlDomain = new URL(url).host.split(".").slice(-2).join(".");
       if (currentDomain === urlDomain) {
         options.credentials = "include";
+        options.referrer = window.location.origin + window.location.pathname;
         const XSRFToken = getCookie("XSRF");
         if (XSRFToken) {
           options.headers = Object.assign(options.headers || {}, {
@@ -2635,6 +2636,107 @@ var Toaster = class {
   }
 };
 
+// src/UserInterface/Modals/PollModal.ts
+var PollModal = class extends AbstractModal {
+  rootContext;
+  session;
+  toaster;
+  pollQuestionEl;
+  pollOptionsEls;
+  durationSliderComponent;
+  displayDurationSliderComponent;
+  createButtonEl;
+  constructor(rootContext, session, {
+    toaster
+  }) {
+    const geometry = {
+      width: "340px",
+      position: "center"
+    };
+    super("poll", geometry);
+    this.rootContext = rootContext;
+    this.session = session;
+    this.toaster = toaster;
+  }
+  init() {
+    super.init();
+    return this;
+  }
+  async render() {
+    super.render();
+    const element = parseHTML(
+      cleanupHTML(`
+            <h3 class="ntv__poll-modal__title">Create a new Poll</h3>
+            <span class="ntv__poll-modal__subtitle">Question:</span>
+            <textarea rows="1" class="ntv__input ntv__poll-modal__q-input" placeholder="Poll question" capture-focus></textarea>
+            <span class="ntv__poll-modal__subtitle">Options (minimum 2):</span>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 1" capture-focus>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 2" capture-focus>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 3" capture-focus disabled>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 4" capture-focus disabled>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 5" capture-focus disabled>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 6" capture-focus disabled>
+            <span class="ntv__poll-modal__subtitle">Duration</span>
+            <div class="ntv__poll-modal__duration"></div>
+            <span class="ntv__poll-modal__subtitle">Result displayed for</span>
+            <div class="ntv__poll-modal__display-duration"></div>
+            <div class="ntv__poll-modal__footer">
+                <button class="ntv__button ntv__button--regular ntv__poll-modal__close-btn">Cancel</button>
+                <button class="ntv__button ntv__poll-modal__create-btn">Create</button>
+            </div>`)
+    );
+    this.pollQuestionEl = element.querySelector(".ntv__poll-modal__q-input");
+    this.pollOptionsEls = element.querySelectorAll(".ntv__poll-modal__o-input");
+    const durationWrapper = element.querySelector(".ntv__poll-modal__duration");
+    this.durationSliderComponent = new SteppedInputSliderComponent(
+      durationWrapper,
+      ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
+      [30, 60, 120, 180, 240, 300]
+    ).init();
+    const displayDurationWrapper = element.querySelector(".ntv__poll-modal__display-duration");
+    this.displayDurationSliderComponent = new SteppedInputSliderComponent(
+      displayDurationWrapper,
+      ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
+      [30, 60, 120, 180, 240, 300]
+    ).init();
+    this.createButtonEl = element.querySelector(".ntv__poll-modal__create-btn");
+    this.modalBodyEl.appendChild(element);
+  }
+  attachEventHandlers() {
+    super.attachEventHandlers();
+    for (let i = 1; i < this.pollOptionsEls.length; i++) {
+      this.pollOptionsEls[i].addEventListener("input", () => {
+        const currentOptionEl = this.pollOptionsEls[i];
+        const nextOptionEl = this.pollOptionsEls[i + 1];
+        if (nextOptionEl) {
+          nextOptionEl.disabled = !currentOptionEl.value.trim();
+        }
+      });
+    }
+    this.createButtonEl.addEventListener("click", async () => {
+      const question = this.pollQuestionEl.value.trim();
+      const options = Array.from(this.pollOptionsEls).map((el) => el.value.trim()).filter((option) => !!option);
+      const duration = this.durationSliderComponent.getValue();
+      const displayDuration = this.displayDurationSliderComponent.getValue();
+      if (!question) {
+        this.toaster.addToast("Please enter a question", 6e3, "error");
+        return;
+      }
+      if (options.length < 2) {
+        this.toaster.addToast("Please enter at least 2 options", 6e3, "error");
+        return;
+      }
+      if (options.some((option) => !option)) {
+        this.toaster.addToast("Please fill in all options", 6e3, "error");
+        return;
+      }
+      const channelName = this.session.channelData.channel_name;
+      this.rootContext.networkInterface.createPoll(channelName, question, options, duration, displayDuration);
+      this.destroy();
+    });
+  }
+};
+
 // src/UserInterface/AbstractUserInterface.ts
 var AbstractUserInterface = class {
   rootContext;
@@ -2659,6 +2761,9 @@ var AbstractUserInterface = class {
     eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
       assertArgDefined(data.username);
       this.showUserInfoModal(data.username);
+    });
+    eventBus.subscribe("ntv.ui.show_modal.poll", () => {
+      new PollModal(this.rootContext, this.session, { toaster: this.toaster }).init();
     });
   }
   toastError(message) {
@@ -3884,18 +3989,22 @@ var commandsMap = [
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     }
   },
-  // {
-  // 	name: 'poll',
-  // 	command: 'poll',
-  // 	minAllowedRole: 'moderator',
-  // 	description: 'Create a poll.'
-  // },
-  // {
-  // 	name: 'polldelete',
-  // 	command: 'polldelete',
-  // 	minAllowedRole: 'moderator',
-  // 	description: 'Delete the current poll.'
-  // },
+  {
+    name: "poll",
+    command: "poll",
+    minAllowedRole: "moderator",
+    description: "Create a poll.",
+    execute: (deps, args) => {
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.show_modal.poll");
+    }
+  },
+  {
+    name: "polldelete",
+    command: "polldelete",
+    minAllowedRole: "moderator",
+    description: "Delete the current poll."
+  },
   {
     name: "slow",
     command: "slow <on_off> [seconds]",
@@ -4790,6 +4899,8 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   // TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
   async loadEmoteMenu() {
+    if (!this.session.channelData.me.is_logged_in)
+      return;
     if (!this.elm.textField)
       return error("Text field not loaded for emote menu");
     const container = this.elm.textField.parentElement.parentElement;
@@ -5023,6 +5134,8 @@ var KickUserInterface = class extends AbstractUserInterface {
   loadReplyBehaviour() {
     const { inputController } = this;
     const { channelData } = this.session;
+    if (!channelData.me.is_logged_in)
+      return;
     if (!inputController)
       return error("Input controller not loaded for reply behaviour");
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
@@ -5433,7 +5546,9 @@ var KickProvider = class extends AbstractProvider {
       const { emotes } = dataSet;
       let emotesFiltered = emotes;
       if (dataSet.user_id === user_id) {
-        emotesFiltered = emotes.filter((emote) => me.is_subscribed || !emote.subscribers_only);
+        emotesFiltered = emotes.filter(
+          (emote) => me.is_broadcaster || me.is_subscribed || !emote.subscribers_only
+        );
       }
       const emotesMapped = emotesFiltered.map((emote) => {
         return {
@@ -6622,7 +6737,20 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
       return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/vips`, {
         username: args[0]
       });
+    } else if (command.name === "polldelete") {
+      return this.deletePoll(channel_name);
     }
+  }
+  async createPoll(channelName, title, options, duration, displayDuration) {
+    return REST.post(`https://kick.com/api/v2/channels/${channelName}/polls`, {
+      title,
+      options,
+      duration,
+      result_display_duration: displayDuration
+    });
+  }
+  async deletePoll(channelName) {
+    return REST.delete(`https://kick.com/api/v2/channels/${channelName}/polls`);
   }
   async followUser(username) {
     const slug = username.replace("_", "-").toLowerCase();
@@ -6806,7 +6934,7 @@ var UsersManager = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.10",
+    VERSION: "1.4.11",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',

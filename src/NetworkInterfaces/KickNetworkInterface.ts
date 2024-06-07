@@ -88,6 +88,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		const responseChannelMeData = await REST.get(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
 			() => {}
 		)
+
 		if (responseChannelMeData) {
 			Object.assign(channelData, {
 				me: {
@@ -212,7 +213,22 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/vips`, {
 				username: args[0]
 			})
+		} else if (command.name === 'polldelete') {
+			return this.deletePoll(channel_name)
 		}
+	}
+
+	async createPoll(channelName: string, title: string, options: string[], duration: number, displayDuration: number) {
+		return REST.post(`https://kick.com/api/v2/channels/${channelName}/polls`, {
+			title,
+			options,
+			duration,
+			result_display_duration: displayDuration
+		})
+	}
+
+	async deletePoll(channelName: string) {
+		return REST.delete(`https://kick.com/api/v2/channels/${channelName}/polls`)
 	}
 
 	async followUser(username: string) {

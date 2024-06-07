@@ -34,6 +34,7 @@ $dark-theme-background-color: #1b1b1d;
 	--ntv-background-color-tint-1: #{tint($dark-theme-background-color, 3%)};
 	--ntv-background-color-tint-2: #{tint($dark-theme-background-color, 7%)};
 	--ntv-background-color-tint-3: #{tint($dark-theme-background-color, 10%)};
+	--ntv-background-color-tint-4: #{tint($dark-theme-background-color, 15%)};
 	--ntv-background-color-shade-1: #{shade($dark-theme-background-color, 30%)};
 	--ntv-background-color-shade-2: #{shade($dark-theme-background-color, 40%)};
 

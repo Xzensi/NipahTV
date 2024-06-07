@@ -164,6 +164,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	// TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
 	async loadEmoteMenu() {
+		if (!this.session.channelData.me.is_logged_in) return
 		if (!this.elm.textField) return error('Text field not loaded for emote menu')
 
 		const container = this.elm.textField.parentElement!.parentElement!
@@ -448,6 +449,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	loadReplyBehaviour() {
 		const { inputController } = this
 		const { channelData } = this.session
+		if (!channelData.me.is_logged_in) return
 		if (!inputController) return error('Input controller not loaded for reply behaviour')
 
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer

@@ -25,7 +25,6 @@
 	"devDependencies": {
 		"@types/chrome": "^0.0.266",
 		"@types/firefox-webext-browser": "^120.0.3",
-		"@types/jquery": "^3.5.29",
 		"@types/twemoji-parser": "^13.1.4",
 		"concurrently": "^8.2.2",
 		"dexie": "^3.2.7",
