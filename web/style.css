@@ -87,6 +87,11 @@ img {
 .button:visited {
   color: #000;
 }
+.button.disabled {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 
 .container {
   max-width: 1140px;
