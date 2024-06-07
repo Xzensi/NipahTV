@@ -1,7 +1,22 @@
 @use 'variables' as *;
 @use 'functions' as *;
 
-$spacing: 1em;
+.ntv__input {
+	background-color: var(--ntv-background-color-tint-2);
+	border-radius: $golden_ratio_inverse_half * 1em;
+	margin: $golden_ratio_inverse_half * 1em 0;
+	padding: $golden_ratio_inverse * 1em 1em;
+	outline: none;
+	width: 100%;
+
+	&[disabled] {
+		opacity: 0.38;
+	}
+
+	&:focus {
+		background-color: var(--ntv-background-color-tint-4);
+	}
+}
 
 .ntv__button {
 	padding: $golden_ratio_inverse_half * 1em $golden_ratio_inverse * 1em;
@@ -10,6 +25,10 @@ $spacing: 1em;
 	border-radius: 0.25em;
 	cursor: pointer;
 	font-size: 1em;
+
+	&--regular {
+		background-color: var(--ntv-background-color-tint-4);
+	}
 
 	&--disabled {
 		pointer-events: none;
@@ -42,7 +61,7 @@ $spacing: 1em;
 
 .ntv__checkbox {
 	white-space: nowrap;
-	margin: $spacing 0;
+	margin: 1em 0;
 
 	input {
 		border: 0.15em solid $color-primary;
@@ -104,7 +123,7 @@ $spacing: 1em;
 }
 
 .ntv__dropdown {
-	margin: $spacing 0;
+	margin: 1em 0;
 
 	> label {
 		margin-bottom: 0.618em;
@@ -125,7 +144,7 @@ $spacing: 1em;
 }
 
 .ntv__color {
-	margin: $spacing 0;
+	margin: 1em 0;
 
 	label {
 		margin-right: 1em;

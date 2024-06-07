@@ -55,6 +55,13 @@ export abstract class AbstractNetworkInterface {
 		originalSenderUsername: string
 	): Promise<any>
 	abstract sendCommand(command: { name: string; args: string[] }): Promise<any>
+	abstract createPoll(
+		channelName: string,
+		question: string,
+		options: string[],
+		duration: number,
+		displayDuration: number
+	): Promise<any>
 	abstract followUser(username: string): Promise<any>
 	abstract unfollowUser(username: string): Promise<any>
 	abstract getUserInfo(username: string): Promise<UserInfo>

@@ -36,6 +36,16 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 		throw new Error('Method not implemented.')
 	}
 
+	async createPoll(
+		channelName: string,
+		question: string,
+		options: string[],
+		duration: number,
+		displayDuration: number
+	) {
+		throw new Error('Method not implemented.')
+	}
+
 	async followUser(username: string) {
 		throw new Error('Method not implemented.')
 	}

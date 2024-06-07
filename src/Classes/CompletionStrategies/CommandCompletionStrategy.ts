@@ -78,18 +78,22 @@ const commandsMap = [
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		}
 	},
-	// {
-	// 	name: 'poll',
-	// 	command: 'poll',
-	// 	minAllowedRole: 'moderator',
-	// 	description: 'Create a poll.'
-	// },
-	// {
-	// 	name: 'polldelete',
-	// 	command: 'polldelete',
-	// 	minAllowedRole: 'moderator',
-	// 	description: 'Delete the current poll.'
-	// },
+	{
+		name: 'poll',
+		command: 'poll',
+		minAllowedRole: 'moderator',
+		description: 'Create a poll.',
+		execute: (deps: any, args: string[]) => {
+			const { eventBus } = deps
+			eventBus.publish('ntv.ui.show_modal.poll')
+		}
+	},
+	{
+		name: 'polldelete',
+		command: 'polldelete',
+		minAllowedRole: 'moderator',
+		description: 'Delete the current poll.'
+	},
 	{
 		name: 'slow',
 		command: 'slow <on_off> [seconds]',

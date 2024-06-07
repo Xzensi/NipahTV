@@ -5,6 +5,7 @@ import { UserInfoModal } from './Modals/UserInfoModal'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { Toaster } from '../Classes/Toaster'
+import { PollModal } from './Modals/PollModal'
 
 export abstract class AbstractUserInterface {
 	protected rootContext: RootContext
@@ -45,6 +46,10 @@ export abstract class AbstractUserInterface {
 		eventBus.subscribe('ntv.ui.show_modal.user_info', (data: { username: string }) => {
 			assertArgDefined(data.username)
 			this.showUserInfoModal(data.username)
+		})
+
+		eventBus.subscribe('ntv.ui.show_modal.poll', () => {
+			new PollModal(this.rootContext, this.session, { toaster: this.toaster }).init()
 		})
 	}
 
