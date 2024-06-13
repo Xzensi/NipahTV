@@ -215,6 +215,10 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			})
 		} else if (command.name === 'polldelete') {
 			return this.deletePoll(channel_name)
+		} else if (command.name === 'follow') {
+			return this.followUser(args[0])
+		} else if (command.name === 'unfollow') {
+			return this.unfollowUser(args[0])
 		}
 	}
 

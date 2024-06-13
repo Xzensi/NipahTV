@@ -8,11 +8,13 @@ export class InputCompletor {
 	private currentActiveStrategy?: EmoteCompletionStrategy | MentionCompletionStrategy | CommandCompletionStrategy
 
 	private rootContext: RootContext
+	private session: Session
 	private contentEditableEditor: ContentEditableEditor
 	private containerEl: HTMLElement
 
 	constructor(
 		rootContext: RootContext,
+		session: Session,
 		{
 			contentEditableEditor
 		}: {
@@ -21,6 +23,7 @@ export class InputCompletor {
 		containerEl: HTMLElement
 	) {
 		this.rootContext = rootContext
+		this.session = session
 		this.contentEditableEditor = contentEditableEditor
 		this.containerEl = containerEl
 	}
@@ -45,6 +48,7 @@ export class InputCompletor {
 			if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
 				this.currentActiveStrategy = new CommandCompletionStrategy(
 					this.rootContext,
+					this.session,
 					{
 						contentEditableEditor: this.contentEditableEditor
 					},

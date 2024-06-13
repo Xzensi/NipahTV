@@ -57,46 +57,77 @@ export class REST {
 	}
 	static fetch(url: URL | RequestInfo, options: RequestInit = {}) {
 		return new Promise((resolve, reject) => {
+			//* Need to use XMLHttpRequest for Kick because Kasada anti-bot WAF intercepts and decorates it.
+			const w = new XMLHttpRequest()
+			w.open(options.method || 'GET', url as string)
+			w.setRequestHeader('accept', 'application/json, text/plain, */*')
+
 			if (options.body || options.method !== 'GET') {
-				options.headers = Object.assign(options.headers || {}, {
-					'Content-Type': 'application/json',
-					Accept: 'application/json, text/plain, */*'
-				})
+				w.setRequestHeader('Content-Type', 'application/json')
+
+				// 	options.headers = Object.assign(options.headers || {}, {
+				// 		// 'Content-Type': 'application/json',
+				// 		Accept: 'application/json, text/plain, */*'
+				// 	})
 			}
 
 			const currentDomain = window.location.host.split('.').slice(-2).join('.')
 			const urlDomain = new URL(url as string).host.split('.').slice(-2).join('.')
 			if (currentDomain === urlDomain) {
-				options.credentials = 'include'
-				options.referrer = window.location.origin + window.location.pathname
+				// options.credentials = 'include'
+				// options.referrer = window.location.origin + window.location.pathname
 
 				const XSRFToken = getCookie('XSRF')
 				if (XSRFToken) {
-					options.headers = Object.assign(options.headers || {}, {
-						'X-XSRF-TOKEN': XSRFToken
-						// Authorization: 'Bearer ' + XSRFToken
-					})
+					w.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
+					w.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
+
+					// options.headers = Object.assign(options.headers || {}, {
+					// 	'X-XSRF-TOKEN': XSRFToken,
+					// 	Authorization: 'Bearer ' + XSRFToken
+					// })
 				}
 			}
 
-			fetch(url, options)
-				.then(async res => {
-					const statusString = res.status.toString()
-					if (res.redirected) {
-						reject('Request failed, redirected to ' + res.url)
-					} else if (statusString[0] !== '2' && res.status !== 304) {
-						await res
-							.json()
-							.then(reject)
-							.catch(() => {
-								reject('Request failed with status code ' + res.status)
-							})
-					}
-					return res
-				})
-				.then(res => res.json())
-				.then(resolve)
-				.catch(reject)
+			// fetch(url, options)
+			// 	.then(async res => {
+			// 		const statusString = res.status.toString()
+			// 		if (res.redirected) {
+			// 			reject('Request failed, redirected to ' + res.url)
+			// 		} else if (statusString[0] !== '2' && res.status !== 304) {
+			// 			await res
+			// 				.json()
+			// 				.then(reject)
+			// 				.catch(() => {
+			// 					reject('Request failed with status code ' + res.status)
+			// 				})
+			// 		}
+			// 		return res
+			// 	})
+			// 	.then(res => res.json())
+			// 	.then(resolve)
+			// 	.catch(reject)
+
+			w.onload = function () {
+				if (w.status >= 200 && w.status < 300) {
+					if (w.responseText) resolve(JSON.parse(w.responseText))
+					else resolve(void 0)
+				} else {
+					reject('Request failed with status code ' + w.status)
+				}
+			}
+			w.onerror = function () {
+				reject('Request failed')
+			}
+			w.onabort = function () {
+				reject('Request aborted')
+			}
+			w.ontimeout = function () {
+				reject('Request timed out')
+			}
+
+			if (options.body) w.send(options.body as string)
+			else w.send()
 		}) as Promise<any | void>
 	}
 }

@@ -7,6 +7,13 @@ import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { Toaster } from '../Classes/Toaster'
 import { PollModal } from './Modals/PollModal'
 
+function getEmojiAttributes() {
+	return {
+		height: '30px',
+		width: '30px'
+	}
+}
+
 export abstract class AbstractUserInterface {
 	protected rootContext: RootContext
 	protected session: Session
@@ -53,6 +60,10 @@ export abstract class AbstractUserInterface {
 		})
 	}
 
+	toastSuccess(message: string) {
+		this.toaster.addToast(message, 4_000, 'success')
+	}
+
 	toastError(message: string) {
 		error(message)
 		this.toaster.addToast(message, 4_000, 'error')
@@ -96,6 +107,14 @@ export abstract class AbstractUserInterface {
 
 		if (appendTo) appendTo.append(...newNodes)
 		else textElement.after(...newNodes)
+
+		twemoji.parse((appendTo as HTMLElement) || textElement.parentElement, {
+			attributes: getEmojiAttributes,
+			className: 'ntv__inline-emoji'
+			// folder: 'svg',
+			// ext: '.svg',
+		})
+
 		textElement.remove()
 	}
 

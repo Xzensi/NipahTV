@@ -168,13 +168,14 @@ export class UserInfoModal extends AbstractModal {
 
 		this.badgesEl = element.querySelector('.ntv__user-info-modal__badges') as HTMLElement
 
+		this.actionFollowEl = element.querySelector(
+			'.ntv__user-info-modal__actions .ntv__button:nth-child(1)'
+		) as HTMLElement
+		this.actionMuteEl = element.querySelector(
+			'.ntv__user-info-modal__actions .ntv__button:nth-child(2)'
+		) as HTMLElement
+
 		if (is_moderator) {
-			this.actionFollowEl = element.querySelector(
-				'.ntv__user-info-modal__actions .ntv__button:nth-child(1)'
-			) as HTMLElement
-			this.actionMuteEl = element.querySelector(
-				'.ntv__user-info-modal__actions .ntv__button:nth-child(2)'
-			) as HTMLElement
 			this.actionReportEl = element.querySelector(
 				'.ntv__user-info-modal__actions .ntv__button:nth-child(3)'
 			) as HTMLElement

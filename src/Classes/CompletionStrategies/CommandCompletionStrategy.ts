@@ -5,6 +5,8 @@ import type { Publisher } from '../Publisher'
 import { countStringOccurrences, error, eventKeyIsLetterDigitPuncSpaceChar, log, parseHTML } from '../../utils'
 import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 
+type CommandDependencies = RootContext & Session
+
 const commandsMap = [
 	{
 		name: 'ban',
@@ -83,7 +85,7 @@ const commandsMap = [
 		command: 'poll',
 		minAllowedRole: 'moderator',
 		description: 'Create a poll.',
-		execute: (deps: any, args: string[]) => {
+		execute: (deps: CommandDependencies, args: string[]) => {
 			const { eventBus } = deps
 			eventBus.publish('ntv.ui.show_modal.poll')
 		}
@@ -182,13 +184,13 @@ const commandsMap = [
 	{
 		name: 'user',
 		command: 'user <username>',
-		minAllowedRole: 'moderator',
+		// minAllowedRole: 'moderator',
 		description: 'Display user information.',
 		argValidators: {
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
-		execute: (deps: any, args: string[]) => {
+		execute: (deps: CommandDependencies, args: string[]) => {
 			log('User command executed with args:', args)
 			const { eventBus } = deps
 			eventBus.publish('ntv.ui.show_modal.user_info', { username: args[0] })
@@ -203,15 +205,81 @@ const commandsMap = [
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		}
+	},
+	{
+		name: 'follow',
+		command: 'follow <username>',
+		description: 'Follow an user.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		},
+		execute: (deps: CommandDependencies, args: string[]) => {
+			const { networkInterface, userInterface } = deps
+			networkInterface
+				.followUser(args[0])
+				.then(() => userInterface?.toastSuccess('Following user.'))
+				.catch(err => userInterface?.toastError('Failed to follow user. ' + (err.message || '')))
+		}
+	},
+	{
+		name: 'unfollow',
+		command: 'unfollow <username>',
+		description: 'Unfollow an user.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		},
+		execute: (deps: CommandDependencies, args: string[]) => {
+			const { networkInterface, userInterface } = deps
+			networkInterface
+				.unfollowUser(args[0])
+				.then(() => userInterface?.toastSuccess('User unfollowed.'))
+				.catch(err => userInterface?.toastError('Failed to unfollow user. ' + (err.message || '')))
+		}
+	},
+	{
+		name: 'mute',
+		command: 'mute <username>',
+		description: 'Mute an user.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		},
+		execute: (deps: CommandDependencies, args: string[]) => {
+			const { usersManager, userInterface } = deps
+			const user = usersManager.getUserByName(args[0])
+			if (!user) userInterface?.toastError('User not found.')
+			else if (user.muted) userInterface?.toastError('User is already muted.')
+			else usersManager.muteUserById(user.id)
+		}
+	},
+	{
+		name: 'unmute',
+		command: 'unmute <username>',
+		description: 'Unmute an user.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		},
+		execute: (deps: CommandDependencies, args: string[]) => {
+			const { usersManager, userInterface } = deps
+			const user = usersManager.getUserByName(args[0])
+			if (!user) userInterface?.toastError('User not found.')
+			else if (!user.muted) userInterface?.toastError('User is not muted.')
+			else usersManager.unmuteUserById(user.id)
+		}
 	}
 ]
 
 export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 	private contentEditableEditor: ContentEditableEditor
 	private rootContext: RootContext
+	private session: Session
 
 	constructor(
 		rootContext: RootContext,
+		session: Session,
 		{
 			contentEditableEditor
 		}: {
@@ -222,6 +290,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		super(containerEl)
 
 		this.rootContext = rootContext
+		this.session = session
 		this.contentEditableEditor = contentEditableEditor
 	}
 
@@ -445,9 +514,9 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 				return
 			}
 
-			const { networkInterface, eventBus } = this.rootContext
+			const { networkInterface } = this.rootContext
 			if (commandEntry && typeof commandEntry.execute === 'function') {
-				commandEntry.execute({ eventBus, networkInterface }, commandData.args)
+				commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args)
 			} else {
 				networkInterface.sendCommand(commandData)
 			}

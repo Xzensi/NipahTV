@@ -13,6 +13,7 @@ import { error, log } from '../utils'
 
 export class InputController {
 	private rootContext: RootContext
+	private session: Session
 	private messageHistory: MessagesHistory
 	private tabCompletor: InputCompletor
 
@@ -20,6 +21,7 @@ export class InputController {
 
 	constructor(
 		rootContext: RootContext,
+		session: Session,
 		{
 			clipboard
 		}: {
@@ -28,6 +30,7 @@ export class InputController {
 		textFieldEl: HTMLElement
 	) {
 		this.rootContext = rootContext
+		this.session = session
 
 		this.messageHistory = new MessagesHistory()
 		this.contentEditableEditor = new ContentEditableEditor(
@@ -36,7 +39,8 @@ export class InputController {
 			textFieldEl
 		)
 		this.tabCompletor = new InputCompletor(
-			this.rootContext,
+			rootContext,
+			session,
 			{
 				contentEditableEditor: this.contentEditableEditor
 			},
