@@ -19,8 +19,8 @@ export class SevenTVProvider extends AbstractProvider implements IAbstractProvid
 			this.status = 'connection_failed'
 			return []
 		})
-		if (!data.emote_set || !data.emote_set.emotes.length) {
-			log('No emotes found on SevenTV provider')
+		if (!data.emote_set || !data.emote_set?.emotes?.length) {
+			log('No emotes found for SevenTV provider')
 			this.status = 'no_emotes_found'
 			return []
 		}

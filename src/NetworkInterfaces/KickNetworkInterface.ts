@@ -153,7 +153,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 				banned_username: args[0],
 				permanent: true
 			} as any
-			if (args[1]) data.reason = args[1]
+			if (args[1]) data.reason = args.slice(1).join(' ')
 
 			return REST.post(`https://kick.com/api/v2/channels/${channel_name}/bans`, data)
 		} else if (command.name === 'unban') {
@@ -193,13 +193,13 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			return REST.post(`https://kick.com/api/v2/channels/${channel_name}/bans`, {
 				banned_username: args[0],
 				duration: args[1],
-				reason: args[2],
+				reason: args.slice(2).join(' '),
 				permanent: false
 			})
 		} else if (command.name === 'title') {
 			return REST.post(`https://kick.com/api/v2/channels/${channel_name}/chat-commands`, {
 				command: 'title',
-				parameter: args[0]
+				parameter: args.join(' ')
 			})
 		} else if (command.name === 'unog') {
 			return REST.delete(`https://kick.com/api/internal/v1/channels/${channel_name}/community/ogs/` + args[0])

@@ -506,6 +506,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			// TODO implement it as settings option whether to validate and block invalid commands, might be useful for custom commands
 			const isInvalid = this.validateInputCommand(nodeData.substring(1))
 			const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1))
+			log(commandData)
 
 			event.stopPropagation()
 			event.preventDefault()
