@@ -148,7 +148,6 @@ export class SettingsManager {
 					children: [
 						{
 							label: 'General',
-							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
 									label: 'Enable chat smooth scrolling',
@@ -223,13 +222,13 @@ export class SettingsManager {
 								// Dangerous, impossible to undo because settings button will be hidden
 								// {
 								// 	label: 'Show the navigation sidebar on the side of the menu',
-								// 	id: 'shared.chat.emote_menu.appearance.sidebar',
+								// 	id: 'shared.chat.emote_menu.sidebar',
 								// 	default: true,
 								// 	type: 'checkbox'
 								// },
 								{
 									label: 'Show the search box.',
-									id: 'shared.chat.emote_menu.appearance.search_box',
+									id: 'shared.chat.emote_menu.search_box',
 									default: true,
 									type: 'checkbox'
 								}
@@ -240,7 +239,7 @@ export class SettingsManager {
 							children: [
 								{
 									label: 'Close the emote menu when clicking an emote.',
-									id: 'shared.chat.emote_menu.behavior.close_on_click',
+									id: 'shared.chat.emote_menu.close_on_click',
 									default: false,
 									type: 'checkbox'
 								}
@@ -262,11 +261,22 @@ export class SettingsManager {
 								},
 								{
 									label: 'Rows of emotes to display.',
-									id: 'shared.chat.quick_emote_holder.appearance.rows',
+									id: 'shared.chat.quick_emote_holder.rows',
 									type: 'number',
 									default: 2,
 									min: 1,
 									max: 10
+								}
+							]
+						},
+						{
+							label: 'Behavior',
+							children: [
+								{
+									label: 'Send emotes to chat immediately on click.',
+									id: 'shared.chat.quick_emote_holder.send_immediately',
+									type: 'checkbox',
+									default: false
 								}
 							]
 						}

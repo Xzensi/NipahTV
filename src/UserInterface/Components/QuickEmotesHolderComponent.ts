@@ -71,6 +71,10 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		const emote = this.rootContext.emotesManager.getEmote(emoteHid)
 		if (!emote) return error('Invalid emote')
 
+		if (this.rootContext.settingsManager.getSetting('shared.chat.quick_emote_holder.send_immediately')) {
+			sendImmediately = true
+		}
+
 		this.rootContext.eventBus.publish('ntv.ui.emote.click', { emoteHid, sendImmediately })
 	}
 
