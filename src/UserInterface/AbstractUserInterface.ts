@@ -131,7 +131,7 @@ export abstract class AbstractUserInterface {
 	}
 
 	// Submits input to chat
-	submitInput(suppressEngagementEvent?: boolean) {
+	submitInput(suppressEngagementEvent?: boolean, dontClearInput?: boolean) {
 		const { eventBus, networkInterface } = this.rootContext
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
@@ -178,7 +178,8 @@ export abstract class AbstractUserInterface {
 		}
 
 		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-		contentEditableEditor.clearInput()
+
+		dontClearInput || contentEditableEditor.clearInput()
 	}
 
 	sendEmoteToChat(emoteHid: string) {

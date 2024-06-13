@@ -122,7 +122,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Submit input to chat
-		eventBus.subscribe('ntv.input_controller.submit', this.submitInput.bind(this))
+		eventBus.subscribe('ntv.input_controller.submit', (data: any) => this.submitInput(false, data?.dontClearInput))
 
 		// Set chat smooth scrolling mode
 		eventBus.subscribe(

@@ -214,7 +214,9 @@ export class ContentEditableEditor {
 				event.preventDefault()
 				event.stopImmediatePropagation()
 				if (!this.inputEmpty) {
-					this.rootContext.eventBus.publish('ntv.input_controller.submit')
+					this.rootContext.eventBus.publish('ntv.input_controller.submit', {
+						dontClearInput: event.ctrlKey
+					})
 				}
 				break
 
