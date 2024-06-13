@@ -81,15 +81,23 @@ export class KickUserInterface extends AbstractUserInterface {
 			.then(() => {
 				this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector)
 
-				// Add alternating background color to chat messages
-				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
-					document.getElementById('chatroom')?.classList.add('ntv__alternating-background')
-				}
+				const chatroomEl = document.getElementById('chatroom')
 
-				// Add seperator lines to chat messages
-				const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
-				if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-					document.getElementById('chatroom')?.classList.add(`ntv__seperators-${seperatorSettingVal}`)
+				if (chatroomEl) {
+					// Add alternating background color to chat messages
+					if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
+						chatroomEl.classList.add('ntv__alternating-background')
+					}
+
+					// Add seperator lines to chat messages
+					const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
+					if (seperatorSettingVal && seperatorSettingVal !== 'none') {
+						chatroomEl.classList.add(`ntv__seperators-${seperatorSettingVal}`)
+					}
+
+					chatroomEl.addEventListener('copy', evt => {
+						this.clipboard.handleCopyEvent(evt)
+					})
 				}
 
 				// Render emotes in chat when providers are loaded
@@ -301,10 +309,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldEl.addEventListener('cut', evt => {
 			this.clipboard.handleCutEvent(evt)
-		})
-
-		textFieldEl.addEventListener('copy', evt => {
-			this.clipboard.handleCopyEvent(evt)
 		})
 
 		this.rootContext.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {

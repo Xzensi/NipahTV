@@ -161,16 +161,17 @@ export class ContentEditableEditor {
 					const token = tokens[j]
 					const emoteHid = emotesManager.getEmoteHidByName(token)
 					if (emoteHid) {
-						if (i > 0 && j > 0) {
-							newNodes.push(document.createTextNode(' '))
-						}
 						newNodes.push(
 							this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
 						)
 					} else if (i === 0 && j === 0) {
 						newNodes.push(document.createTextNode(token))
 					} else {
-						newNodes.push(document.createTextNode(' ' + token))
+						if (newNodes[newNodes.length - 1] instanceof Text) {
+							newNodes[newNodes.length - 1].textContent += ' ' + token
+						} else {
+							newNodes.push(document.createTextNode(token))
+						}
 					}
 				}
 			}
