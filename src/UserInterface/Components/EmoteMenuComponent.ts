@@ -79,7 +79,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		// Set href for chatroom link which is at current channel
 		this.containerEl
 			.querySelector('.ntv__chatroom-link')!
-			.setAttribute('href', `/${this.session.channelData.channel_name}/chatroom`)
+			.setAttribute('href', `/${this.session.channelData.channelName}/chatroom`)
 
 		this.searchInputEl = this.containerEl.querySelector('.ntv__emote-menu__search input')!
 		this.scrollableEl = this.containerEl.querySelector('.ntv__emote-menu__scrollable')!

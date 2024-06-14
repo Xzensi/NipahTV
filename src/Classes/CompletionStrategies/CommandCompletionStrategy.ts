@@ -408,8 +408,8 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 
 	getAvailableCommands() {
 		const channelData = this.rootContext.networkInterface.channelData
-		const is_broadcaster = channelData?.me?.is_broadcaster || false
-		const is_moderator = channelData?.me?.is_moderator || false
+		const is_broadcaster = channelData?.me?.isBroadcaster || false
+		const is_moderator = channelData?.me?.isModerator || false
 
 		return commandsMap.filter(commandEntry => {
 			if (commandEntry.minAllowedRole === 'broadcaster') return is_broadcaster
@@ -506,7 +506,6 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			// TODO implement it as settings option whether to validate and block invalid commands, might be useful for custom commands
 			const isInvalid = this.validateInputCommand(nodeData.substring(1))
 			const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1))
-			log(commandData)
 
 			event.stopPropagation()
 			event.preventDefault()

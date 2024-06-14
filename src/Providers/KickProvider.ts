@@ -1,19 +1,19 @@
-import { AbstractProvider, IAbstractProvider, ProviderDependencies } from './AbstractProvider'
+import { AbstractEmoteProvider, IAbstractEmoteProvider, EmoteProviderDependencies } from './AbstractEmoteProvider'
 import { SettingsManager } from '../Managers/SettingsManager'
 import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
-export class KickProvider extends AbstractProvider implements IAbstractProvider {
+export class KickProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.KICK
 	status = 'unloaded'
 
-	constructor(dependencies: ProviderDependencies) {
+	constructor(dependencies: EmoteProviderDependencies) {
 		super(dependencies)
 	}
 
-	async fetchEmotes({ channel_id, channel_name, user_id, me }: ChannelData) {
-		if (!channel_id) return error('Missing channel id for Kick provider')
-		if (!channel_name) return error('Missing channel name for Kick provider')
+	async fetchEmotes({ channelId, channelName, userId, me }: ChannelData) {
+		if (!channelId) return error('Missing channel id for Kick provider')
+		if (!channelName) return error('Missing channel name for Kick provider')
 
 		const { settingsManager } = this
 
@@ -27,7 +27,7 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 		const includeEmojiEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_emojis')
 
 		info('Fetching emote data from Kick..')
-		const data = await REST.get(`https://kick.com/emotes/${channel_name}`)
+		const data = await REST.get(`https://kick.com/emotes/${channelName}`)
 
 		let dataFiltered = data
 		if (!includeGlobalEmoteSet) {
@@ -37,7 +37,7 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 			dataFiltered = dataFiltered.filter((entry: any) => entry.id !== 'Emoji')
 		}
 		if (!includeCurrentChannelEmoteSet) {
-			dataFiltered = dataFiltered.filter((entry: any) => entry.id !== channel_id)
+			dataFiltered = dataFiltered.filter((entry: any) => entry.id !== channelId)
 		}
 		if (!includeOtherChannelEmoteSets) {
 			dataFiltered = dataFiltered.filter((entry: any) => !entry.user_id)
@@ -50,17 +50,15 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 			// Filter out sub emotes when not subscribed
 			//  only need to check for the current channel's emotes
 			let emotesFiltered = emotes
-			if (dataSet.user_id === user_id) {
-				emotesFiltered = emotes.filter(
-					emote => me.is_broadcaster || me.is_subscribed || !emote.subscribers_only
-				)
+			if (dataSet.user_id === userId) {
+				emotesFiltered = emotes.filter(emote => me.isBroadcaster || me.isSubscribed || !emote.subscribersOnly)
 			}
 			const emotesMapped = emotesFiltered.map(emote => {
 				return {
 					id: '' + emote.id,
 					hid: md5(emote.name),
 					name: emote.name,
-					subscribers_only: emote.subscribers_only,
+					subscribersOnly: emote.subscribersOnly,
 					provider: PROVIDER_ENUM.KICK,
 					width: 32,
 					size: 1
@@ -79,11 +77,11 @@ export class KickProvider extends AbstractProvider implements IAbstractProvider 
 
 			emoteSets.push({
 				provider: this.id,
-				order_index: orderIndex,
+				orderIndex: orderIndex,
 				name: emoteSetName,
 				emotes: emotesMapped,
-				is_current_channel: dataSet.id === channel_id,
-				is_subscribed: dataSet.id === channel_id ? !!me.is_subscribed : true,
+				isCurrentChannel: dataSet.id === channelId,
+				isSubscribed: dataSet.id === channelId ? !!me.isSubscribed : true,
 				icon: emoteSetIcon,
 				id: '' + dataSet.id
 			} as EmoteSet)

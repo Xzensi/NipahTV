@@ -128,7 +128,7 @@ export class PollModal extends AbstractModal {
 				return
 			}
 
-			const channelName = this.session.channelData.channel_name
+			const channelName = this.session.channelData.channelName
 
 			this.rootContext.networkInterface.createPoll(channelName, question, options, duration, displayDuration)
 			this.destroy()

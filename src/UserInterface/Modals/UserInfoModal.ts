@@ -3,7 +3,6 @@ import type { Toaster } from '../../Classes/Toaster'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
-import { BadgeFactory } from '../../Factories/BadgeFactory'
 
 export class UserInfoModal extends AbstractModal {
 	private rootContext: RootContext
@@ -66,9 +65,9 @@ export class UserInfoModal extends AbstractModal {
 	async render() {
 		super.render()
 
-		const { channelData } = this.session
-		const is_moderator =
-			channelData.me.is_super_admin || channelData.me.is_moderator || channelData.me.is_broadcaster
+		const { channelData, badgeProvider } = this.session
+		const { usersManager } = this.rootContext
+		const is_moderator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster
 
 		// TODO override the modal position and size to top of chat? Keep in mind other platforms
 
@@ -144,18 +143,18 @@ export class UserInfoModal extends AbstractModal {
 									? `<span>
 								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
 									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
-								</svg> Followed since: ${formattedJoinDate}</span>`
+								</svg> Following since: ${formattedJoinDate}</span>`
 									: ''
 							}
 						</p>
 					</div>
 				</div>
 				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? 'Badges: ' : ''}${userChannelInfo.badges
-				.map(BadgeFactory.getBadge)
+				.map(badgeProvider.getBadge.bind(badgeProvider))
 				.join('')}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
-					<button class="ntv__button">${this.rootContext.usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'}</button>
+					<button class="ntv__button">${usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'}</button>
 					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
@@ -563,7 +562,7 @@ export class UserInfoModal extends AbstractModal {
 
 		let res
 		try {
-			res = await networkInterface.getUserMessages(channelData.channel_id, userInfo.id, cursor)
+			res = await networkInterface.getUserMessages(channelData.channelId, userInfo.id, cursor)
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
 				this.toaster.addToast('Failed to load user message history: ' + err.errors.join(' '), 6_000, 'error')
@@ -654,7 +653,7 @@ export class UserInfoModal extends AbstractModal {
 			delete this.userInfo
 			delete this.userChannelInfo
 			this.userInfo = await networkInterface.getUserInfo(this.username)
-			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channel_name, this.username)
+			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username)
 			// this.userChannelInfo.badges = [
 			// 	{
 			// 		type: 'broadcaster',

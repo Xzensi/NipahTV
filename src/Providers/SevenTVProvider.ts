@@ -1,20 +1,20 @@
-import { AbstractProvider, IAbstractProvider, ProviderDependencies } from './AbstractProvider'
+import { AbstractEmoteProvider, IAbstractEmoteProvider, EmoteProviderDependencies } from './AbstractEmoteProvider'
 import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
-export class SevenTVProvider extends AbstractProvider implements IAbstractProvider {
+export class SevenTVProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.SEVENTV
 	status = 'unloaded'
 
-	constructor(dependencies: ProviderDependencies) {
+	constructor(dependencies: EmoteProviderDependencies) {
 		super(dependencies)
 	}
 
-	async fetchEmotes({ user_id }: ChannelData) {
+	async fetchEmotes({ userId }: ChannelData) {
 		info('Fetching emote data from SevenTV..')
-		if (!user_id) return error('Missing Kick channel id for SevenTV provider.')
+		if (!userId) return error('Missing Kick channel id for SevenTV provider.')
 
-		const data = await REST.get(`https://7tv.io/v3/users/KICK/${user_id}`).catch(err => {
+		const data = await REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch(err => {
 			error('Failed to fetch SevenTV emotes.', err)
 			this.status = 'connection_failed'
 			return []
@@ -48,7 +48,7 @@ export class SevenTVProvider extends AbstractProvider implements IAbstractProvid
 				hid: md5(emote.name),
 				name: emote.name,
 				provider: PROVIDER_ENUM.SEVENTV,
-				subscribers_only: false,
+				subscribersOnly: false,
 				spacing: true,
 				width: file.width,
 				size
@@ -62,11 +62,11 @@ export class SevenTVProvider extends AbstractProvider implements IAbstractProvid
 		return [
 			{
 				provider: this.id,
-				order_index: 2,
+				orderIndex: 2,
 				name: data.emote_set.name,
 				emotes: emotesMapped,
-				is_current_channel: false,
-				is_subscribed: false,
+				isCurrentChannel: false,
+				isSubscribed: false,
 				icon: data.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.ico',
 				id: '' + data.emote_set.id
 			} as EmoteSet

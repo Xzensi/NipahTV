@@ -73,7 +73,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 
 		// Wait for chat messages container to load
-		const chatMessagesContainerSelector = channelData.is_vod
+		const chatMessagesContainerSelector = channelData.isVod
 			? '#chatroom-replay > .overflow-y-scroll > .flex-col-reverse'
 			: '#chatroom > div:nth-child(2) > .overflow-y-scroll'
 
@@ -165,7 +165,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	// TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
 	async loadEmoteMenu() {
-		if (!this.session.channelData.me.is_logged_in) return
+		if (!this.session.channelData.me.isLoggedIn) return
 		if (!this.elm.textField) return error('Text field not loaded for emote menu')
 
 		const container = this.elm.textField.parentElement!.parentElement!
@@ -235,7 +235,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadShadowProxyElements() {
-		if (!this.session.channelData.me.is_logged_in) return
+		if (!this.session.channelData.me.isLoggedIn) return
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
@@ -447,7 +447,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	loadReplyBehaviour() {
 		const { inputController } = this
 		const { channelData } = this.session
-		if (!channelData.me.is_logged_in) return
+		if (!channelData.me.isLoggedIn) return
 		if (!inputController) return error('Input controller not loaded for reply behaviour')
 
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
@@ -660,7 +660,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { usersManager, settingsManager, emotesManager } = this.rootContext
 		const { channelData } = this.session
 
-		if (!channelData.is_vod) {
+		if (!channelData.isVod) {
 			const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
 			if (usernameEl) {
 				const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
@@ -680,7 +680,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						)
 						if (
 							enableFirstMessageHighlight &&
-							(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.is_moderator))
+							(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.isModerator))
 						) {
 							messageNode.classList.add('ntv__highlight-first-message')
 						}

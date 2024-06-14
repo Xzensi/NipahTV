@@ -1,6 +1,7 @@
 import type { KickNetworkInterface } from '../NetworkInterfaces/KickNetworkInterface'
 import type { AbstractUserInterface } from '../UserInterface/AbstractUserInterface'
 import type { SettingsManager } from '../Managers/SettingsManager'
+import type { IBadgeProvider } from '../Providers/BadgeProvider'
 import type { EmotesManager } from '../Managers/EmotesManager'
 import type { UsersManager } from '../Managers/UsersManager'
 import type { Publisher } from '../Classes/Publisher'
@@ -60,35 +61,36 @@ declare global {
 	type Session = {
 		channelData: ChannelData
 		userInterface?: AbstractUserInterface
+		badgeProvider: IBadgeProvider
 	}
 
 	type ChannelData = {
-		channel_id: string
-		channel_name: string
-		user_id: string
-		is_vod?: boolean
+		channelId: string
+		channelName: string
+		userId: string
+		isVod?: boolean
 		chatroom: {
 			id: string | number
-			message_interval: number
+			messageInterval: number
 		}
 		me: {
-			is_logged_in: boolean
-			is_subscribed?: boolean
-			is_following?: boolean
-			is_super_admin?: boolean
-			is_broadcaster?: boolean
-			is_moderator?: boolean
-			is_banned?: boolean
+			isLoggedIn: boolean
+			isSubscribed?: boolean
+			isFollowing?: boolean
+			isSuperAdmin?: boolean
+			isBroadcaster?: boolean
+			isModerator?: boolean
+			isBanned?: boolean
 		}
 	}
 
 	type EmoteSet = {
 		provider: number
-		order_index: number
+		orderIndex: number
 		name: string
 		emotes: Array<Emote>
-		is_current_channel: boolean
-		is_subscribed: boolean
+		isCurrentChannel: boolean
+		isSubscribed: boolean
 		icon: string
 		id: string
 	}
@@ -98,7 +100,7 @@ declare global {
 		hid: string
 		name: string
 		provider: number
-		subscribers_only: boolean
+		subscribersOnly: boolean
 		spacing?: boolean
 		width: number
 		size: number

@@ -45,7 +45,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 		})
 
 		this.footerLogoBtnEl?.addEventListener('click', () => {
-			if (!this.session.channelData.me.is_logged_in) {
+			if (!this.session.channelData.me.isLoggedIn) {
 				this.session.userInterface?.toastError(`Please log in first to use NipahTV.`)
 			}
 

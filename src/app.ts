@@ -17,6 +17,7 @@ import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
 import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
 import { UsersManager } from './Managers/UsersManager'
+import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 
 class NipahClient {
 	ENV_VARS = {
@@ -142,7 +143,7 @@ class NipahClient {
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
-			channelData.channel_id
+			channelData.channelId
 		))
 		emotesManager.initialize()
 
@@ -165,8 +166,12 @@ class NipahClient {
 		const { emotesManager } = rootContext
 
 		const session: Session = {
-			channelData
+			channelData,
+			// badgeProvider: PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
+			badgeProvider: new KickBadgeProvider(rootContext, channelData)
 		}
+
+		session.badgeProvider.initialize()
 
 		let userInterface: KickUserInterface
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
