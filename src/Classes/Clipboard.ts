@@ -64,6 +64,7 @@ export class Clipboard2 {
 					return node.dataset.emoteName || 'UNSET_EMOTE_NAME'
 				}
 			})
+			.filter((text): text is string => typeof text === 'string' && text.length > 0)
 			.join(' ')
 			.replaceAll(CHAR_ZWSP, '')
 
