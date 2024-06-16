@@ -3,7 +3,6 @@ import type { Toaster } from '../../Classes/Toaster'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
-import { BadgeFactory } from '../../Factories/BadgeFactory'
 
 export class UserInfoModal extends AbstractModal {
 	private rootContext: RootContext
@@ -43,11 +42,29 @@ export class UserInfoModal extends AbstractModal {
 		}: {
 			toaster: Toaster
 		},
-		username: string
+		username: string,
+		coordinates?: { x: number; y: number }
 	) {
+		const modalWidth = 340
+
+		if (coordinates) {
+			const screenWidth = window.innerWidth
+			log(screenWidth)
+
+			if (screenWidth < modalWidth) coordinates.x = 0
+			else if (screenWidth - coordinates.x < modalWidth) coordinates.x = screenWidth - modalWidth
+			else if (coordinates.x < 0) coordinates.x = 0
+
+			const screenHeight = window.innerHeight
+			if (screenHeight < 300) coordinates.y = 0
+			else if (coordinates.y < 0) coordinates.y = 0
+			else if (coordinates.y > screenHeight - 300) coordinates.y = screenHeight - 300
+		}
+
 		const geometry: ModalGeometry = {
-			width: '340px',
-			position: 'chat-top'
+			width: modalWidth + 'px',
+			position: coordinates ? 'coordinates' : 'chat-top',
+			coords: coordinates
 		}
 
 		super('user-info', geometry)
@@ -66,11 +83,9 @@ export class UserInfoModal extends AbstractModal {
 	async render() {
 		super.render()
 
-		const { channelData } = this.session
-		const is_moderator =
-			channelData.me.is_super_admin || channelData.me.is_moderator || channelData.me.is_broadcaster
-
-		// TODO override the modal position and size to top of chat? Keep in mind other platforms
+		const { channelData, badgeProvider } = this.session
+		const { usersManager } = this.rootContext
+		const isModerator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster
 
 		await this.updateUserInfo()
 
@@ -87,7 +102,10 @@ export class UserInfoModal extends AbstractModal {
 			username: 'Error',
 			channel: 'Error',
 			badges: [],
-			followingSince: null
+			followingSince: null,
+			isChannelOwner: false,
+			isModerator: false,
+			isStaff: false
 		}
 
 		const today = +new Date(new Date().toLocaleDateString())
@@ -139,23 +157,19 @@ export class UserInfoModal extends AbstractModal {
 									: ''
 							}
 
-							${
-								formattedJoinDate
-									? `<span>
+							${`<span>
 								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
 									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
-								</svg> Followed since: ${formattedJoinDate}</span>`
-									: ''
-							}
+								</svg> Following since: ${formattedJoinDate ? formattedJoinDate : '-'}</span>`}
 						</p>
 					</div>
 				</div>
 				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? 'Badges: ' : ''}${userChannelInfo.badges
-				.map(BadgeFactory.getBadge)
+				.map(badgeProvider.getBadge.bind(badgeProvider))
 				.join('')}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
-					<button class="ntv__button">${this.rootContext.usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'}</button>
+					<button class="ntv__button">${usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'}</button>
 					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
@@ -168,13 +182,14 @@ export class UserInfoModal extends AbstractModal {
 
 		this.badgesEl = element.querySelector('.ntv__user-info-modal__badges') as HTMLElement
 
-		if (is_moderator) {
-			this.actionFollowEl = element.querySelector(
-				'.ntv__user-info-modal__actions .ntv__button:nth-child(1)'
-			) as HTMLElement
-			this.actionMuteEl = element.querySelector(
-				'.ntv__user-info-modal__actions .ntv__button:nth-child(2)'
-			) as HTMLElement
+		this.actionFollowEl = element.querySelector(
+			'.ntv__user-info-modal__actions .ntv__button:nth-child(1)'
+		) as HTMLElement
+		this.actionMuteEl = element.querySelector(
+			'.ntv__user-info-modal__actions .ntv__button:nth-child(2)'
+		) as HTMLElement
+
+		if (isModerator) {
 			this.actionReportEl = element.querySelector(
 				'.ntv__user-info-modal__actions .ntv__button:nth-child(3)'
 			) as HTMLElement
@@ -208,7 +223,7 @@ export class UserInfoModal extends AbstractModal {
 
 			this.modActionButtonVIPEl = parseHTML(
 				cleanupHTML(`
-			<button class="ntv__icon-button" alt="VIP ${userInfo.username}">
+			<button class="ntv__icon-button" alt="VIP ${userInfo.username}" ${this.isUserVIP() ? 'active' : ''}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h18M3 19h18M4 9l2 6h1l2-6m3 0v6m4 0V9h2a2 2 0 1 1 0 4h-2" />
 				</svg>
@@ -219,7 +234,7 @@ export class UserInfoModal extends AbstractModal {
 
 			this.modActionButtonModEl = parseHTML(
 				cleanupHTML(`
-			<button class="ntv__icon-button" alt="Mod ${userInfo.username}">
+			<button class="ntv__icon-button" alt="Mod ${userInfo.username}" ${this.isUserPrivileged() ? 'active' : ''}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
 				</svg>
@@ -262,10 +277,7 @@ export class UserInfoModal extends AbstractModal {
 		this.modActionButtonBanEl?.addEventListener('click', this.clickBanHandler.bind(this))
 		this.modActionButtonTimeoutEl?.addEventListener('click', this.clickTimeoutHandler.bind(this))
 		this.modActionButtonVIPEl?.addEventListener('click', this.clickVIPHandler.bind(this))
-
-		this.modActionButtonModEl?.addEventListener('click', () => {
-			log('Mod button clicked')
-		})
+		this.modActionButtonModEl?.addEventListener('click', this.clickModHandler.bind(this))
 
 		this.modLogsMessagesEl?.addEventListener('click', this.clickMessagesHistoryHandler.bind(this))
 	}
@@ -410,58 +422,121 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async clickVIPHandler() {
-		log('VIP button clicked')
-
 		const { networkInterface } = this.rootContext
-		const { userInfo } = this
-		if (!userInfo) return
+		const { userInfo, userChannelInfo } = this
+		if (!userInfo || !userChannelInfo) return
 
-		// this.modActionButtonVIPEl!.classList.add('ntv__icon-button--disabled')
+		this.modActionButtonVIPEl!.classList.add('ntv__icon-button--disabled')
 
-		// if (userInfo.vip) {
-		// 	log(`Attempting to remove VIP from user: ${userInfo.username}..`)
+		if (this.isUserVIP()) {
+			log(`Attempting to remove VIP status from user: ${userInfo.username}..`)
 
-		// 	try {
-		// 		await networkInterface.sendCommand({ name: 'unvip', args: [userInfo.username] })
-		// 		log('Successfully removed VIP from user:', userInfo.username)
-		// 	} catch (err: any) {
-		// 		if (err.errors && err.errors.length > 0) {
-		// 			this.toaster.addToast('Failed to remove VIP from user: ' + err.errors.join(' '), 6_000, 'error')
-		// 		} else if (err.message) {
-		// 			this.toaster.addToast('Failed to remove VIP from user: ' + err.message, 6_000, 'error')
-		// 		} else {
-		// 			this.toaster.addToast('Failed to remove VIP from user, reason unknown', 6_000, 'error')
-		// 		}
+			try {
+				await networkInterface.sendCommand({ name: 'unvip', args: [userInfo.username] })
+				log('Successfully removed VIP status from user:', userInfo.username)
+			} catch (err: any) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast(
+						'Failed to remove VIP status from user: ' + err.errors.join(' '),
+						6_000,
+						'error'
+					)
+				} else if (err.message) {
+					this.toaster.addToast('Failed to remove VIP status from user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to remove VIP status from user, reason unknown', 6_000, 'error')
+				}
 
-		// 		this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
-		// 		return
-		// 	}
+				this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
+				return
+			}
 
-		// 	delete userInfo.vip
-		// } else {
-		// 	log(`Attempting to give VIP to user: ${userInfo.username}..`)
+			this.removeUserVIPStatus()
+			this.modActionButtonVIPEl?.removeAttribute('active')
+		} else {
+			log(`Attempting to give VIP status to user: ${userInfo.username}..`)
 
-		// 	try {
-		// 		await networkInterface.sendCommand({ name: 'vip', args: [userInfo.username] })
-		// 		log('Successfully gave VIP to user:', userInfo.username)
-		// 	} catch (err: any) {
-		// 		if (err.errors && err.errors.length > 0) {
-		// 			this.toaster.addToast('Failed to give VIP to user: ' + err.errors.join(' '), 6_000, 'error')
-		// 		} else if (err.message) {
-		// 			this.toaster.addToast('Failed to give VIP to user: ' + err.message, 6_000, 'error')
-		// 		} else {
-		// 			this.toaster.addToast('Failed to give VIP to user, reason unknown', 6_000, 'error')
-		// 		}
+			try {
+				await networkInterface.sendCommand({ name: 'vip', args: [userInfo.username] })
+				log('Successfully gave VIP status to user:', userInfo.username)
+			} catch (err: any) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast('Failed to give VIP status to user: ' + err.errors.join(' '), 6_000, 'error')
+				} else if (err.message) {
+					this.toaster.addToast('Failed to give VIP status to user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to give VIP status to user, reason unknown', 6_000, 'error')
+				}
 
-		// 		this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
-		// 		return
-		// 	}
+				this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
+				return
+			}
 
-		// 	userInfo.vip = true
-		// }
+			this.modActionButtonVIPEl?.setAttribute('active', '')
+			await this.updateUserInfo()
+		}
 
-		// this.updateModStatusPage()
-		// this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
+		this.updateUserBadges()
+		this.modActionButtonVIPEl!.classList.remove('ntv__icon-button--disabled')
+	}
+
+	async clickModHandler() {
+		const { networkInterface } = this.rootContext
+		const { userInfo, userChannelInfo } = this
+		if (!userInfo || !userChannelInfo) return
+
+		this.modActionButtonModEl!.classList.add('ntv__icon-button--disabled')
+
+		if (this.isUserPrivileged()) {
+			log(`Attempting to remove mod status from user: ${userInfo.username}..`)
+
+			try {
+				await networkInterface.sendCommand({ name: 'unmod', args: [userInfo.username] })
+				log('Successfully removed mod status from user:', userInfo.username)
+			} catch (err: any) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast(
+						'Failed to remove mod status from user: ' + err.errors.join(' '),
+						6_000,
+						'error'
+					)
+				} else if (err.message) {
+					this.toaster.addToast('Failed to remove mod status from user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to remove mod status from user, reason unknown', 6_000, 'error')
+				}
+
+				this.modActionButtonModEl!.classList.remove('ntv__icon-button--disabled')
+				return
+			}
+
+			this.removeUserModStatus()
+			this.modActionButtonModEl?.removeAttribute('active')
+		} else {
+			log(`Attempting to give mod status to user: ${userInfo.username}..`)
+
+			try {
+				await networkInterface.sendCommand({ name: 'mod', args: [userInfo.username] })
+				log('Successfully gave mod status to user:', userInfo.username)
+			} catch (err: any) {
+				if (err.errors && err.errors.length > 0) {
+					this.toaster.addToast('Failed to give mod status to user: ' + err.errors.join(' '), 6_000, 'error')
+				} else if (err.message) {
+					this.toaster.addToast('Failed to give mod status to user: ' + err.message, 6_000, 'error')
+				} else {
+					this.toaster.addToast('Failed to give mod status to user, reason unknown', 6_000, 'error')
+				}
+
+				this.modActionButtonModEl!.classList.remove('ntv__icon-button--disabled')
+				return
+			}
+
+			this.modActionButtonModEl?.setAttribute('active', '')
+			await this.updateUserInfo()
+		}
+
+		this.updateUserBadges()
+		this.modActionButtonModEl!.classList.remove('ntv__icon-button--disabled')
 	}
 
 	async clickBanHandler() {
@@ -562,7 +637,7 @@ export class UserInfoModal extends AbstractModal {
 
 		let res
 		try {
-			res = await networkInterface.getUserMessages(channelData.channel_id, userInfo.id, cursor)
+			res = await networkInterface.getUserMessages(channelData.channelId, userInfo.id, cursor)
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
 				this.toaster.addToast('Failed to load user message history: ' + err.errors.join(' '), 6_000, 'error')
@@ -645,6 +720,27 @@ export class UserInfoModal extends AbstractModal {
 		if (scrollTop < 30) this.loadMoreMessagesHistory()
 	}
 
+	isUserVIP() {
+		return !!this.userChannelInfo?.badges.find(badge => badge.type === 'vip')
+	}
+
+	isUserPrivileged() {
+		return (
+			this.userChannelInfo?.isChannelOwner || this.userChannelInfo?.isModerator || this.userChannelInfo?.isStaff
+		)
+	}
+
+	removeUserVIPStatus() {
+		if (!this.userChannelInfo) return
+		this.userChannelInfo.badges = this.userChannelInfo.badges.filter(badge => badge.type !== 'vip')
+	}
+
+	removeUserModStatus() {
+		if (!this.userChannelInfo) return
+		this.userChannelInfo.isModerator = false
+		this.userChannelInfo.badges = this.userChannelInfo.badges.filter(badge => badge.type !== 'moderator')
+	}
+
 	async updateUserInfo() {
 		const { networkInterface } = this.rootContext
 		const { channelData } = this.session
@@ -653,7 +749,7 @@ export class UserInfoModal extends AbstractModal {
 			delete this.userInfo
 			delete this.userChannelInfo
 			this.userInfo = await networkInterface.getUserInfo(this.username)
-			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channel_name, this.username)
+			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username)
 			// this.userChannelInfo.badges = [
 			// 	{
 			// 		type: 'broadcaster',
@@ -725,6 +821,16 @@ export class UserInfoModal extends AbstractModal {
 				this.toaster.addToast('Failed to get user info, reason unknown', 6_000, 'error')
 			}
 		}
+	}
+
+	updateUserBadges() {
+		const { badgeProvider } = this.session
+		const { badgesEl, userChannelInfo } = this
+		if (!badgesEl || !userChannelInfo) return
+
+		badgesEl.innerHTML = userChannelInfo.badges.length
+			? 'Badges: ' + userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join('')
+			: ''
 	}
 
 	updateModStatusPage() {

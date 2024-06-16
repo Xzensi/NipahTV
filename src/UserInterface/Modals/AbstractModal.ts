@@ -3,7 +3,8 @@ import { AbstractComponent } from '../Components/AbstractComponent'
 
 export type ModalGeometry = {
 	width?: string
-	position?: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'chat-top'
+	position?: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'chat-top' | 'coordinates'
+	coords?: { x: number; y: number }
 }
 
 /*
@@ -27,8 +28,16 @@ export class AbstractModal extends AbstractComponent {
 		this.className = className
 		this.geometry = geometry
 
+		const position = this.geometry?.position
+		let positionStyle = ''
+		if (position === 'chat-top') {
+			positionStyle = 'right:0;top:43px;'
+		} else if (position === 'coordinates' && this.geometry?.coords) {
+			const coords = this.geometry.coords
+			positionStyle = `left:${coords.x}px;top:${coords.y}px;`
+		}
+
 		const widthStyle = this.geometry?.width ? `width:${this.geometry.width}` : ''
-		const positionStyle = this.geometry?.position === 'chat-top' ? `right:0;top:43px;` : ''
 		const styleAttribute = `style="${widthStyle};${positionStyle}"`
 
 		this.element = parseHTML(

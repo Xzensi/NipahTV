@@ -25,6 +25,10 @@ export class UsersManager {
 		return this.datastore.getUserById(id)
 	}
 
+	getUserByName(name: string) {
+		return this.datastore.getUserByName(name)
+	}
+
 	searchUsers(searchVal: string, limit = 20) {
 		return this.datastore.searchUsers(searchVal).slice(0, limit)
 	}

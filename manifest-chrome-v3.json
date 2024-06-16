@@ -19,9 +19,15 @@
 	},
 	"content_scripts": [
 		{
-			"matches": ["https://kick.com/*"],
+			"world": "MAIN",
+			"js": ["page.js"],
+			"run_at": "document_start",
+			"matches": ["https://kick.com/*"]
+		},
+		{
 			"js": ["vendor/dexie.min.js", "vendor/fuse.min.js", "vendor/twemoji.min.js", "index.js"],
-			"css": ["style.min.css"]
+			"css": ["style.min.css"],
+			"matches": ["https://kick.com/*"]
 		}
 	],
 	"web_accessible_resources": [

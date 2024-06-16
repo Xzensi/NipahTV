@@ -10,7 +10,7 @@ export type User = {
 export class UsersDatastore {
 	private eventBus: Publisher
 
-	private usersNameMap: Map<string, User> = new Map()
+	private usersLowerCaseNameMap: Map<string, User> = new Map()
 	private usersIdMap: Map<string, User> = new Map()
 	private users: Array<User> = []
 	private usersCount = 0
@@ -30,10 +30,9 @@ export class UsersDatastore {
 		this.eventBus = eventBus
 
 		eventBus.subscribe('ntv.session.destroy', () => {
-			// @ts-ignore
-			delete this.users // @ts-ignore
-			delete this.usersIdMap // @ts-ignore
-			delete this.usersNameMap
+			this.users.length = 0
+			this.usersIdMap.clear()
+			this.usersLowerCaseNameMap.clear()
 		})
 	}
 
@@ -58,7 +57,7 @@ export class UsersDatastore {
 		}
 
 		const user: User = { id: id, name }
-		this.usersNameMap.set(name, user)
+		this.usersLowerCaseNameMap.set(name.toLowerCase(), user)
 		this.usersIdMap.set(id, user)
 		this.users.push(user)
 		this.fuse.add(user)
@@ -67,6 +66,10 @@ export class UsersDatastore {
 
 	getUserById(id: string) {
 		return this.usersIdMap.get(id + '')
+	}
+
+	getUserByName(name: string) {
+		return this.usersLowerCaseNameMap.get(name.toLowerCase())
 	}
 
 	searchUsers(searchVal: string) {

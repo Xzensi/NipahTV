@@ -57,47 +57,165 @@ export class REST {
 	}
 	static fetch(url: URL | RequestInfo, options: RequestInit = {}) {
 		return new Promise((resolve, reject) => {
+			const xhr = new XMLHttpRequest()
+
+			xhr.open(options.method || 'GET', url as string, true)
+			xhr.setRequestHeader('accept', 'application/json, text/plain, */*')
+
 			if (options.body || options.method !== 'GET') {
-				options.headers = Object.assign(options.headers || {}, {
-					'Content-Type': 'application/json',
-					Accept: 'application/json, text/plain, */*'
-				})
+				xhr.setRequestHeader('Content-Type', 'application/json')
+
+				// 	options.headers = Object.assign(options.headers || {}, {
+				// 		// 'Content-Type': 'application/json',
+				// 		Accept: 'application/json, text/plain, */*'
+				// 	})
 			}
 
 			const currentDomain = window.location.host.split('.').slice(-2).join('.')
 			const urlDomain = new URL(url as string).host.split('.').slice(-2).join('.')
 			if (currentDomain === urlDomain) {
-				options.credentials = 'include'
-				options.referrer = window.location.origin + window.location.pathname
+				// options.credentials = 'include'
+				// options.referrer = window.location.origin + window.location.pathname
+
+				xhr.withCredentials = true
+				// w.setRequestHeader('X-Referer', window.location.origin + window.location.pathname)
+				// w.setRequestHeader('Referer', window.location.origin + window.location.pathname)
 
 				const XSRFToken = getCookie('XSRF')
 				if (XSRFToken) {
-					options.headers = Object.assign(options.headers || {}, {
-						'X-XSRF-TOKEN': XSRFToken
-						// Authorization: 'Bearer ' + XSRFToken
-					})
+					xhr.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
+					xhr.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
+
+					// options.headers = Object.assign(options.headers || {}, {
+					// 	'X-XSRF-TOKEN': XSRFToken,
+					// 	Authorization: 'Bearer ' + XSRFToken
+					// })
 				}
 			}
 
-			fetch(url, options)
-				.then(async res => {
-					const statusString = res.status.toString()
-					if (res.redirected) {
-						reject('Request failed, redirected to ' + res.url)
-					} else if (statusString[0] !== '2' && res.status !== 304) {
-						await res
-							.json()
-							.then(reject)
-							.catch(() => {
-								reject('Request failed with status code ' + res.status)
-							})
-					}
-					return res
-				})
-				.then(res => res.json())
-				.then(resolve)
-				.catch(reject)
+			// fetch(url, options)
+			// 	.then(async res => {
+			// 		const statusString = res.status.toString()
+			// 		if (res.redirected) {
+			// 			reject('Request failed, redirected to ' + res.url)
+			// 		} else if (statusString[0] !== '2' && res.status !== 304) {
+			// 			await res
+			// 				.json()
+			// 				.then(reject)
+			// 				.catch(() => {
+			// 					reject('Request failed with status code ' + res.status)
+			// 				})
+			// 		}
+			// 		return res
+			// 	})
+			// 	.then(res => res.json())
+			// 	.then(resolve)
+			// 	.catch(reject)
+
+			xhr.onload = function () {
+				if (xhr.status >= 200 && xhr.status < 300) {
+					if (xhr.responseText) resolve(JSON.parse(xhr.responseText))
+					else resolve(void 0)
+				} else {
+					reject('Request failed with status code ' + xhr.status)
+				}
+			}
+			xhr.onerror = function () {
+				reject('Request failed')
+			}
+			xhr.onabort = function () {
+				reject('Request aborted')
+			}
+			xhr.ontimeout = function () {
+				reject('Request timed out')
+			}
+
+			if (options.body) xhr.send(options.body as string)
+			else xhr.send()
 		}) as Promise<any | void>
+	}
+}
+
+/**
+ * REST class that sends requests from the main thread to the page context.
+ * Uses XMLHttpRequest for Kick because Kasada anti-bot WAF intercepts and decorates it.
+ */
+export class RESTFromMain {
+	requestID = 0
+	promiseMap = new Map()
+
+	constructor() {
+		document.addEventListener('ntv_upstream', (evt: Event) => {
+			const data = JSON.parse((evt as CustomEvent).detail)
+			const { rID, xhr } = data
+			const { resolve, reject } = this.promiseMap.get(rID)
+			this.promiseMap.delete(rID)
+
+			if (xhr.status >= 200 && xhr.status < 300) {
+				if (xhr.text) resolve(JSON.parse(xhr.text))
+				else resolve(void 0)
+			} else {
+				reject('Request failed with status code ' + xhr.status)
+			}
+		})
+	}
+
+	async initialize() {
+		return new Promise(resolve => {
+			// Firefox Manifest V2 does not support content script in execution context MAIN
+			//  So we need to inject the page script manually
+			if (__FIREFOX_MV2__) {
+				const s = document.createElement('script')
+				s.src = browser.runtime.getURL('page.js')
+				s.onload = function () {
+					s.remove()
+					resolve(void 0)
+				}
+				;(document.head || document.documentElement).appendChild(s)
+			} else {
+				resolve(void 0)
+			}
+		})
+	}
+
+	get(url: string) {
+		return this.fetch(url)
+	}
+	post(url: string, data?: object) {
+		if (data) {
+			return this.fetch(url, {
+				method: 'POST',
+				body: JSON.stringify(data)
+			})
+		} else {
+			return this.fetch(url, {
+				method: 'POST'
+			})
+		}
+	}
+	put(url: string, data: object) {
+		return this.fetch(url, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		})
+	}
+	delete(url: string) {
+		return this.fetch(url, {
+			method: 'DELETE'
+		})
+	}
+	fetch(url: URL | RequestInfo, options: RequestInit = {}) {
+		if (__EXTENSION__) {
+			return new Promise((resolve, reject) => {
+				const rID = ++this.requestID
+				this.promiseMap.set(rID, { resolve, reject })
+				document.dispatchEvent(
+					new CustomEvent('ntv_downstream', { detail: JSON.stringify({ rID, url, options }) })
+				)
+			}) as Promise<any | void>
+		} else {
+			return REST.fetch(url, options)
+		}
 	}
 }
 

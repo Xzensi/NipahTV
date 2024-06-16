@@ -9,7 +9,7 @@ import { SevenTVProvider } from './Providers/SevenTVProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error } from './utils'
+import { log, info, error, RESTFromMain } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 import { Database } from './Classes/Database'
@@ -17,10 +17,11 @@ import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
 import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
 import { UsersManager } from './Managers/UsersManager'
+import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.11',
+		VERSION: '1.4.12',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -44,7 +45,7 @@ class NipahClient {
 		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')
 			RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
-			wwindow.NipahTV = this
+			window.NipahTV = this
 		} else if (!__USERSCRIPT__) {
 			info('Running in extension mode..')
 			RESOURCE_ROOT = browser.runtime.getURL('/')
@@ -54,20 +55,25 @@ class NipahClient {
 
 		Object.freeze(RESOURCE_ROOT)
 
-		if (wwindow.location.host === 'kick.com') {
+		if (window.location.host === 'kick.com') {
 			PLATFORM = PLATFORM_ENUM.KICK
 			info('Platform detected: Kick')
-		} else if (wwindow.location.host === 'www.twitch.tv') {
+		} else if (window.location.host === 'www.twitch.tv') {
 			PLATFORM = PLATFORM_ENUM.TWITCH
 			info('Platform detected: Twitch')
 		} else {
-			return error('Unsupported platform', wwindow.location.host)
+			return error('Unsupported platform', window.location.host)
 		}
 
 		Object.freeze(PLATFORM)
 
 		this.attachPageNavigationListener()
-		this.setupDatabase().then(() => {
+		this.setupDatabase().then(async () => {
+			// Initialize the RESTFromMainService because it needs to
+			//  inject page script for Firefox extension.
+			window.RESTFromMainService = new RESTFromMain()
+			await RESTFromMainService.initialize()
+
 			this.setupClientEnvironment().catch(err => error('Failed to setup client environment.\n\n', err.message))
 		})
 	}
@@ -119,8 +125,8 @@ class NipahClient {
 		} else {
 			throw new Error('Unsupported platform')
 		}
-		const networkInterface = this.networkInterface
 
+		const networkInterface = this.networkInterface
 		const settingsManager = new SettingsManager({ database, eventBus })
 		settingsManager.initialize()
 
@@ -142,7 +148,7 @@ class NipahClient {
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
-			channelData.channel_id
+			channelData.channelId
 		))
 		emotesManager.initialize()
 
@@ -165,8 +171,12 @@ class NipahClient {
 		const { emotesManager } = rootContext
 
 		const session: Session = {
-			channelData
+			channelData,
+			// badgeProvider: PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
+			badgeProvider: new KickBadgeProvider(rootContext, channelData)
 		}
+
+		session.badgeProvider.initialize()
 
 		let userInterface: KickUserInterface
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
@@ -240,16 +250,15 @@ class NipahClient {
 	}
 
 	attachPageNavigationListener() {
-		info('Current URL:', wwindow.location.href)
-		let locationURL = wwindow.location.href
+		info('Current URL:', window.location.href)
+		let locationURL = window.location.href
 
-		if (wwindow.navigation) {
-			wwindow.navigation.addEventListener('navigate', (event: Event) => {
+		if (window.navigation) {
+			window.navigation.addEventListener('navigate', (event: Event) => {
 				setTimeout(() => {
-					if (locationURL === wwindow.location.href) return
-					locationURL = wwindow.location.href
-
-					info('Navigated to:', wwindow.location.href)
+					if (locationURL === window.location.href) return
+					locationURL = window.location.href
+					info('Navigated to:', window.location.href)
 
 					this.cleanupOldClientEnvironment()
 					this.setupClientEnvironment()
@@ -257,8 +266,8 @@ class NipahClient {
 			})
 		} else {
 			setInterval(() => {
-				if (locationURL !== wwindow.location.href) {
-					locationURL = wwindow.location.href
+				if (locationURL !== window.location.href) {
+					locationURL = window.location.href
 					info('Navigated to:', locationURL)
 
 					this.cleanupOldClientEnvironment()
@@ -280,35 +289,30 @@ class NipahClient {
 }
 
 ;(() => {
-	// const __USERSCRIPT__ = typeof unsafeWindow !== 'undefined'
-	// const wwindow: CustomWindow = __USERSCRIPT__ ? (unsafeWindow as CustomWindow) : (window as any as CustomWindow)
-	// wwindow.__USERSCRIPT__ = __USERSCRIPT__
-	const wwindow: CustomWindow = window as any as CustomWindow
-	wwindow.wwindow = wwindow
-
 	if (__USERSCRIPT__) {
 		info('Running in userscript mode..')
 	}
 
 	if (!__USERSCRIPT__) {
-		if (!wwindow['browser'] && !globalThis['browser']) {
+		if (!window['browser'] && !globalThis['browser']) {
 			if (typeof chrome === 'undefined') {
 				return error('Unsupported browser, please use a modern browser to run NipahTV.')
 			}
-			wwindow.browser = chrome
+			//@ts-ignore
+			window.browser = chrome
 		}
 	}
 
 	var Dexie: any
-	if (__USERSCRIPT__ && !Dexie && !(wwindow as any)['Dexie']) {
+	if (__USERSCRIPT__ && !Dexie && !window['Dexie']) {
 		return error('Failed to import Dexie')
 	}
 
-	if (!Fuse && !wwindow['Fuse']) {
+	if (!Fuse && !window['Fuse']) {
 		return error('Failed to import Fuse')
 	}
 
-	if (!twemoji && !wwindow['twemoji']) {
+	if (!twemoji && !window['twemoji']) {
 		return error('Failed to import Twemoji')
 	}
 

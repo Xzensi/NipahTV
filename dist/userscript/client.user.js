@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.11
+// @version 1.4.12
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e44e1c32.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-327abd1b.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -145,37 +145,120 @@ var REST = class {
   }
   static fetch(url, options = {}) {
     return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(options.method || "GET", url, true);
+      xhr.setRequestHeader("accept", "application/json, text/plain, */*");
       if (options.body || options.method !== "GET") {
-        options.headers = Object.assign(options.headers || {}, {
-          "Content-Type": "application/json",
-          Accept: "application/json, text/plain, */*"
-        });
+        xhr.setRequestHeader("Content-Type", "application/json");
       }
       const currentDomain = window.location.host.split(".").slice(-2).join(".");
       const urlDomain = new URL(url).host.split(".").slice(-2).join(".");
       if (currentDomain === urlDomain) {
-        options.credentials = "include";
-        options.referrer = window.location.origin + window.location.pathname;
+        xhr.withCredentials = true;
         const XSRFToken = getCookie("XSRF");
         if (XSRFToken) {
-          options.headers = Object.assign(options.headers || {}, {
-            "X-XSRF-TOKEN": XSRFToken
-            // Authorization: 'Bearer ' + XSRFToken
-          });
+          xhr.setRequestHeader("X-XSRF-TOKEN", XSRFToken);
+          xhr.setRequestHeader("Authorization", "Bearer " + XSRFToken);
         }
       }
-      fetch(url, options).then(async (res) => {
-        const statusString = res.status.toString();
-        if (res.redirected) {
-          reject("Request failed, redirected to " + res.url);
-        } else if (statusString[0] !== "2" && res.status !== 304) {
-          await res.json().then(reject).catch(() => {
-            reject("Request failed with status code " + res.status);
-          });
+      xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          if (xhr.responseText)
+            resolve(JSON.parse(xhr.responseText));
+          else
+            resolve(void 0);
+        } else {
+          reject("Request failed with status code " + xhr.status);
         }
-        return res;
-      }).then((res) => res.json()).then(resolve).catch(reject);
+      };
+      xhr.onerror = function() {
+        reject("Request failed");
+      };
+      xhr.onabort = function() {
+        reject("Request aborted");
+      };
+      xhr.ontimeout = function() {
+        reject("Request timed out");
+      };
+      if (options.body)
+        xhr.send(options.body);
+      else
+        xhr.send();
     });
+  }
+};
+var RESTFromMain = class {
+  requestID = 0;
+  promiseMap = /* @__PURE__ */ new Map();
+  constructor() {
+    document.addEventListener("ntv_upstream", (evt) => {
+      const data = JSON.parse(evt.detail);
+      const { rID, xhr } = data;
+      const { resolve, reject } = this.promiseMap.get(rID);
+      this.promiseMap.delete(rID);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (xhr.text)
+          resolve(JSON.parse(xhr.text));
+        else
+          resolve(void 0);
+      } else {
+        reject("Request failed with status code " + xhr.status);
+      }
+    });
+  }
+  async initialize() {
+    return new Promise((resolve) => {
+      if (false) {
+        const s = document.createElement("script");
+        s.src = browser.runtime.getURL("page.js");
+        s.onload = function() {
+          s.remove();
+          resolve(void 0);
+        };
+        (document.head || document.documentElement).appendChild(s);
+      } else {
+        resolve(void 0);
+      }
+    });
+  }
+  get(url) {
+    return this.fetch(url);
+  }
+  post(url, data) {
+    if (data) {
+      return this.fetch(url, {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+    } else {
+      return this.fetch(url, {
+        method: "POST"
+      });
+    }
+  }
+  put(url, data) {
+    return this.fetch(url, {
+      method: "PUT",
+      body: JSON.stringify(data)
+    });
+  }
+  delete(url) {
+    return this.fetch(url, {
+      method: "DELETE"
+    });
+  }
+  fetch(url, options = {}) {
+    if (false) {
+      return new Promise((resolve, reject) => {
+        const rID = ++this.requestID;
+        this.promiseMap.set(rID, { resolve, reject });
+        document.dispatchEvent(
+          new CustomEvent("ntv_downstream", { detail: JSON.stringify({ rID, url, options }) })
+        );
+      });
+    } else {
+      return REST.fetch(url, options);
+    }
   }
 };
 function isEmpty(obj) {
@@ -916,7 +999,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const oldEls = document.getElementsByClassName("ntv__client_quick_emotes_holder");
     for (const el of oldEls)
       el.remove();
-    const rows = this.rootContext.settingsManager.getSetting("shared.chat.quick_emote_holder.appearance.rows") || 2;
+    const rows = this.rootContext.settingsManager.getSetting("shared.chat.quick_emote_holder.rows") || 2;
     this.element = parseHTML(
       `<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`,
       true
@@ -941,7 +1024,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     this.renderQuickEmotesCallback = this.renderQuickEmotes.bind(this);
     eventBus.subscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
     eventBus.subscribe(
-      "ntv.settings.change.shared.chat.quick_emote_holder.appearance.rows",
+      "ntv.settings.change.shared.chat.quick_emote_holder.rows",
       ({ value, prevValue }) => {
         this.element?.setAttribute("data-rows", value || "0");
       }
@@ -952,6 +1035,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const emote = this.rootContext.emotesManager.getEmote(emoteHid);
     if (!emote)
       return error("Invalid emote");
+    if (this.rootContext.settingsManager.getSetting("shared.chat.quick_emote_holder.send_immediately")) {
+      sendImmediately = true;
+    }
     this.rootContext.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
   }
   renderQuickEmotes() {
@@ -1050,7 +1136,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
       this.footerLogoBtnEl.className = filename.toLowerCase();
     });
     this.footerLogoBtnEl?.addEventListener("click", () => {
-      if (!this.session.channelData.me.is_logged_in) {
+      if (!this.session.channelData.me.isLoggedIn) {
         this.session.userInterface?.toastError(`Please log in first to use NipahTV.`);
       }
       eventBus.publish("ntv.ui.footer.click");
@@ -1114,7 +1200,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   render() {
     const { settingsManager } = this.rootContext;
-    const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.appearance.search_box");
+    const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.search_box");
     const showSidebar = true;
     document.querySelectorAll(".ntv__emote-menu").forEach((el) => el.remove());
     this.containerEl = parseHTML(
@@ -1153,7 +1239,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
 			`),
       true
     );
-    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/${this.session.channelData.channel_name}/chatroom`);
+    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/${this.session.channelData.channelName}/chatroom`);
     this.searchInputEl = this.containerEl.querySelector(".ntv__emote-menu__search input");
     this.scrollableEl = this.containerEl.querySelector(".ntv__emote-menu__scrollable");
     this.settingsBtnEl = this.containerEl.querySelector(".ntv__emote-menu__sidebar-btn--settings");
@@ -1172,7 +1258,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       if (!emoteHid)
         return error("Invalid emote hid");
       eventBus.publish("ntv.ui.emote.click", { emoteHid });
-      const closeOnClick = settingsManager.getSetting("shared.chat.emote_menu.behavior.close_on_click");
+      const closeOnClick = settingsManager.getSetting("shared.chat.emote_menu.close_on_click");
       if (closeOnClick)
         this.toggleShow(false);
     });
@@ -1405,10 +1491,10 @@ var EmoteMenuComponent = class extends AbstractComponent {
         if (searchInputEl)
           searchInputEl.focus();
         this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this);
-        wwindow.addEventListener("click", this.closeModalClickListenerHandle);
+        window.addEventListener("click", this.closeModalClickListenerHandle);
       });
     } else {
-      wwindow.removeEventListener("click", this.closeModalClickListenerHandle);
+      window.removeEventListener("click", this.closeModalClickListenerHandle);
     }
     if (this.containerEl)
       this.containerEl.style.display = this.isShowing ? "" : "none";
@@ -1586,8 +1672,15 @@ var AbstractModal = class extends AbstractComponent {
     super();
     this.className = className;
     this.geometry = geometry;
+    const position = this.geometry?.position;
+    let positionStyle = "";
+    if (position === "chat-top") {
+      positionStyle = "right:0;top:43px;";
+    } else if (position === "coordinates" && this.geometry?.coords) {
+      const coords = this.geometry.coords;
+      positionStyle = `left:${coords.x}px;top:${coords.y}px;`;
+    }
     const widthStyle = this.geometry?.width ? `width:${this.geometry.width}` : "";
-    const positionStyle = this.geometry?.position === "chat-top" ? `right:0;top:43px;` : "";
     const styleAttribute = `style="${widthStyle};${positionStyle}"`;
     this.element = parseHTML(
       cleanupHTML(
@@ -1671,66 +1764,6 @@ var AbstractModal = class extends AbstractComponent {
   }
 };
 
-// src/Factories/BadgeFactory.ts
-var BadgeFactory = class {
-  static getBadge(badge) {
-    if (!badge.active)
-      return;
-    switch (badge.type) {
-      case "broadcaster":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2);" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3);" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5);" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6);" width="1.6" height="3.2"></rect></g></svg>`;
-      case "verified":
-        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<defs><linearGradient id="badge-verified-gradient" x1="25.333%" y1="99.375%" x2="73.541%" y2="2.917%" gradientUnits="objectBoundingBox"><stop stop-color="#1EFF00"/><stop offset="0.99" stop-color="#00FF8C"/></linearGradient></defs><path d="M14.72 7.00003V6.01336H15.64V4.12003H14.6733V3.16003H9.97332V1.2667H8.96665V0.280029H7.03332V1.2667H6.03332V3.16003H1.32665V4.12003H0.359985V6.01336H1.28665V7.00003H2.23332V9.0067H1.28665V9.99336H0.359985V11.8867H1.32665V12.8467H6.03332V14.74H7.03332V15.7267H8.96665V14.74H9.97332V12.8467H14.6733V11.8867H15.64V9.99336H14.72V9.0067H13.7733V7.00003H14.72ZM12.5 6.59336H11.44V7.66003H10.3733V8.72003H9.31332V9.7867H8.24665V10.8467L7.09332 10.9V11.8H6.02665V10.8467H5.05999V9.7867H3.99332V7.66003H6.11999V8.72003H7.18665V7.66003H8.24665V6.59336H9.31332V5.53336H10.3733V4.4667H12.5V6.59336Z" fill="url(#badge-verified-gradient)"/></svg>`;
-      case "staff":
-        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<defs><linearGradient id="badge-verified-gradient" x1="33.791%" y1="97.416%" x2="65.541%" y2="4.5%" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#1EFF00"></stop><stop offset="0.99" stop-color="#00FF8C"></stop></linearGradient></defs><path fill-rule="evenodd" clip-rule="evenodd" d="M2.07324 1.33331H6.51991V4.29331H7.99991V2.81331H9.47991V1.33331H13.9266V5.77998H12.4466V7.25998H10.9599V8.73998H12.4466V10.22H13.9266V14.6666H9.47991V13.1866H7.99991V11.7066H6.51991V14.6666H2.07324V1.33331Z" fill="url(#badge-verified-gradient)"></path></svg>`;
-      case "global_moderator":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><g id="Badge_Global_Mod"><linearGradient id="badge-global-mod-gradient" gradientUnits="userSpaceOnUse" x1="-1.918" y1="382.5619" x2="17.782" y2="361.3552" gradientTransform="matrix(1 0 0 1 0 -364)"><stop offset="0" style="stop-color:#FCA800"></stop><stop offset="0.99" style="stop-color:#FF5100"></stop></linearGradient><path style="fill:url(#badge-global-mod-gradient)" d="M10.5,0v1.5H9V3H7.5v1.5h-6v6H0V16h5.5v-1.5h6v-6H13V7h1.5V5.5H16V0H10.5z M14.7,4.3h-1.5 v1.5h-1.5v1.5h-1.5v1.5H8.7v1.5h1.5v3h-3v-1.5H5.8v1.5H4.3v1.5h-3v-3h1.5v-1.5h1.5V8.7H2.8v-3h3v1.5h1.5V5.8h1.5V4.3h1.5V2.8h1.5 V1.3h3v3H14.7z"></path></g></svg>`;
-      case "global_admin":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16">
-				<linearGradient id="badge-global-staff-gradient" gradientUnits="userSpaceOnUse" x1="-0.03948053" y1="-180.1338" x2="15.9672" y2="-163.9405" gradientTransform="matrix(1 0 0 -1 0 -164)">
-				  <stop offset="0" style="stop-color:#FCA800"></stop>
-				  <stop offset="0.99" style="stop-color:#FF5100"></stop>
-				</linearGradient>
-				<path style="fill-rule:evenodd;clip-rule:evenodd;fill:url(#badge-global-staff-gradient);" d="M1.1,0.3v15.3H15V0.3H1.1z M12.9,6.2h-1.2v1.2h-1.2v1.2h1.2v1.2h1.2v3.7H9.2v-1.2H8V11H6.8v2.4H3.1v-11h3.7v2.4H8V3.7h1.2V2.5h3.7V6.2z"></path></svg>`;
-      case "sidekick":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><linearGradient id="badge-sidekick-gradient" gradientUnits="userSpaceOnUse" x1="9.3961" y1="-162.6272" x2="5.8428" y2="-180.3738" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FF6A4A;"></stop><stop offset="1" style="stop-color:#C70C00;"></stop></linearGradient><path style="fill:url(#badge-sidekick-gradient);" d="M0,2.8v5.6h1.1V10h1.1v1.6h1.1v1.6h3.4v-1.6H9v1.6h3.4v-1.6h1.1V10h1.1V8.4H16V2.8h-4.6v1.6H9.1V6H6.8V4.4H4.5V2.8H0z M6.9,9.6H3.4V8H2.3V4.8h1.1v1.6h2.3V8h1.1v1.6H6.9z M13.7,8h-1.1v1.6H9.2V8h1.1V6.4h2.3V4.8h1.1C13.7,4.8,13.7,8,13.7,8z"></path></svg>`;
-      case "moderator":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><path style="fill: rgb(0, 199, 255);" d="M11.7,1.3v1.5h-1.5v1.5 H8.7v1.5H7.3v1.5H5.8V5.8h-3v3h1.5v1.5H2.8v1.5H1.3v3h3v-1.5h1.5v-1.5h1.5v1.5h3v-3H8.7V8.7h1.5V7.3h1.5V5.8h1.5V4.3h1.5v-3C14.7,1.3,11.7,1.3,11.7,1.3z"></path></svg>`;
-      case "vip":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" style="enable-background:new 0 0 16 16" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="badge-vip-gradient" gradientUnits="userSpaceOnUse" x1="8" y1="-163.4867" x2="8" y2="-181.56" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FFC900"></stop><stop offset="0.99" style="stop-color:#FF9500"></stop></linearGradient></defs><path style="fill:url(#badge-vip-gradient);" d="M13.9,2.4v1.1h-1.2v2.3h-1.1v1.1h-1.1V4.6H9.3V1.3H6.7v3.3H5.6v2.3H4.4V5.8H3.3V3.5H2.1V2.4H0v12.3h16V2.4H13.9z"/></svg>`;
-      case "og":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-og-gradient-1" gradientUnits="userSpaceOnUse" x1="12.2" y1="-180" x2="12.2" y2="-165.2556" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-1);" d="M16,16H9.2v-0.8H8.4v-8h0.8V6.4H16v3.2h-4.5v4.8H13v-1.6h-0.8v-1.6H16V16z"></path><linearGradient id="badge-og-gradient-2" gradientUnits="userSpaceOnUse" x1="3.7636" y1="-164.265" x2="4.0623" y2="-179.9352" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-2);" d="M6.8,8.8v0.8h-6V8.8H0v-8h0.8V0h6.1v0.8 h0.8v8H6.8z M4.5,6.4V1.6H3v4.8H4.5z"></path><path style="fill:#00FFF2;" d="M6.8,15.2V16h-6v-0.8H0V8.8h0.8V8h6.1v0.8h0.8v6.4C7.7,15.2,6.8,15.2,6.8,15.2z M4.5,14.4V9.6H3v4.8 C3,14.4,4.5,14.4,4.5,14.4z"></path><path style="fill:#00FFF2;" d="M16,8H9.2V7.2H8.4V0.8h0.8V0H16v1.6h-4.5v4.8H13V4.8h-0.8V3.2H16V8z"></path></g></svg>`;
-      case "founder":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><linearGradient id="badge-founder-gradient" gradientUnits="userSpaceOnUse" x1="7.874" y1="20.2333" x2="8.1274" y2="-0.3467" gradientTransform="matrix(1 0 0 -1 0 18)"><stop offset="0" style="stop-color: rgb(255, 201, 0);"></stop><stop offset="0.99" style="stop-color: rgb(255, 149, 0);"></stop></linearGradient><path d="
-                M14.6,4V2.7h-1.3V1.4H12V0H4v1.4H2.7v1.3H1.3V4H0v8h1.3v1.3h1.4v1.3H4V16h8v-1.4h1.3v-1.3h1.3V12H16V4H14.6z M9.9,12.9H6.7V6.4H4.5
-                V5.2h1V4.1h1v-1h3.4V12.9z" style="fill-rule: evenodd; clip-rule: evenodd; fill: url(&quot;#badge-founder-gradient&quot;);"></path></svg>`;
-      case "subscriber":
-        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-subscriber-gradient-1" gradientUnits="userSpaceOnUse" x1="-2.386" y1="-151.2764" x2="42.2073" y2="-240.4697" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-1);" d="M14.8,7.3V6.1h-2.4V4.9H11V3.7H9.9V1.2H8.7V0H7.3v1.2H6.1v2.5H5v1.2H3.7v1.3H1.2v1.2H0v1.4
-				h1.2V10h2.4v1.3H5v1.2h1.2V15h1.2v1h1.3v-1.2h1.2v-2.5H11v-1.2h1.3V9.9h2.4V8.7H16V7.3H14.8z"></path><linearGradient id="badge-subscriber-gradient-2" gradientUnits="userSpaceOnUse" x1="-5.3836" y1="-158.3055" x2="14.9276" y2="-189.0962" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-2);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
-				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-3" gradientUnits="userSpaceOnUse" x1="3.65" y1="-160.7004" x2="3.65" y2="-184.1244" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-3);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
-				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-4" gradientUnits="userSpaceOnUse" x1="22.9659" y1="-167.65" x2="-5.3142" y2="-167.65" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-4);" d="M8.7,0v7.3H1.2V6.1h2.4V4.9H5V3.7h1.2V1.2
-				h1.2V0H8.7z"></path><linearGradient id="badge-subscriber-gradient-5" gradientUnits="userSpaceOnUse" x1="12.35" y1="-187.6089" x2="12.35" y2="-161.5965" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-5);" d="M8.7,8.7V1.2h1.2v2.5H11v1.2h1.3v1.3h2.4
-				v1.2H16v1.4L8.7,8.7L8.7,8.7z"></path><linearGradient id="badge-subscriber-gradient-6" gradientUnits="userSpaceOnUse" x1="-6.5494" y1="-176.35" x2="21.3285" y2="-176.35" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-6);" d="M7.3,16V8.7h7.4v1.2h-2.4v1.3H11v1.2H9.9
-				v2.5H8.7V16H7.3z"></path><linearGradient id="badge-subscriber-gradient-7" gradientUnits="userSpaceOnUse" x1="6.72" y1="-169.44" x2="12.2267" y2="-180.4533" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-7);" d="M8.7,7.3H7.3v1.4h1.3L8.7,7.3L8.7,7.3z"></path></g></svg>`;
-      case "sub_gifter":
-        const count = badge.count || 1;
-        if (count < 25) {
-          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17810)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.15499 6.63499V12.73L7.99999 15.995V9.14999Z" fill="#0269D4"></path><path d="M8.00003 10.735V9.61501L1.15503 6.63501V7.70501L8.00003 10.735Z" fill="#0269D4"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#04D0FF"></path><path d="M14.845 6.63501V7.70501L8 10.735V9.61501L14.845 6.63501Z" fill="#0269D4"></path></g><defs><clipPath id="clip0_301_17810"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
-        } else if (count >= 25) {
-          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17815)"><path d="M8.02501 9.14999V6.62499L0.51001 3.35999V6.34499L1.17501 6.63499V12.73L8.02501 15.995V9.14999Z" fill="#7B1BAB"></path><path d="M8.02505 10.735V9.61501L1.17505 6.63501V7.70501L8.02505 10.735Z" fill="#7B1BAB"></path><path d="M15.535 3.355V6.345L14.87 6.64V12.73L12.725 13.755L11.21 14.48L8.02501 15.995V6.715L4.84001 5.295H4.83501L3.32001 4.61L0.51001 3.355L3.69001 1.935L3.70501 1.93L5.11501 1.3L8.02501 0L10.93 1.3L12.34 1.925L12.355 1.935L15.535 3.355Z" fill="#A947D3"></path><path d="M14.87 6.63501V7.70501L8.02502 10.735V9.61501L14.87 6.63501Z" fill="#7B1BAB"></path></g><defs><clipPath id="clip0_301_17815"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
-        } else if (count >= 50) {
-          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17820)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#CF0038"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#CF0038"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FA4E78"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#CF0038"></path></g><defs><clipPath id="clip0_301_17820"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
-        } else if (count >= 100) {
-          return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17825)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#FF5008"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#FF5008"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FFC800"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#FF5008"></path></g><defs><clipPath id="clip0_301_17825"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
-        } else if (count >= 200) {
-          return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17830)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#2FA604"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#2FA604"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#53F918"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#2FA604"></path></g><defs><clipPath id="clip0_301_17830"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
-        }
-    }
-  }
-};
-
 // src/UserInterface/Modals/UserInfoModal.ts
 var UserInfoModal = class extends AbstractModal {
   rootContext;
@@ -1757,10 +1790,29 @@ var UserInfoModal = class extends AbstractModal {
   isLoadingMessages = false;
   constructor(rootContext, session, {
     toaster
-  }, username) {
+  }, username, coordinates) {
+    const modalWidth = 340;
+    if (coordinates) {
+      const screenWidth = window.innerWidth;
+      log(screenWidth);
+      if (screenWidth < modalWidth)
+        coordinates.x = 0;
+      else if (screenWidth - coordinates.x < modalWidth)
+        coordinates.x = screenWidth - modalWidth;
+      else if (coordinates.x < 0)
+        coordinates.x = 0;
+      const screenHeight = window.innerHeight;
+      if (screenHeight < 300)
+        coordinates.y = 0;
+      else if (coordinates.y < 0)
+        coordinates.y = 0;
+      else if (coordinates.y > screenHeight - 300)
+        coordinates.y = screenHeight - 300;
+    }
     const geometry = {
-      width: "340px",
-      position: "chat-top"
+      width: modalWidth + "px",
+      position: coordinates ? "coordinates" : "chat-top",
+      coords: coordinates
     };
     super("user-info", geometry);
     this.rootContext = rootContext;
@@ -1774,8 +1826,9 @@ var UserInfoModal = class extends AbstractModal {
   }
   async render() {
     super.render();
-    const { channelData } = this.session;
-    const is_moderator = channelData.me.is_super_admin || channelData.me.is_moderator || channelData.me.is_broadcaster;
+    const { channelData, badgeProvider } = this.session;
+    const { usersManager } = this.rootContext;
+    const isModerator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster;
     await this.updateUserInfo();
     const userInfo = this.userInfo || {
       id: "",
@@ -1790,7 +1843,10 @@ var UserInfoModal = class extends AbstractModal {
       username: "Error",
       channel: "Error",
       badges: [],
-      followingSince: null
+      followingSince: null,
+      isChannelOwner: false,
+      isModerator: false,
+      isStaff: false
     };
     const today = +new Date((/* @__PURE__ */ new Date()).toLocaleDateString());
     let formattedAccountDate;
@@ -1836,17 +1892,17 @@ var UserInfoModal = class extends AbstractModal {
 									<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
 								</svg> Account created: ${formattedAccountDate}</span>` : ""}
 
-							${formattedJoinDate ? `<span>
+							${`<span>
 								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
 									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
-								</svg> Followed since: ${formattedJoinDate}</span>` : ""}
+								</svg> Following since: ${formattedJoinDate ? formattedJoinDate : "-"}</span>`}
 						</p>
 					</div>
 				</div>
-				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(BadgeFactory.getBadge).join("")}</div>
+				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join("")}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button">${userInfo.isFollowing ? "Unfollow" : "Follow"}</button>
-					<button class="ntv__button">${this.rootContext.usersManager.hasMutedUser(userInfo.id) ? "Unmute" : "Mute"}</button>
+					<button class="ntv__button">${usersManager.hasMutedUser(userInfo.id) ? "Unmute" : "Mute"}</button>
 					<!--<button class="ntv__button">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
@@ -1857,13 +1913,13 @@ var UserInfoModal = class extends AbstractModal {
 			`)
     );
     this.badgesEl = element.querySelector(".ntv__user-info-modal__badges");
-    if (is_moderator) {
-      this.actionFollowEl = element.querySelector(
-        ".ntv__user-info-modal__actions .ntv__button:nth-child(1)"
-      );
-      this.actionMuteEl = element.querySelector(
-        ".ntv__user-info-modal__actions .ntv__button:nth-child(2)"
-      );
+    this.actionFollowEl = element.querySelector(
+      ".ntv__user-info-modal__actions .ntv__button:nth-child(1)"
+    );
+    this.actionMuteEl = element.querySelector(
+      ".ntv__user-info-modal__actions .ntv__button:nth-child(2)"
+    );
+    if (isModerator) {
       this.actionReportEl = element.querySelector(
         ".ntv__user-info-modal__actions .ntv__button:nth-child(3)"
       );
@@ -1894,7 +1950,7 @@ var UserInfoModal = class extends AbstractModal {
       );
       this.modActionButtonVIPEl = parseHTML(
         cleanupHTML(`
-			<button class="ntv__icon-button" alt="VIP ${userInfo.username}">
+			<button class="ntv__icon-button" alt="VIP ${userInfo.username}" ${this.isUserVIP() ? "active" : ""}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h18M3 19h18M4 9l2 6h1l2-6m3 0v6m4 0V9h2a2 2 0 1 1 0 4h-2" />
 				</svg>
@@ -1904,7 +1960,7 @@ var UserInfoModal = class extends AbstractModal {
       );
       this.modActionButtonModEl = parseHTML(
         cleanupHTML(`
-			<button class="ntv__icon-button" alt="Mod ${userInfo.username}">
+			<button class="ntv__icon-button" alt="Mod ${userInfo.username}" ${this.isUserPrivileged() ? "active" : ""}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
 					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
 				</svg>
@@ -1937,9 +1993,7 @@ var UserInfoModal = class extends AbstractModal {
     this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
     this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
     this.modActionButtonVIPEl?.addEventListener("click", this.clickVIPHandler.bind(this));
-    this.modActionButtonModEl?.addEventListener("click", () => {
-      log("Mod button clicked");
-    });
+    this.modActionButtonModEl?.addEventListener("click", this.clickModHandler.bind(this));
     this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHistoryHandler.bind(this));
   }
   async clickFollowHandler() {
@@ -2060,11 +2114,104 @@ var UserInfoModal = class extends AbstractModal {
     });
   }
   async clickVIPHandler() {
-    log("VIP button clicked");
     const { networkInterface } = this.rootContext;
-    const { userInfo } = this;
-    if (!userInfo)
+    const { userInfo, userChannelInfo } = this;
+    if (!userInfo || !userChannelInfo)
       return;
+    this.modActionButtonVIPEl.classList.add("ntv__icon-button--disabled");
+    if (this.isUserVIP()) {
+      log(`Attempting to remove VIP status from user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "unvip", args: [userInfo.username] });
+        log("Successfully removed VIP status from user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast(
+            "Failed to remove VIP status from user: " + err.errors.join(" "),
+            6e3,
+            "error"
+          );
+        } else if (err.message) {
+          this.toaster.addToast("Failed to remove VIP status from user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to remove VIP status from user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.removeUserVIPStatus();
+      this.modActionButtonVIPEl?.removeAttribute("active");
+    } else {
+      log(`Attempting to give VIP status to user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "vip", args: [userInfo.username] });
+        log("Successfully gave VIP status to user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to give VIP status to user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to give VIP status to user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to give VIP status to user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.modActionButtonVIPEl?.setAttribute("active", "");
+      await this.updateUserInfo();
+    }
+    this.updateUserBadges();
+    this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
+  }
+  async clickModHandler() {
+    const { networkInterface } = this.rootContext;
+    const { userInfo, userChannelInfo } = this;
+    if (!userInfo || !userChannelInfo)
+      return;
+    this.modActionButtonModEl.classList.add("ntv__icon-button--disabled");
+    if (this.isUserPrivileged()) {
+      log(`Attempting to remove mod status from user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "unmod", args: [userInfo.username] });
+        log("Successfully removed mod status from user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast(
+            "Failed to remove mod status from user: " + err.errors.join(" "),
+            6e3,
+            "error"
+          );
+        } else if (err.message) {
+          this.toaster.addToast("Failed to remove mod status from user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to remove mod status from user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.removeUserModStatus();
+      this.modActionButtonModEl?.removeAttribute("active");
+    } else {
+      log(`Attempting to give mod status to user: ${userInfo.username}..`);
+      try {
+        await networkInterface.sendCommand({ name: "mod", args: [userInfo.username] });
+        log("Successfully gave mod status to user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to give mod status to user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to give mod status to user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to give mod status to user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.modActionButtonModEl?.setAttribute("active", "");
+      await this.updateUserInfo();
+    }
+    this.updateUserBadges();
+    this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
   }
   async clickBanHandler() {
     if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled"))
@@ -2147,7 +2294,7 @@ var UserInfoModal = class extends AbstractModal {
     this.isLoadingMessages = true;
     let res;
     try {
-      res = await networkInterface.getUserMessages(channelData.channel_id, userInfo.id, cursor);
+      res = await networkInterface.getUserMessages(channelData.channelId, userInfo.id, cursor);
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
         this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
@@ -2214,6 +2361,23 @@ var UserInfoModal = class extends AbstractModal {
     if (scrollTop < 30)
       this.loadMoreMessagesHistory();
   }
+  isUserVIP() {
+    return !!this.userChannelInfo?.badges.find((badge) => badge.type === "vip");
+  }
+  isUserPrivileged() {
+    return this.userChannelInfo?.isChannelOwner || this.userChannelInfo?.isModerator || this.userChannelInfo?.isStaff;
+  }
+  removeUserVIPStatus() {
+    if (!this.userChannelInfo)
+      return;
+    this.userChannelInfo.badges = this.userChannelInfo.badges.filter((badge) => badge.type !== "vip");
+  }
+  removeUserModStatus() {
+    if (!this.userChannelInfo)
+      return;
+    this.userChannelInfo.isModerator = false;
+    this.userChannelInfo.badges = this.userChannelInfo.badges.filter((badge) => badge.type !== "moderator");
+  }
   async updateUserInfo() {
     const { networkInterface } = this.rootContext;
     const { channelData } = this.session;
@@ -2221,7 +2385,7 @@ var UserInfoModal = class extends AbstractModal {
       delete this.userInfo;
       delete this.userChannelInfo;
       this.userInfo = await networkInterface.getUserInfo(this.username);
-      this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channel_name, this.username);
+      this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username);
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
         this.toaster.addToast("Failed to get user info: " + err.errors.join(" "), 6e3, "error");
@@ -2231,6 +2395,13 @@ var UserInfoModal = class extends AbstractModal {
         this.toaster.addToast("Failed to get user info, reason unknown", 6e3, "error");
       }
     }
+  }
+  updateUserBadges() {
+    const { badgeProvider } = this.session;
+    const { badgesEl, userChannelInfo } = this;
+    if (!badgesEl || !userChannelInfo)
+      return;
+    badgesEl.innerHTML = userChannelInfo.badges.length ? "Badges: " + userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join("") : "";
   }
   updateModStatusPage() {
     const { userChannelInfo, statusPageEl } = this;
@@ -2253,7 +2424,7 @@ var UserInfoModal = class extends AbstractModal {
 // src/UserInterface/Caret.ts
 var Caret = class {
   static moveCaretTo(container, offset) {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection || !selection.rangeCount)
       return;
     const range = document.createRange();
@@ -2262,7 +2433,7 @@ var Caret = class {
     selection.addRange(range);
   }
   static collapseToEndOfNode(node) {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection)
       return error("Unable to get selection, cannot collapse to end of node", node);
     const range = document.createRange();
@@ -2276,7 +2447,7 @@ var Caret = class {
     selection.addRange(range);
   }
   static hasNonWhitespaceCharacterBeforeCaret() {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection || !selection.rangeCount)
       return false;
     const range = selection.anchorNode ? selection.getRangeAt(0) : null;
@@ -2304,7 +2475,7 @@ var Caret = class {
     return leadingChar !== " " && leadingChar !== "\uFEFF";
   }
   static hasNonWhitespaceCharacterAfterCaret() {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection)
       return false;
     const range = selection.anchorNode ? selection.getRangeAt(0) : null;
@@ -2333,7 +2504,7 @@ var Caret = class {
   }
   // Checks if the caret is at the start of a node
   static isCaretAtStartOfNode(node) {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection || !selection.rangeCount || !selection.isCollapsed)
       return false;
     if (!node.childNodes.length)
@@ -2350,7 +2521,7 @@ var Caret = class {
     }
   }
   static isCaretAtEndOfNode(node) {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection || !selection.rangeCount || !selection.isCollapsed)
       return false;
     if (!node.childNodes.length)
@@ -2367,7 +2538,7 @@ var Caret = class {
     }
   }
   static getWordBeforeCaret() {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection || !selection.rangeCount)
       return {
         word: null,
@@ -2488,23 +2659,28 @@ var Clipboard2 = class {
     if (!selection || !selection.rangeCount)
       return error("Selection is null");
     event.preventDefault();
-    const range = selection.getRangeAt(0);
-    if (!range)
-      return;
-    range.startContainer.parentElement?.normalize();
-    const buffer = [];
-    const nodes = range.cloneContents().childNodes;
-    for (const node of nodes) {
-      if (node instanceof Text) {
-        buffer.push(node.textContent?.trim());
-      } else if (node instanceof HTMLElement) {
-        const emoteImg = node.querySelector("img");
-        if (emoteImg) {
-          buffer.push(emoteImg.dataset.emoteName || "UNSET_EMOTE");
-        }
-      }
+    const fragment = document.createDocumentFragment();
+    const nodeList = [];
+    for (let i = 0; i < selection.rangeCount; i++) {
+      fragment.append(selection.getRangeAt(i).cloneContents());
     }
-    const copyString = buffer.join(" ").replaceAll(CHAR_ZWSP, "");
+    const walker = document.createTreeWalker(
+      fragment,
+      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() || node?.tagName === "IMG" ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+    );
+    let currentNode = walker.currentNode;
+    while (currentNode) {
+      nodeList.push(currentNode);
+      currentNode = walker.nextNode();
+    }
+    const copyString = nodeList.map((node) => {
+      if (node instanceof Text) {
+        return node.textContent?.trim();
+      } else if (node instanceof HTMLElement && node.dataset.emoteName) {
+        return node.dataset.emoteName || "UNSET_EMOTE_NAME";
+      }
+    }).filter((text) => typeof text === "string" && text.length > 0).join(" ").replaceAll(CHAR_ZWSP, "");
     event.clipboardData?.setData("text/plain", copyString);
     log(`Copied: "${copyString}"`);
   }
@@ -2524,7 +2700,7 @@ var Clipboard2 = class {
     selection.deleteFromDocument();
   }
   paste(text) {
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection || !selection.rangeCount)
       return;
     selection.deleteFromDocument();
@@ -2533,7 +2709,7 @@ var Clipboard2 = class {
   }
   pasteHTML(html) {
     const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection || !selection.rangeCount)
       return;
     selection.deleteFromDocument();
@@ -2552,7 +2728,7 @@ var Clipboard2 = class {
     }
   }
   parsePastedMessage(evt) {
-    const clipboardData = evt.clipboardData || wwindow.clipboardData;
+    const clipboardData = evt.clipboardData || window.clipboardData;
     if (!clipboardData)
       return;
     const html = clipboardData.getData("text/html");
@@ -2646,6 +2822,7 @@ var PollModal = class extends AbstractModal {
   durationSliderComponent;
   displayDurationSliderComponent;
   createButtonEl;
+  cancelButtonEl;
   constructor(rootContext, session, {
     toaster
   }) {
@@ -2700,6 +2877,7 @@ var PollModal = class extends AbstractModal {
       [30, 60, 120, 180, 240, 300]
     ).init();
     this.createButtonEl = element.querySelector(".ntv__poll-modal__create-btn");
+    this.cancelButtonEl = element.querySelector(".ntv__poll-modal__close-btn");
     this.modalBodyEl.appendChild(element);
   }
   attachEventHandlers() {
@@ -2730,14 +2908,23 @@ var PollModal = class extends AbstractModal {
         this.toaster.addToast("Please fill in all options", 6e3, "error");
         return;
       }
-      const channelName = this.session.channelData.channel_name;
+      const channelName = this.session.channelData.channelName;
       this.rootContext.networkInterface.createPoll(channelName, question, options, duration, displayDuration);
+      this.destroy();
+    });
+    this.cancelButtonEl.addEventListener("click", async () => {
       this.destroy();
     });
   }
 };
 
 // src/UserInterface/AbstractUserInterface.ts
+function getEmojiAttributes() {
+  return {
+    height: "30px",
+    width: "30px"
+  };
+}
 var AbstractUserInterface = class {
   rootContext;
   session;
@@ -2765,6 +2952,9 @@ var AbstractUserInterface = class {
     eventBus.subscribe("ntv.ui.show_modal.poll", () => {
       new PollModal(this.rootContext, this.session, { toaster: this.toaster }).init();
     });
+  }
+  toastSuccess(message) {
+    this.toaster.addToast(message, 4e3, "success");
   }
   toastError(message) {
     error(message);
@@ -2806,21 +2996,28 @@ var AbstractUserInterface = class {
       appendTo.append(...newNodes);
     else
       textElement.after(...newNodes);
+    twemoji.parse(appendTo || textElement.parentElement, {
+      attributes: getEmojiAttributes,
+      className: "ntv__inline-emoji"
+      // folder: 'svg',
+      // ext: '.svg',
+    });
     textElement.remove();
   }
-  showUserInfoModal(username) {
+  showUserInfoModal(username, position) {
     log("Showing user info modal..");
-    const modal = new UserInfoModal(
+    new UserInfoModal(
       this.rootContext,
       this.session,
       {
         toaster: this.toaster
       },
-      username
+      username,
+      position
     ).init();
   }
   // Submits input to chat
-  submitInput(suppressEngagementEvent) {
+  submitInput(suppressEngagementEvent, dontClearInput) {
     const { eventBus, networkInterface } = this.rootContext;
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor)
@@ -2861,7 +3058,7 @@ var AbstractUserInterface = class {
       });
     }
     eventBus.publish("ntv.ui.input_submitted", { suppressEngagementEvent });
-    contentEditableEditor.clearInput();
+    dontClearInput || contentEditableEditor.clearInput();
   }
   sendEmoteToChat(emoteHid) {
     const { emotesManager, networkInterface } = this.rootContext;
@@ -3078,16 +3275,17 @@ var ContentEditableEditor = class {
           const token = tokens[j];
           const emoteHid = emotesManager.getEmoteHidByName(token);
           if (emoteHid) {
-            if (i > 0 && j > 0) {
-              newNodes.push(document.createTextNode(" "));
-            }
             newNodes.push(
               this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
             );
           } else if (i === 0 && j === 0) {
             newNodes.push(document.createTextNode(token));
           } else {
-            newNodes.push(document.createTextNode(" " + token));
+            if (newNodes[newNodes.length - 1] instanceof Text) {
+              newNodes[newNodes.length - 1].textContent += " " + token;
+            } else {
+              newNodes.push(document.createTextNode(token));
+            }
           }
         }
       }
@@ -3121,7 +3319,9 @@ var ContentEditableEditor = class {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (!this.inputEmpty) {
-          this.rootContext.eventBus.publish("ntv.input_controller.submit");
+          this.rootContext.eventBus.publish("ntv.input_controller.submit", {
+            dontClearInput: event.ctrlKey
+          });
         }
         break;
       case " ":
@@ -3498,7 +3698,7 @@ var ContentEditableEditor = class {
     }
   }
   adjustSelectionForceOutOfComponent(selection) {
-    selection = selection || wwindow.getSelection();
+    selection = selection || window.getSelection();
     if (!selection || !selection.rangeCount)
       return;
     const { inputNode } = this;
@@ -3534,7 +3734,7 @@ var ContentEditableEditor = class {
   }
   insertText(text) {
     const { inputNode } = this;
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (!selection) {
       inputNode.append(new Text(text));
       inputNode.normalize();
@@ -3923,6 +4123,19 @@ var AbstractCompletionStrategy = class {
 // src/Classes/CompletionStrategies/CommandCompletionStrategy.ts
 var commandsMap = [
   {
+    name: "timeout",
+    command: "timeout <username> <minutes> [reason]",
+    minAllowedRole: "moderator",
+    description: "Temporarily ban an user from chat.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
+      "<minutes>": (arg) => {
+        const m = parseInt(arg, 10);
+        return !Number.isNaN(m) && m > 0 && m < 10080 ? null : "Minutes must be a number between 1 and 10080 (7 days).";
+      }
+    }
+  },
+  {
     name: "ban",
     command: "ban <username> [reason]",
     minAllowedRole: "moderator",
@@ -3932,6 +4145,45 @@ var commandsMap = [
       "<username>": (arg) => !!arg ? null : "Username is required"
     }
   },
+  {
+    name: "user",
+    command: "user <username>",
+    // minAllowedRole: 'moderator',
+    description: "Display user information.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      log("User command executed with args:", args);
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.show_modal.user_info", { username: args[0] });
+    }
+  },
+  {
+    name: "title",
+    command: "title <title>",
+    minAllowedRole: "moderator",
+    description: "Set the stream title.",
+    argValidators: {
+      "<title>": (arg) => !!arg ? null : "Title is required"
+    }
+  },
+  {
+    name: "poll",
+    command: "poll",
+    minAllowedRole: "moderator",
+    description: "Create a poll.",
+    execute: (deps, args) => {
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.show_modal.poll");
+    }
+  },
+  {
+    name: "polldelete",
+    command: "polldelete",
+    minAllowedRole: "moderator",
+    description: "Delete the current poll."
+  },
   // {
   // 	name: 'category',
   // 	command: 'category',
@@ -3939,10 +4191,13 @@ var commandsMap = [
   // 	description: 'Sets the stream category.'
   // },
   {
-    name: "clear",
-    command: "clear",
+    name: "slow",
+    command: "slow <on_off> [seconds]",
     minAllowedRole: "moderator",
-    description: "Clear the chat."
+    description: "Enable slow mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
   },
   {
     name: "emoteonly",
@@ -3963,56 +4218,20 @@ var commandsMap = [
     }
   },
   {
-    name: "host",
-    command: "host <username>",
+    name: "raid",
+    alias: "host",
+    command: "raid <username>",
     minAllowedRole: "broadcaster",
-    description: "Host someone's channel",
+    description: "Raid someone's channel (alias for /host)",
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     }
   },
   {
-    name: "mod",
-    command: "mod <username>",
-    minAllowedRole: "broadcaster",
-    description: "Add an user to your moderator list.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "og",
-    command: "og <username>",
-    minAllowedRole: "broadcaster",
-    description: "Add an user to your OG list.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "poll",
-    command: "poll",
+    name: "clear",
+    command: "clear",
     minAllowedRole: "moderator",
-    description: "Create a poll.",
-    execute: (deps, args) => {
-      const { eventBus } = deps;
-      eventBus.publish("ntv.ui.show_modal.poll");
-    }
-  },
-  {
-    name: "polldelete",
-    command: "polldelete",
-    minAllowedRole: "moderator",
-    description: "Delete the current poll."
-  },
-  {
-    name: "slow",
-    command: "slow <on_off> [seconds]",
-    minAllowedRole: "moderator",
-    description: "Enable slow mode for chat.",
-    argValidators: {
-      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
-    }
+    description: "Clear the chat."
   },
   {
     name: "subonly",
@@ -4021,28 +4240,6 @@ var commandsMap = [
     description: "Enable subscribers only mode for chat.",
     argValidators: {
       "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
-    }
-  },
-  {
-    name: "timeout",
-    command: "timeout <username> <minutes> [reason]",
-    minAllowedRole: "moderator",
-    description: "Temporarily ban an user from chat.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
-      "<minutes>": (arg) => {
-        const m = parseInt(arg, 10);
-        return !Number.isNaN(m) && m > 0 && m < 10080 ? null : "Minutes must be a number between 1 and 10080 (7 days).";
-      }
-    }
-  },
-  {
-    name: "title",
-    command: "title <title>",
-    minAllowedRole: "moderator",
-    description: "Set the stream title.",
-    argValidators: {
-      "<title>": (arg) => !!arg ? null : "Title is required"
     }
   },
   {
@@ -4055,19 +4252,10 @@ var commandsMap = [
     }
   },
   {
-    name: "unog",
-    command: "unog <username>",
+    name: "vip",
+    command: "vip <username>",
     minAllowedRole: "broadcaster",
-    description: "Remove an user from your OG list",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "unmod",
-    command: "unmod <username>",
-    minAllowedRole: "broadcaster",
-    description: "Remove an user from your moderator list.",
+    description: "Add an user to your VIP list.",
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     }
@@ -4082,24 +4270,106 @@ var commandsMap = [
     }
   },
   {
-    name: "user",
-    command: "user <username>",
-    minAllowedRole: "moderator",
-    description: "Display user information.",
+    name: "mod",
+    command: "mod <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your moderator list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unmod",
+    command: "unmod <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your moderator list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "og",
+    command: "og <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your OG list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unog",
+    command: "unog <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your OG list",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "follow",
+    command: "follow <username>",
+    description: "Follow an user.",
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: (deps, args) => {
-      log("User command executed with args:", args);
-      const { eventBus } = deps;
-      eventBus.publish("ntv.ui.show_modal.user_info", { username: args[0] });
+      const { networkInterface, userInterface } = deps;
+      networkInterface.followUser(args[0]).then(() => userInterface?.toastSuccess("Following user.")).catch((err) => userInterface?.toastError("Failed to follow user. " + (err.message || "")));
     }
   },
   {
-    name: "vip",
-    command: "vip <username>",
+    name: "unfollow",
+    command: "unfollow <username>",
+    description: "Unfollow an user.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      const { networkInterface, userInterface } = deps;
+      networkInterface.unfollowUser(args[0]).then(() => userInterface?.toastSuccess("User unfollowed.")).catch((err) => userInterface?.toastError("Failed to unfollow user. " + (err.message || "")));
+    }
+  },
+  {
+    name: "mute",
+    command: "mute <username>",
+    description: "Mute an user.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      const { usersManager, userInterface } = deps;
+      const user = usersManager.getUserByName(args[0]);
+      if (!user)
+        userInterface?.toastError("User not found.");
+      else if (user.muted)
+        userInterface?.toastError("User is already muted.");
+      else
+        usersManager.muteUserById(user.id);
+    }
+  },
+  {
+    name: "unmute",
+    command: "unmute <username>",
+    description: "Unmute an user.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      const { usersManager, userInterface } = deps;
+      const user = usersManager.getUserByName(args[0]);
+      if (!user)
+        userInterface?.toastError("User not found.");
+      else if (!user.muted)
+        userInterface?.toastError("User is not muted.");
+      else
+        usersManager.unmuteUserById(user.id);
+    }
+  },
+  {
+    name: "host",
+    command: "host <username>",
     minAllowedRole: "broadcaster",
-    description: "Add an user to your VIP list.",
+    description: "Host someone's channel",
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     }
@@ -4108,11 +4378,13 @@ var commandsMap = [
 var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
   contentEditableEditor;
   rootContext;
-  constructor(rootContext, {
+  session;
+  constructor(rootContext, session, {
     contentEditableEditor
   }, containerEl) {
     super(containerEl);
     this.rootContext = rootContext;
+    this.session = session;
     this.contentEditableEditor = contentEditableEditor;
   }
   static shouldUseStrategy(event, contentEditableEditor) {
@@ -4209,8 +4481,8 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
   }
   getAvailableCommands() {
     const channelData = this.rootContext.networkInterface.channelData;
-    const is_broadcaster = channelData?.me?.is_broadcaster || false;
-    const is_moderator = channelData?.me?.is_moderator || false;
+    const is_broadcaster = channelData?.me?.isBroadcaster || false;
+    const is_moderator = channelData?.me?.isModerator || false;
     return commandsMap.filter((commandEntry) => {
       if (commandEntry.minAllowedRole === "broadcaster")
         return is_broadcaster;
@@ -4234,7 +4506,8 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
       const rest = inputParts.slice(argCount + 1).join(" ");
       return [
         {
-          name: inputCommandName,
+          name: commandEntry.name,
+          alias: commandEntry.alias,
           args: start.concat(rest)
         },
         commandEntry
@@ -4242,7 +4515,8 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     }
     return [
       {
-        name: inputCommandName,
+        name: commandEntry.name,
+        alias: commandEntry.alias,
         args: inputParts.slice(1, argCount + 1)
       },
       commandEntry
@@ -4300,11 +4574,19 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
       if (isInvalid || !commandData) {
         return;
       }
-      const { networkInterface, eventBus } = this.rootContext;
+      const { networkInterface } = this.rootContext;
       if (commandEntry && typeof commandEntry.execute === "function") {
-        commandEntry.execute({ eventBus, networkInterface }, commandData.args);
+        commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args);
       } else {
-        networkInterface.sendCommand(commandData);
+        networkInterface.sendCommand(commandData).then((res) => {
+          if (res.error) {
+            this.session.userInterface?.toastError(res.error);
+          } else if (!res.success) {
+            this.session.userInterface?.toastError("Command failed. No reason given.");
+          }
+        }).catch((err) => {
+          this.session.userInterface?.toastError("Command failed. " + (err.message || ""));
+        });
       }
       contentEditableEditor.clearInput();
     }
@@ -4623,12 +4905,14 @@ var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
 var InputCompletor = class {
   currentActiveStrategy;
   rootContext;
+  session;
   contentEditableEditor;
   containerEl;
-  constructor(rootContext, {
+  constructor(rootContext, session, {
     contentEditableEditor
   }, containerEl) {
     this.rootContext = rootContext;
+    this.session = session;
     this.contentEditableEditor = contentEditableEditor;
     this.containerEl = containerEl;
   }
@@ -4649,6 +4933,7 @@ var InputCompletor = class {
       if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
         this.currentActiveStrategy = new CommandCompletionStrategy(
           this.rootContext,
+          this.session,
           {
             contentEditableEditor: this.contentEditableEditor
           },
@@ -4701,13 +4986,15 @@ var InputCompletor = class {
 // src/Managers/InputController.ts
 var InputController = class {
   rootContext;
+  session;
   messageHistory;
   tabCompletor;
   contentEditableEditor;
-  constructor(rootContext, {
+  constructor(rootContext, session, {
     clipboard
   }, textFieldEl) {
     this.rootContext = rootContext;
+    this.session = session;
     this.messageHistory = new MessagesHistory();
     this.contentEditableEditor = new ContentEditableEditor(
       this.rootContext,
@@ -4715,7 +5002,8 @@ var InputController = class {
       textFieldEl
     );
     this.tabCompletor = new InputCompletor(
-      this.rootContext,
+      rootContext,
+      session,
       {
         contentEditableEditor: this.contentEditableEditor
       },
@@ -4798,12 +5086,6 @@ var InputController = class {
 };
 
 // src/UserInterface/KickUserInterface.ts
-function getEmojiAttributes() {
-  return {
-    height: "30px",
-    width: "30px"
-  };
-}
 var KickUserInterface = class extends AbstractUserInterface {
   abortController = new AbortController();
   chatObserver = null;
@@ -4841,15 +5123,21 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     }).catch(() => {
     });
-    const chatMessagesContainerSelector = channelData.is_vod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
+    const chatMessagesContainerSelector = channelData.isVod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
     waitForElements([chatMessagesContainerSelector], 5e3, abortSignal).then(() => {
       this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector);
-      if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
-        document.getElementById("chatroom")?.classList.add("ntv__alternating-background");
-      }
-      const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
-      if (seperatorSettingVal && seperatorSettingVal !== "none") {
-        document.getElementById("chatroom")?.classList.add(`ntv__seperators-${seperatorSettingVal}`);
+      const chatroomEl = document.getElementById("chatroom");
+      if (chatroomEl) {
+        if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
+          chatroomEl.classList.add("ntv__alternating-background");
+        }
+        const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
+        if (seperatorSettingVal && seperatorSettingVal !== "none") {
+          chatroomEl.classList.add(`ntv__seperators-${seperatorSettingVal}`);
+        }
+        chatroomEl.addEventListener("copy", (evt) => {
+          this.clipboard.handleCopyEvent(evt);
+        });
       }
       eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
       this.observeChatMessages();
@@ -4872,7 +5160,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     );
-    eventBus.subscribe("ntv.input_controller.submit", this.submitInput.bind(this));
+    eventBus.subscribe("ntv.input_controller.submit", (data) => this.submitInput(false, data?.dontClearInput));
     eventBus.subscribe(
       "ntv.settings.change.shared.chat.behavior.smooth_scrolling",
       ({ value, prevValue }) => {
@@ -4899,7 +5187,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   // TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
   async loadEmoteMenu() {
-    if (!this.session.channelData.me.is_logged_in)
+    if (!this.session.channelData.me.isLoggedIn)
       return;
     if (!this.elm.textField)
       return error("Text field not loaded for emote menu");
@@ -4960,7 +5248,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     );
   }
   loadShadowProxyElements() {
-    if (!this.session.channelData.me.is_logged_in)
+    if (!this.session.channelData.me.isLoggedIn)
       return;
     const submitButtonEl = this.elm.submitButton = parseHTML(
       `<button class="ntv__submit-button disabled">Chat</button>`,
@@ -4993,6 +5281,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     submitButtonEl.addEventListener("click", () => this.submitInput());
     const inputController = this.inputController = new InputController(
       this.rootContext,
+      this.session,
       {
         clipboard: this.clipboard
       },
@@ -5016,9 +5305,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     });
     textFieldEl.addEventListener("cut", (evt) => {
       this.clipboard.handleCutEvent(evt);
-    });
-    textFieldEl.addEventListener("copy", (evt) => {
-      this.clipboard.handleCopyEvent(evt);
     });
     this.rootContext.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
       if (value > this.maxMessageLength) {
@@ -5134,7 +5420,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   loadReplyBehaviour() {
     const { inputController } = this;
     const { channelData } = this.session;
-    if (!channelData.me.is_logged_in)
+    if (!channelData.me.isLoggedIn)
       return;
     if (!inputController)
       return error("Input controller not loaded for reply behaviour");
@@ -5232,7 +5518,7 @@ var KickUserInterface = class extends AbstractUserInterface {
               }
             }
             if (this.stickyScroll) {
-              wwindow.requestAnimationFrame(scrollToBottom);
+              window.requestAnimationFrame(scrollToBottom);
             }
           }
         });
@@ -5262,11 +5548,11 @@ var KickUserInterface = class extends AbstractUserInterface {
     });
     chatMessagesContainerEl.addEventListener("click", (evt) => {
       const target = evt.target;
-      if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
-        return;
-      const emoteHid = target.getAttribute("data-emote-hid");
-      if (emoteHid)
-        this.inputController?.contentEditableEditor.insertEmote(emoteHid);
+      if (target.tagName === "IMG" && target?.parentElement?.classList.contains("ntv__inline-emote-box")) {
+        const emoteHid = target.getAttribute("data-emote-hid");
+        if (emoteHid)
+          this.inputController?.contentEditableEditor.insertEmote(emoteHid);
+      }
     });
   }
   observePinnedMessage() {
@@ -5304,7 +5590,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   renderChatMessage(messageNode) {
     const { usersManager, settingsManager, emotesManager } = this.rootContext;
     const { channelData } = this.session;
-    if (!channelData.is_vod) {
+    if (!channelData.isVod) {
       const usernameEl = messageNode.querySelector(".chat-entry-username");
       if (usernameEl) {
         const { chatEntryUser, chatEntryUserId } = usernameEl.dataset;
@@ -5321,7 +5607,7 @@ var KickUserInterface = class extends AbstractUserInterface {
             const highlightWhenModeratorOnly = settingsManager.getSetting(
               "shared.chat.appearance.highlight_first_message_moderator"
             );
-            if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.is_moderator)) {
+            if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
               messageNode.classList.add("ntv__highlight-first-message");
             }
           }
@@ -5409,13 +5695,6 @@ var KickUserInterface = class extends AbstractUserInterface {
             error("Unknown chat message component", componentNode);
       }
     }
-    if (twemoji)
-      twemoji.parse(messageNode, {
-        attributes: getEmojiAttributes,
-        className: "ntv__inline-emoji"
-        // folder: 'svg',
-        // ext: '.svg',
-      });
     messageNode.classList.add("ntv__chat-message");
   }
   renderPinnedMessage(node) {
@@ -5432,7 +5711,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const textFieldEl = this.elm.textField;
     if (!textFieldEl)
       return error("Text field not loaded for inserting node");
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     if (selection && selection.rangeCount) {
       const range = selection.getRangeAt(0);
       const caretIsInTextField = range.commonAncestorContainer === textFieldEl || range.commonAncestorContainer?.parentElement === textFieldEl;
@@ -5459,7 +5738,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const textFieldEl = this.elm.textField;
     if (!textFieldEl)
       return error("Text field not loaded for inserting node");
-    const selection = wwindow.getSelection();
+    const selection = window.getSelection();
     const range = selection?.anchorNode ? selection.getRangeAt(0) : null;
     if (range) {
       const caretIsInTextField = range.commonAncestorContainer === textFieldEl || range.commonAncestorContainer?.parentElement === textFieldEl;
@@ -5494,8 +5773,8 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
 };
 
-// src/Providers/AbstractProvider.ts
-var AbstractProvider = class {
+// src/Providers/AbstractEmoteProvider.ts
+var AbstractEmoteProvider = class {
   id = 0 /* NULL */;
   settingsManager;
   datastore;
@@ -5506,16 +5785,16 @@ var AbstractProvider = class {
 };
 
 // src/Providers/KickProvider.ts
-var KickProvider = class extends AbstractProvider {
+var KickProvider = class extends AbstractEmoteProvider {
   id = 1 /* KICK */;
   status = "unloaded";
   constructor(dependencies) {
     super(dependencies);
   }
-  async fetchEmotes({ channel_id, channel_name, user_id, me }) {
-    if (!channel_id)
+  async fetchEmotes({ channelId, channelName, userId, me }) {
+    if (!channelId)
       return error("Missing channel id for Kick provider");
-    if (!channel_name)
+    if (!channelName)
       return error("Missing channel name for Kick provider");
     const { settingsManager } = this;
     const includeGlobalEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_global");
@@ -5527,7 +5806,7 @@ var KickProvider = class extends AbstractProvider {
     );
     const includeEmojiEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_emojis");
     info("Fetching emote data from Kick..");
-    const data = await REST.get(`https://kick.com/emotes/${channel_name}`);
+    const data = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`);
     let dataFiltered = data;
     if (!includeGlobalEmoteSet) {
       dataFiltered = dataFiltered.filter((entry) => entry.id !== "Global");
@@ -5536,7 +5815,7 @@ var KickProvider = class extends AbstractProvider {
       dataFiltered = dataFiltered.filter((entry) => entry.id !== "Emoji");
     }
     if (!includeCurrentChannelEmoteSet) {
-      dataFiltered = dataFiltered.filter((entry) => entry.id !== channel_id);
+      dataFiltered = dataFiltered.filter((entry) => entry.id !== channelId);
     }
     if (!includeOtherChannelEmoteSets) {
       dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
@@ -5545,17 +5824,15 @@ var KickProvider = class extends AbstractProvider {
     for (const dataSet of dataFiltered) {
       const { emotes } = dataSet;
       let emotesFiltered = emotes;
-      if (dataSet.user_id === user_id) {
-        emotesFiltered = emotes.filter(
-          (emote) => me.is_broadcaster || me.is_subscribed || !emote.subscribers_only
-        );
+      if (dataSet.user_id === userId) {
+        emotesFiltered = emotes.filter((emote) => me.isBroadcaster || me.isSubscribed || !emote.subscribersOnly);
       }
       const emotesMapped = emotesFiltered.map((emote) => {
         return {
           id: "" + emote.id,
           hid: md5(emote.name),
           name: emote.name,
-          subscribers_only: emote.subscribers_only,
+          subscribersOnly: emote.subscribersOnly,
           provider: 1 /* KICK */,
           width: 32,
           size: 1
@@ -5571,11 +5848,11 @@ var KickProvider = class extends AbstractProvider {
       }
       emoteSets.push({
         provider: this.id,
-        order_index: orderIndex,
+        orderIndex,
         name: emoteSetName,
         emotes: emotesMapped,
-        is_current_channel: dataSet.id === channel_id,
-        is_subscribed: dataSet.id === channel_id ? !!me.is_subscribed : true,
+        isCurrentChannel: dataSet.id === channelId,
+        isSubscribed: dataSet.id === channelId ? !!me.isSubscribed : true,
         icon: emoteSetIcon,
         id: "" + dataSet.id
       });
@@ -5606,23 +5883,23 @@ var KickProvider = class extends AbstractProvider {
 };
 
 // src/Providers/SevenTVProvider.ts
-var SevenTVProvider = class extends AbstractProvider {
+var SevenTVProvider = class extends AbstractEmoteProvider {
   id = 2 /* SEVENTV */;
   status = "unloaded";
   constructor(dependencies) {
     super(dependencies);
   }
-  async fetchEmotes({ user_id }) {
+  async fetchEmotes({ userId }) {
     info("Fetching emote data from SevenTV..");
-    if (!user_id)
+    if (!userId)
       return error("Missing Kick channel id for SevenTV provider.");
-    const data = await REST.get(`https://7tv.io/v3/users/KICK/${user_id}`).catch((err) => {
+    const data = await REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch((err) => {
       error("Failed to fetch SevenTV emotes.", err);
       this.status = "connection_failed";
       return [];
     });
-    if (!data.emote_set || !data.emote_set.emotes.length) {
-      log("No emotes found on SevenTV provider");
+    if (!data.emote_set || !data.emote_set?.emotes?.length) {
+      log("No emotes found for SevenTV provider");
       this.status = "no_emotes_found";
       return [];
     }
@@ -5647,7 +5924,7 @@ var SevenTVProvider = class extends AbstractProvider {
         hid: md5(emote.name),
         name: emote.name,
         provider: 2 /* SEVENTV */,
-        subscribers_only: false,
+        subscribersOnly: false,
         spacing: true,
         width: file.width,
         size
@@ -5658,11 +5935,11 @@ var SevenTVProvider = class extends AbstractProvider {
     return [
       {
         provider: this.id,
-        order_index: 2,
+        orderIndex: 2,
         name: data.emote_set.name,
         emotes: emotesMapped,
-        is_current_channel: false,
-        is_subscribed: false,
+        isCurrentChannel: false,
+        isSubscribed: false,
         icon: data.emote_set?.user?.avatar_url || "https://7tv.app/favicon.ico",
         id: "" + data.emote_set.id
       }
@@ -6148,7 +6425,6 @@ var SettingsManager = class {
           children: [
             {
               label: "General",
-              description: "These settings require a page refresh to take effect.",
               children: [
                 {
                   label: "Enable chat smooth scrolling",
@@ -6223,13 +6499,13 @@ var SettingsManager = class {
                 // Dangerous, impossible to undo because settings button will be hidden
                 // {
                 // 	label: 'Show the navigation sidebar on the side of the menu',
-                // 	id: 'shared.chat.emote_menu.appearance.sidebar',
+                // 	id: 'shared.chat.emote_menu.sidebar',
                 // 	default: true,
                 // 	type: 'checkbox'
                 // },
                 {
                   label: "Show the search box.",
-                  id: "shared.chat.emote_menu.appearance.search_box",
+                  id: "shared.chat.emote_menu.search_box",
                   default: true,
                   type: "checkbox"
                 }
@@ -6239,8 +6515,8 @@ var SettingsManager = class {
               label: "Appearance",
               children: [
                 {
-                  label: "Close the emote menu when clicking an emote.",
-                  id: "shared.chat.emote_menu.behavior.close_on_click",
+                  label: "Close the emote menu after clicking an emote.",
+                  id: "shared.chat.emote_menu.close_on_click",
                   default: false,
                   type: "checkbox"
                 }
@@ -6262,11 +6538,22 @@ var SettingsManager = class {
                 },
                 {
                   label: "Rows of emotes to display.",
-                  id: "shared.chat.quick_emote_holder.appearance.rows",
+                  id: "shared.chat.quick_emote_holder.rows",
                   type: "number",
                   default: 2,
                   min: 1,
                   max: 10
+                }
+              ]
+            },
+            {
+              label: "Behavior",
+              children: [
+                {
+                  label: "Send emotes to chat immediately on click.",
+                  id: "shared.chat.quick_emote_holder.send_immediately",
+                  type: "checkbox",
+                  default: false
                 }
               ]
             }
@@ -6402,6 +6689,18 @@ var SettingsManager = class {
       const { id, value } = setting;
       this.settingsMap.set(id, value);
     }
+    ;
+    [
+      ["shared.chat.emote_menu.appearance.search_box", "shared.chat.emote_menu.search_box"],
+      ["shared.chat.emote_menu.behavior.close_on_click", "shared.chat.emote_menu.close_on_click"],
+      ["shared.chat.quick_emote_holder.appearance.rows", "shared.chat.quick_emote_holder.rows"]
+    ].forEach(([oldKey, newKey]) => {
+      if (this.settingsMap.has(oldKey)) {
+        const val = this.settingsMap.get(oldKey);
+        this.setSetting(newKey, val);
+        database.deleteSetting(oldKey);
+      }
+    });
     this.isLoaded = true;
   }
   setSetting(key, value) {
@@ -6499,11 +6798,14 @@ var Database = class {
   async getSetting(id) {
     return this.idb.settings.get(id);
   }
-  async getTableCount(tableName) {
-    return this.idb.table(tableName).count();
-  }
   async putSetting(setting) {
     return this.idb.settings.put(setting);
+  }
+  async deleteSetting(id) {
+    return this.idb.settings.delete(id);
+  }
+  async getTableCount(tableName) {
+    return this.idb.table(tableName).count();
   }
   async getEmoteUsageRecords(channelId) {
     return this.idb.emoteUsage.where("channelId").equals(channelId).toArray();
@@ -6559,15 +6861,17 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     return Promise.resolve();
   }
   async loadChannelData() {
-    const pathArr = wwindow.location.pathname.substring(1).split("/");
+    const pathArr = window.location.pathname.substring(1).split("/");
     const channelData = {};
     if (pathArr[0] === "video") {
       info("VOD video detected..");
       const videoId = pathArr[1];
       if (!videoId)
         throw new Error("Failed to extract video ID from URL");
-      const responseChannelData = await REST.get(`https://kick.com/api/v1/video/${videoId}`).catch(() => {
-      });
+      const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v1/video/${videoId}`).catch(
+        () => {
+        }
+      );
       if (!responseChannelData) {
         throw new Error("Failed to fetch VOD data");
       }
@@ -6585,17 +6889,17 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
         throw new Error('Invalid VOD data, missing property "user"');
       }
       Object.assign(channelData, {
-        user_id,
-        channel_id: id,
-        channel_name: user.username,
-        is_vod: true,
+        userId: user_id,
+        channelId: id,
+        channelName: user.username,
+        isVod: true,
         me: {}
       });
     } else {
       const channelName2 = pathArr[0];
       if (!channelName2)
         throw new Error("Failed to extract channel name from URL");
-      const responseChannelData = await REST.get(`https://kick.com/api/v2/channels/${channelName2}`);
+      const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v2/channels/${channelName2}`);
       if (!responseChannelData) {
         throw new Error("Failed to fetch channel data");
       }
@@ -6609,31 +6913,30 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
         throw new Error('Invalid channel data, missing property "chatroom.id"');
       }
       Object.assign(channelData, {
-        user_id: responseChannelData.user_id,
-        channel_id: responseChannelData.id,
-        channel_name: channelName2,
+        userId: responseChannelData.user_id,
+        channelId: responseChannelData.id,
+        channelName: channelName2,
         chatroom: {
           id: responseChannelData.chatroom.id,
-          message_interval: responseChannelData.chatroom.message_interval || 0
+          messageInterval: responseChannelData.chatroom.message_interval || 0
         },
-        me: { is_logged_in: false }
+        me: { isLoggedIn: false }
       });
     }
-    const channelName = channelData.channel_name;
-    const responseChannelMeData = await REST.get(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
-      () => {
-      }
-    );
+    const channelName = channelData.channelName;
+    const responseChannelMeData = await RESTFromMainService.get(
+      `https://kick.com/api/v2/channels/${channelName}/me`
+    ).catch(error);
     if (responseChannelMeData) {
       Object.assign(channelData, {
         me: {
-          is_logged_in: true,
-          is_subscribed: !!responseChannelMeData.subscription,
-          is_following: !!responseChannelMeData.is_following,
-          is_super_admin: !!responseChannelMeData.is_super_admin,
-          is_broadcaster: !!responseChannelMeData.is_broadcaster,
-          is_moderator: !!responseChannelMeData.is_moderator,
-          is_banned: !!responseChannelMeData.banned
+          isLoggedIn: true,
+          isSubscribed: !!responseChannelMeData.subscription,
+          isFollowing: !!responseChannelMeData.is_following,
+          isSuperAdmin: !!responseChannelMeData.is_super_admin,
+          isBroadcaster: !!responseChannelMeData.is_broadcaster,
+          isModerator: !!responseChannelMeData.is_moderator,
+          isBanned: !!responseChannelMeData.banned
         }
       });
     } else {
@@ -6645,13 +6948,16 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     if (!this.channelData)
       throw new Error("Channel data is not loaded yet.");
     const chatroomId = this.channelData.chatroom.id;
-    return REST.post("https://kick.com/api/v2/messages/send/" + chatroomId, { content: message, type: "message" });
+    return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
+      content: message,
+      type: "message"
+    });
   }
   async sendReply(message, originalMessageId, originalMessageContent, originalSenderId, originalSenderUsername) {
     if (!this.channelData)
       throw new Error("Channel data is not loaded yet.");
     const chatroomId = this.channelData.chatroom.id;
-    return REST.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
+    return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
       content: message,
       type: "reply",
       metadata: {
@@ -6670,79 +6976,93 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     if (!this.channelData)
       throw new Error("Channel data is not loaded yet.");
     const { channelData } = this;
-    const { channel_name } = channelData;
+    const { channelName } = channelData;
+    const commandName = command.alias || command.name;
     const args = command.args;
-    if (command.name === "ban") {
+    if (commandName === "ban") {
       const data = {
         banned_username: args[0],
         permanent: true
       };
       if (args[1])
-        data.reason = args[1];
-      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/bans`, data);
-    } else if (command.name === "unban") {
-      return REST.delete(`https://kick.com/api/v2/channels/${channel_name}/bans/` + args[0]);
-    } else if (command.name === "clear") {
-      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/chat-commands`, { command: "clear" });
-    } else if (command.name === "emoteonly") {
-      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+        data.reason = args.slice(1).join(" ");
+      return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/bans`, data);
+    } else if (commandName === "unban") {
+      return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${channelName}/bans/` + args[0]);
+    } else if (commandName === "clear") {
+      return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
+        command: "clear"
+      });
+    } else if (commandName === "emoteonly") {
+      return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
         emotes_mode: args[0] === "on"
       });
-    } else if (command.name === "followonly") {
-      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+    } else if (commandName === "followonly") {
+      return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
         followers_mode: args[0] === "on"
       });
-    } else if (command.name === "host") {
-      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/chat-commands`, {
+    } else if (commandName === "host") {
+      return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
         command: "host",
         parameter: args[0]
       });
-    } else if (command.name === "mod") {
-      return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/moderators`, {
+    } else if (commandName === "mod") {
+      return RESTFromMainService.post(
+        `https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`,
+        {
+          username: args[0]
+        }
+      );
+    } else if (commandName === "og") {
+      return RESTFromMainService.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`, {
         username: args[0]
       });
-    } else if (command.name === "og") {
-      return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/ogs`, {
-        username: args[0]
-      });
-    } else if (command.name === "slow") {
-      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+    } else if (commandName === "slow") {
+      return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
         slow_mode: args[0] === "on"
       });
-    } else if (command.name === "subonly") {
-      return REST.put(`https://kick.com/api/v2/channels/${channel_name}/chatroom`, {
+    } else if (commandName === "subonly") {
+      return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
         subscribers_mode: args[0] === "on"
       });
-    } else if (command.name === "timeout") {
-      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/bans`, {
+    } else if (commandName === "timeout") {
+      return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/bans`, {
         banned_username: args[0],
         duration: args[1],
-        reason: args[2],
+        reason: args.slice(2).join(" "),
         permanent: false
       });
-    } else if (command.name === "title") {
-      return REST.post(`https://kick.com/api/v2/channels/${channel_name}/chat-commands`, {
+    } else if (commandName === "title") {
+      return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
         command: "title",
-        parameter: args[0]
+        parameter: args.join(" ")
       });
-    } else if (command.name === "unog") {
-      return REST.delete(`https://kick.com/api/internal/v1/channels/${channel_name}/community/ogs/` + args[0]);
-    } else if (command.name === "unmod") {
-      return REST.delete(
-        `https://kick.com/api/internal/v1/channels/${channel_name}/community/moderators/` + args[0]
+    } else if (commandName === "unog") {
+      return RESTFromMainService.delete(
+        `https://kick.com/api/internal/v1/channels/${channelName}/community/ogs/` + args[0]
       );
-    } else if (command.name === "unvip") {
-      return REST.delete(`https://kick.com/api/internal/v1/channels/${channel_name}/community/vips/` + args[0]);
-    } else if (command.name === "vip") {
-      return REST.post(`https://kick.com/api/internal/v1/channels/${channel_name}/community/vips`, {
+    } else if (commandName === "unmod") {
+      return RESTFromMainService.delete(
+        `https://kick.com/api/internal/v1/channels/${channelName}/community/moderators/` + args[0]
+      );
+    } else if (commandName === "unvip") {
+      return RESTFromMainService.delete(
+        `https://kick.com/api/internal/v1/channels/${channelName}/community/vips/` + args[0]
+      );
+    } else if (commandName === "vip") {
+      return RESTFromMainService.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/vips`, {
         username: args[0]
       });
-    } else if (command.name === "polldelete") {
-      return this.deletePoll(channel_name);
+    } else if (commandName === "polldelete") {
+      return this.deletePoll(channelName);
+    } else if (commandName === "follow") {
+      return this.followUser(args[0]);
+    } else if (commandName === "unfollow") {
+      return this.unfollowUser(args[0]);
     }
   }
   async createPoll(channelName, title, options, duration, displayDuration) {
-    return REST.post(`https://kick.com/api/v2/channels/${channelName}/polls`, {
+    return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/polls`, {
       title,
       options,
       duration,
@@ -6750,27 +7070,22 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     });
   }
   async deletePoll(channelName) {
-    return REST.delete(`https://kick.com/api/v2/channels/${channelName}/polls`);
+    return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${channelName}/polls`);
   }
   async followUser(username) {
     const slug = username.replace("_", "-").toLowerCase();
-    return REST.post(`https://kick.com/api/v2/channels/${slug}/follow`);
+    return RESTFromMainService.post(`https://kick.com/api/v2/channels/${slug}/follow`);
   }
   async unfollowUser(username) {
     const slug = username.replace("_", "-").toLowerCase();
-    return REST.delete(`https://kick.com/api/v2/channels/${slug}/follow`);
+    return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`);
   }
-  // TODO separate this into getUserInfo and getUserChannelInfo
   async getUserInfo(username) {
-    if (!this.channelData)
-      throw new Error("Channel data is not loaded yet.");
-    const { channelData } = this;
-    const { channel_name } = channelData;
     const slug = username.replace("_", "-").toLowerCase();
     const [res1, res2] = await Promise.allSettled([
       // The reason underscores are replaced with dashes is likely because it's a slug
-      REST.get(`https://kick.com/api/v2/channels/${slug}/me`),
-      REST.get(`https://kick.com/api/v2/channels/${slug}`)
+      RESTFromMainService.get(`https://kick.com/api/v2/channels/${slug}/me`),
+      RESTFromMainService.get(`https://kick.com/api/v2/channels/${slug}`)
     ]);
     if (res1.status === "rejected" || res2.status === "rejected") {
       throw new Error("Failed to fetch user data");
@@ -6787,13 +7102,18 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     };
   }
   async getUserChannelInfo(channelName, username) {
-    const channelUserInfo = await REST.get(`https://kick.com/api/v2/channels/${channelName}/users/${username}`);
+    const channelUserInfo = await RESTFromMainService.get(
+      `https://kick.com/api/v2/channels/${channelName}/users/${username}`
+    );
     return {
       id: channelUserInfo.id,
       username: channelUserInfo.username,
       channel: channelName,
       badges: channelUserInfo.badges || [],
       followingSince: channelUserInfo.following_since ? new Date(channelUserInfo.following_since) : null,
+      isChannelOwner: channelUserInfo.is_channel_owner,
+      isModerator: channelUserInfo.is_moderator,
+      isStaff: channelUserInfo.is_staff,
       banned: channelUserInfo.banned ? {
         reason: channelUserInfo.banned?.reason || "No reason provided",
         since: channelUserInfo.banned?.created_at ? new Date(channelUserInfo.banned?.created_at) : null,
@@ -6803,7 +7123,7 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     };
   }
   async getUserMessages(channelId, userId, cursor) {
-    const res = await REST.get(
+    const res = await RESTFromMainService.get(
       `https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages?cursor=${cursor}`
     );
     const { data, status } = res;
@@ -6834,7 +7154,7 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
 // src/Datastores/UsersDatastore.ts
 var UsersDatastore = class {
   eventBus;
-  usersNameMap = /* @__PURE__ */ new Map();
+  usersLowerCaseNameMap = /* @__PURE__ */ new Map();
   usersIdMap = /* @__PURE__ */ new Map();
   users = [];
   usersCount = 0;
@@ -6851,9 +7171,9 @@ var UsersDatastore = class {
   constructor({ eventBus }) {
     this.eventBus = eventBus;
     eventBus.subscribe("ntv.session.destroy", () => {
-      delete this.users;
-      delete this.usersIdMap;
-      delete this.usersNameMap;
+      this.users.length = 0;
+      this.usersIdMap.clear();
+      this.usersLowerCaseNameMap.clear();
     });
   }
   hasUser(id) {
@@ -6874,7 +7194,7 @@ var UsersDatastore = class {
       return;
     }
     const user = { id, name };
-    this.usersNameMap.set(name, user);
+    this.usersLowerCaseNameMap.set(name.toLowerCase(), user);
     this.usersIdMap.set(id, user);
     this.users.push(user);
     this.fuse.add(user);
@@ -6882,6 +7202,9 @@ var UsersDatastore = class {
   }
   getUserById(id) {
     return this.usersIdMap.get(id + "");
+  }
+  getUserByName(name) {
+    return this.usersLowerCaseNameMap.get(name.toLowerCase());
   }
   searchUsers(searchVal) {
     return this.fuse.search(searchVal);
@@ -6920,6 +7243,9 @@ var UsersManager = class {
   getUserById(id) {
     return this.datastore.getUserById(id);
   }
+  getUserByName(name) {
+    return this.datastore.getUserByName(name);
+  }
   searchUsers(searchVal, limit = 20) {
     return this.datastore.searchUsers(searchVal).slice(0, limit);
   }
@@ -6931,10 +7257,121 @@ var UsersManager = class {
   }
 };
 
+// src/Providers/KickBadgeProvider.ts
+var KickBadgeProvider = class {
+  rootContext;
+  channelData;
+  subscriberBadges = [];
+  subscriberBadgesLookupTable = /* @__PURE__ */ new Map();
+  highestBadgeCount = 1;
+  hasCustomBadges = false;
+  constructor(rootContext, channelData) {
+    this.rootContext = rootContext;
+    this.channelData = channelData;
+  }
+  async initialize() {
+    const { channelName } = this.channelData;
+    const channelInfo = await REST.get(`https://kick.com/api/v2/channels/${channelName}`);
+    if (!channelInfo)
+      return error("Unable to fetch channel info from Kick API for badge provider initialization.");
+    if (!channelInfo.subscriber_badges)
+      return error("No subscriber badges found in channel info from Kick API for badge provider initialization.");
+    const subscriber_badges = channelInfo.subscriber_badges;
+    if (!subscriber_badges.length)
+      return;
+    this.hasCustomBadges = true;
+    this.highestBadgeCount = subscriber_badges[subscriber_badges.length - 1].months || 1;
+    for (const subscriber_badge of subscriber_badges) {
+      const badge = {
+        html: `<img class="ntv__badge" src="${subscriber_badge?.badge_image.src}" srcset="${subscriber_badge?.badge_image.srcset}" alt="${subscriber_badge.months} months">`,
+        months: subscriber_badge.months
+      };
+      this.subscriberBadges.push(badge);
+    }
+    const thresholds = this.subscriberBadges.map((badge) => badge.months);
+    for (let i = 0; i < this.highestBadgeCount; i++) {
+      let j = 0;
+      while (i > thresholds[j] && j < 100)
+        j++;
+      this.subscriberBadgesLookupTable.set(i, this.subscriberBadges[j]);
+    }
+  }
+  getBadge(badge) {
+    if (badge.type === "subscriber") {
+      if (this.hasCustomBadges) {
+        const subscriberBadge = this.subscriberBadgesLookupTable.get(badge.count || 0);
+        if (subscriberBadge)
+          return subscriberBadge.html;
+        else if (badge.count || 0 > this.highestBadgeCount) {
+          const highestBadge = this.subscriberBadges[this.subscriberBadges.length - 1];
+          return highestBadge.html;
+        }
+      } else {
+        return this.getGlobalBadge(badge);
+      }
+    }
+    return this.getGlobalBadge(badge);
+  }
+  getGlobalBadge(badge) {
+    switch (badge.type) {
+      case "broadcaster":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2);" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3);" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4);" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5);" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6);" width="1.6" height="3.2"></rect></g></svg>`;
+      case "verified":
+        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<defs><linearGradient id="badge-verified-gradient" x1="25.333%" y1="99.375%" x2="73.541%" y2="2.917%" gradientUnits="objectBoundingBox"><stop stop-color="#1EFF00"/><stop offset="0.99" stop-color="#00FF8C"/></linearGradient></defs><path d="M14.72 7.00003V6.01336H15.64V4.12003H14.6733V3.16003H9.97332V1.2667H8.96665V0.280029H7.03332V1.2667H6.03332V3.16003H1.32665V4.12003H0.359985V6.01336H1.28665V7.00003H2.23332V9.0067H1.28665V9.99336H0.359985V11.8867H1.32665V12.8467H6.03332V14.74H7.03332V15.7267H8.96665V14.74H9.97332V12.8467H14.6733V11.8867H15.64V9.99336H14.72V9.0067H13.7733V7.00003H14.72ZM12.5 6.59336H11.44V7.66003H10.3733V8.72003H9.31332V9.7867H8.24665V10.8467L7.09332 10.9V11.8H6.02665V10.8467H5.05999V9.7867H3.99332V7.66003H6.11999V8.72003H7.18665V7.66003H8.24665V6.59336H9.31332V5.53336H10.3733V4.4667H12.5V6.59336Z" fill="url(#badge-verified-gradient)"/></svg>`;
+      case "staff":
+        return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<defs><linearGradient id="badge-verified-gradient" x1="33.791%" y1="97.416%" x2="65.541%" y2="4.5%" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#1EFF00"></stop><stop offset="0.99" stop-color="#00FF8C"></stop></linearGradient></defs><path fill-rule="evenodd" clip-rule="evenodd" d="M2.07324 1.33331H6.51991V4.29331H7.99991V2.81331H9.47991V1.33331H13.9266V5.77998H12.4466V7.25998H10.9599V8.73998H12.4466V10.22H13.9266V14.6666H9.47991V13.1866H7.99991V11.7066H6.51991V14.6666H2.07324V1.33331Z" fill="url(#badge-verified-gradient)"></path></svg>`;
+      case "global_moderator":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><g id="Badge_Global_Mod"><linearGradient id="badge-global-mod-gradient" gradientUnits="userSpaceOnUse" x1="-1.918" y1="382.5619" x2="17.782" y2="361.3552" gradientTransform="matrix(1 0 0 1 0 -364)"><stop offset="0" style="stop-color:#FCA800"></stop><stop offset="0.99" style="stop-color:#FF5100"></stop></linearGradient><path style="fill:url(#badge-global-mod-gradient)" d="M10.5,0v1.5H9V3H7.5v1.5h-6v6H0V16h5.5v-1.5h6v-6H13V7h1.5V5.5H16V0H10.5z M14.7,4.3h-1.5 v1.5h-1.5v1.5h-1.5v1.5H8.7v1.5h1.5v3h-3v-1.5H5.8v1.5H4.3v1.5h-3v-3h1.5v-1.5h1.5V8.7H2.8v-3h3v1.5h1.5V5.8h1.5V4.3h1.5V2.8h1.5 V1.3h3v3H14.7z"></path></g></svg>`;
+      case "global_admin":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16">
+				<linearGradient id="badge-global-staff-gradient" gradientUnits="userSpaceOnUse" x1="-0.03948053" y1="-180.1338" x2="15.9672" y2="-163.9405" gradientTransform="matrix(1 0 0 -1 0 -164)">
+				  <stop offset="0" style="stop-color:#FCA800"></stop>
+				  <stop offset="0.99" style="stop-color:#FF5100"></stop>
+				</linearGradient>
+				<path style="fill-rule:evenodd;clip-rule:evenodd;fill:url(#badge-global-staff-gradient);" d="M1.1,0.3v15.3H15V0.3H1.1z M12.9,6.2h-1.2v1.2h-1.2v1.2h1.2v1.2h1.2v3.7H9.2v-1.2H8V11H6.8v2.4H3.1v-11h3.7v2.4H8V3.7h1.2V2.5h3.7V6.2z"></path></svg>`;
+      case "sidekick":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><linearGradient id="badge-sidekick-gradient" gradientUnits="userSpaceOnUse" x1="9.3961" y1="-162.6272" x2="5.8428" y2="-180.3738" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FF6A4A;"></stop><stop offset="1" style="stop-color:#C70C00;"></stop></linearGradient><path style="fill:url(#badge-sidekick-gradient);" d="M0,2.8v5.6h1.1V10h1.1v1.6h1.1v1.6h3.4v-1.6H9v1.6h3.4v-1.6h1.1V10h1.1V8.4H16V2.8h-4.6v1.6H9.1V6H6.8V4.4H4.5V2.8H0z M6.9,9.6H3.4V8H2.3V4.8h1.1v1.6h2.3V8h1.1v1.6H6.9z M13.7,8h-1.1v1.6H9.2V8h1.1V6.4h2.3V4.8h1.1C13.7,4.8,13.7,8,13.7,8z"></path></svg>`;
+      case "moderator":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16" style="enable-background:new 0 0 16 16"><path style="fill: rgb(0, 199, 255);" d="M11.7,1.3v1.5h-1.5v1.5 H8.7v1.5H7.3v1.5H5.8V5.8h-3v3h1.5v1.5H2.8v1.5H1.3v3h3v-1.5h1.5v-1.5h1.5v1.5h3v-3H8.7V8.7h1.5V7.3h1.5V5.8h1.5V4.3h1.5v-3C14.7,1.3,11.7,1.3,11.7,1.3z"></path></svg>`;
+      case "vip":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" style="enable-background:new 0 0 16 16" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="badge-vip-gradient" gradientUnits="userSpaceOnUse" x1="8" y1="-163.4867" x2="8" y2="-181.56" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#FFC900"></stop><stop offset="0.99" style="stop-color:#FF9500"></stop></linearGradient></defs><path style="fill:url(#badge-vip-gradient);" d="M13.9,2.4v1.1h-1.2v2.3h-1.1v1.1h-1.1V4.6H9.3V1.3H6.7v3.3H5.6v2.3H4.4V5.8H3.3V3.5H2.1V2.4H0v12.3h16V2.4H13.9z"/></svg>`;
+      case "og":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-og-gradient-1" gradientUnits="userSpaceOnUse" x1="12.2" y1="-180" x2="12.2" y2="-165.2556" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-1);" d="M16,16H9.2v-0.8H8.4v-8h0.8V6.4H16v3.2h-4.5v4.8H13v-1.6h-0.8v-1.6H16V16z"></path><linearGradient id="badge-og-gradient-2" gradientUnits="userSpaceOnUse" x1="3.7636" y1="-164.265" x2="4.0623" y2="-179.9352" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#00FFF2;"></stop><stop offset="0.99" style="stop-color:#006399;"></stop></linearGradient><path style="fill:url(#badge-og-gradient-2);" d="M6.8,8.8v0.8h-6V8.8H0v-8h0.8V0h6.1v0.8 h0.8v8H6.8z M4.5,6.4V1.6H3v4.8H4.5z"></path><path style="fill:#00FFF2;" d="M6.8,15.2V16h-6v-0.8H0V8.8h0.8V8h6.1v0.8h0.8v6.4C7.7,15.2,6.8,15.2,6.8,15.2z M4.5,14.4V9.6H3v4.8 C3,14.4,4.5,14.4,4.5,14.4z"></path><path style="fill:#00FFF2;" d="M16,8H9.2V7.2H8.4V0.8h0.8V0H16v1.6h-4.5v4.8H13V4.8h-0.8V3.2H16V8z"></path></g></svg>`;
+      case "founder":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><linearGradient id="badge-founder-gradient" gradientUnits="userSpaceOnUse" x1="7.874" y1="20.2333" x2="8.1274" y2="-0.3467" gradientTransform="matrix(1 0 0 -1 0 18)"><stop offset="0" style="stop-color: rgb(255, 201, 0);"></stop><stop offset="0.99" style="stop-color: rgb(255, 149, 0);"></stop></linearGradient><path d="
+                M14.6,4V2.7h-1.3V1.4H12V0H4v1.4H2.7v1.3H1.3V4H0v8h1.3v1.3h1.4v1.3H4V16h8v-1.4h1.3v-1.3h1.3V12H16V4H14.6z M9.9,12.9H6.7V6.4H4.5
+                V5.2h1V4.1h1v-1h3.4V12.9z" style="fill-rule: evenodd; clip-rule: evenodd; fill: url(&quot;#badge-founder-gradient&quot;);"></path></svg>`;
+      case "subscriber":
+        return `<svg class="ntv__badge" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g><linearGradient id="badge-subscriber-gradient-1" gradientUnits="userSpaceOnUse" x1="-2.386" y1="-151.2764" x2="42.2073" y2="-240.4697" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-1);" d="M14.8,7.3V6.1h-2.4V4.9H11V3.7H9.9V1.2H8.7V0H7.3v1.2H6.1v2.5H5v1.2H3.7v1.3H1.2v1.2H0v1.4
+				h1.2V10h2.4v1.3H5v1.2h1.2V15h1.2v1h1.3v-1.2h1.2v-2.5H11v-1.2h1.3V9.9h2.4V8.7H16V7.3H14.8z"></path><linearGradient id="badge-subscriber-gradient-2" gradientUnits="userSpaceOnUse" x1="-5.3836" y1="-158.3055" x2="14.9276" y2="-189.0962" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-2);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
+				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-3" gradientUnits="userSpaceOnUse" x1="3.65" y1="-160.7004" x2="3.65" y2="-184.1244" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-3);" d="M7.3,7.3v7.5H6.1v-2.5H5v-1.2H3.7V9.9H1.2
+				V8.7H0V7.3H7.3z"></path><linearGradient id="badge-subscriber-gradient-4" gradientUnits="userSpaceOnUse" x1="22.9659" y1="-167.65" x2="-5.3142" y2="-167.65" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-4);" d="M8.7,0v7.3H1.2V6.1h2.4V4.9H5V3.7h1.2V1.2
+				h1.2V0H8.7z"></path><linearGradient id="badge-subscriber-gradient-5" gradientUnits="userSpaceOnUse" x1="12.35" y1="-187.6089" x2="12.35" y2="-161.5965" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-5);" d="M8.7,8.7V1.2h1.2v2.5H11v1.2h1.3v1.3h2.4
+				v1.2H16v1.4L8.7,8.7L8.7,8.7z"></path><linearGradient id="badge-subscriber-gradient-6" gradientUnits="userSpaceOnUse" x1="-6.5494" y1="-176.35" x2="21.3285" y2="-176.35" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-6);" d="M7.3,16V8.7h7.4v1.2h-2.4v1.3H11v1.2H9.9
+				v2.5H8.7V16H7.3z"></path><linearGradient id="badge-subscriber-gradient-7" gradientUnits="userSpaceOnUse" x1="6.72" y1="-169.44" x2="12.2267" y2="-180.4533" gradientTransform="matrix(1 0 0 -1 0 -164)"><stop offset="0" style="stop-color:#E1FF00;"></stop><stop offset="0.99" style="stop-color:#2AA300;"></stop></linearGradient><path style="fill:url(#badge-subscriber-gradient-7);" d="M8.7,7.3H7.3v1.4h1.3L8.7,7.3L8.7,7.3z"></path></g></svg>`;
+      case "sub_gifter":
+        const count = badge.count || 1;
+        if (count < 25) {
+          return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17810)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.15499 6.63499V12.73L7.99999 15.995V9.14999Z" fill="#0269D4"></path><path d="M8.00003 10.735V9.61501L1.15503 6.63501V7.70501L8.00003 10.735Z" fill="#0269D4"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#04D0FF"></path><path d="M14.845 6.63501V7.70501L8 10.735V9.61501L14.845 6.63501Z" fill="#0269D4"></path></g><defs><clipPath id="clip0_301_17810"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 25) {
+          return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17815)"><path d="M8.02501 9.14999V6.62499L0.51001 3.35999V6.34499L1.17501 6.63499V12.73L8.02501 15.995V9.14999Z" fill="#7B1BAB"></path><path d="M8.02505 10.735V9.61501L1.17505 6.63501V7.70501L8.02505 10.735Z" fill="#7B1BAB"></path><path d="M15.535 3.355V6.345L14.87 6.64V12.73L12.725 13.755L11.21 14.48L8.02501 15.995V6.715L4.84001 5.295H4.83501L3.32001 4.61L0.51001 3.355L3.69001 1.935L3.70501 1.93L5.11501 1.3L8.02501 0L10.93 1.3L12.34 1.925L12.355 1.935L15.535 3.355Z" fill="#A947D3"></path><path d="M14.87 6.63501V7.70501L8.02502 10.735V9.61501L14.87 6.63501Z" fill="#7B1BAB"></path></g><defs><clipPath id="clip0_301_17815"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 50) {
+          return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17820)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#CF0038"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#CF0038"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FA4E78"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#CF0038"></path></g><defs><clipPath id="clip0_301_17820"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 100) {
+          return `<svg class="ntv__badge" class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17825)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#FF5008"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#FF5008"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#FFC800"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#FF5008"></path></g><defs><clipPath id="clip0_301_17825"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        } else if (count >= 200) {
+          return `<svg class="ntv__badge" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_301_17830)"><path d="M7.99999 9.14999V6.62499L0.484985 3.35999V6.34499L1.14999 6.63999V12.73L7.99999 16V9.14999Z" fill="#2FA604"></path><path d="M8.00002 10.74V9.61501L1.15002 6.64001V7.71001L8.00002 10.74Z" fill="#2FA604"></path><path d="M15.515 3.355V6.345L14.85 6.64V12.73L12.705 13.755L11.185 14.48L8.00499 15.995V6.715L4.81999 5.295H4.81499L3.29499 4.61L0.484985 3.355L3.66999 1.935L3.67999 1.93L5.09499 1.3L8.00499 0L10.905 1.3L12.32 1.925L12.33 1.935L15.515 3.355Z" fill="#53F918"></path><path d="M14.85 6.64001V7.71001L8 10.74V9.61501L14.85 6.64001Z" fill="#2FA604"></path></g><defs><clipPath id="clip0_301_17830"><rect width="16" height="16" fill="white"></rect></clipPath></defs></svg>`;
+        }
+    }
+  }
+};
+
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.11",
+    VERSION: "1.4.12",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -6954,7 +7391,7 @@ var NipahClient = class {
     if (false) {
       info("Running in debug mode enabled..");
       RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
-      wwindow.NipahTV = this;
+      window.NipahTV = this;
     } else if (false) {
       info("Running in extension mode..");
       RESOURCE_ROOT = browser.runtime.getURL("/");
@@ -6962,18 +7399,20 @@ var NipahClient = class {
       RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
     }
     Object.freeze(RESOURCE_ROOT);
-    if (wwindow.location.host === "kick.com") {
+    if (window.location.host === "kick.com") {
       PLATFORM = 1 /* KICK */;
       info("Platform detected: Kick");
-    } else if (wwindow.location.host === "www.twitch.tv") {
+    } else if (window.location.host === "www.twitch.tv") {
       PLATFORM = 2 /* TWITCH */;
       info("Platform detected: Twitch");
     } else {
-      return error("Unsupported platform", wwindow.location.host);
+      return error("Unsupported platform", window.location.host);
     }
     Object.freeze(PLATFORM);
     this.attachPageNavigationListener();
-    this.setupDatabase().then(() => {
+    this.setupDatabase().then(async () => {
+      window.RESTFromMainService = new RESTFromMain();
+      await RESTFromMainService.initialize();
       this.setupClientEnvironment().catch((err) => error("Failed to setup client environment.\n\n", err.message));
     });
   }
@@ -7023,7 +7462,7 @@ var NipahClient = class {
     const channelData = networkInterface.channelData;
     const emotesManager = this.emotesManager = new EmotesManager(
       { database, eventBus, settingsManager },
-      channelData.channel_id
+      channelData.channelId
     );
     emotesManager.initialize();
     const usersManager = new UsersManager({ eventBus, settingsManager });
@@ -7040,8 +7479,11 @@ var NipahClient = class {
   createChannelSession(rootContext, channelData) {
     const { emotesManager } = rootContext;
     const session = {
-      channelData
+      channelData,
+      // badgeProvider: PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
+      badgeProvider: new KickBadgeProvider(rootContext, channelData)
     };
+    session.badgeProvider.initialize();
     let userInterface;
     if (PLATFORM === 1 /* KICK */) {
       userInterface = new KickUserInterface(rootContext, session);
@@ -7100,23 +7542,23 @@ var NipahClient = class {
     });
   }
   attachPageNavigationListener() {
-    info("Current URL:", wwindow.location.href);
-    let locationURL = wwindow.location.href;
-    if (wwindow.navigation) {
-      wwindow.navigation.addEventListener("navigate", (event) => {
+    info("Current URL:", window.location.href);
+    let locationURL = window.location.href;
+    if (window.navigation) {
+      window.navigation.addEventListener("navigate", (event) => {
         setTimeout(() => {
-          if (locationURL === wwindow.location.href)
+          if (locationURL === window.location.href)
             return;
-          locationURL = wwindow.location.href;
-          info("Navigated to:", wwindow.location.href);
+          locationURL = window.location.href;
+          info("Navigated to:", window.location.href);
           this.cleanupOldClientEnvironment();
           this.setupClientEnvironment();
         }, 100);
       });
     } else {
       setInterval(() => {
-        if (locationURL !== wwindow.location.href) {
-          locationURL = wwindow.location.href;
+        if (locationURL !== window.location.href) {
+          locationURL = window.location.href;
           info("Navigated to:", locationURL);
           this.cleanupOldClientEnvironment();
           this.setupClientEnvironment();
@@ -7134,27 +7576,25 @@ var NipahClient = class {
   }
 };
 (() => {
-  const wwindow2 = window;
-  wwindow2.wwindow = wwindow2;
   if (true) {
     info("Running in userscript mode..");
   }
   if (false) {
-    if (!wwindow2["browser"] && !globalThis["browser"]) {
+    if (!window["browser"] && !globalThis["browser"]) {
       if (typeof chrome === "undefined") {
         return error("Unsupported browser, please use a modern browser to run NipahTV.");
       }
-      wwindow2.browser = chrome;
+      window.browser = chrome;
     }
   }
   var Dexie2;
-  if (!Dexie2 && !wwindow2["Dexie"]) {
+  if (!Dexie2 && !window["Dexie"]) {
     return error("Failed to import Dexie");
   }
-  if (!Fuse && !wwindow2["Fuse"]) {
+  if (!Fuse && !window["Fuse"]) {
     return error("Failed to import Fuse");
   }
-  if (!twemoji && !wwindow2["twemoji"]) {
+  if (!twemoji && !window["twemoji"]) {
     return error("Failed to import Twemoji");
   }
   PLATFORM = 0 /* NULL */;
@@ -7162,3 +7602,4 @@ var NipahClient = class {
   const nipahClient = new NipahClient();
   nipahClient.initialize();
 })();
+//! Temporary migration code

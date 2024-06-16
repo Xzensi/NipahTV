@@ -7,6 +7,13 @@ import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { Toaster } from '../Classes/Toaster'
 import { PollModal } from './Modals/PollModal'
 
+function getEmojiAttributes() {
+	return {
+		height: '30px',
+		width: '30px'
+	}
+}
+
 export abstract class AbstractUserInterface {
 	protected rootContext: RootContext
 	protected session: Session
@@ -53,6 +60,10 @@ export abstract class AbstractUserInterface {
 		})
 	}
 
+	toastSuccess(message: string) {
+		this.toaster.addToast(message, 4_000, 'success')
+	}
+
 	toastError(message: string) {
 		error(message)
 		this.toaster.addToast(message, 4_000, 'error')
@@ -96,23 +107,32 @@ export abstract class AbstractUserInterface {
 
 		if (appendTo) appendTo.append(...newNodes)
 		else textElement.after(...newNodes)
+
+		twemoji.parse((appendTo as HTMLElement) || textElement.parentElement, {
+			attributes: getEmojiAttributes,
+			className: 'ntv__inline-emoji'
+			// folder: 'svg',
+			// ext: '.svg',
+		})
+
 		textElement.remove()
 	}
 
-	showUserInfoModal(username: string) {
+	showUserInfoModal(username: string, position?: { x: number; y: number }) {
 		log('Showing user info modal..')
-		const modal = new UserInfoModal(
+		new UserInfoModal(
 			this.rootContext,
 			this.session,
 			{
 				toaster: this.toaster
 			},
-			username
+			username,
+			position
 		).init()
 	}
 
 	// Submits input to chat
-	submitInput(suppressEngagementEvent?: boolean) {
+	submitInput(suppressEngagementEvent?: boolean, dontClearInput?: boolean) {
 		const { eventBus, networkInterface } = this.rootContext
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
@@ -159,7 +179,8 @@ export abstract class AbstractUserInterface {
 		}
 
 		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-		contentEditableEditor.clearInput()
+
+		dontClearInput || contentEditableEditor.clearInput()
 	}
 
 	sendEmoteToChat(emoteHid: string) {

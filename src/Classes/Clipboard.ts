@@ -37,26 +37,37 @@ export class Clipboard2 {
 
 		event.preventDefault()
 
-		const range = selection.getRangeAt(0)
-		if (!range) return
+		const fragment = document.createDocumentFragment()
+		const nodeList = []
 
-		range.startContainer.parentElement?.normalize()
-
-		const buffer = []
-		const nodes = range.cloneContents().childNodes
-		for (const node of nodes) {
-			if (node instanceof Text) {
-				buffer.push(node.textContent?.trim())
-			} else if (node instanceof HTMLElement) {
-				const emoteImg = node.querySelector('img')
-				if (emoteImg) {
-					buffer.push(emoteImg.dataset.emoteName || 'UNSET_EMOTE')
-				}
-			}
+		for (let i = 0; i < selection.rangeCount; i++) {
+			fragment.append(selection.getRangeAt(i).cloneContents())
 		}
 
-		// const copyString = selection.toString().replaceAll(CHAR_ZWSP, '')
-		const copyString = buffer.join(' ').replaceAll(CHAR_ZWSP, '')
+		const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, node =>
+			(node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) || (node as HTMLElement)?.tagName === 'IMG'
+				? NodeFilter.FILTER_ACCEPT
+				: NodeFilter.FILTER_SKIP
+		)
+		let currentNode: Node | null = walker.currentNode
+
+		while (currentNode) {
+			nodeList.push(currentNode)
+			currentNode = walker.nextNode()
+		}
+
+		const copyString = nodeList
+			.map(node => {
+				if (node instanceof Text) {
+					return node.textContent?.trim()
+				} else if (node instanceof HTMLElement && node.dataset.emoteName) {
+					return node.dataset.emoteName || 'UNSET_EMOTE_NAME'
+				}
+			})
+			.filter((text): text is string => typeof text === 'string' && text.length > 0)
+			.join(' ')
+			.replaceAll(CHAR_ZWSP, '')
+
 		event.clipboardData?.setData('text/plain', copyString)
 		log(`Copied: "${copyString}"`)
 	}
@@ -84,7 +95,7 @@ export class Clipboard2 {
 	}
 
 	paste(text: string) {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount) return
 		selection.deleteFromDocument()
 		selection.getRangeAt(0).insertNode(document.createTextNode(text))
@@ -94,7 +105,7 @@ export class Clipboard2 {
 	pasteHTML(html: string) {
 		const nodes = Array.from(this.domParser.parseFromString(html, 'text/html').body.childNodes)
 
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount) return
 		selection.deleteFromDocument()
 
@@ -131,7 +142,7 @@ export class Clipboard2 {
 	}
 
 	parsePastedMessage(evt: ClipboardEvent) {
-		const clipboardData = evt.clipboardData || wwindow.clipboardData
+		const clipboardData = evt.clipboardData || window.clipboardData
 		if (!clipboardData) return
 
 		const html = clipboardData.getData('text/html')

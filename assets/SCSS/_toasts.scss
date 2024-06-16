@@ -6,8 +6,10 @@
 	box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 	box-shadow: shadow_elevation(2);
 	font-size: $root_font_size;
+	white-space: break-spaces;
 	background-color: #333;
 	border-radius: 0.25rem;
+	word-break: break-word;
 	max-width: 330px;
 	position: fixed;
 	color: #fff;

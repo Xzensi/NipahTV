@@ -26,8 +26,16 @@
 	cursor: pointer;
 	font-size: 1em;
 
+	&:hover {
+		background-color: var(--ntv-background-color-accent-tint-2);
+	}
+
 	&--regular {
 		background-color: var(--ntv-background-color-tint-4);
+
+		&:hover {
+			background-color: var(--ntv-background-color-tint-5);
+		}
 	}
 
 	&--disabled {
@@ -35,10 +43,6 @@
 		cursor: not-allowed;
 		user-select: none;
 		opacity: 0.38;
-	}
-
-	&:hover {
-		background-color: var(--ntv-background-color-accent-tint-2);
 	}
 }
 

@@ -71,12 +71,16 @@ export class Database {
 		return this.idb.settings.get(id)
 	}
 
-	async getTableCount(tableName: string) {
-		return this.idb.table(tableName).count()
-	}
-
 	async putSetting(setting: any) {
 		return this.idb.settings.put(setting)
+	}
+
+	async deleteSetting(id: string) {
+		return this.idb.settings.delete(id)
+	}
+
+	async getTableCount(tableName: string) {
+		return this.idb.table(tableName).count()
 	}
 
 	async getEmoteUsageRecords(channelId: string) {

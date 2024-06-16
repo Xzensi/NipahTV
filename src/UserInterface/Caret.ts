@@ -2,7 +2,7 @@ import { log, error } from '../utils'
 
 export class Caret {
 	static moveCaretTo(container: Node, offset: number) {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount) return
 
 		const range = document.createRange()
@@ -13,7 +13,7 @@ export class Caret {
 	}
 
 	static collapseToEndOfNode(node: Node) {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection) return error('Unable to get selection, cannot collapse to end of node', node)
 
 		const range = document.createRange()
@@ -35,7 +35,7 @@ export class Caret {
 	}
 
 	static hasNonWhitespaceCharacterBeforeCaret() {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount) return false
 
 		const range = selection.anchorNode ? selection.getRangeAt(0) : null
@@ -65,7 +65,7 @@ export class Caret {
 	}
 
 	static hasNonWhitespaceCharacterAfterCaret() {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection) return false
 
 		const range = selection.anchorNode ? selection.getRangeAt(0) : null
@@ -96,7 +96,7 @@ export class Caret {
 
 	// Checks if the caret is at the start of a node
 	static isCaretAtStartOfNode(node: Node) {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount || !selection.isCollapsed) return false
 
 		if (!node.childNodes.length) return true
@@ -118,7 +118,7 @@ export class Caret {
 	}
 
 	static isCaretAtEndOfNode(node: Node) {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount || !selection.isCollapsed) return false
 
 		if (!node.childNodes.length) return true
@@ -140,7 +140,7 @@ export class Caret {
 	}
 
 	static getWordBeforeCaret() {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount)
 			return {
 				word: null,

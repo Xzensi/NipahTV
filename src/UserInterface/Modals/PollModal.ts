@@ -13,6 +13,7 @@ export class PollModal extends AbstractModal {
 	private durationSliderComponent?: SteppedInputSliderComponent
 	private displayDurationSliderComponent?: SteppedInputSliderComponent
 	private createButtonEl?: HTMLButtonElement
+	private cancelButtonEl?: HTMLButtonElement
 
 	constructor(
 		rootContext: RootContext,
@@ -83,6 +84,7 @@ export class PollModal extends AbstractModal {
 		).init()
 
 		this.createButtonEl = element.querySelector('.ntv__poll-modal__create-btn') as HTMLButtonElement
+		this.cancelButtonEl = element.querySelector('.ntv__poll-modal__close-btn') as HTMLButtonElement
 
 		this.modalBodyEl.appendChild(element)
 	}
@@ -126,9 +128,13 @@ export class PollModal extends AbstractModal {
 				return
 			}
 
-			const channelName = this.session.channelData.channel_name
+			const channelName = this.session.channelData.channelName
 
 			this.rootContext.networkInterface.createPoll(channelName, question, options, duration, displayDuration)
+			this.destroy()
+		})
+
+		this.cancelButtonEl!.addEventListener('click', async () => {
 			this.destroy()
 		})
 	}

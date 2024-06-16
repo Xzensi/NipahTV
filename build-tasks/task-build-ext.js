@@ -148,7 +148,7 @@ esbuild
 
 esbuild
 	.build({
-		entryPoints: ['src/Background/service-worker.ts'],
+		entryPoints: ['src/Background/serviceWorker.ts'],
 		outfile: outdir + 'service-worker.js',
 		bundle: true,
 		minify: false,
@@ -162,5 +162,24 @@ esbuild
 	})
 	.catch(err => {
 		error('Service worker build failed:', err)
+		process.exit(1)
+	})
+
+esbuild
+	.build({
+		entryPoints: ['src/ContentScripts/page.ts'],
+		outfile: outdir + 'page.js',
+		bundle: true,
+		minify: false,
+		sourcemap: false,
+		format: 'esm',
+		tsconfig: 'tsconfig.json',
+		define: {}
+	})
+	.then(async () => {
+		log('\n⚡ Page build complete ⚡')
+	})
+	.catch(err => {
+		error('Page build failed:', err)
 		process.exit(1)
 	})

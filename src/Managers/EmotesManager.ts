@@ -1,4 +1,4 @@
-import { AbstractProvider, ProviderDependencies } from '../Providers/AbstractProvider'
+import { AbstractEmoteProvider, EmoteProviderDependencies } from '../Providers/AbstractEmoteProvider'
 import { EmoteDatastore } from '../Datastores/EmoteDatastore'
 import { log, info, error, splitEmoteName } from '../utils'
 import { Publisher } from '../Classes/Publisher'
@@ -30,7 +30,7 @@ export class EmotesManager {
 		this.datastore.loadDatabase().catch(err => error('Failed to load emote data from database.', err.message))
 	}
 
-	registerProvider(providerConstructor: new (dependencies: ProviderDependencies) => AbstractProvider) {
+	registerProvider(providerConstructor: new (dependencies: EmoteProviderDependencies) => AbstractEmoteProvider) {
 		const provider = new providerConstructor({ settingsManager: this.settingsManager, datastore: this.datastore })
 		this.providers.set(provider.id, provider)
 	}

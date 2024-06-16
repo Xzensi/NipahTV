@@ -161,16 +161,17 @@ export class ContentEditableEditor {
 					const token = tokens[j]
 					const emoteHid = emotesManager.getEmoteHidByName(token)
 					if (emoteHid) {
-						if (i > 0 && j > 0) {
-							newNodes.push(document.createTextNode(' '))
-						}
 						newNodes.push(
 							this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
 						)
 					} else if (i === 0 && j === 0) {
 						newNodes.push(document.createTextNode(token))
 					} else {
-						newNodes.push(document.createTextNode(' ' + token))
+						if (newNodes[newNodes.length - 1] instanceof Text) {
+							newNodes[newNodes.length - 1].textContent += ' ' + token
+						} else {
+							newNodes.push(document.createTextNode(token))
+						}
 					}
 				}
 			}
@@ -214,7 +215,9 @@ export class ContentEditableEditor {
 				event.preventDefault()
 				event.stopImmediatePropagation()
 				if (!this.inputEmpty) {
-					this.rootContext.eventBus.publish('ntv.input_controller.submit')
+					this.rootContext.eventBus.publish('ntv.input_controller.submit', {
+						dontClearInput: event.ctrlKey
+					})
 				}
 				break
 
@@ -725,7 +728,7 @@ export class ContentEditableEditor {
 	}
 
 	adjustSelectionForceOutOfComponent(selection?: Selection | null) {
-		selection = selection || wwindow.getSelection()
+		selection = selection || window.getSelection()
 		if (!selection || !selection.rangeCount) return
 
 		const { inputNode } = this
@@ -766,7 +769,7 @@ export class ContentEditableEditor {
 	insertText(text: string) {
 		const { inputNode } = this
 
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection) {
 			inputNode.append(new Text(text))
 			inputNode.normalize()

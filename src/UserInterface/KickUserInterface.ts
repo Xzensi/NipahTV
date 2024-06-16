@@ -17,13 +17,6 @@ import { AbstractUserInterface } from './AbstractUserInterface'
 import { Caret } from './Caret'
 import { InputController } from '../Managers/InputController'
 
-function getEmojiAttributes() {
-	return {
-		height: '30px',
-		width: '30px'
-	}
-}
-
 export class KickUserInterface extends AbstractUserInterface {
 	private abortController = new AbortController()
 
@@ -80,7 +73,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 
 		// Wait for chat messages container to load
-		const chatMessagesContainerSelector = channelData.is_vod
+		const chatMessagesContainerSelector = channelData.isVod
 			? '#chatroom-replay > .overflow-y-scroll > .flex-col-reverse'
 			: '#chatroom > div:nth-child(2) > .overflow-y-scroll'
 
@@ -88,15 +81,23 @@ export class KickUserInterface extends AbstractUserInterface {
 			.then(() => {
 				this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector)
 
-				// Add alternating background color to chat messages
-				if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
-					document.getElementById('chatroom')?.classList.add('ntv__alternating-background')
-				}
+				const chatroomEl = document.getElementById('chatroom')
 
-				// Add seperator lines to chat messages
-				const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
-				if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-					document.getElementById('chatroom')?.classList.add(`ntv__seperators-${seperatorSettingVal}`)
+				if (chatroomEl) {
+					// Add alternating background color to chat messages
+					if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
+						chatroomEl.classList.add('ntv__alternating-background')
+					}
+
+					// Add seperator lines to chat messages
+					const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
+					if (seperatorSettingVal && seperatorSettingVal !== 'none') {
+						chatroomEl.classList.add(`ntv__seperators-${seperatorSettingVal}`)
+					}
+
+					chatroomEl.addEventListener('copy', evt => {
+						this.clipboard.handleCopyEvent(evt)
+					})
 				}
 
 				// Render emotes in chat when providers are loaded
@@ -129,7 +130,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Submit input to chat
-		eventBus.subscribe('ntv.input_controller.submit', this.submitInput.bind(this))
+		eventBus.subscribe('ntv.input_controller.submit', (data: any) => this.submitInput(false, data?.dontClearInput))
 
 		// Set chat smooth scrolling mode
 		eventBus.subscribe(
@@ -164,7 +165,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	// TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
 	async loadEmoteMenu() {
-		if (!this.session.channelData.me.is_logged_in) return
+		if (!this.session.channelData.me.isLoggedIn) return
 		if (!this.elm.textField) return error('Text field not loaded for emote menu')
 
 		const container = this.elm.textField.parentElement!.parentElement!
@@ -234,7 +235,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadShadowProxyElements() {
-		if (!this.session.channelData.me.is_logged_in) return
+		if (!this.session.channelData.me.isLoggedIn) return
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
@@ -280,6 +281,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const inputController = (this.inputController = new InputController(
 			this.rootContext,
+			this.session,
 			{
 				clipboard: this.clipboard
 			},
@@ -307,10 +309,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldEl.addEventListener('cut', evt => {
 			this.clipboard.handleCutEvent(evt)
-		})
-
-		textFieldEl.addEventListener('copy', evt => {
-			this.clipboard.handleCopyEvent(evt)
 		})
 
 		this.rootContext.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
@@ -449,7 +447,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	loadReplyBehaviour() {
 		const { inputController } = this
 		const { channelData } = this.session
-		if (!channelData.me.is_logged_in) return
+		if (!channelData.me.isLoggedIn) return
 		if (!inputController) return error('Input controller not loaded for reply behaviour')
 
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
@@ -574,7 +572,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						}
 						if (this.stickyScroll) {
 							// We need to wait for the next frame paint call to render before scrolling to bottom
-							wwindow.requestAnimationFrame(scrollToBottom)
+							window.requestAnimationFrame(scrollToBottom)
 						}
 					}
 				})
@@ -611,14 +609,30 @@ export class KickUserInterface extends AbstractUserInterface {
 			)
 		})
 
-		// Insert emote in chat input when clicked
-		// Can't track click events on kick emotes, because they kill the event with stopPropagation()
 		chatMessagesContainerEl.addEventListener('click', evt => {
 			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
 
-			const emoteHid = target.getAttribute('data-emote-hid')
-			if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+			// Insert emote in chat input when clicked
+			if (target.tagName === 'IMG' && target?.parentElement?.classList.contains('ntv__inline-emote-box')) {
+				const emoteHid = target.getAttribute('data-emote-hid')
+				if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+			}
+
+			// Show user info modal when clicking usernames
+			// else if (target.tagName === 'SPAN') {
+			// 	evt.stopPropagation()
+
+			// 	const identityContainer = target.classList.contains('chat-message-identity')
+			// 		? target
+			// 		: target.closest('.chat-message-identity')
+			// 	if (!identityContainer) return
+
+			// 	const usernameEl = identityContainer ? identityContainer.querySelector('.chat-entry-username') : null
+			// 	const username = usernameEl?.textContent
+			// 	const rect = identityContainer.getBoundingClientRect()
+			// 	const screenPosition = { x: rect.x, y: rect.y - 100 }
+			// 	if (username) this.showUserInfoModal(username, screenPosition)
+			// }
 		})
 	}
 
@@ -662,7 +676,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { usersManager, settingsManager, emotesManager } = this.rootContext
 		const { channelData } = this.session
 
-		if (!channelData.is_vod) {
+		if (!channelData.isVod) {
 			const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
 			if (usernameEl) {
 				const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
@@ -682,7 +696,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						)
 						if (
 							enableFirstMessageHighlight &&
-							(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.is_moderator))
+							(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.isModerator))
 						) {
 							messageNode.classList.add('ntv__highlight-first-message')
 						}
@@ -746,6 +760,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		} else {
 			messageWrapperNode = chatEntryNode.children[0]
 		}
+
+		// Replace message identity with clone to nuke all evenListeners
+		// const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
+		// messageIdentityNode?.replaceWith(messageIdentityNode.cloneNode(true))
 
 		const contentNodes = Array.from(messageWrapperNode.children)
 		const contentNodesLength = contentNodes.length
@@ -834,14 +852,6 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}
 
-		if (twemoji)
-			twemoji.parse(messageNode, {
-				attributes: getEmojiAttributes,
-				className: 'ntv__inline-emoji'
-				// folder: 'svg',
-				// ext: '.svg',
-			})
-
 		// Adding this class removes the display: none from the chat message, causing a reflow
 		messageNode.classList.add('ntv__chat-message')
 	}
@@ -861,7 +871,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const textFieldEl = this.elm.textField
 		if (!textFieldEl) return error('Text field not loaded for inserting node')
 
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (selection && selection.rangeCount) {
 			const range = selection.getRangeAt(0)
 			const caretIsInTextField =
@@ -894,7 +904,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const textFieldEl = this.elm.textField
 		if (!textFieldEl) return error('Text field not loaded for inserting node')
 
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		const range = selection?.anchorNode ? selection.getRangeAt(0) : null
 
 		if (range) {
