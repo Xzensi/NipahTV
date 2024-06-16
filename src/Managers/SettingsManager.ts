@@ -238,7 +238,7 @@ export class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
-									label: 'Close the emote menu when clicking an emote.',
+									label: 'Close the emote menu after clicking an emote.',
 									id: 'shared.chat.emote_menu.close_on_click',
 									default: false,
 									type: 'checkbox'
