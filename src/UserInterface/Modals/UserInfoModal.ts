@@ -43,12 +43,28 @@ export class UserInfoModal extends AbstractModal {
 			toaster: Toaster
 		},
 		username: string,
-		position?: { x: number; y: number }
+		coordinates?: { x: number; y: number }
 	) {
+		const modalWidth = 340
+
+		if (coordinates) {
+			const screenWidth = window.innerWidth
+			log(screenWidth)
+
+			if (screenWidth < modalWidth) coordinates.x = 0
+			else if (screenWidth - coordinates.x < modalWidth) coordinates.x = screenWidth - modalWidth
+			else if (coordinates.x < 0) coordinates.x = 0
+
+			const screenHeight = window.innerHeight
+			if (screenHeight < 300) coordinates.y = 0
+			else if (coordinates.y < 0) coordinates.y = 0
+			else if (coordinates.y > screenHeight - 300) coordinates.y = screenHeight - 300
+		}
+
 		const geometry: ModalGeometry = {
-			width: '340px',
-			position: position ? 'coordinates' : 'chat-top',
-			coords: position
+			width: modalWidth + 'px',
+			position: coordinates ? 'coordinates' : 'chat-top',
+			coords: coordinates
 		}
 
 		super('user-info', geometry)

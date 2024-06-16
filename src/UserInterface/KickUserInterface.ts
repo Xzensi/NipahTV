@@ -630,7 +630,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				const usernameEl = identityContainer ? identityContainer.querySelector('.chat-entry-username') : null
 				const username = usernameEl?.textContent
 				const rect = identityContainer.getBoundingClientRect()
-				const screenPosition = { x: rect.x, y: rect.y }
+				const screenPosition = { x: rect.x, y: rect.y - 100 }
 				if (username) this.showUserInfoModal(username, screenPosition)
 			}
 		})
