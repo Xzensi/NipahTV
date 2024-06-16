@@ -118,15 +118,16 @@ export abstract class AbstractUserInterface {
 		textElement.remove()
 	}
 
-	showUserInfoModal(username: string) {
+	showUserInfoModal(username: string, position?: { x: number; y: number }) {
 		log('Showing user info modal..')
-		const modal = new UserInfoModal(
+		new UserInfoModal(
 			this.rootContext,
 			this.session,
 			{
 				toaster: this.toaster
 			},
-			username
+			username,
+			position
 		).init()
 	}
 

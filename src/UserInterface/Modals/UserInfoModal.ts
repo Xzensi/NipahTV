@@ -42,11 +42,13 @@ export class UserInfoModal extends AbstractModal {
 		}: {
 			toaster: Toaster
 		},
-		username: string
+		username: string,
+		position?: { x: number; y: number }
 	) {
 		const geometry: ModalGeometry = {
 			width: '340px',
-			position: 'chat-top'
+			position: position ? 'coordinates' : 'chat-top',
+			coords: position
 		}
 
 		super('user-info', geometry)

@@ -609,14 +609,30 @@ export class KickUserInterface extends AbstractUserInterface {
 			)
 		})
 
-		// Insert emote in chat input when clicked
-		// Can't track click events on kick emotes, because they kill the event with stopPropagation()
 		chatMessagesContainerEl.addEventListener('click', evt => {
 			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
 
-			const emoteHid = target.getAttribute('data-emote-hid')
-			if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+			// Insert emote in chat input when clicked
+			if (target.tagName === 'IMG' && target?.parentElement?.classList.contains('ntv__inline-emote-box')) {
+				const emoteHid = target.getAttribute('data-emote-hid')
+				if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+			}
+
+			// Show user info modal when clicking usernames
+			else if (target.tagName === 'SPAN') {
+				evt.stopPropagation()
+
+				const identityContainer = target.classList.contains('chat-message-identity')
+					? target
+					: target.closest('.chat-message-identity')
+				if (!identityContainer) return
+
+				const usernameEl = identityContainer ? identityContainer.querySelector('.chat-entry-username') : null
+				const username = usernameEl?.textContent
+				const rect = identityContainer.getBoundingClientRect()
+				const screenPosition = { x: rect.x, y: rect.y }
+				if (username) this.showUserInfoModal(username, screenPosition)
+			}
 		})
 	}
 
@@ -744,6 +760,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		} else {
 			messageWrapperNode = chatEntryNode.children[0]
 		}
+
+		// Replace message identity with clone to nuke all evenListeners
+		const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
+		messageIdentityNode?.replaceWith(messageIdentityNode.cloneNode(true))
 
 		const contentNodes = Array.from(messageWrapperNode.children)
 		const contentNodesLength = contentNodes.length
