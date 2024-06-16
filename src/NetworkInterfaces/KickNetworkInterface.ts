@@ -274,8 +274,8 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		const userMeInfo = res1.value
 		const userOwnChannelInfo = res2.value
 
-		// log('User me info:', userMeInfo)
-		// log('User own channel info:', userOwnChannelInfo)
+		log('User me info:', userMeInfo)
+		log('User own channel info:', userOwnChannelInfo)
 
 		return {
 			id: userOwnChannelInfo.user.id,
@@ -295,7 +295,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			`https://kick.com/api/v2/channels/${channelName}/users/${username}`
 		)
 
-		// log('User channel info:', channelUserInfo)
+		log('User channel info:', channelUserInfo)
 
 		return {
 			id: channelUserInfo.id,
@@ -303,6 +303,9 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			channel: channelName,
 			badges: channelUserInfo.badges || [],
 			followingSince: channelUserInfo.following_since ? new Date(channelUserInfo.following_since) : null,
+			isChannelOwner: channelUserInfo.is_channel_owner,
+			isModerator: channelUserInfo.is_moderator,
+			isStaff: channelUserInfo.is_staff,
 			banned: channelUserInfo.banned
 				? {
 						reason: channelUserInfo.banned?.reason || 'No reason provided',

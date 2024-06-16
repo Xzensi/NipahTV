@@ -15,6 +15,9 @@ export type UserChannelInfo = {
 	channel: string
 	badges: Badge[]
 	followingSince: Date | null
+	isChannelOwner: boolean
+	isModerator: boolean
+	isStaff: boolean
 	banned?: {
 		reason: string
 		since: Date | null

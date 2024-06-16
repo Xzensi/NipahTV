@@ -74,7 +74,10 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 			username,
 			channel: '',
 			badges: [],
-			followingSince: null
+			followingSince: null,
+			isChannelOwner: false,
+			isModerator: false,
+			isStaff: false
 		}
 	}
 
