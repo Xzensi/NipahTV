@@ -9,6 +9,22 @@ type CommandDependencies = RootContext & Session
 
 const commandsMap = [
 	{
+		name: 'timeout',
+		command: 'timeout <username> <minutes> [reason]',
+		minAllowedRole: 'moderator',
+		description: 'Temporarily ban an user from chat.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required',
+			'<minutes>': (arg: string) => {
+				const m = parseInt(arg, 10)
+				return !Number.isNaN(m) && m > 0 && m < 10_080
+					? null
+					: 'Minutes must be a number between 1 and 10080 (7 days).'
+			}
+		}
+	},
+	{
 		name: 'ban',
 		command: 'ban <username> [reason]',
 		minAllowedRole: 'moderator',
@@ -18,6 +34,46 @@ const commandsMap = [
 			'<username>': (arg: string) => (!!arg ? null : 'Username is required')
 		}
 	},
+	{
+		name: 'user',
+		command: 'user <username>',
+		// minAllowedRole: 'moderator',
+		description: 'Display user information.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		},
+		execute: (deps: CommandDependencies, args: string[]) => {
+			log('User command executed with args:', args)
+			const { eventBus } = deps
+			eventBus.publish('ntv.ui.show_modal.user_info', { username: args[0] })
+		}
+	},
+	{
+		name: 'title',
+		command: 'title <title>',
+		minAllowedRole: 'moderator',
+		description: 'Set the stream title.',
+		argValidators: {
+			'<title>': (arg: string) => (!!arg ? null : 'Title is required')
+		}
+	},
+	{
+		name: 'poll',
+		command: 'poll',
+		minAllowedRole: 'moderator',
+		description: 'Create a poll.',
+		execute: (deps: CommandDependencies, args: string[]) => {
+			const { eventBus } = deps
+			eventBus.publish('ntv.ui.show_modal.poll')
+		}
+	},
+	{
+		name: 'polldelete',
+		command: 'polldelete',
+		minAllowedRole: 'moderator',
+		description: 'Delete the current poll.'
+	},
 	// {
 	// 	name: 'category',
 	// 	command: 'category',
@@ -25,10 +81,14 @@ const commandsMap = [
 	// 	description: 'Sets the stream category.'
 	// },
 	{
-		name: 'clear',
-		command: 'clear',
+		name: 'slow',
+		command: 'slow <on_off> [seconds]',
 		minAllowedRole: 'moderator',
-		description: 'Clear the chat.'
+		description: 'Enable slow mode for chat.',
+		argValidators: {
+			'<on_off>': (arg: string) =>
+				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'
+		}
 	},
 	{
 		name: 'emoteonly',
@@ -51,60 +111,21 @@ const commandsMap = [
 		}
 	},
 	{
-		name: 'host',
-		command: 'host <username>',
+		name: 'raid',
+		alias: 'host',
+		command: 'raid <username>',
 		minAllowedRole: 'broadcaster',
-		description: "Host someone's channel",
+		description: "Raid someone's channel (alias for /host)",
 		argValidators: {
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		}
 	},
 	{
-		name: 'mod',
-		command: 'mod <username>',
-		minAllowedRole: 'broadcaster',
-		description: 'Add an user to your moderator list.',
-		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
-		}
-	},
-	{
-		name: 'og',
-		command: 'og <username>',
-		minAllowedRole: 'broadcaster',
-		description: 'Add an user to your OG list.',
-		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
-		}
-	},
-	{
-		name: 'poll',
-		command: 'poll',
+		name: 'clear',
+		command: 'clear',
 		minAllowedRole: 'moderator',
-		description: 'Create a poll.',
-		execute: (deps: CommandDependencies, args: string[]) => {
-			const { eventBus } = deps
-			eventBus.publish('ntv.ui.show_modal.poll')
-		}
-	},
-	{
-		name: 'polldelete',
-		command: 'polldelete',
-		minAllowedRole: 'moderator',
-		description: 'Delete the current poll.'
-	},
-	{
-		name: 'slow',
-		command: 'slow <on_off> [seconds]',
-		minAllowedRole: 'moderator',
-		description: 'Enable slow mode for chat.',
-		argValidators: {
-			'<on_off>': (arg: string) =>
-				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'
-		}
+		description: 'Clear the chat.'
 	},
 	{
 		name: 'subonly',
@@ -114,31 +135,6 @@ const commandsMap = [
 		argValidators: {
 			'<on_off>': (arg: string) =>
 				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'
-		}
-	},
-	{
-		name: 'timeout',
-		command: 'timeout <username> <minutes> [reason]',
-		minAllowedRole: 'moderator',
-		description: 'Temporarily ban an user from chat.',
-		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required',
-			'<minutes>': (arg: string) => {
-				const m = parseInt(arg, 10)
-				return !Number.isNaN(m) && m > 0 && m < 10_080
-					? null
-					: 'Minutes must be a number between 1 and 10080 (7 days).'
-			}
-		}
-	},
-	{
-		name: 'title',
-		command: 'title <title>',
-		minAllowedRole: 'moderator',
-		description: 'Set the stream title.',
-		argValidators: {
-			'<title>': (arg: string) => (!!arg ? null : 'Title is required')
 		}
 	},
 	{
@@ -152,20 +148,10 @@ const commandsMap = [
 		}
 	},
 	{
-		name: 'unog',
-		command: 'unog <username>',
+		name: 'vip',
+		command: 'vip <username>',
 		minAllowedRole: 'broadcaster',
-		description: 'Remove an user from your OG list',
-		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
-		}
-	},
-	{
-		name: 'unmod',
-		command: 'unmod <username>',
-		minAllowedRole: 'broadcaster',
-		description: 'Remove an user from your moderator list.',
+		description: 'Add an user to your VIP list.',
 		argValidators: {
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
@@ -182,25 +168,40 @@ const commandsMap = [
 		}
 	},
 	{
-		name: 'user',
-		command: 'user <username>',
-		// minAllowedRole: 'moderator',
-		description: 'Display user information.',
+		name: 'mod',
+		command: 'mod <username>',
+		minAllowedRole: 'broadcaster',
+		description: 'Add an user to your moderator list.',
 		argValidators: {
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
-		},
-		execute: (deps: CommandDependencies, args: string[]) => {
-			log('User command executed with args:', args)
-			const { eventBus } = deps
-			eventBus.publish('ntv.ui.show_modal.user_info', { username: args[0] })
 		}
 	},
 	{
-		name: 'vip',
-		command: 'vip <username>',
+		name: 'unmod',
+		command: 'unmod <username>',
 		minAllowedRole: 'broadcaster',
-		description: 'Add an user to your VIP list.',
+		description: 'Remove an user from your moderator list.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		}
+	},
+	{
+		name: 'og',
+		command: 'og <username>',
+		minAllowedRole: 'broadcaster',
+		description: 'Add an user to your OG list.',
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		}
+	},
+	{
+		name: 'unog',
+		command: 'unog <username>',
+		minAllowedRole: 'broadcaster',
+		description: 'Remove an user from your OG list',
 		argValidators: {
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
@@ -268,6 +269,16 @@ const commandsMap = [
 			if (!user) userInterface?.toastError('User not found.')
 			else if (!user.muted) userInterface?.toastError('User is not muted.')
 			else usersManager.unmuteUserById(user.id)
+		}
+	},
+	{
+		name: 'host',
+		command: 'host <username>',
+		minAllowedRole: 'broadcaster',
+		description: "Host someone's channel",
+		argValidators: {
+			'<username>': (arg: string) =>
+				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		}
 	}
 ]
@@ -420,7 +431,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 
 	getParsedInputCommand(
 		inputString: string
-	): [{ name: string; args: string[] }, (typeof commandsMap)[number]] | [void] {
+	): [{ name: string; alias?: string; args: string[] }, (typeof commandsMap)[number]] | [void] {
 		const inputParts = inputString.split(' ').filter(v => v !== '')
 		const inputCommandName = inputParts[0]
 
@@ -436,7 +447,8 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			const rest = inputParts.slice(argCount + 1).join(' ')
 			return [
 				{
-					name: inputCommandName,
+					name: commandEntry.name,
+					alias: commandEntry.alias,
 					args: start.concat(rest)
 				},
 				commandEntry
@@ -445,7 +457,8 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 
 		return [
 			{
-				name: inputCommandName,
+				name: commandEntry.name,
+				alias: commandEntry.alias,
 				args: inputParts.slice(1, argCount + 1)
 			},
 			commandEntry
@@ -518,7 +531,18 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			if (commandEntry && typeof commandEntry.execute === 'function') {
 				commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args)
 			} else {
-				networkInterface.sendCommand(commandData)
+				networkInterface
+					.sendCommand(commandData)
+					.then(res => {
+						if (res.error) {
+							this.session.userInterface?.toastError(res.error)
+						} else if (!res.success) {
+							this.session.userInterface?.toastError('Command failed. No reason given.')
+						}
+					})
+					.catch(err => {
+						this.session.userInterface?.toastError('Command failed. ' + (err.message || ''))
+					})
 			}
 
 			contentEditableEditor.clearInput()
