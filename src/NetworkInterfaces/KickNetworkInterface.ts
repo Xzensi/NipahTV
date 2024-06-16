@@ -26,7 +26,9 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			if (!videoId) throw new Error('Failed to extract video ID from URL')
 
 			// We extract channel data from the Kick API
-			const responseChannelData = await REST.get(`https://kick.com/api/v1/video/${videoId}`).catch(() => {})
+			const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v1/video/${videoId}`).catch(
+				() => {}
+			)
 			if (!responseChannelData) {
 				throw new Error('Failed to fetch VOD data')
 			}
@@ -58,7 +60,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			if (!channelName) throw new Error('Failed to extract channel name from URL')
 
 			// We extract channel data from the Kick API
-			const responseChannelData = await REST.get(`https://kick.com/api/v2/channels/${channelName}`)
+			const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v2/channels/${channelName}`)
 			if (!responseChannelData) {
 				throw new Error('Failed to fetch channel data')
 			}
@@ -85,9 +87,9 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		}
 
 		const channelName = (channelData as any).channelName as string
-		const responseChannelMeData = await REST.get(`https://kick.com/api/v2/channels/${channelName}/me`).catch(
-			() => {}
-		)
+		const responseChannelMeData = await RESTFromMainService.get(
+			`https://kick.com/api/v2/channels/${channelName}/me`
+		).catch(error)
 
 		if (responseChannelMeData) {
 			Object.assign(channelData, {
@@ -112,7 +114,10 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
 		const chatroomId = this.channelData.chatroom.id
-		return REST.post('https://kick.com/api/v2/messages/send/' + chatroomId, { content: message, type: 'message' })
+		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
+			content: message,
+			type: 'message'
+		})
 	}
 
 	async sendReply(
@@ -125,7 +130,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
 		const chatroomId = this.channelData.chatroom.id
-		return REST.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
+		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
 			content: message,
 			type: 'reply',
 			metadata: {
@@ -155,62 +160,71 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			} as any
 			if (args[1]) data.reason = args.slice(1).join(' ')
 
-			return REST.post(`https://kick.com/api/v2/channels/${channelName}/bans`, data)
+			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/bans`, data)
 		} else if (command.name === 'unban') {
-			return REST.delete(`https://kick.com/api/v2/channels/${channelName}/bans/` + args[0])
+			return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${channelName}/bans/` + args[0])
 		} else if (command.name === 'clear') {
-			return REST.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, { command: 'clear' })
+			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
+				command: 'clear'
+			})
 		} else if (command.name === 'emoteonly') {
-			return REST.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
+			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
 				emotes_mode: args[0] === 'on'
 			})
 		} else if (command.name === 'followonly') {
-			return REST.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
+			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
 				followers_mode: args[0] === 'on'
 			})
 		} else if (command.name === 'host') {
-			return REST.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
+			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
 				command: 'host',
 				parameter: args[0]
 			})
 		} else if (command.name === 'mod') {
-			return REST.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`, {
-				username: args[0]
-			})
+			return RESTFromMainService.post(
+				`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`,
+				{
+					username: args[0]
+				}
+			)
 		} else if (command.name === 'og') {
-			return REST.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`, {
+			return RESTFromMainService.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`, {
 				username: args[0]
 			})
 		} else if (command.name === 'slow') {
-			return REST.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
+			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
 				slow_mode: args[0] === 'on'
 			})
 		} else if (command.name === 'subonly') {
-			return REST.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
+			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
 				subscribers_mode: args[0] === 'on'
 			})
 		} else if (command.name === 'timeout') {
-			return REST.post(`https://kick.com/api/v2/channels/${channelName}/bans`, {
+			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/bans`, {
 				banned_username: args[0],
 				duration: args[1],
 				reason: args.slice(2).join(' '),
 				permanent: false
 			})
 		} else if (command.name === 'title') {
-			return REST.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
+			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
 				command: 'title',
 				parameter: args.join(' ')
 			})
 		} else if (command.name === 'unog') {
-			return REST.delete(`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs/` + args[0])
+			return RESTFromMainService.delete(
+				`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs/` + args[0]
+			)
 		} else if (command.name === 'unmod') {
-			return REST.delete(
+			return RESTFromMainService.delete(
 				`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators/` + args[0]
 			)
 		} else if (command.name === 'unvip') {
-			return REST.delete(`https://kick.com/api/internal/v1/channels/${channelName}/community/vips/` + args[0])
+			return RESTFromMainService.delete(
+				`https://kick.com/api/internal/v1/channels/${channelName}/community/vips/` + args[0]
+			)
 		} else if (command.name === 'vip') {
-			return REST.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/vips`, {
+			return RESTFromMainService.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/vips`, {
 				username: args[0]
 			})
 		} else if (command.name === 'polldelete') {
@@ -223,7 +237,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 	}
 
 	async createPoll(channelName: string, title: string, options: string[], duration: number, displayDuration: number) {
-		return REST.post(`https://kick.com/api/v2/channels/${channelName}/polls`, {
+		return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/polls`, {
 			title,
 			options,
 			duration,
@@ -232,17 +246,17 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 	}
 
 	async deletePoll(channelName: string) {
-		return REST.delete(`https://kick.com/api/v2/channels/${channelName}/polls`)
+		return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${channelName}/polls`)
 	}
 
 	async followUser(username: string) {
 		const slug = username.replace('_', '-').toLowerCase()
-		return REST.post(`https://kick.com/api/v2/channels/${slug}/follow`)
+		return RESTFromMainService.post(`https://kick.com/api/v2/channels/${slug}/follow`)
 	}
 
 	async unfollowUser(username: string) {
 		const slug = username.replace('_', '-').toLowerCase()
-		return REST.delete(`https://kick.com/api/v2/channels/${slug}/follow`)
+		return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`)
 	}
 
 	async getUserInfo(username: string) {
@@ -250,8 +264,8 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 
 		const [res1, res2] = await Promise.allSettled([
 			// The reason underscores are replaced with dashes is likely because it's a slug
-			REST.get(`https://kick.com/api/v2/channels/${slug}/me`),
-			REST.get(`https://kick.com/api/v2/channels/${slug}`)
+			RESTFromMainService.get(`https://kick.com/api/v2/channels/${slug}/me`),
+			RESTFromMainService.get(`https://kick.com/api/v2/channels/${slug}`)
 		])
 		if (res1.status === 'rejected' || res2.status === 'rejected') {
 			throw new Error('Failed to fetch user data')
@@ -277,7 +291,9 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 	}
 
 	async getUserChannelInfo(channelName: string, username: string) {
-		const channelUserInfo = await REST.get(`https://kick.com/api/v2/channels/${channelName}/users/${username}`)
+		const channelUserInfo = await RESTFromMainService.get(
+			`https://kick.com/api/v2/channels/${channelName}/users/${username}`
+		)
 
 		// log('User channel info:', channelUserInfo)
 
@@ -301,7 +317,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 	}
 
 	async getUserMessages(channelId: string, userId: string, cursor: number) {
-		const res = await REST.get(
+		const res = await RESTFromMainService.get(
 			`https://kick.com/api/v2/channels/${channelId}/users/${userId}/messages?cursor=${cursor}`
 		)
 		const { data, status } = res

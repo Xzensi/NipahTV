@@ -7,6 +7,7 @@ import type { UsersManager } from '../Managers/UsersManager'
 import type { Publisher } from '../Classes/Publisher'
 import type { Database } from '../Classes/Database'
 import type { PLATFORM_ENUM } from '../constants'
+import type { RESTFromMain } from '../utils'
 import type Twemoji from 'twemoji'
 
 declare global {
@@ -28,6 +29,7 @@ declare global {
 	var GM_getResourceText: Function
 	var twemoji: typeof Twemoji
 	var Fuse: Fuse
+	var RESTFromMainService: RESTFromMain
 
 	var PLATFORM: ValueOf<typeof PLATFORM_ENUM>
 	var RESOURCE_ROOT: string
@@ -39,9 +41,10 @@ declare global {
 		clipboardData: DataTransfer | null
 		__USERSCRIPT__: boolean
 		__LOCAL__?: boolean
-		NipahTV?: any // Export class NipahClient not allowed for Userscripts
+		NipahTV?: any
 		Fuse: Fuse
 		twemoji: any
+		RESTFromMainService: RESTFromMain
 	}
 
 	type Fuse = {

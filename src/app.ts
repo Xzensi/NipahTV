@@ -9,7 +9,7 @@ import { SevenTVProvider } from './Providers/SevenTVProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error } from './utils'
+import { log, info, error, RESTFromMain } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 import { Database } from './Classes/Database'
@@ -66,6 +66,8 @@ class NipahClient {
 		}
 
 		Object.freeze(PLATFORM)
+
+		wwindow.RESTFromMainService = new RESTFromMain()
 
 		this.attachPageNavigationListener()
 		this.setupDatabase().then(() => {
@@ -253,7 +255,6 @@ class NipahClient {
 				setTimeout(() => {
 					if (locationURL === wwindow.location.href) return
 					locationURL = wwindow.location.href
-
 					info('Navigated to:', wwindow.location.href)
 
 					this.cleanupOldClientEnvironment()
@@ -285,9 +286,6 @@ class NipahClient {
 }
 
 ;(() => {
-	// const __USERSCRIPT__ = typeof unsafeWindow !== 'undefined'
-	// const wwindow: CustomWindow = __USERSCRIPT__ ? (unsafeWindow as CustomWindow) : (window as any as CustomWindow)
-	// wwindow.__USERSCRIPT__ = __USERSCRIPT__
 	const wwindow: CustomWindow = window as any as CustomWindow
 	wwindow.wwindow = wwindow
 

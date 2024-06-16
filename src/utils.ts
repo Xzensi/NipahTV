@@ -57,13 +57,13 @@ export class REST {
 	}
 	static fetch(url: URL | RequestInfo, options: RequestInit = {}) {
 		return new Promise((resolve, reject) => {
-			//* Need to use XMLHttpRequest for Kick because Kasada anti-bot WAF intercepts and decorates it.
-			const w = new XMLHttpRequest()
-			w.open(options.method || 'GET', url as string)
-			w.setRequestHeader('accept', 'application/json, text/plain, */*')
+			const xhr = new XMLHttpRequest()
+
+			xhr.open(options.method || 'GET', url as string, true)
+			xhr.setRequestHeader('accept', 'application/json, text/plain, */*')
 
 			if (options.body || options.method !== 'GET') {
-				w.setRequestHeader('Content-Type', 'application/json')
+				xhr.setRequestHeader('Content-Type', 'application/json')
 
 				// 	options.headers = Object.assign(options.headers || {}, {
 				// 		// 'Content-Type': 'application/json',
@@ -77,10 +77,14 @@ export class REST {
 				// options.credentials = 'include'
 				// options.referrer = window.location.origin + window.location.pathname
 
+				xhr.withCredentials = true
+				// w.setRequestHeader('X-Referer', window.location.origin + window.location.pathname)
+				// w.setRequestHeader('Referer', window.location.origin + window.location.pathname)
+
 				const XSRFToken = getCookie('XSRF')
 				if (XSRFToken) {
-					w.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
-					w.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
+					xhr.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
+					xhr.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
 
 					// options.headers = Object.assign(options.headers || {}, {
 					// 	'X-XSRF-TOKEN': XSRFToken,
@@ -108,26 +112,136 @@ export class REST {
 			// 	.then(resolve)
 			// 	.catch(reject)
 
-			w.onload = function () {
-				if (w.status >= 200 && w.status < 300) {
-					if (w.responseText) resolve(JSON.parse(w.responseText))
+			xhr.onload = function () {
+				if (xhr.status >= 200 && xhr.status < 300) {
+					if (xhr.responseText) resolve(JSON.parse(xhr.responseText))
 					else resolve(void 0)
 				} else {
-					reject('Request failed with status code ' + w.status)
+					reject('Request failed with status code ' + xhr.status)
 				}
 			}
-			w.onerror = function () {
+			xhr.onerror = function () {
 				reject('Request failed')
 			}
-			w.onabort = function () {
+			xhr.onabort = function () {
 				reject('Request aborted')
 			}
-			w.ontimeout = function () {
+			xhr.ontimeout = function () {
 				reject('Request timed out')
 			}
 
-			if (options.body) w.send(options.body as string)
-			else w.send()
+			if (options.body) xhr.send(options.body as string)
+			else xhr.send()
+		}) as Promise<any | void>
+	}
+}
+
+/**
+ * REST class that sends requests from the main thread to the page context.
+ * Uses XMLHttpRequest for Kick because Kasada anti-bot WAF intercepts and decorates it.
+ */
+export class RESTFromMain {
+	eventID = md5('' + Math.random() * 10000)
+	requestID = 0
+	promiseMap = new Map()
+
+	constructor() {
+		const scriptEl = document.createElement('script')
+		scriptEl.innerHTML = `
+			document.addEventListener('${this.eventID}', function (evt) {
+				const data = JSON.parse(evt.detail)
+				const {rID, url, options} = data
+				const xhr = new XMLHttpRequest()
+
+				xhr.open(options.method || 'GET', url, true)
+				xhr.setRequestHeader('accept', 'application/json, text/plain, */*')
+
+				if (options.body || options.method !== 'GET') {
+					xhr.setRequestHeader('Content-Type', 'application/json')
+				}
+
+				const currentDomain = window.location.host.split('.').slice(-2).join('.')
+				const urlDomain = new URL(url).host.split('.').slice(-2).join('.')
+				if (currentDomain === urlDomain) {
+					xhr.withCredentials = true
+
+					const c = document.cookie.split('; ').find(v => v.startsWith(name))?.split(/=(.*)/s)
+					const XSRFToken = c && c[1] ? decodeURIComponent(c[1]) : null
+					if (XSRFToken) {
+						xhr.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
+						xhr.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
+					}
+				}
+
+				xhr.onload = function () {
+					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
+				}
+				xhr.onerror = function () {
+					error('[NIPAH] [RESTAsPage] Request failed')
+					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
+				}
+				xhr.onabort = function () {
+					error('[NIPAH] [RESTAsPage] Request aborted')
+					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
+				}
+				xhr.ontimeout = function () {
+					error('[NIPAH] [RESTAsPage] Request timed out')
+					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
+				}
+				
+				if (options.body) xhr.send(options.body)
+				else xhr.send()
+			})
+		`
+		document.head.appendChild(scriptEl)
+		scriptEl.remove()
+
+		document.addEventListener(this.eventID + '_upstream', (evt: Event) => {
+			const data = JSON.parse((evt as CustomEvent).detail)
+			const { rID, xhr } = data
+			const { resolve, reject } = this.promiseMap.get(rID)
+			this.promiseMap.delete(rID)
+
+			if (xhr.status >= 200 && xhr.status < 300) {
+				if (xhr.text) resolve(JSON.parse(xhr.text))
+				else resolve(void 0)
+			} else {
+				reject('Request failed with status code ' + xhr.status)
+			}
+		})
+	}
+
+	get(url: string) {
+		return this.fetch(url)
+	}
+	post(url: string, data?: object) {
+		if (data) {
+			return this.fetch(url, {
+				method: 'POST',
+				body: JSON.stringify(data)
+			})
+		} else {
+			return this.fetch(url, {
+				method: 'POST'
+			})
+		}
+	}
+	put(url: string, data: object) {
+		return this.fetch(url, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		})
+	}
+	delete(url: string) {
+		return this.fetch(url, {
+			method: 'DELETE'
+		})
+	}
+	fetch(url: URL | RequestInfo, options: RequestInit = {}) {
+		return new Promise((resolve, reject) => {
+			const rID = ++this.requestID
+			this.promiseMap.set(rID, { resolve, reject })
+			document.dispatchEvent(new CustomEvent(this.eventID, { detail: JSON.stringify({ rID, url, options }) }))
 		}) as Promise<any | void>
 	}
 }
