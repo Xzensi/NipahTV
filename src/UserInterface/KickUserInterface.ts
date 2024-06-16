@@ -619,20 +619,20 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			// Show user info modal when clicking usernames
-			else if (target.tagName === 'SPAN') {
-				evt.stopPropagation()
+			// else if (target.tagName === 'SPAN') {
+			// 	evt.stopPropagation()
 
-				const identityContainer = target.classList.contains('chat-message-identity')
-					? target
-					: target.closest('.chat-message-identity')
-				if (!identityContainer) return
+			// 	const identityContainer = target.classList.contains('chat-message-identity')
+			// 		? target
+			// 		: target.closest('.chat-message-identity')
+			// 	if (!identityContainer) return
 
-				const usernameEl = identityContainer ? identityContainer.querySelector('.chat-entry-username') : null
-				const username = usernameEl?.textContent
-				const rect = identityContainer.getBoundingClientRect()
-				const screenPosition = { x: rect.x, y: rect.y - 100 }
-				if (username) this.showUserInfoModal(username, screenPosition)
-			}
+			// 	const usernameEl = identityContainer ? identityContainer.querySelector('.chat-entry-username') : null
+			// 	const username = usernameEl?.textContent
+			// 	const rect = identityContainer.getBoundingClientRect()
+			// 	const screenPosition = { x: rect.x, y: rect.y - 100 }
+			// 	if (username) this.showUserInfoModal(username, screenPosition)
+			// }
 		})
 	}
 
@@ -762,8 +762,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		// Replace message identity with clone to nuke all evenListeners
-		const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
-		messageIdentityNode?.replaceWith(messageIdentityNode.cloneNode(true))
+		// const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
+		// messageIdentityNode?.replaceWith(messageIdentityNode.cloneNode(true))
 
 		const contentNodes = Array.from(messageWrapperNode.children)
 		const contentNodesLength = contentNodes.length
