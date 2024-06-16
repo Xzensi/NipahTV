@@ -8,6 +8,7 @@ import type { Publisher } from '../Classes/Publisher'
 import type { Database } from '../Classes/Database'
 import type { PLATFORM_ENUM } from '../constants'
 import type { RESTFromMain } from '../utils'
+import type { Dexie } from 'dexie'
 import type Twemoji from 'twemoji'
 
 declare global {
@@ -23,28 +24,23 @@ declare global {
 	var __FIREFOX_MV2__: boolean
 
 	var unsafeWindow: Window
-	var wwindow: CustomWindow
 	var GM_xmlhttpRequest: Function
 	var GM_addStyle: Function
 	var GM_getResourceText: Function
 	var twemoji: typeof Twemoji
 	var Fuse: Fuse
+	var Dexie: Dexie
 	var RESTFromMainService: RESTFromMain
 
 	var PLATFORM: ValueOf<typeof PLATFORM_ENUM>
 	var RESOURCE_ROOT: string
 
-	interface CustomWindow extends Window {
-		wwindow: CustomWindow
-		browser: typeof browser | typeof chrome
+	interface Window {
 		navigation: any
 		clipboardData: DataTransfer | null
-		__USERSCRIPT__: boolean
-		__LOCAL__?: boolean
-		NipahTV?: any
-		Fuse: Fuse
-		twemoji: any
+		browser: typeof browser | typeof chrome
 		RESTFromMainService: RESTFromMain
+		NipahTV?: any
 	}
 
 	type Fuse = {

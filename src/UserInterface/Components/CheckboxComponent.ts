@@ -1,5 +1,5 @@
 import { AbstractComponent } from './AbstractComponent'
-import { parseHTML, cleanupHTML } from '../../utils'
+import { parseHTML, cleanupHTML, log } from '../../utils'
 
 export class CheckboxComponent extends AbstractComponent {
 	private checked: boolean

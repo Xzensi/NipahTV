@@ -33,7 +33,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 	render() {
 		const { settingsManager } = this.rootContext
 
-		const showSearchBox = settingsManager.getSetting('shared.chat.emote_menu.appearance.search_box')
+		const showSearchBox = settingsManager.getSetting('shared.chat.emote_menu.search_box')
 		const showSidebar = true //settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
 
 		// Delete any existing emote menus, in case cached page got loaded somehow
@@ -104,7 +104,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 			eventBus.publish('ntv.ui.emote.click', { emoteHid })
 
-			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.behavior.close_on_click')
+			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.close_on_click')
 			if (closeOnClick) this.toggleShow(false)
 		})
 
@@ -373,10 +373,10 @@ export class EmoteMenuComponent extends AbstractComponent {
 			setTimeout(() => {
 				if (searchInputEl) searchInputEl.focus()
 				this.closeModalClickListenerHandle = this.handleOutsideModalClick.bind(this)
-				wwindow.addEventListener('click', this.closeModalClickListenerHandle as any)
+				window.addEventListener('click', this.closeModalClickListenerHandle as any)
 			})
 		} else {
-			wwindow.removeEventListener('click', this.closeModalClickListenerHandle as any)
+			window.removeEventListener('click', this.closeModalClickListenerHandle as any)
 		}
 
 		if (this.containerEl) this.containerEl.style.display = this.isShowing ? '' : 'none'

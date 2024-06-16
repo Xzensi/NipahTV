@@ -27,7 +27,7 @@ export class KickProvider extends AbstractEmoteProvider implements IAbstractEmot
 		const includeEmojiEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_emojis')
 
 		info('Fetching emote data from Kick..')
-		const data = await REST.get(`https://kick.com/emotes/${channelName}`)
+		const data = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`)
 
 		let dataFiltered = data
 		if (!includeGlobalEmoteSet) {

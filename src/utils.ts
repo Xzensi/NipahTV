@@ -141,62 +141,11 @@ export class REST {
  * Uses XMLHttpRequest for Kick because Kasada anti-bot WAF intercepts and decorates it.
  */
 export class RESTFromMain {
-	eventID = md5('' + Math.random() * 10000)
 	requestID = 0
 	promiseMap = new Map()
 
 	constructor() {
-		const scriptEl = document.createElement('script')
-		scriptEl.innerHTML = `
-			document.addEventListener('${this.eventID}', function (evt) {
-				const data = JSON.parse(evt.detail)
-				const {rID, url, options} = data
-				const xhr = new XMLHttpRequest()
-
-				xhr.open(options.method || 'GET', url, true)
-				xhr.setRequestHeader('accept', 'application/json, text/plain, */*')
-
-				if (options.body || options.method !== 'GET') {
-					xhr.setRequestHeader('Content-Type', 'application/json')
-				}
-
-				const currentDomain = window.location.host.split('.').slice(-2).join('.')
-				const urlDomain = new URL(url).host.split('.').slice(-2).join('.')
-				if (currentDomain === urlDomain) {
-					xhr.withCredentials = true
-
-					const c = document.cookie.split('; ').find(v => v.startsWith(name))?.split(/=(.*)/s)
-					const XSRFToken = c && c[1] ? decodeURIComponent(c[1]) : null
-					if (XSRFToken) {
-						xhr.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
-						xhr.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
-					}
-				}
-
-				xhr.onload = function () {
-					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
-				}
-				xhr.onerror = function () {
-					error('[NIPAH] [RESTAsPage] Request failed')
-					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
-				}
-				xhr.onabort = function () {
-					error('[NIPAH] [RESTAsPage] Request aborted')
-					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
-				}
-				xhr.ontimeout = function () {
-					error('[NIPAH] [RESTAsPage] Request timed out')
-					document.dispatchEvent(new CustomEvent('${this.eventID}_upstream', { detail: JSON.stringify({ rID, xhr: {status: xhr.status, text: xhr.responseText} }) }))
-				}
-				
-				if (options.body) xhr.send(options.body)
-				else xhr.send()
-			})
-		`
-		document.head.appendChild(scriptEl)
-		scriptEl.remove()
-
-		document.addEventListener(this.eventID + '_upstream', (evt: Event) => {
+		document.addEventListener('ntv_upstream', (evt: Event) => {
 			const data = JSON.parse((evt as CustomEvent).detail)
 			const { rID, xhr } = data
 			const { resolve, reject } = this.promiseMap.get(rID)
@@ -207,6 +156,24 @@ export class RESTFromMain {
 				else resolve(void 0)
 			} else {
 				reject('Request failed with status code ' + xhr.status)
+			}
+		})
+	}
+
+	async initialize() {
+		return new Promise(resolve => {
+			// Firefox Manifest V2 does not support content script in execution context MAIN
+			//  So we need to inject the page script manually
+			if (__FIREFOX_MV2__) {
+				const s = document.createElement('script')
+				s.src = browser.runtime.getURL('page.js')
+				s.onload = function () {
+					s.remove()
+					resolve(void 0)
+				}
+				;(document.head || document.documentElement).appendChild(s)
+			} else {
+				resolve(void 0)
 			}
 		})
 	}
@@ -238,11 +205,17 @@ export class RESTFromMain {
 		})
 	}
 	fetch(url: URL | RequestInfo, options: RequestInit = {}) {
-		return new Promise((resolve, reject) => {
-			const rID = ++this.requestID
-			this.promiseMap.set(rID, { resolve, reject })
-			document.dispatchEvent(new CustomEvent(this.eventID, { detail: JSON.stringify({ rID, url, options }) }))
-		}) as Promise<any | void>
+		if (__EXTENSION__) {
+			return new Promise((resolve, reject) => {
+				const rID = ++this.requestID
+				this.promiseMap.set(rID, { resolve, reject })
+				document.dispatchEvent(
+					new CustomEvent('ntv_downstream', { detail: JSON.stringify({ rID, url, options }) })
+				)
+			}) as Promise<any | void>
+		} else {
+			return REST.fetch(url, options)
+		}
 	}
 }
 

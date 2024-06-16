@@ -15,7 +15,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 	}
 
 	async loadChannelData() {
-		const pathArr = wwindow.location.pathname.substring(1).split('/')
+		const pathArr = window.location.pathname.substring(1).split('/')
 		const channelData = {}
 
 		if (pathArr[0] === 'video') {

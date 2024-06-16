@@ -728,7 +728,7 @@ export class ContentEditableEditor {
 	}
 
 	adjustSelectionForceOutOfComponent(selection?: Selection | null) {
-		selection = selection || wwindow.getSelection()
+		selection = selection || window.getSelection()
 		if (!selection || !selection.rangeCount) return
 
 		const { inputNode } = this
@@ -769,7 +769,7 @@ export class ContentEditableEditor {
 	insertText(text: string) {
 		const { inputNode } = this
 
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection) {
 			inputNode.append(new Text(text))
 			inputNode.normalize()

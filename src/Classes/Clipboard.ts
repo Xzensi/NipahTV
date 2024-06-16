@@ -95,7 +95,7 @@ export class Clipboard2 {
 	}
 
 	paste(text: string) {
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount) return
 		selection.deleteFromDocument()
 		selection.getRangeAt(0).insertNode(document.createTextNode(text))
@@ -105,7 +105,7 @@ export class Clipboard2 {
 	pasteHTML(html: string) {
 		const nodes = Array.from(this.domParser.parseFromString(html, 'text/html').body.childNodes)
 
-		const selection = wwindow.getSelection()
+		const selection = window.getSelection()
 		if (!selection || !selection.rangeCount) return
 		selection.deleteFromDocument()
 
@@ -142,7 +142,7 @@ export class Clipboard2 {
 	}
 
 	parsePastedMessage(evt: ClipboardEvent) {
-		const clipboardData = evt.clipboardData || wwindow.clipboardData
+		const clipboardData = evt.clipboardData || window.clipboardData
 		if (!clipboardData) return
 
 		const html = clipboardData.getData('text/html')

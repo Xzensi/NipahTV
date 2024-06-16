@@ -26,7 +26,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		const oldEls = document.getElementsByClassName('ntv__client_quick_emotes_holder')
 		for (const el of oldEls) el.remove()
 
-		const rows = this.rootContext.settingsManager.getSetting('shared.chat.quick_emote_holder.appearance.rows') || 2
+		const rows = this.rootContext.settingsManager.getSetting('shared.chat.quick_emote_holder.rows') || 2
 		this.element = parseHTML(
 			`<div class="ntv__client_quick_emotes_holder" data-rows="${rows}"></div>`,
 			true
@@ -58,7 +58,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		eventBus.subscribe('ntv.ui.input_submitted', this.renderQuickEmotesCallback)
 
 		eventBus.subscribe(
-			'ntv.settings.change.shared.chat.quick_emote_holder.appearance.rows',
+			'ntv.settings.change.shared.chat.quick_emote_holder.rows',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				this.element?.setAttribute('data-rows', value || '0')
 			}

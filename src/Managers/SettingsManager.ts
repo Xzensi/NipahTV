@@ -425,6 +425,20 @@ export class SettingsManager {
 			this.settingsMap.set(id, value)
 		}
 
+		//! Temporary migration code
+		// TODO remove this
+		;[
+			['shared.chat.emote_menu.appearance.search_box', 'shared.chat.emote_menu.search_box'],
+			['shared.chat.emote_menu.behavior.close_on_click', 'shared.chat.emote_menu.close_on_click'],
+			['shared.chat.quick_emote_holder.appearance.rows', 'shared.chat.quick_emote_holder.rows']
+		].forEach(([oldKey, newKey]) => {
+			if (this.settingsMap.has(oldKey)) {
+				const val = this.settingsMap.get(oldKey)
+				this.setSetting(newKey, val)
+				database.deleteSetting(oldKey)
+			}
+		})
+
 		this.isLoaded = true
 	}
 
