@@ -265,7 +265,6 @@ export class UserInfoModal extends AbstractModal {
 		}
 
 		this.modalBodyEl.appendChild(element)
-		log('FINISHED RENDERING MODAL', this.modalBodyEl.querySelector('.ntv__user-info-modal__actions'))
 		this.updateGiftSubButton()
 	}
 
@@ -732,28 +731,21 @@ export class UserInfoModal extends AbstractModal {
 	updateGiftSubButton() {
 		if (!this.giftSubButtonEnabled) return
 
-		log('UPDATING GIFT SUB BUTTON')
 		if (this.isUserSubscribed()) {
-			log('is subscribed')
 			if (!this.actionGiftEl) return
 			this.actionGiftEl.remove()
 			delete this.actionGiftEl
 		} else {
-			log('Is not subbed, maybe add button?', this.actionGiftEl)
 			if (this.actionGiftEl) return
 
 			const actionsEl = this.modalBodyEl.querySelector('.ntv__user-info-modal__actions')
-			if (!actionsEl) {
-				log('ACTIONS EL DOESNT EXIST YET FOR GIFT BUTTON', this.modalBodyEl)
-				return
-			}
+			if (!actionsEl) return
 
-			log('ADDING SUB GIFT BUTTON')
 			this.actionGiftEl = parseHTML(
 				`<button class="ntv__button ntv__user-info-modal__gift">Gift a sub</button>`,
 				true
 			) as HTMLElement
-			log(this.modalBodyEl, actionsEl)
+
 			actionsEl.prepend(this.actionGiftEl)
 			this.actionGiftEl.addEventListener('click', this.clickGiftHandler.bind(this))
 		}
