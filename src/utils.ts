@@ -303,6 +303,16 @@ export function waitForElements(selectors: Array<string>, timeout = 10000, signa
 	})
 }
 
+export function findNodeWithTextContent(element: Element | Document, text: string): Node | null {
+	return document.evaluate(
+		`//*[text()='${text}']`,
+		element || document,
+		null,
+		XPathResult.FIRST_ORDERED_NODE_TYPE,
+		null
+	).singleNodeValue
+}
+
 export function parseHTML(html: string, firstElement = false) {
 	const template = document.createElement('template')
 	template.innerHTML = html

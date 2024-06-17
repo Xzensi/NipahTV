@@ -1,5 +1,13 @@
+@use 'variables' as *;
+
 .ntv__chat-message {
-	padding: 0.24em 0.5em;
+	font-size: $root_font_size;
+	padding: 0.33em 0.9em;
+	margin: 0;
+
+	&:hover {
+		background-color: rgba(128, 128, 128, 0.09);
+	}
 
 	&__identity {
 	}
@@ -16,6 +24,26 @@
 	}
 	&__part {
 		word-break: break-word;
+		margin-right: 0.3em;
+		white-space: normal;
+		line-height: 1.5em;
+
+		img[data-emote-name] {
+			cursor: pointer;
+		}
+	}
+
+	// &--text {
+	// 	margin-right: 0.2em;
+	// }
+
+	// 	> div {
+	// 		white-space: nowrap;
+	// 	}
+
+	&--theme-rounded {
+		border-radius: 0.25em;
+		margin: 0.21em 0.2em;
 	}
 }
 

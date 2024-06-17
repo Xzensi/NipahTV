@@ -8,14 +8,16 @@ import {
 	md5,
 	hex2rgb,
 	logNow,
-	parseHTML
+	parseHTML,
+	findNodeWithTextContent
 } from '../utils'
 import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
 import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
 import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
 import { AbstractUserInterface } from './AbstractUserInterface'
-import { Caret } from './Caret'
 import { InputController } from '../Managers/InputController'
+import type { UserInfoModal } from './Modals/UserInfoModal'
+import { Caret } from './Caret'
 
 export class KickUserInterface extends AbstractUserInterface {
 	private abortController = new AbortController()
@@ -156,6 +158,17 @@ export class KickUserInterface extends AbstractUserInterface {
 					document.getElementById('chatroom')?.classList.remove(`ntv__seperators-${prevValue}`)
 				if (!value || value === 'none') return
 				document.getElementById('chatroom')?.classList.add(`ntv__seperators-${value}`)
+			}
+		)
+
+		// Chat theme change
+		eventBus.subscribe(
+			'ntv.settings.change.shared.chat.appearance.chat_theme',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
+					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--theme-${prevValue}`)
+					if (value !== 'none') el.classList.add(`ntv__chat-message--theme-${value}`)
+				})
 			}
 		)
 
@@ -619,21 +632,135 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			// Show user info modal when clicking usernames
-			// else if (target.tagName === 'SPAN') {
-			// 	evt.stopPropagation()
+			else if (target.tagName === 'SPAN') {
+				evt.stopPropagation()
 
-			// 	const identityContainer = target.classList.contains('chat-message-identity')
-			// 		? target
-			// 		: target.closest('.chat-message-identity')
-			// 	if (!identityContainer) return
+				const identityContainer = target.classList.contains('chat-message-identity')
+					? target
+					: target.closest('.chat-message-identity')
+				if (!identityContainer) return
 
-			// 	const usernameEl = identityContainer ? identityContainer.querySelector('.chat-entry-username') : null
-			// 	const username = usernameEl?.textContent
-			// 	const rect = identityContainer.getBoundingClientRect()
-			// 	const screenPosition = { x: rect.x, y: rect.y - 100 }
-			// 	if (username) this.showUserInfoModal(username, screenPosition)
-			// }
+				const usernameEl = identityContainer ? identityContainer.querySelector('.chat-entry-username') : null
+				const username = usernameEl?.textContent
+				const rect = identityContainer.getBoundingClientRect()
+				const screenPosition = { x: rect.x, y: rect.y - 100 }
+				if (username) this.handleUserInfoModalClick(username, screenPosition)
+			}
 		})
+	}
+
+	handleUserInfoModalClick(username: string, screenPosition?: { x: number; y: number }) {
+		// if (username) this.showUserInfoModal(username, screenPosition)
+		// waitForElements("#chatroom > .user-profile")
+
+		// Create observer to wait for userprofile container to exists where a descendant ".information .username" element of it has the username as text to make sure that it's the right user profile container element.
+		// The userprofile container elements are created at "#chatroom > .user-profile"
+		// We add a timeout incase the userprofile container element never appears.
+
+		const userInfoModal = this.showUserInfoModal(username, screenPosition)
+
+		const processKickUserProfileModal = function (
+			userInfoModal: UserInfoModal,
+			kickUserInfoModalContainerEl: HTMLElement
+		) {
+			// User info modal was already destroyed before Kick modal had chance to load
+			if (userInfoModal.isDestroyed()) {
+				log('User info modal is already destroyed, cleaning up Kick modal..')
+				destroyKickModal(kickUserInfoModalContainerEl)
+				return
+			}
+
+			userInfoModal.addEventListener('destroy', () => {
+				log('Destroying modal..')
+				destroyKickModal(kickUserInfoModalContainerEl)
+			})
+
+			kickUserInfoModalContainerEl.style.display = 'none'
+			kickUserInfoModalContainerEl.style.opacity = '0'
+
+			const giftSubButton = getGiftSubButtonInElement(kickUserInfoModalContainerEl)
+
+			if (giftSubButton) {
+				// Gift sub button already exists
+				connectGiftSubButtonInModal(userInfoModal, giftSubButton)
+			} else {
+				// Wait for gift sub button to appear, if it does at all.
+				const giftButtonObserver = new MutationObserver(mutations2 => {
+					for (const mutation2 of mutations2) {
+						for (const node2 of mutation2.addedNodes) {
+							const giftSubButton = node2 instanceof HTMLElement ? getGiftSubButtonInElement(node2) : null
+
+							// Found gift sub button
+							if (giftSubButton) {
+								giftButtonObserver.disconnect()
+								connectGiftSubButtonInModal(userInfoModal, giftSubButton)
+								return
+							}
+						}
+					}
+				})
+
+				giftButtonObserver.observe(kickUserInfoModalContainerEl, {
+					childList: true,
+					subtree: true
+				})
+				setTimeout(() => giftButtonObserver.disconnect(), 20_000)
+			}
+		}
+
+		const connectGiftSubButtonInModal = function (userInfoModal: UserInfoModal, giftSubButton: Element) {
+			// Watch for gift sub button clicks on our own user info modal and forward the events to the original gift sub button
+			userInfoModal.addEventListener('gift_sub_click', () => {
+				giftSubButton.dispatchEvent(new Event('click'))
+			})
+
+			userInfoModal.enableGiftSubButton()
+		}
+
+		const destroyKickModal = function (container: Element) {
+			container?.querySelector('.header button.close')?.dispatchEvent(new Event('click'))
+			// container?.remove() <-- Causes Kick to throw an error
+		}
+
+		const getGiftSubButtonInElement = function (element: Element) {
+			return element
+				.querySelector('button path[d^="M13.8056 4.98234H11.5525L13.2544 3.21047L11.4913"]')
+				?.closest('button') as Element | null
+		}
+
+		// Has a Kick user profile modal already been loaded? We can use it immediately then.
+		const kickUserProfileCards = Array.from(document.querySelectorAll('.base-floating-card.user-profile'))
+		const kickUserInfoModalContainerEl = kickUserProfileCards.find(node => findNodeWithTextContent(node, username))
+
+		if (kickUserInfoModalContainerEl) {
+			userInfoModal.addEventListener('destroy', () => {
+				destroyKickModal(kickUserInfoModalContainerEl)
+			})
+
+			processKickUserProfileModal(userInfoModal, kickUserInfoModalContainerEl as HTMLElement)
+		} else {
+			// Wait for user profile container to appear.
+			const userProfileObserver = new MutationObserver(mutations => {
+				for (const mutation of mutations) {
+					for (const node of mutation.addedNodes) {
+						if (node instanceof HTMLElement && node.classList.contains('user-profile')) {
+							const usernameEl = node.querySelector('.information .username')
+
+							if (usernameEl && usernameEl.textContent === username) {
+								const kickUserInfoModalContainerEl = node
+								userProfileObserver.disconnect()
+
+								processKickUserProfileModal(userInfoModal, kickUserInfoModalContainerEl)
+								return
+							}
+						}
+					}
+				}
+			})
+
+			userProfileObserver.observe(document.getElementById('main-view')!, { childList: true, subtree: true })
+			setTimeout(() => userProfileObserver.disconnect(), 20_000)
+		}
 	}
 
 	observePinnedMessage() {
@@ -750,7 +877,6 @@ export class KickUserInterface extends AbstractUserInterface {
 			// TODO Sometimes Kick decides to just not load messages. Attach another observer to the message to wait for when the message will actually load..
 			return error('Message has no content loaded yet..', messageNode)
 		}
-		chatEntryNode.classList.add('ntv__chat-message')
 
 		let messageWrapperNode
 
@@ -853,7 +979,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		// Adding this class removes the display: none from the chat message, causing a reflow
-		messageNode.classList.add('ntv__chat-message')
+		const chatTheme = settingsManager.getSetting('shared.chat.appearance.chat_theme')
+		if (chatTheme === 'rounded') {
+			messageNode.classList.add('ntv__chat-message', 'ntv__chat-message--theme-rounded')
+		} else {
+			messageNode.classList.add('ntv__chat-message')
+		}
 	}
 
 	renderPinnedMessage(node: HTMLElement) {

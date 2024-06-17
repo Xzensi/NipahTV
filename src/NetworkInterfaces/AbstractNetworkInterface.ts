@@ -12,6 +12,7 @@ export type UserInfo = {
 export type UserChannelInfo = {
 	id: string
 	username: string
+	slug: string
 	channel: string
 	badges: Badge[]
 	followingSince: Date | null
@@ -67,7 +68,7 @@ export abstract class AbstractNetworkInterface {
 	): Promise<any>
 	abstract followUser(username: string): Promise<any>
 	abstract unfollowUser(username: string): Promise<any>
-	abstract getUserInfo(username: string): Promise<UserInfo>
+	abstract getUserInfo(slug: string): Promise<UserInfo>
 	abstract getUserChannelInfo(channelName: string, username: string): Promise<UserChannelInfo>
 	abstract getUserMessages(
 		channelId: string,

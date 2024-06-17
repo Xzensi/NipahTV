@@ -13,14 +13,15 @@ export type ModalGeometry = {
     It also handles the logic for moving the modal around by dragging the header.
 */
 export class AbstractModal extends AbstractComponent {
-	event = new EventTarget()
-	className?: string
-	geometry?: ModalGeometry
+	protected eventTarget = new EventTarget()
+	protected className?: string
+	protected geometry?: ModalGeometry
 
-	element: HTMLElement
-	modalHeaderEl: HTMLElement
-	modalBodyEl: HTMLElement
-	modalCloseBtn: HTMLElement
+	protected element: HTMLElement
+	protected modalHeaderEl: HTMLElement
+	protected modalBodyEl: HTMLElement
+	protected modalCloseBtn: HTMLElement
+	private destroyed = false
 
 	constructor(className?: string, geometry?: ModalGeometry) {
 		super()
@@ -56,6 +57,21 @@ export class AbstractModal extends AbstractComponent {
 		this.modalHeaderEl = this.element.querySelector('.ntv__modal__header') as HTMLElement
 		this.modalBodyEl = this.element.querySelector('.ntv__modal__body') as HTMLElement
 		this.modalCloseBtn = this.element.querySelector('.ntv__modal__close-btn') as HTMLElement
+
+		// This is not in attachEventHandlers to guarantee execution before inheriting classes finish render()
+		this.modalCloseBtn.addEventListener('click', () => {
+			this.destroy()
+			this.eventTarget.dispatchEvent(new Event('close'))
+		})
+
+		this.modalHeaderEl.addEventListener('mousedown', this.handleModalDrag.bind(this))
+
+		// On window resize adjust the modal position
+		if (this.geometry?.position === 'center') {
+			window.addEventListener('resize', this.centerModal.bind(this))
+		} else {
+			window.addEventListener('resize', this.keepModalInsideViewport.bind(this))
+		}
 	}
 
 	init() {
@@ -72,23 +88,20 @@ export class AbstractModal extends AbstractComponent {
 		if (this.geometry?.position === 'center') this.centerModal()
 	}
 
-	// Attaches event handlers for the modal
-	attachEventHandlers() {
-		this.modalCloseBtn.addEventListener('click', () => {
-			this.destroy()
-			this.event.dispatchEvent(new Event('close'))
-		})
-
-		this.modalHeaderEl.addEventListener('mousedown', this.handleModalDrag.bind(this))
-
-		// On window resize adjust the modal position
-		if (this.geometry?.position === 'center') {
-			window.addEventListener('resize', this.centerModal.bind(this))
-		}
+	addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+		this.eventTarget.addEventListener(type, listener)
 	}
+
+	attachEventHandlers() {}
 
 	destroy() {
 		this.element.remove()
+		this.destroyed = true
+		this.eventTarget.dispatchEvent(new Event('destroy'))
+	}
+
+	isDestroyed() {
+		return this.destroyed
 	}
 
 	centerModal() {
@@ -100,6 +113,26 @@ export class AbstractModal extends AbstractComponent {
 		this.element.style.removeProperty('right')
 		this.element.style.removeProperty('bottom')
 		this.element.style.transform = 'translate(-50%, -50%)'
+	}
+
+	keepModalInsideViewport() {
+		const modal = this.element
+		const modalOffset = modal.getBoundingClientRect()
+		const windowHeight = window.innerHeight
+		const windowWidth = window.innerWidth
+		const modalWidth = modal.clientWidth
+		const modalHeight = modal.clientHeight
+
+		let x = modalOffset.left
+		let y = modalOffset.top
+
+		if (x < 0) x = 0
+		if (y < 0) y = 0
+		if (x + modalWidth > windowWidth) x = windowWidth - modalWidth
+		if (y + modalHeight > windowHeight) y = windowHeight - modalHeight
+
+		modal.style.left = `${x}px`
+		modal.style.top = `${y}px`
 	}
 
 	handleModalDrag(event: MouseEvent) {

@@ -79,10 +79,14 @@ function updateDirectory(source, destination) {
 esbuild
 	.build({
 		entryPoints: ['src/app.ts'],
+		// entryPoints: ['src/**/*.ts'],
 		outfile: outfile,
+		// outdir: outdir,
+		outbase: 'src',
+		allowOverwrite: true,
 		bundle: true,
 		minify: false,
-		sourcemap: false,
+		sourcemap: true,
 		format: 'esm',
 		tsconfig: 'tsconfig.json',
 		define: {
@@ -151,6 +155,7 @@ esbuild
 		entryPoints: ['src/Background/serviceWorker.ts'],
 		outfile: outdir + 'service-worker.js',
 		bundle: true,
+		allowOverwrite: true,
 		minify: false,
 		sourcemap: false,
 		format: 'esm',
@@ -170,6 +175,7 @@ esbuild
 		entryPoints: ['src/ContentScripts/page.ts'],
 		outfile: outdir + 'page.js',
 		bundle: true,
+		allowOverwrite: true,
 		minify: false,
 		sourcemap: false,
 		format: 'esm',

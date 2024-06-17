@@ -54,12 +54,12 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 		throw new Error('Method not implemented.')
 	}
 
-	async getUserInfo(username: string) {
+	async getUserInfo(slug: string) {
 		throw new Error('Method not implemented.')
 		return {
 			id: '',
-			username,
-			usernameSlug: username,
+			username: '',
+			slug: '',
 			isFollowing: false,
 			profilePic: '',
 			bannerImg: '',
@@ -72,6 +72,7 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 		return {
 			id: '',
 			username,
+			slug: '',
 			channel: '',
 			badges: [],
 			followingSince: null,

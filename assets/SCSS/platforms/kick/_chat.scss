@@ -80,13 +80,10 @@
 	.chat-entry {
 		min-height: auto;
 		padding: 0;
+		margin: 0;
 
 		&.bg-secondary-lighter {
 			background-color: transparent;
-		}
-
-		&:hover {
-			background-color: rgba(128, 128, 128, 0.09);
 		}
 	}
 }
@@ -95,28 +92,6 @@
 	.overflow-y-scroll {
 		scroll-behavior: smooth;
 	}
-}
-
-.ntv__chat-message {
-	font-size: $root_font_size;
-
-	&__part {
-		margin-right: 0.3em;
-		white-space: normal;
-		line-height: 1em;
-
-		img[data-emote-name] {
-			cursor: pointer;
-		}
-	}
-
-	// &--text {
-	// 	margin-right: 0.2em;
-	// }
-
-	// 	> div {
-	// 		white-space: nowrap;
-	// 	}
 }
 
 .ntv__highlight-first-message {
