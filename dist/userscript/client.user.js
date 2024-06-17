@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.13
+// @version 1.4.14
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2463,68 +2463,6 @@ var UserInfoModal = class extends AbstractModal {
       delete this.userChannelInfo;
       this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username);
       this.userInfo = await networkInterface.getUserInfo(this.userChannelInfo.slug);
-      this.userChannelInfo.badges = [
-        {
-          type: "broadcaster",
-          label: "Broadcaster",
-          active: true
-        },
-        {
-          type: "verified",
-          label: "Verified",
-          active: true
-        },
-        {
-          type: "staff",
-          label: "Staff",
-          active: true
-        },
-        {
-          type: "Partner",
-          label: "partner",
-          active: true
-        },
-        {
-          type: "global_moderator",
-          label: "Global moderator",
-          active: true
-        },
-        {
-          type: "global_admin",
-          label: "Global admin",
-          active: true
-        },
-        {
-          type: "moderator",
-          label: "Moderator",
-          active: true
-        },
-        {
-          type: "founder",
-          label: "Founder",
-          active: true
-        },
-        {
-          type: "og",
-          label: "OG",
-          active: true
-        },
-        {
-          type: "vip",
-          label: "VIP",
-          active: true
-        },
-        {
-          type: "sidekick",
-          label: "Sidekick",
-          active: true
-        },
-        {
-          type: "subscriber",
-          label: "Subscriber",
-          active: true
-        }
-      ];
       this.updateGiftSubButton();
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
@@ -7643,7 +7581,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.13",
+    VERSION: "1.4.14",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
