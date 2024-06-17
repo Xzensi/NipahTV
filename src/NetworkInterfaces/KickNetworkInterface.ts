@@ -260,9 +260,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`)
 	}
 
-	async getUserInfo(username: string) {
-		const slug = username.replace('_', '-').toLowerCase()
-
+	async getUserInfo(slug: string) {
 		const [res1, res2] = await Promise.allSettled([
 			// The reason underscores are replaced with dashes is likely because it's a slug
 			RESTFromMainService.get(`https://kick.com/api/v2/channels/${slug}/me`),
@@ -301,6 +299,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		return {
 			id: channelUserInfo.id,
 			username: channelUserInfo.username,
+			slug: channelUserInfo.slug,
 			channel: channelName,
 			badges: channelUserInfo.badges || [],
 			followingSince: channelUserInfo.following_since ? new Date(channelUserInfo.following_since) : null,

@@ -16,6 +16,7 @@ export class UserInfoModal extends AbstractModal {
 	private badgesEl?: HTMLElement
 	private messagesHistoryEl?: HTMLElement
 
+	private actionGiftEl?: HTMLElement
 	private actionFollowEl?: HTMLElement
 	private actionMuteEl?: HTMLElement
 	private actionReportEl?: HTMLElement
@@ -33,6 +34,7 @@ export class UserInfoModal extends AbstractModal {
 
 	private messagesHistoryCursor: number | null = 0
 	private isLoadingMessages = false
+	private giftSubButtonEnabled = false
 
 	constructor(
 		rootContext: RootContext,
@@ -46,19 +48,18 @@ export class UserInfoModal extends AbstractModal {
 		coordinates?: { x: number; y: number }
 	) {
 		const modalWidth = 340
+		const modalHeight = modalWidth * 1.618
 
 		if (coordinates) {
 			const screenWidth = window.innerWidth
-			log(screenWidth)
-
 			if (screenWidth < modalWidth) coordinates.x = 0
 			else if (screenWidth - coordinates.x < modalWidth) coordinates.x = screenWidth - modalWidth
 			else if (coordinates.x < 0) coordinates.x = 0
 
 			const screenHeight = window.innerHeight
-			if (screenHeight < 300) coordinates.y = 0
+			if (screenHeight < modalHeight) coordinates.y = 0
 			else if (coordinates.y < 0) coordinates.y = 0
-			else if (coordinates.y > screenHeight - 300) coordinates.y = screenHeight - 300
+			else if (coordinates.y > screenHeight - modalHeight) coordinates.y = screenHeight - modalHeight
 		}
 
 		const geometry: ModalGeometry = {
@@ -100,6 +101,7 @@ export class UserInfoModal extends AbstractModal {
 		const userChannelInfo: UserChannelInfo = this.userChannelInfo || {
 			id: '',
 			username: 'Error',
+			slug: 'error',
 			channel: 'Error',
 			badges: [],
 			followingSince: null,
@@ -139,8 +141,8 @@ export class UserInfoModal extends AbstractModal {
 					
 					</div>
 					<div class="ntv__user-info-modal__header__banner">
-						<img src="${userInfo.profilePic}">
-						<h4>${userInfo.username}</h4>
+						<div class="ntv__user-info-modal__header__banner__img"><img src="${userInfo.profilePic}"></div>
+						<h4><a href="/${userChannelInfo.slug}" target="_blank">${userInfo.username}</a></h4>
 						<p>
 							${
 								formattedAccountDate
@@ -168,9 +170,11 @@ export class UserInfoModal extends AbstractModal {
 				.map(badgeProvider.getBadge.bind(badgeProvider))
 				.join('')}</div>
 				<div class="ntv__user-info-modal__actions">
-					<button class="ntv__button">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
-					<button class="ntv__button">${usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'}</button>
-					<!--<button class="ntv__button">Report</button>-->
+					<button class="ntv__button ntv__user-info-modal__follow">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
+					<button class="ntv__button ntv__user-info-modal__mute">${
+						usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'
+					}</button>
+					<!--<button class="ntv__button ntv__user-info-modal__Report">Report</button>-->
 				</div>
 				<div class="ntv__user-info-modal__mod-actions"></div>
 				<div class="ntv__user-info-modal__timeout-page"></div>
@@ -183,10 +187,10 @@ export class UserInfoModal extends AbstractModal {
 		this.badgesEl = element.querySelector('.ntv__user-info-modal__badges') as HTMLElement
 
 		this.actionFollowEl = element.querySelector(
-			'.ntv__user-info-modal__actions .ntv__button:nth-child(1)'
+			'.ntv__user-info-modal__actions .ntv__user-info-modal__follow'
 		) as HTMLElement
 		this.actionMuteEl = element.querySelector(
-			'.ntv__user-info-modal__actions .ntv__button:nth-child(2)'
+			'.ntv__user-info-modal__actions .ntv__user-info-modal__mute'
 		) as HTMLElement
 
 		if (isModerator) {
@@ -261,15 +265,14 @@ export class UserInfoModal extends AbstractModal {
 		}
 
 		this.modalBodyEl.appendChild(element)
+		this.updateGiftSubButton()
 	}
 
 	attachEventHandlers() {
 		super.attachEventHandlers()
 
 		this.actionFollowEl?.addEventListener('click', this.clickFollowHandler.bind(this))
-
 		this.actionMuteEl?.addEventListener('click', this.clickMuteHandler.bind(this))
-
 		this.actionReportEl?.addEventListener('click', () => {
 			log('Report button clicked')
 		})
@@ -282,9 +285,11 @@ export class UserInfoModal extends AbstractModal {
 		this.modLogsMessagesEl?.addEventListener('click', this.clickMessagesHistoryHandler.bind(this))
 	}
 
-	async clickFollowHandler() {
-		log('Follow button clicked')
+	async clickGiftHandler() {
+		this.eventTarget.dispatchEvent(new Event('gift_sub_click'))
+	}
 
+	async clickFollowHandler() {
 		const { networkInterface } = this.rootContext
 		const { userInfo } = this
 		if (!userInfo) return
@@ -346,8 +351,6 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async clickTimeoutHandler() {
-		log('Timeout button clicked')
-
 		const { timeoutPageEl } = this
 		if (!timeoutPageEl) return
 
@@ -720,21 +723,57 @@ export class UserInfoModal extends AbstractModal {
 		if (scrollTop < 30) this.loadMoreMessagesHistory()
 	}
 
+	enableGiftSubButton() {
+		this.giftSubButtonEnabled = true
+		this.updateGiftSubButton()
+	}
+
+	updateGiftSubButton() {
+		if (!this.giftSubButtonEnabled) return
+
+		if (this.isUserSubscribed()) {
+			if (!this.actionGiftEl) return
+			this.actionGiftEl.remove()
+			delete this.actionGiftEl
+		} else {
+			if (this.actionGiftEl) return
+
+			const actionsEl = this.modalBodyEl.querySelector('.ntv__user-info-modal__actions')
+			if (!actionsEl) return
+
+			this.actionGiftEl = parseHTML(
+				`<button class="ntv__button ntv__user-info-modal__gift">Gift a sub</button>`,
+				true
+			) as HTMLElement
+
+			actionsEl.prepend(this.actionGiftEl)
+			this.actionGiftEl.addEventListener('click', this.clickGiftHandler.bind(this))
+		}
+	}
+
+	isUserSubscribed() {
+		return !!this.userChannelInfo?.badges.find(badge => badge.type === 'subscriber')
+	}
+
+	// TODO move this to dedicated class with methods
 	isUserVIP() {
 		return !!this.userChannelInfo?.badges.find(badge => badge.type === 'vip')
 	}
 
+	// TODO move this to dedicated class with methods
 	isUserPrivileged() {
 		return (
 			this.userChannelInfo?.isChannelOwner || this.userChannelInfo?.isModerator || this.userChannelInfo?.isStaff
 		)
 	}
 
+	// TODO move this to dedicated class with methods
 	removeUserVIPStatus() {
 		if (!this.userChannelInfo) return
 		this.userChannelInfo.badges = this.userChannelInfo.badges.filter(badge => badge.type !== 'vip')
 	}
 
+	// TODO move this to dedicated class with methods
 	removeUserModStatus() {
 		if (!this.userChannelInfo) return
 		this.userChannelInfo.isModerator = false
@@ -748,70 +787,71 @@ export class UserInfoModal extends AbstractModal {
 		try {
 			delete this.userInfo
 			delete this.userChannelInfo
-			this.userInfo = await networkInterface.getUserInfo(this.username)
 			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username)
-			// this.userChannelInfo.badges = [
-			// 	{
-			// 		type: 'broadcaster',
-			// 		label: 'Broadcaster',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'verified',
-			// 		label: 'Verified',
-			// 		active: true
-			// 	},
-			// 	// {
-			// 	// 	type: 'staff',
-			// 	// 	label: 'Staff',
-			// 	// 	active: true
-			// 	// },
-			// 	// {
-			// 	// 	type: 'Partner',
-			// 	// 	label: 'partner',
-			// 	// 	active: true
-			// 	// },
-			// 	// {
-			// 	// 	type: 'global_moderator',
-			// 	// 	label: 'Global moderator',
-			// 	// 	active: true
-			// 	// },
-			// 	// {
-			// 	// 	type: 'global_admin',
-			// 	// 	label: 'Global admin',
-			// 	// 	active: true
-			// 	// },
-			// 	{
-			// 		type: 'moderator',
-			// 		label: 'Moderator',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'founder',
-			// 		label: 'Founder',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'og',
-			// 		label: 'OG',
-			// 		active: true
-			// 	},
-			// 	{
-			// 		type: 'vip',
-			// 		label: 'VIP',
-			// 		active: true
-			// 	},
-			// 	// {
-			// 	// 	type: 'sidekick',
-			// 	// 	label: 'Sidekick',
-			// 	// 	active: true
-			// 	// },
-			// 	{
-			// 		type: 'subscriber',
-			// 		label: 'Subscriber',
-			// 		active: true
-			// 	}
-			// ]
+			this.userInfo = await networkInterface.getUserInfo(this.userChannelInfo.slug)
+			this.userChannelInfo.badges = [
+				{
+					type: 'broadcaster',
+					label: 'Broadcaster',
+					active: true
+				},
+				{
+					type: 'verified',
+					label: 'Verified',
+					active: true
+				},
+				{
+					type: 'staff',
+					label: 'Staff',
+					active: true
+				},
+				{
+					type: 'Partner',
+					label: 'partner',
+					active: true
+				},
+				{
+					type: 'global_moderator',
+					label: 'Global moderator',
+					active: true
+				},
+				{
+					type: 'global_admin',
+					label: 'Global admin',
+					active: true
+				},
+				{
+					type: 'moderator',
+					label: 'Moderator',
+					active: true
+				},
+				{
+					type: 'founder',
+					label: 'Founder',
+					active: true
+				},
+				{
+					type: 'og',
+					label: 'OG',
+					active: true
+				},
+				{
+					type: 'vip',
+					label: 'VIP',
+					active: true
+				},
+				{
+					type: 'sidekick',
+					label: 'Sidekick',
+					active: true
+				},
+				{
+					type: 'subscriber',
+					label: 'Subscriber',
+					active: true
+				}
+			]
+			this.updateGiftSubButton()
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
 				this.toaster.addToast('Failed to get user info: ' + err.errors.join(' '), 6_000, 'error')

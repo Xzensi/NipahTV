@@ -58,6 +58,32 @@ export abstract class AbstractUserInterface {
 		eventBus.subscribe('ntv.ui.show_modal.poll', () => {
 			new PollModal(this.rootContext, this.session, { toaster: this.toaster }).init()
 		})
+
+		// Render ntv-tooltip tooltips
+		document.addEventListener('mouseover', evt => {
+			const target = evt.target as HTMLElement
+			const tooltip = target.getAttribute('ntv-tooltip')
+			if (!tooltip) return
+
+			const rect = target.getBoundingClientRect()
+			const left = rect.left + rect.width / 2
+			const top = rect.top
+
+			const tooltipEl = parseHTML(
+				`<div class="ntv__tooltip" style="top: ${top}px; left: ${left}px;">${tooltip}</div>`,
+				true
+			) as HTMLElement
+
+			document.body.appendChild(tooltipEl)
+
+			target.addEventListener(
+				'mouseleave',
+				() => {
+					tooltipEl.remove()
+				},
+				{ once: true, passive: true }
+			)
+		})
 	}
 
 	toastSuccess(message: string) {
@@ -119,8 +145,8 @@ export abstract class AbstractUserInterface {
 	}
 
 	showUserInfoModal(username: string, position?: { x: number; y: number }) {
-		log('Showing user info modal..')
-		new UserInfoModal(
+		log('Loading user info modal..')
+		return new UserInfoModal(
 			this.rootContext,
 			this.session,
 			{

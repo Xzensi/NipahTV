@@ -96,7 +96,7 @@ export class SettingsManager {
 								{
 									label: 'Seperators',
 									id: 'shared.chat.appearance.seperators',
-									default: '',
+									default: 'none',
 									type: 'dropdown',
 									options: [
 										{
@@ -118,6 +118,22 @@ export class SettingsManager {
 										{
 											label: 'Wide Line (2px Solid)',
 											value: 'wide'
+										}
+									]
+								},
+								{
+									label: 'Chat theme',
+									id: 'shared.chat.appearance.chat_theme',
+									default: 'none',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Default',
+											value: 'none'
+										},
+										{
+											label: 'Rounded',
+											value: 'rounded'
 										}
 									]
 								}
@@ -484,11 +500,11 @@ export class SettingsManager {
 				settingsMap: this.settingsMap
 			})
 			this.modal.init()
-			this.modal.event.addEventListener('close', () => {
+			this.modal.addEventListener('close', () => {
 				this.isShowingModal = false
 				delete this.modal
 			})
-			this.modal.event.addEventListener('setting_change', (evt: Event) => {
+			this.modal.addEventListener('setting_change', (evt: Event) => {
 				const { id, value } = (evt as CustomEvent).detail
 				const prevValue = this.settingsMap.get(id)
 
