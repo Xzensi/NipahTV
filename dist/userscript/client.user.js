@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.14
+// @version 1.4.15
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1403,7 +1403,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild))
       ;
     const emoteSets = emotesManager.getEmoteSets();
-    const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.order_index - b.order_index);
+    const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex);
     for (const emoteSet of orderedEmoteSets) {
       const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
       const sidebarIcon = parseHTML(
@@ -6043,9 +6043,9 @@ var KickProvider = class extends AbstractEmoteProvider {
       const emoteSetName = dataSet.user ? `${dataSet.user.username}'s Emotes` : `${dataSet.name} Emotes`;
       let orderIndex = 1;
       if (dataSet.id === "Global") {
-        orderIndex = 5;
-      } else if (dataSet.id === "Emoji") {
         orderIndex = 10;
+      } else if (dataSet.id === "Emoji") {
+        orderIndex = 15;
       }
       emoteSets.push({
         provider: this.id,
@@ -6136,7 +6136,7 @@ var SevenTVProvider = class extends AbstractEmoteProvider {
     return [
       {
         provider: this.id,
-        orderIndex: 2,
+        orderIndex: 9,
         name: data.emote_set.name,
         emotes: emotesMapped,
         isCurrentChannel: false,
@@ -7581,7 +7581,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.14",
+    VERSION: "1.4.15",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
