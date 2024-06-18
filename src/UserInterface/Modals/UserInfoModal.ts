@@ -789,68 +789,68 @@ export class UserInfoModal extends AbstractModal {
 			delete this.userChannelInfo
 			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username)
 			this.userInfo = await networkInterface.getUserInfo(this.userChannelInfo.slug)
-			this.userChannelInfo.badges = [
-				{
-					type: 'broadcaster',
-					label: 'Broadcaster',
-					active: true
-				},
-				{
-					type: 'verified',
-					label: 'Verified',
-					active: true
-				},
-				{
-					type: 'staff',
-					label: 'Staff',
-					active: true
-				},
-				{
-					type: 'Partner',
-					label: 'partner',
-					active: true
-				},
-				{
-					type: 'global_moderator',
-					label: 'Global moderator',
-					active: true
-				},
-				{
-					type: 'global_admin',
-					label: 'Global admin',
-					active: true
-				},
-				{
-					type: 'moderator',
-					label: 'Moderator',
-					active: true
-				},
-				{
-					type: 'founder',
-					label: 'Founder',
-					active: true
-				},
-				{
-					type: 'og',
-					label: 'OG',
-					active: true
-				},
-				{
-					type: 'vip',
-					label: 'VIP',
-					active: true
-				},
-				{
-					type: 'sidekick',
-					label: 'Sidekick',
-					active: true
-				},
-				{
-					type: 'subscriber',
-					label: 'Subscriber',
-					active: true
-				}
-			]
+			// this.userChannelInfo.badges = [
+			// 	{
+			// 		type: 'broadcaster',
+			// 		label: 'Broadcaster',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'verified',
+			// 		label: 'Verified',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'staff',
+			// 		label: 'Staff',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'Partner',
+			// 		label: 'partner',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'global_moderator',
+			// 		label: 'Global moderator',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'global_admin',
+			// 		label: 'Global admin',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'moderator',
+			// 		label: 'Moderator',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'founder',
+			// 		label: 'Founder',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'og',
+			// 		label: 'OG',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'vip',
+			// 		label: 'VIP',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'sidekick',
+			// 		label: 'Sidekick',
+			// 		active: true
+			// 	},
+			// 	{
+			// 		type: 'subscriber',
+			// 		label: 'Subscriber',
+			// 		active: true
+			// 	}
+			// ]
 			this.updateGiftSubButton()
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
