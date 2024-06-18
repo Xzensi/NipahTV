@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.15
+// @version 1.4.16
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -2162,6 +2162,11 @@ var UserInfoModal = class extends AbstractModal {
     const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo)
       return;
+    const { channelData } = this.session;
+    if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
+      this.toaster.addToast("You do not have permission to perform this action.", 6e3, "error");
+      return;
+    }
     this.modActionButtonVIPEl.classList.add("ntv__icon-button--disabled");
     if (this.isUserVIP()) {
       log(`Attempting to remove VIP status from user: ${userInfo.username}..`);
@@ -2212,6 +2217,11 @@ var UserInfoModal = class extends AbstractModal {
     const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo)
       return;
+    const { channelData } = this.session;
+    if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
+      this.toaster.addToast("You do not have permission to perform this action.", 6e3, "error");
+      return;
+    }
     this.modActionButtonModEl.classList.add("ntv__icon-button--disabled");
     if (this.isUserPrivileged()) {
       log(`Attempting to remove mod status from user: ${userInfo.username}..`);
@@ -7581,7 +7591,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.15",
+    VERSION: "1.4.16",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
