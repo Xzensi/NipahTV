@@ -8,7 +8,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 	xhr.open(options.method || 'GET', url, true)
 	xhr.setRequestHeader('accept', 'application/json, text/plain, */*')
 
-	if (options.body || options.method !== 'GET') {
+	if (options.body) {
 		xhr.setRequestHeader('Content-Type', 'application/json')
 	}
 

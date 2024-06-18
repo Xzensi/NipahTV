@@ -429,6 +429,12 @@ export class UserInfoModal extends AbstractModal {
 		const { userInfo, userChannelInfo } = this
 		if (!userInfo || !userChannelInfo) return
 
+		const { channelData } = this.session
+		if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
+			this.toaster.addToast('You do not have permission to perform this action.', 6_000, 'error')
+			return
+		}
+
 		this.modActionButtonVIPEl!.classList.add('ntv__icon-button--disabled')
 
 		if (this.isUserVIP()) {
@@ -487,6 +493,12 @@ export class UserInfoModal extends AbstractModal {
 		const { networkInterface } = this.rootContext
 		const { userInfo, userChannelInfo } = this
 		if (!userInfo || !userChannelInfo) return
+
+		const { channelData } = this.session
+		if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
+			this.toaster.addToast('You do not have permission to perform this action.', 6_000, 'error')
+			return
+		}
 
 		this.modActionButtonModEl!.classList.add('ntv__icon-button--disabled')
 
