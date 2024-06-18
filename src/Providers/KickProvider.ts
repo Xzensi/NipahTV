@@ -70,9 +70,9 @@ export class KickProvider extends AbstractEmoteProvider implements IAbstractEmot
 
 			let orderIndex = 1
 			if (dataSet.id === 'Global') {
-				orderIndex = 5
-			} else if (dataSet.id === 'Emoji') {
 				orderIndex = 10
+			} else if (dataSet.id === 'Emoji') {
+				orderIndex = 15
 			}
 
 			emoteSets.push({

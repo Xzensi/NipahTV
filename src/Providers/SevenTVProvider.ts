@@ -62,7 +62,7 @@ export class SevenTVProvider extends AbstractEmoteProvider implements IAbstractE
 		return [
 			{
 				provider: this.id,
-				orderIndex: 2,
+				orderIndex: 9,
 				name: data.emote_set.name,
 				emotes: emotesMapped,
 				isCurrentChannel: false,
