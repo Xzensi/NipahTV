@@ -215,10 +215,14 @@ const commandsMap = [
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
-		execute: (deps: CommandDependencies, args: string[]) => {
-			const { networkInterface, userInterface } = deps
+		execute: async (deps: CommandDependencies, args: string[]) => {
+			const { networkInterface, userInterface, channelData } = deps
+			const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch(err => {
+				userInterface?.toastError('Failed to follow user. ' + (err.message || ''))
+			})
+			if (!userInfo) return
 			networkInterface
-				.followUser(args[0])
+				.followUser(userInfo.slug)
 				.then(() => userInterface?.toastSuccess('Following user.'))
 				.catch(err => userInterface?.toastError('Failed to follow user. ' + (err.message || '')))
 		}
@@ -231,10 +235,14 @@ const commandsMap = [
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
-		execute: (deps: CommandDependencies, args: string[]) => {
-			const { networkInterface, userInterface } = deps
+		execute: async (deps: CommandDependencies, args: string[]) => {
+			const { networkInterface, userInterface, channelData } = deps
+			const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch(err => {
+				userInterface?.toastError('Failed to follow user. ' + (err.message || ''))
+			})
+			if (!userInfo) return
 			networkInterface
-				.unfollowUser(args[0])
+				.unfollowUser(userInfo.slug)
 				.then(() => userInterface?.toastSuccess('User unfollowed.'))
 				.catch(err => userInterface?.toastError('Failed to unfollow user. ' + (err.message || '')))
 		}
@@ -320,12 +328,15 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 
 	updateCompletionEntries(commandName: string, inputString: string) {
 		const availableCommands = this.getAvailableCommands()
-		const commandEntries =
-			inputString.indexOf(' ') !== -1
-				? [availableCommands.find(commandEntry => commandEntry.name.startsWith(commandName))]
-				: availableCommands.filter(commandEntry => commandEntry.name.startsWith(commandName))
+		let commandEntries
+		if (inputString.indexOf(' ') !== -1) {
+			const foundEntry = availableCommands.find(commandEntry => commandEntry.name.startsWith(commandName))
+			if (foundEntry) commandEntries = [foundEntry]
+		} else {
+			commandEntries = availableCommands.filter(commandEntry => commandEntry.name.startsWith(commandName))
+		}
 
-		if (commandEntries) {
+		if (commandEntries && commandEntries.length) {
 			if (!this.navWindow) this.createModal()
 			else this.navWindow.clearEntries()
 
@@ -373,6 +384,8 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 
 				this.navWindow!.addEntry(commandEntry, entryEl)
 			}
+		} else {
+			this.destroy()
 		}
 	}
 
@@ -488,31 +501,27 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			return this.moveSelectorDown()
 		}
 
-		const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event)
-		if (keyIsLetterDigitPuncSpaceChar) {
-			event.stopPropagation()
-			contentEditableEditor.handleKeydown(event)
-		}
+		// const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event)
+		// if (keyIsLetterDigitPuncSpaceChar || event.key === 'Backspace' || event.key === 'Delete') {
+		// 	event.stopPropagation()
+		// 	contentEditableEditor.handleKeydown(event)
+		// }
 
 		const firstNode = contentEditableEditor.getInputNode().firstChild
-		if (!firstNode || !(firstNode instanceof Text)) {
+
+		if (!firstNode && event.key === '/') {
+			this.updateCompletionEntries('', '/')
+		} else if (!firstNode || !(firstNode instanceof Text)) {
 			this.destroy()
 			return
 		}
 
-		const nodeData = firstNode.data
+		const nodeData = firstNode ? firstNode.data : '/'
 		const firstChar = nodeData[0]
+
 		if (firstChar !== '/') {
 			this.destroy()
 			return
-		}
-
-		if (keyIsLetterDigitPuncSpaceChar || event.key === 'Backspace' || event.key === 'Delete') {
-			let i = 1
-			while (nodeData[i] && nodeData[i] !== ' ') i++
-
-			const commandName = nodeData.substring(1, i)
-			this.updateCompletionEntries(commandName, nodeData)
 		}
 
 		if (event.key === 'Enter') {
@@ -549,5 +558,29 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		}
 	}
 
-	handleKeyUp(event: KeyboardEvent) {}
+	handleKeyUp(event: KeyboardEvent) {
+		const { contentEditableEditor } = this
+
+		const firstNode = contentEditableEditor.getInputNode().firstChild
+		if (!firstNode || !(firstNode instanceof Text)) {
+			this.destroy()
+			return
+		}
+
+		const nodeData = firstNode.data
+		const firstChar = nodeData[0]
+		if (firstChar !== '/') {
+			this.destroy()
+			return
+		}
+
+		const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event)
+		if (keyIsLetterDigitPuncSpaceChar || event.key === 'Backspace' || event.key === 'Delete') {
+			let i = 1
+			while (nodeData[i] && nodeData[i] !== ' ') i++
+
+			const commandName = nodeData.substring(1, i)
+			this.updateCompletionEntries(commandName, nodeData)
+		}
+	}
 }

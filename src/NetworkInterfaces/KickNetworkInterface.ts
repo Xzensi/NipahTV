@@ -250,13 +250,11 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${channelName}/polls`)
 	}
 
-	async followUser(username: string) {
-		const slug = username.replace('_', '-').toLowerCase()
+	async followUser(slug: string) {
 		return RESTFromMainService.post(`https://kick.com/api/v2/channels/${slug}/follow`)
 	}
 
-	async unfollowUser(username: string) {
-		const slug = username.replace('_', '-').toLowerCase()
+	async unfollowUser(slug: string) {
 		return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`)
 	}
 
@@ -278,6 +276,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 
 		return {
 			id: userOwnChannelInfo.user.id,
+			slug: userOwnChannelInfo.slug,
 			username: userOwnChannelInfo.user.username,
 			profilePic:
 				userOwnChannelInfo.user.profile_pic || RESOURCE_ROOT + 'assets/img/kick/default-user-profile.png',

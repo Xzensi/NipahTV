@@ -2,6 +2,7 @@ import type { Badge } from '../Providers/BadgeProvider'
 
 export type UserInfo = {
 	id: string
+	slug: string
 	username: string
 	profilePic: string
 	bannerImg: string

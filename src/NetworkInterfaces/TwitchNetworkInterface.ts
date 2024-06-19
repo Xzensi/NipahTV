@@ -58,8 +58,8 @@ export class TwitchNetworkInterface extends AbstractNetworkInterface {
 		throw new Error('Method not implemented.')
 		return {
 			id: '',
-			username: '',
 			slug: '',
+			username: '',
 			isFollowing: false,
 			profilePic: '',
 			bannerImg: '',
