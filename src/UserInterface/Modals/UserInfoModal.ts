@@ -92,6 +92,7 @@ export class UserInfoModal extends AbstractModal {
 
 		const userInfo: UserInfo = this.userInfo || {
 			id: '',
+			slug: 'error',
 			username: 'Error',
 			createdAt: null,
 			isFollowing: false,
@@ -298,7 +299,7 @@ export class UserInfoModal extends AbstractModal {
 
 		if (userInfo.isFollowing) {
 			try {
-				await networkInterface.unfollowUser(this.username)
+				await networkInterface.unfollowUser(userInfo.slug)
 				userInfo.isFollowing = false
 				this.actionFollowEl!.textContent = 'Follow'
 			} catch (err: any) {
@@ -312,7 +313,7 @@ export class UserInfoModal extends AbstractModal {
 			}
 		} else {
 			try {
-				await networkInterface.followUser(this.username)
+				await networkInterface.followUser(userInfo.slug)
 				userInfo.isFollowing = true
 				this.actionFollowEl!.textContent = 'Unfollow'
 			} catch (err: any) {

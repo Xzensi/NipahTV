@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.16
+// @version 1.4.17
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -501,7 +501,7 @@ function md5(inputString) {
   }
   return rh(a) + rh(b) + rh(c) + rh(d);
 }
-var relativeTimeFormatter = new Intl.RelativeTimeFormat(void 0, {
+var relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
   numeric: "auto"
 });
 var RELATIVE_TIME_DIVISIONS = [
@@ -1873,6 +1873,7 @@ var UserInfoModal = class extends AbstractModal {
     await this.updateUserInfo();
     const userInfo = this.userInfo || {
       id: "",
+      slug: "error",
       username: "Error",
       createdAt: null,
       isFollowing: false,
@@ -2050,7 +2051,7 @@ var UserInfoModal = class extends AbstractModal {
     this.actionFollowEl.classList.add("ntv__button--disabled");
     if (userInfo.isFollowing) {
       try {
-        await networkInterface.unfollowUser(this.username);
+        await networkInterface.unfollowUser(userInfo.slug);
         userInfo.isFollowing = false;
         this.actionFollowEl.textContent = "Follow";
       } catch (err) {
@@ -2064,7 +2065,7 @@ var UserInfoModal = class extends AbstractModal {
       }
     } else {
       try {
-        await networkInterface.followUser(this.username);
+        await networkInterface.followUser(userInfo.slug);
         userInfo.isFollowing = true;
         this.actionFollowEl.textContent = "Unfollow";
       } catch (err) {
@@ -4421,9 +4422,14 @@ var commandsMap = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    execute: (deps, args) => {
-      const { networkInterface, userInterface } = deps;
-      networkInterface.followUser(args[0]).then(() => userInterface?.toastSuccess("Following user.")).catch((err) => userInterface?.toastError("Failed to follow user. " + (err.message || "")));
+    execute: async (deps, args) => {
+      const { networkInterface, userInterface, channelData } = deps;
+      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
+        userInterface?.toastError("Failed to follow user. " + (err.message || ""));
+      });
+      if (!userInfo)
+        return;
+      networkInterface.followUser(userInfo.slug).then(() => userInterface?.toastSuccess("Following user.")).catch((err) => userInterface?.toastError("Failed to follow user. " + (err.message || "")));
     }
   },
   {
@@ -4433,9 +4439,14 @@ var commandsMap = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    execute: (deps, args) => {
-      const { networkInterface, userInterface } = deps;
-      networkInterface.unfollowUser(args[0]).then(() => userInterface?.toastSuccess("User unfollowed.")).catch((err) => userInterface?.toastError("Failed to unfollow user. " + (err.message || "")));
+    execute: async (deps, args) => {
+      const { networkInterface, userInterface, channelData } = deps;
+      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
+        userInterface?.toastError("Failed to follow user. " + (err.message || ""));
+      });
+      if (!userInfo)
+        return;
+      networkInterface.unfollowUser(userInfo.slug).then(() => userInterface?.toastSuccess("User unfollowed.")).catch((err) => userInterface?.toastError("Failed to unfollow user. " + (err.message || "")));
     }
   },
   {
@@ -4508,8 +4519,15 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
   }
   updateCompletionEntries(commandName, inputString) {
     const availableCommands = this.getAvailableCommands();
-    const commandEntries = inputString.indexOf(" ") !== -1 ? [availableCommands.find((commandEntry) => commandEntry.name.startsWith(commandName))] : availableCommands.filter((commandEntry) => commandEntry.name.startsWith(commandName));
-    if (commandEntries) {
+    let commandEntries;
+    if (inputString.indexOf(" ") !== -1) {
+      const foundEntry = availableCommands.find((commandEntry) => commandEntry.name.startsWith(commandName));
+      if (foundEntry)
+        commandEntries = [foundEntry];
+    } else {
+      commandEntries = availableCommands.filter((commandEntry) => commandEntry.name.startsWith(commandName));
+    }
+    if (commandEntries && commandEntries.length) {
       if (!this.navWindow)
         this.createModal();
       else
@@ -4549,6 +4567,8 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
         }
         this.navWindow.addEntry(commandEntry, entryEl);
       }
+    } else {
+      this.destroy();
     }
   }
   renderInlineCompletion() {
@@ -4652,28 +4672,18 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
       event.preventDefault();
       return this.moveSelectorDown();
     }
-    const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event);
-    if (keyIsLetterDigitPuncSpaceChar) {
-      event.stopPropagation();
-      contentEditableEditor.handleKeydown(event);
-    }
     const firstNode = contentEditableEditor.getInputNode().firstChild;
-    if (!firstNode || !(firstNode instanceof Text)) {
+    if (!firstNode && event.key === "/") {
+      this.updateCompletionEntries("", "/");
+    } else if (!firstNode || !(firstNode instanceof Text)) {
       this.destroy();
       return;
     }
-    const nodeData = firstNode.data;
+    const nodeData = firstNode ? firstNode.data : "/";
     const firstChar = nodeData[0];
     if (firstChar !== "/") {
       this.destroy();
       return;
-    }
-    if (keyIsLetterDigitPuncSpaceChar || event.key === "Backspace" || event.key === "Delete") {
-      let i = 1;
-      while (nodeData[i] && nodeData[i] !== " ")
-        i++;
-      const commandName = nodeData.substring(1, i);
-      this.updateCompletionEntries(commandName, nodeData);
     }
     if (event.key === "Enter") {
       const isInvalid = this.validateInputCommand(nodeData.substring(1));
@@ -4701,6 +4711,26 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     }
   }
   handleKeyUp(event) {
+    const { contentEditableEditor } = this;
+    const firstNode = contentEditableEditor.getInputNode().firstChild;
+    if (!firstNode || !(firstNode instanceof Text)) {
+      this.destroy();
+      return;
+    }
+    const nodeData = firstNode.data;
+    const firstChar = nodeData[0];
+    if (firstChar !== "/") {
+      this.destroy();
+      return;
+    }
+    const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event);
+    if (keyIsLetterDigitPuncSpaceChar || event.key === "Backspace" || event.key === "Delete") {
+      let i = 1;
+      while (nodeData[i] && nodeData[i] !== " ")
+        i++;
+      const commandName = nodeData.substring(1, i);
+      this.updateCompletionEntries(commandName, nodeData);
+    }
   }
 };
 
@@ -7299,12 +7329,10 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
   async deletePoll(channelName) {
     return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${channelName}/polls`);
   }
-  async followUser(username) {
-    const slug = username.replace("_", "-").toLowerCase();
+  async followUser(slug) {
     return RESTFromMainService.post(`https://kick.com/api/v2/channels/${slug}/follow`);
   }
-  async unfollowUser(username) {
-    const slug = username.replace("_", "-").toLowerCase();
+  async unfollowUser(slug) {
     return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`);
   }
   async getUserInfo(slug) {
@@ -7320,6 +7348,7 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     const userOwnChannelInfo = res2.value;
     return {
       id: userOwnChannelInfo.user.id,
+      slug: userOwnChannelInfo.slug,
       username: userOwnChannelInfo.user.username,
       profilePic: userOwnChannelInfo.user.profile_pic || RESOURCE_ROOT + "assets/img/kick/default-user-profile.png",
       bannerImg: userOwnChannelInfo?.banner_image?.url || "",
@@ -7591,7 +7620,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.16",
+    VERSION: "1.4.17",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',

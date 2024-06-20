@@ -45,10 +45,10 @@
 					class="button"
 					target="_blank"
 					rel="noopener"
-					>Install for Chrome & Edge</a
+					>Install for Chrome | Opera | Edge</a
 				>
 				<a href="/" class="button disabled" target="_blank" rel="noopener">Firefox (Coming soon)</a>
-				<a href="userscript.html" class="button">Get Userscript</a>
+				<a href="userscript.html" class="button">Install as Userscript</a>
 			</section>
 			<section>
 				<img src="img/emote_menu.png" alt="Emote menu" class="elevation-3" />
@@ -140,18 +140,21 @@
 
 			let clientWidth = document.body.clientWidth
 
+			const emotesBox = document.querySelector('#banner .emotes_box')
+			const createElement = document.createElement.bind(document)
+
 			function loop(width) {
 				if (width !== clientWidth) return
 
 				const emoji = emojis[(prng() * emojis.length) << 0]
-				const img = document.createElement('img')
+				const img = createElement('img')
 
 				img.src = `img/emotes/${emoji}.webp`
 				img.style.position = 'absolute'
 				img.style.left = `${prng() * 100}%`
 				img.addEventListener('animationend', img.remove)
 
-				document.querySelector('#banner .emotes_box').appendChild(img)
+				emotesBox.appendChild(img)
 
 				requestAnimationFrame(() => {
 					setTimeout(loop.bind(this, width), prng() * interval + interval / 2)
