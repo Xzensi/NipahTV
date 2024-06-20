@@ -491,7 +491,7 @@ async function tryPersistWithoutPromtingUser() {
 	return 'never'
 }
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+const relativeTimeFormatter = new Intl.RelativeTimeFormat('en', {
 	numeric: 'auto'
 })
 const RELATIVE_TIME_DIVISIONS = [
