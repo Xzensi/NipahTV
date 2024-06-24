@@ -22,7 +22,7 @@
 	top: -1.618em;
 
 	&__header {
-		border-bottom: 0.1em solid var(--ntv-border-transparent-2);
+		border-bottom: 1px solid var(--ntv-border-transparent-2);
 		justify-content: flex-end;
 		display: flex;
 		padding: 2px;
@@ -191,12 +191,12 @@
 		grid-template-columns: auto 1fr 2.5em;
 		box-shadow: shadow_elevation(1);
 		align-items: center;
-		padding: 0 0.618em;
+		padding: 1px 0.618em 0;
 		column-gap: 0.5em;
 		position: sticky;
 		display: grid;
 		z-index: 1;
-		top: 0px;
+		top: -1px;
 
 		img {
 			margin-right: 0.209em;
