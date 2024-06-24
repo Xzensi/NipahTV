@@ -3,7 +3,7 @@ import { SettingsManager } from '../Managers/SettingsManager'
 import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
-export class KickProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
+export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.KICK
 	status = 'unloaded'
 
@@ -17,34 +17,14 @@ export class KickProvider extends AbstractEmoteProvider implements IAbstractEmot
 
 		const { settingsManager } = this
 
-		const includeGlobalEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_global')
-		const includeCurrentChannelEmoteSet = settingsManager.getSetting(
-			'shared.chat.emote_providers.kick.filter_current_channel'
-		)
-		const includeOtherChannelEmoteSets = settingsManager.getSetting(
-			'shared.chat.emote_providers.kick.filter_other_channels'
-		)
-		const includeEmojiEmoteSet = settingsManager.getSetting('shared.chat.emote_providers.kick.filter_emojis')
+		const isChatEnabled = !!settingsManager.getSetting('shared.chat.emote_providers.kick.show_emotes')
+		if (!isChatEnabled) return []
 
 		info('Fetching emote data from Kick..')
-		const data = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`)
-
-		let dataFiltered = data
-		if (!includeGlobalEmoteSet) {
-			dataFiltered = dataFiltered.filter((entry: any) => entry.id !== 'Global')
-		}
-		if (!includeEmojiEmoteSet) {
-			dataFiltered = dataFiltered.filter((entry: any) => entry.id !== 'Emoji')
-		}
-		if (!includeCurrentChannelEmoteSet) {
-			dataFiltered = dataFiltered.filter((entry: any) => entry.id !== channelId)
-		}
-		if (!includeOtherChannelEmoteSets) {
-			dataFiltered = dataFiltered.filter((entry: any) => !entry.user_id)
-		}
+		const dataSets = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`)
 
 		const emoteSets = []
-		for (const dataSet of dataFiltered) {
+		for (const dataSet of dataSets) {
 			const { emotes } = dataSet
 
 			// Filter out sub emotes when not subscribed
@@ -77,11 +57,29 @@ export class KickProvider extends AbstractEmoteProvider implements IAbstractEmot
 				orderIndex = 15
 			}
 
+			let isMenuEnabled = true
+			if (dataSet.id === 'Global') {
+				dataSet.id = 'kick_global'
+				isMenuEnabled = !!settingsManager.getSetting('shared.emote_menu.emote_providers.kick.show_global')
+			} else if (dataSet.id === 'Emoji') {
+				dataSet.id = 'kick_emoji'
+				isMenuEnabled = !!settingsManager.getSetting('shared.emote_menu.emote_providers.kick.show_emojis')
+			} else if (dataSet.id === channelId) {
+				isMenuEnabled = !!settingsManager.getSetting(
+					'shared.emote_menu.emote_providers.kick.show_current_channel'
+				)
+			} else {
+				isMenuEnabled = !!settingsManager.getSetting(
+					'shared.emote_menu.emote_providers.kick.show_other_channels'
+				)
+			}
+
 			emoteSets.push({
 				provider: this.id,
 				orderIndex: orderIndex,
 				name: emoteSetName,
 				emotes: emotesMapped,
+				enabledInMenu: isMenuEnabled,
 				isCurrentChannel: dataSet.id === channelId,
 				isSubscribed: dataSet.id === channelId ? !!me.isSubscribed : true,
 				icon: emoteSetIcon,

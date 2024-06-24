@@ -97,6 +97,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		const { emotesManager } = this.rootContext
 		const emote = emotesManager.getEmote(emoteHid)
 		if (!emote) return // Emote is no longer im provider's emote sets
+		if (!emotesManager.isEmoteMenuEnabled(emote.hid)) return // Emote is not enabled in the emote menu
 
 		// TODO limit the amount of emotes that can be rendered in the quick emote holder
 

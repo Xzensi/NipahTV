@@ -258,7 +258,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild));
 		while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild));
 
-		const emoteSets = emotesManager.getEmoteSets()
+		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
 		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex)
 
 		for (const emoteSet of orderedEmoteSets) {

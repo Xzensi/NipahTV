@@ -153,6 +153,10 @@ export class EmoteDatastore {
 		return this.emoteUsage.get(emoteHid) || 0
 	}
 
+	getEmoteSetByEmoteHid(emoteHid: string) {
+		return this.emoteEmoteSetMap.get(emoteHid)
+	}
+
 	registerEmoteEngagement(emoteHid: string) {
 		if (!emoteHid) return error('Undefined required emoteHid argument')
 

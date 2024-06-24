@@ -35,7 +35,11 @@ export class EmotesManager {
 		this.providers.set(provider.id, provider)
 	}
 
-	async loadProviderEmotes(channelData: any, providerLoadOrder: number[]) {
+	/**
+	 * @param channelData The channel data object containing channel and user information.
+	 * @param providerLoadOrder The index of emote providers in the array determines their override order incase of emote conflicts.
+	 */
+	async loadProviderEmotes(channelData: ChannelData, providerLoadOrder: number[]) {
 		const { datastore, providers, eventBus } = this
 
 		const fetchEmoteProviderPromises: Array<Promise<Array<any>>> = []
@@ -117,6 +121,10 @@ export class EmotesManager {
 		return this.datastore.emoteSets
 	}
 
+	getMenuEnabledEmoteSets() {
+		return this.datastore.emoteSets.filter(set => set.enabledInMenu)
+	}
+
 	getEmoteUsageCounts() {
 		return this.datastore.emoteUsage
 	}
@@ -152,6 +160,12 @@ export class EmotesManager {
 		} else {
 			return provider.getEmbeddableEmote(emote)
 		}
+	}
+
+	isEmoteMenuEnabled(emoteHid: string) {
+		const emoteSet = this.datastore.getEmoteSetByEmoteHid(emoteHid)
+		if (!emoteSet) return error('Emote set not found for emote', emoteHid)
+		return emoteSet.enabledInMenu
 	}
 
 	registerEmoteEngagement(emoteHid: string) {

@@ -4,8 +4,8 @@ import { EmotesManager } from './Managers/EmotesManager'
 import { KickUserInterface } from './UserInterface/KickUserInterface'
 
 // Providers
-import { KickProvider } from './Providers/KickProvider'
-import { SevenTVProvider } from './Providers/SevenTVProvider'
+import { KickEmoteProvider } from './Providers/KickEmoteProvider'
+import { SevenTVEmoteProvider } from './Providers/SevenEmoteTVProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
@@ -199,8 +199,8 @@ class NipahClient {
 			userInterface.loadInterface()
 		}
 
-		emotesManager.registerProvider(KickProvider)
-		emotesManager.registerProvider(SevenTVProvider)
+		emotesManager.registerProvider(KickEmoteProvider)
+		emotesManager.registerProvider(SevenTVEmoteProvider)
 
 		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
