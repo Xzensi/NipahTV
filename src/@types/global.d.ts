@@ -88,6 +88,7 @@ declare global {
 		orderIndex: number
 		name: string
 		emotes: Array<Emote>
+		enabledInMenu: boolean
 		isCurrentChannel: boolean
 		isSubscribed: boolean
 		icon: string

@@ -4,8 +4,8 @@ import { EmotesManager } from './Managers/EmotesManager'
 import { KickUserInterface } from './UserInterface/KickUserInterface'
 
 // Providers
-import { KickProvider } from './Providers/KickProvider'
-import { SevenTVProvider } from './Providers/SevenTVProvider'
+import { KickEmoteProvider } from './Providers/KickEmoteProvider'
+import { SevenTVEmoteProvider } from './Providers/SevenEmoteTVProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
@@ -21,7 +21,7 @@ import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.18',
+		VERSION: '1.4.19',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -199,8 +199,8 @@ class NipahClient {
 			userInterface.loadInterface()
 		}
 
-		emotesManager.registerProvider(KickProvider)
-		emotesManager.registerProvider(SevenTVProvider)
+		emotesManager.registerProvider(KickEmoteProvider)
+		emotesManager.registerProvider(SevenTVEmoteProvider)
 
 		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
 		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)

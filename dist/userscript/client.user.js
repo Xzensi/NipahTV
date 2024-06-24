@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.18
+// @version 1.4.19
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -9,7 +9,7 @@
 // @require https://cdn.jsdelivr.net/npm/fuse.js@7.0.0
 // @require https://cdn.jsdelivr.net/npm/dexie@3.2.6/dist/dexie.min.js
 // @require https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-50d814b4.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-022577fd.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -746,6 +746,9 @@ var EmoteDatastore = class {
   getEmoteUsageCount(emoteHid) {
     return this.emoteUsage.get(emoteHid) || 0;
   }
+  getEmoteSetByEmoteHid(emoteHid) {
+    return this.emoteEmoteSetMap.get(emoteHid);
+  }
   registerEmoteEngagement(emoteHid) {
     if (!emoteHid)
       return error("Undefined required emoteHid argument");
@@ -850,6 +853,10 @@ var EmotesManager = class {
     const provider = new providerConstructor({ settingsManager: this.settingsManager, datastore: this.datastore });
     this.providers.set(provider.id, provider);
   }
+  /**
+   * @param channelData The channel data object containing channel and user information.
+   * @param providerLoadOrder The index of emote providers in the array determines their override order incase of emote conflicts.
+   */
   async loadProviderEmotes(channelData, providerLoadOrder) {
     const { datastore, providers, eventBus } = this;
     const fetchEmoteProviderPromises = [];
@@ -915,6 +922,9 @@ var EmotesManager = class {
   getEmoteSets() {
     return this.datastore.emoteSets;
   }
+  getMenuEnabledEmoteSets() {
+    return this.datastore.emoteSets.filter((set) => set.enabledInMenu);
+  }
   getEmoteUsageCounts() {
     return this.datastore.emoteUsage;
   }
@@ -946,6 +956,12 @@ var EmotesManager = class {
     } else {
       return provider.getEmbeddableEmote(emote);
     }
+  }
+  isEmoteMenuEnabled(emoteHid) {
+    const emoteSet = this.datastore.getEmoteSetByEmoteHid(emoteHid);
+    if (!emoteSet)
+      return error("Emote set not found for emote", emoteHid);
+    return emoteSet.enabledInMenu;
   }
   registerEmoteEngagement(emoteHid) {
     this.datastore.registerEmoteEngagement(emoteHid);
@@ -1065,6 +1081,8 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const { emotesManager } = this.rootContext;
     const emote = emotesManager.getEmote(emoteHid);
     if (!emote)
+      return;
+    if (!emotesManager.isEmoteMenuEnabled(emote.hid))
       return;
     const emoteInSortingListIndex = this.sortingList.findIndex((entry) => entry.hid === emoteHid);
     if (emoteInSortingListIndex !== -1) {
@@ -1402,7 +1420,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       ;
     while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild))
       ;
-    const emoteSets = emotesManager.getEmoteSets();
+    const emoteSets = emotesManager.getMenuEnabledEmoteSets();
     const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex);
     for (const emoteSet of orderedEmoteSets) {
       const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
@@ -6025,8 +6043,8 @@ var AbstractEmoteProvider = class {
   }
 };
 
-// src/Providers/KickProvider.ts
-var KickProvider = class extends AbstractEmoteProvider {
+// src/Providers/KickEmoteProvider.ts
+var KickEmoteProvider = class extends AbstractEmoteProvider {
   id = 1 /* KICK */;
   status = "unloaded";
   constructor(dependencies) {
@@ -6038,31 +6056,13 @@ var KickProvider = class extends AbstractEmoteProvider {
     if (!channelName)
       return error("Missing channel name for Kick provider");
     const { settingsManager } = this;
-    const includeGlobalEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_global");
-    const includeCurrentChannelEmoteSet = settingsManager.getSetting(
-      "shared.chat.emote_providers.kick.filter_current_channel"
-    );
-    const includeOtherChannelEmoteSets = settingsManager.getSetting(
-      "shared.chat.emote_providers.kick.filter_other_channels"
-    );
-    const includeEmojiEmoteSet = settingsManager.getSetting("shared.chat.emote_providers.kick.filter_emojis");
+    const isChatEnabled = !!settingsManager.getSetting("shared.chat.emote_providers.kick.show_emotes");
+    if (!isChatEnabled)
+      return [];
     info("Fetching emote data from Kick..");
-    const data = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`);
-    let dataFiltered = data;
-    if (!includeGlobalEmoteSet) {
-      dataFiltered = dataFiltered.filter((entry) => entry.id !== "Global");
-    }
-    if (!includeEmojiEmoteSet) {
-      dataFiltered = dataFiltered.filter((entry) => entry.id !== "Emoji");
-    }
-    if (!includeCurrentChannelEmoteSet) {
-      dataFiltered = dataFiltered.filter((entry) => entry.id !== channelId);
-    }
-    if (!includeOtherChannelEmoteSets) {
-      dataFiltered = dataFiltered.filter((entry) => !entry.user_id);
-    }
+    const dataSets = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`);
     const emoteSets = [];
-    for (const dataSet of dataFiltered) {
+    for (const dataSet of dataSets) {
       const { emotes } = dataSet;
       let emotesFiltered = emotes;
       if (dataSet.user_id === userId) {
@@ -6089,11 +6089,28 @@ var KickProvider = class extends AbstractEmoteProvider {
       } else if (dataSet.id === "Emoji") {
         orderIndex = 15;
       }
+      let isMenuEnabled = true;
+      if (dataSet.id === "Global") {
+        dataSet.id = "kick_global";
+        isMenuEnabled = !!settingsManager.getSetting("shared.emote_menu.emote_providers.kick.show_global");
+      } else if (dataSet.id === "Emoji") {
+        dataSet.id = "kick_emoji";
+        isMenuEnabled = !!settingsManager.getSetting("shared.emote_menu.emote_providers.kick.show_emojis");
+      } else if (dataSet.id === channelId) {
+        isMenuEnabled = !!settingsManager.getSetting(
+          "shared.emote_menu.emote_providers.kick.show_current_channel"
+        );
+      } else {
+        isMenuEnabled = !!settingsManager.getSetting(
+          "shared.emote_menu.emote_providers.kick.show_other_channels"
+        );
+      }
       emoteSets.push({
         provider: this.id,
         orderIndex,
         name: emoteSetName,
         emotes: emotesMapped,
+        enabledInMenu: isMenuEnabled,
         isCurrentChannel: dataSet.id === channelId,
         isSubscribed: dataSet.id === channelId ? !!me.isSubscribed : true,
         icon: emoteSetIcon,
@@ -6125,8 +6142,8 @@ var KickProvider = class extends AbstractEmoteProvider {
   }
 };
 
-// src/Providers/SevenTVProvider.ts
-var SevenTVProvider = class extends AbstractEmoteProvider {
+// src/Providers/SevenEmoteTVProvider.ts
+var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
   id = 2 /* SEVENTV */;
   status = "unloaded";
   constructor(dependencies) {
@@ -6136,17 +6153,36 @@ var SevenTVProvider = class extends AbstractEmoteProvider {
     info("Fetching emote data from SevenTV..");
     if (!userId)
       return error("Missing Kick channel id for SevenTV provider.");
-    const data = await REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch((err) => {
-      error("Failed to fetch SevenTV emotes.", err);
+    const isChatEnabled = !!this.settingsManager.getSetting("shared.chat.emote_providers.7tv.show_emotes");
+    if (!isChatEnabled)
+      return [];
+    const [globalData, userData] = await Promise.all([
+      REST.get(`https://7tv.io/v3/emote-sets/global`).catch((err) => {
+        error("Failed to fetch SevenTV global emotes.", err);
+      }),
+      REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch((err) => {
+        error("Failed to fetch SevenTV emotes.", err);
+      })
+    ]);
+    if (!globalData) {
       this.status = "connection_failed";
       return [];
-    });
-    if (!data.emote_set || !data.emote_set?.emotes?.length) {
-      log("No emotes found for SevenTV provider");
-      this.status = "no_emotes_found";
+    }
+    const globalEmoteSet = this.unpackGlobalEmotes(globalData);
+    const userEmoteSet = this.unpackUserEmotes(userData);
+    if (globalEmoteSet.length + userEmoteSet.length > 1)
+      log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`);
+    else
+      log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`);
+    this.status = "loaded";
+    return [...globalEmoteSet, ...userEmoteSet];
+  }
+  unpackGlobalEmotes(globalData) {
+    if (!globalData.emotes || !globalData.emotes?.length) {
+      error("No global emotes found for SevenTV provider");
       return [];
     }
-    const emotesMapped = data.emote_set.emotes.map((emote) => {
+    const emotesMapped = globalData.emotes.map((emote) => {
       const file = emote.data.host.files[0];
       let size;
       switch (true) {
@@ -6173,18 +6209,68 @@ var SevenTVProvider = class extends AbstractEmoteProvider {
         size
       };
     });
-    log(`Fetched 1 emote set from SevenTV.`);
-    this.status = "loaded";
+    const isMenuEnabled = !!this.settingsManager.getSetting("shared.emote_menu.emote_providers.7tv.show_global");
     return [
       {
         provider: this.id,
         orderIndex: 9,
-        name: data.emote_set.name,
+        name: globalData.name,
         emotes: emotesMapped,
+        enabledInMenu: isMenuEnabled,
         isCurrentChannel: false,
         isSubscribed: false,
-        icon: data.emote_set?.user?.avatar_url || "https://7tv.app/favicon.ico",
-        id: "" + data.emote_set.id
+        icon: globalData.owner?.avatar_url || "https://7tv.app/favicon.ico",
+        id: "7tv_global"
+      }
+    ];
+  }
+  unpackUserEmotes(userData) {
+    if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
+      log("No emotes found for SevenTV provider");
+      this.status = "no_user_emotes_found";
+      return [];
+    }
+    const emotesMapped = userData.emote_set.emotes.map((emote) => {
+      const file = emote.data.host.files[0];
+      let size;
+      switch (true) {
+        case file.width > 74:
+          size = 4;
+          break;
+        case file.width > 53:
+          size = 3;
+          break;
+        case file.width > 32:
+          size = 2;
+          break;
+        default:
+          size = 1;
+      }
+      return {
+        id: "" + emote.id,
+        hid: md5(emote.name),
+        name: emote.name,
+        provider: 2 /* SEVENTV */,
+        subscribersOnly: false,
+        spacing: true,
+        width: file.width,
+        size
+      };
+    });
+    const isMenuEnabled = !!this.settingsManager.getSetting(
+      "shared.emote_menu.emote_providers.kick.show_current_channel"
+    );
+    return [
+      {
+        provider: this.id,
+        orderIndex: 8,
+        name: userData.emote_set.name,
+        emotes: emotesMapped,
+        enabledInMenu: isMenuEnabled,
+        isCurrentChannel: true,
+        isSubscribed: false,
+        icon: userData.emote_set?.user?.avatar_url || "https://7tv.app/favicon.ico",
+        id: "" + userData.emote_set.id
       }
     ];
   }
@@ -6826,27 +6912,57 @@ var SettingsManager = class {
               description: "These settings require a page refresh to take effect.",
               children: [
                 {
-                  label: "Show global emote set.",
-                  id: "shared.chat.emote_providers.kick.filter_global",
+                  label: "Show emotes in chat.",
+                  id: "shared.chat.emote_providers.kick.show_emotes",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show current channel emote set.",
-                  id: "shared.chat.emote_providers.kick.filter_current_channel",
+                  label: "Show global emote set in emote menu.",
+                  id: "shared.emote_menu.emote_providers.kick.show_global",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show other channel emote sets.",
-                  id: "shared.chat.emote_providers.kick.filter_other_channels",
+                  label: "Show current channel emote set in emote menu.",
+                  id: "shared.emote_menu.emote_providers.kick.show_current_channel",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show Emoji emote set.",
-                  id: "shared.chat.emote_providers.kick.filter_emojis",
+                  label: "Show other channel emote sets in emote menu.",
+                  id: "shared.emote_menu.emote_providers.kick.show_other_channels",
+                  default: true,
+                  type: "checkbox"
+                },
+                {
+                  label: "Show Emoji emote set in emote menu.",
+                  id: "shared.emote_menu.emote_providers.kick.show_emojis",
                   default: false,
+                  type: "checkbox"
+                }
+              ]
+            },
+            {
+              label: "7TV",
+              description: "These settings require a page refresh to take effect.",
+              children: [
+                {
+                  label: "Show emotes in chat.",
+                  id: "shared.chat.emote_providers.7tv.show_emotes",
+                  default: true,
+                  type: "checkbox"
+                },
+                {
+                  label: "Show global emote set in emote menu.",
+                  id: "shared.emote_menu.emote_providers.7tv.show_global",
+                  default: true,
+                  type: "checkbox"
+                },
+                {
+                  label: "Show current channel emote set in emote menu.",
+                  id: "shared.emote_menu.emote_providers.7tv.show_current_channel",
+                  default: true,
                   type: "checkbox"
                 }
               ]
@@ -6950,9 +7066,16 @@ var SettingsManager = class {
     }
     ;
     [
-      ["shared.chat.emote_menu.appearance.search_box", "shared.chat.emote_menu.search_box"],
-      ["shared.chat.emote_menu.behavior.close_on_click", "shared.chat.emote_menu.close_on_click"],
-      ["shared.chat.quick_emote_holder.appearance.rows", "shared.chat.quick_emote_holder.rows"]
+      ["shared.chat.emote_providers.kick.filter_emojis", "shared.emote_menu.emote_providers.kick.show_emojis"],
+      [
+        "shared.chat.emote_providers.kick.filter_other_channels",
+        "shared.emote_menu.emote_providers.kick.show_other_channels"
+      ],
+      [
+        "shared.chat.emote_providers.kick.filter_current_channel",
+        "shared.emote_menu.emote_providers.kick.show_current_channel"
+      ],
+      ["shared.chat.emote_providers.kick.filter_global", "shared.emote_menu.emote_providers.kick.show_global"]
     ].forEach(([oldKey, newKey]) => {
       if (this.settingsMap.has(oldKey)) {
         const val = this.settingsMap.get(oldKey);
@@ -7622,7 +7745,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.18",
+    VERSION: "1.4.19",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -7751,8 +7874,8 @@ var NipahClient = class {
     } else {
       userInterface.loadInterface();
     }
-    emotesManager.registerProvider(KickProvider);
-    emotesManager.registerProvider(SevenTVProvider);
+    emotesManager.registerProvider(KickEmoteProvider);
+    emotesManager.registerProvider(SevenTVEmoteProvider);
     const providerLoadOrder = [1 /* KICK */, 2 /* SEVENTV */];
     emotesManager.loadProviderEmotes(channelData, providerLoadOrder);
   }

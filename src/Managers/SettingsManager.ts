@@ -306,27 +306,57 @@ export class SettingsManager {
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
-									label: 'Show global emote set.',
-									id: 'shared.chat.emote_providers.kick.filter_global',
+									label: 'Show emotes in chat.',
+									id: 'shared.chat.emote_providers.kick.show_emotes',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show current channel emote set.',
-									id: 'shared.chat.emote_providers.kick.filter_current_channel',
+									label: 'Show global emote set in emote menu.',
+									id: 'shared.emote_menu.emote_providers.kick.show_global',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show other channel emote sets.',
-									id: 'shared.chat.emote_providers.kick.filter_other_channels',
+									label: 'Show current channel emote set in emote menu.',
+									id: 'shared.emote_menu.emote_providers.kick.show_current_channel',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show Emoji emote set.',
-									id: 'shared.chat.emote_providers.kick.filter_emojis',
+									label: 'Show other channel emote sets in emote menu.',
+									id: 'shared.emote_menu.emote_providers.kick.show_other_channels',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show Emoji emote set in emote menu.',
+									id: 'shared.emote_menu.emote_providers.kick.show_emojis',
 									default: false,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: '7TV',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Show emotes in chat.',
+									id: 'shared.chat.emote_providers.7tv.show_emotes',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show global emote set in emote menu.',
+									id: 'shared.emote_menu.emote_providers.7tv.show_global',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show current channel emote set in emote menu.',
+									id: 'shared.emote_menu.emote_providers.7tv.show_current_channel',
+									default: true,
 									type: 'checkbox'
 								}
 							]
@@ -442,11 +472,17 @@ export class SettingsManager {
 		}
 
 		//! Temporary migration code
-		// TODO remove this
 		;[
-			['shared.chat.emote_menu.appearance.search_box', 'shared.chat.emote_menu.search_box'],
-			['shared.chat.emote_menu.behavior.close_on_click', 'shared.chat.emote_menu.close_on_click'],
-			['shared.chat.quick_emote_holder.appearance.rows', 'shared.chat.quick_emote_holder.rows']
+			['shared.chat.emote_providers.kick.filter_emojis', 'shared.emote_menu.emote_providers.kick.show_emojis'],
+			[
+				'shared.chat.emote_providers.kick.filter_other_channels',
+				'shared.emote_menu.emote_providers.kick.show_other_channels'
+			],
+			[
+				'shared.chat.emote_providers.kick.filter_current_channel',
+				'shared.emote_menu.emote_providers.kick.show_current_channel'
+			],
+			['shared.chat.emote_providers.kick.filter_global', 'shared.emote_menu.emote_providers.kick.show_global']
 		].forEach(([oldKey, newKey]) => {
 			if (this.settingsMap.has(oldKey)) {
 				const val = this.settingsMap.get(oldKey)
