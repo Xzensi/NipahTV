@@ -573,25 +573,29 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
-		this.rootContext.eventBus.subscribe('ntv.providers.loaded', () => {
-			// Render emotes in chat when new messages are added
-			const observer = (this.chatObserver = new MutationObserver(mutations => {
-				mutations.forEach(mutation => {
-					if (mutation.addedNodes.length) {
-						for (const messageNode of mutation.addedNodes) {
-							if (messageNode instanceof HTMLElement) {
-								this.renderChatMessage(messageNode)
+		this.rootContext.eventBus.subscribe(
+			'ntv.providers.loaded',
+			() => {
+				// Render emotes in chat when new messages are added
+				const observer = (this.chatObserver = new MutationObserver(mutations => {
+					mutations.forEach(mutation => {
+						if (mutation.addedNodes.length) {
+							for (const messageNode of mutation.addedNodes) {
+								if (messageNode instanceof HTMLElement) {
+									this.renderChatMessage(messageNode)
+								}
+							}
+							if (this.stickyScroll) {
+								// We need to wait for the next frame paint call to render before scrolling to bottom
+								window.requestAnimationFrame(scrollToBottom)
 							}
 						}
-						if (this.stickyScroll) {
-							// We need to wait for the next frame paint call to render before scrolling to bottom
-							window.requestAnimationFrame(scrollToBottom)
-						}
-					}
-				})
-			}))
-			observer.observe(chatMessagesContainerEl, { childList: true })
-		})
+					})
+				}))
+				observer.observe(chatMessagesContainerEl, { childList: true })
+			},
+			true
+		)
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltips = this.rootContext.settingsManager.getSetting('shared.chat.tooltips.images')
