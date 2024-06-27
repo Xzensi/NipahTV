@@ -887,9 +887,15 @@ export class KickUserInterface extends AbstractUserInterface {
 			messageWrapperNode = chatEntryNode.children[0]
 		}
 
-		// Replace message identity with clone to nuke all evenListeners
-		// const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
-		// messageIdentityNode?.replaceWith(messageIdentityNode.cloneNode(true))
+		const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
+		if (messageIdentityNode) {
+			messageIdentityNode.classList.add('ntv__chat-message__identity')
+			// Replace message identity with clone to nuke all evenListeners
+			// messageIdentityNode.replaceWith(messageIdentityNode.cloneNode(true))
+
+			const usernameNode = messageIdentityNode.querySelector('.chat-entry-username')
+			if (usernameNode) usernameNode.classList.add('ntv__chat-message__username')
+		}
 
 		const contentNodes = Array.from(messageWrapperNode.children)
 		const contentNodesLength = contentNodes.length

@@ -12,8 +12,8 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 	}
 
 	async fetchEmotes({ channelId, channelName, userId, me }: ChannelData) {
-		if (!channelId) return error('Missing channel id for Kick provider')
-		if (!channelName) return error('Missing channel name for Kick provider')
+		if (!channelId) return error('Missing channel id for Kick provider')! || []
+		if (!channelName) return error('Missing channel name for Kick provider')! || []
 
 		const { settingsManager } = this
 
@@ -41,7 +41,7 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 					hid: md5(emote.name),
 					name: emote.name,
 					subscribersOnly: emote.subscribersOnly,
-					provider: PROVIDER_ENUM.KICK,
+					provider: this.id,
 					width: 32,
 					size: 1
 				} as Emote
@@ -57,11 +57,15 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 				orderIndex = 15
 			}
 
-			let isMenuEnabled = true
+			let isMenuEnabled = true,
+				isGlobalSet = false,
+				isEmoji = false
 			if (dataSet.id === 'Global') {
+				isGlobalSet = true
 				dataSet.id = 'kick_global'
 				isMenuEnabled = !!settingsManager.getSetting('shared.emote_menu.emote_providers.kick.show_global')
 			} else if (dataSet.id === 'Emoji') {
+				isEmoji = true
 				dataSet.id = 'kick_emoji'
 				isMenuEnabled = !!settingsManager.getSetting('shared.emote_menu.emote_providers.kick.show_emojis')
 			} else if (dataSet.id === channelId) {
@@ -80,7 +84,10 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 				name: emoteSetName,
 				emotes: emotesMapped,
 				enabledInMenu: isMenuEnabled,
+				isEmoji,
+				isGlobalSet,
 				isCurrentChannel: dataSet.id === channelId,
+				isOtherChannel: dataSet.id !== channelId && !isGlobalSet && !isEmoji,
 				isSubscribed: dataSet.id === channelId ? !!me.isSubscribed : true,
 				icon: emoteSetIcon,
 				id: '' + dataSet.id

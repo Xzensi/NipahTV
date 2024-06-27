@@ -10,6 +10,7 @@
 	}
 
 	&__identity {
+		margin-left: 0;
 	}
 
 	&__timestamp {
@@ -21,6 +22,7 @@
 	}
 	&__username {
 		font-weight: 700;
+		cursor: pointer;
 	}
 	&__part {
 		word-break: break-word;

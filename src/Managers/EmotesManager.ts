@@ -37,9 +37,9 @@ export class EmotesManager {
 
 	/**
 	 * @param channelData The channel data object containing channel and user information.
-	 * @param providerLoadOrder The index of emote providers in the array determines their override order incase of emote conflicts.
+	 * @param providerOverrideOrder The index of emote providers in the array determines their override order incase of emote conflicts.
 	 */
-	async loadProviderEmotes(channelData: ChannelData, providerLoadOrder: number[]) {
+	async loadProviderEmotes(channelData: ChannelData, providerOverrideOrder: number[]) {
 		const { datastore, providers, eventBus } = this
 
 		const fetchEmoteProviderPromises: Array<Promise<Array<any>>> = []
@@ -49,37 +49,29 @@ export class EmotesManager {
 
 		info('Indexing emote providers..')
 		Promise.allSettled(fetchEmoteProviderPromises).then(results => {
-			const providerSets = []
+			const emoteSets = []
 			for (const promis of results) {
 				if (promis.status === 'rejected') {
 					error('Failed to fetch emotes from provider', promis.reason)
 				} else if (promis.value && promis.value.length) {
-					providerSets.push(promis.value)
+					emoteSets.push(...promis.value)
 				}
 			}
 
-			// Sort by custom provider sorting index to ensure
-			//  correct order of emote overrides.
-			providerSets.sort((a, b) => {
-				const indexA = providerLoadOrder.indexOf(a[0].provider)
-				const indexB = providerLoadOrder.indexOf(b[0].provider)
-				return indexA - indexB
-			})
+			log('Provider emotes loaded:', emoteSets)
 
-			for (const emoteSets of providerSets) {
-				for (const emoteSet of emoteSets) {
-					for (const emote of emoteSet.emotes) {
-						// Map of emote names splitted into parts for more relevant search results
-						const parts = splitEmoteName(emote.name, 2)
-						if (parts.length && parts[0] !== emote.name) {
-							emote.parts = parts
-						} else {
-							emote.parts = []
-						}
+			for (const emoteSet of emoteSets) {
+				for (const emote of emoteSet.emotes) {
+					// Map of emote names splitted into parts for more relevant search results
+					const parts = splitEmoteName(emote.name, 2)
+					if (parts.length && parts[0] !== emote.name) {
+						emote.parts = parts
+					} else {
+						emote.parts = []
 					}
-
-					datastore.registerEmoteSet(emoteSet)
 				}
+
+				datastore.registerEmoteSet(emoteSet, providerOverrideOrder)
 			}
 
 			this.loaded = true
@@ -93,10 +85,6 @@ export class EmotesManager {
 
 	getEmoteHidByName(emoteName: string) {
 		return this.datastore.getEmoteHidByName(emoteName)
-	}
-
-	getEmoteHidByProviderName(providerId: string, emoteName: string) {
-		return this.datastore.getEmoteHidByProviderName(providerId, emoteName)
 	}
 
 	getEmoteNameByHid(hid: string) {
