@@ -565,7 +565,7 @@ export class ContentEditableEditor {
 			range.setStartBefore(prevSibling)
 			rangeIncludesComponent = true
 		} else if (isStartContainerTheInputNode && inputNode.childNodes[startOffset - 1] instanceof Element) {
-			range.setStartBefore(inputNode.childNodes[startOffset - 1])
+			if (range.collapsed) range.setStartBefore(inputNode.childNodes[startOffset - 1])
 			rangeIncludesComponent = true
 		}
 
