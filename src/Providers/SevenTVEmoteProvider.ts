@@ -12,7 +12,7 @@ export class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbst
 
 	async fetchEmotes({ userId }: ChannelData) {
 		info('Fetching emote data from SevenTV..')
-		if (!userId) return error('Missing Kick channel id for SevenTV provider.')
+		if (!userId) return error('Missing Kick channel id for SevenTV provider.')! || []
 
 		const isChatEnabled = !!this.settingsManager.getSetting('shared.chat.emote_providers.7tv.show_emotes')
 		if (!isChatEnabled) return []
@@ -68,7 +68,7 @@ export class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbst
 				id: '' + emote.id,
 				hid: md5(emote.name),
 				name: emote.name,
-				provider: PROVIDER_ENUM.SEVENTV,
+				provider: this.id,
 				subscribersOnly: false,
 				spacing: true,
 				width: file.width,
@@ -85,7 +85,10 @@ export class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbst
 				name: globalData.name,
 				emotes: emotesMapped,
 				enabledInMenu: isMenuEnabled,
+				isEmoji: false,
+				isGlobalSet: true,
 				isCurrentChannel: false,
+				isOtherChannel: false,
 				isSubscribed: false,
 				icon: globalData.owner?.avatar_url || 'https://7tv.app/favicon.ico',
 				id: '7tv_global'
@@ -122,7 +125,7 @@ export class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbst
 				id: '' + emote.id,
 				hid: md5(emote.name),
 				name: emote.name,
-				provider: PROVIDER_ENUM.SEVENTV,
+				provider: this.id,
 				subscribersOnly: false,
 				spacing: true,
 				width: file.width,
@@ -142,7 +145,10 @@ export class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbst
 				name: userData.emote_set.name,
 				emotes: emotesMapped,
 				enabledInMenu: isMenuEnabled,
+				isEmoji: false,
+				isGlobalSet: false,
 				isCurrentChannel: true,
+				isOtherChannel: false,
 				isSubscribed: false,
 				icon: userData.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.ico',
 				id: '' + userData.emote_set.id

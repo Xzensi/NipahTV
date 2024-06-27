@@ -1,7 +1,7 @@
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import { Publisher } from '../Classes/Publisher'
 import { SlidingTimestampWindow } from '../Classes/SlidingTimestampWindow'
-import { PLATFORM_ENUM } from '../constants'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from '../constants'
 import { log, info, error, isEmpty } from '../utils'
 
 export class EmoteDatastore {
@@ -9,12 +9,10 @@ export class EmoteDatastore {
 	private emoteIdMap = new Map()
 	private emoteNameMap = new Map()
 	private emoteEmoteSetMap = new Map()
+	private emoteSetMap = new Map()
 
 	emoteSets: Array<any> = []
 	emoteUsage = new Map()
-
-	// Map of provider ids containing map of emote names to emote hids
-	private emoteProviderNameMap = new Map()
 
 	// Map of pending emote usage changes to be synced to database
 	private pendingEmoteUsageChanges: { [key: string]: boolean } = {}
@@ -46,7 +44,6 @@ export class EmoteDatastore {
 		setInterval(() => this.storeDatabase(), 3 * 1000)
 
 		eventBus.subscribe('ntv.session.destroy', () => {
-			this.emoteProviderNameMap.clear()
 			this.emoteNameMap.clear()
 			this.emoteUsage.clear()
 			this.emoteMap.clear()
@@ -84,13 +81,12 @@ export class EmoteDatastore {
 		this.pendingEmoteUsageChanges = {}
 	}
 
-	registerEmoteSet(emoteSet: EmoteSet) {
-		for (const set of this.emoteSets) {
-			if (set.id === emoteSet.id && set.provider === emoteSet.provider) {
-				return
-			}
+	registerEmoteSet(emoteSet: EmoteSet, providerOverrideOrder: number[]) {
+		if (this.emoteSetMap.has(emoteSet.provider + '_' + emoteSet.id)) {
+			return
 		}
 
+		this.emoteSetMap.set(emoteSet.provider + '_' + emoteSet.id, emoteSet)
 		this.emoteSets.push(emoteSet)
 
 		emoteSet.emotes.forEach((emote: Emote) => {
@@ -103,23 +99,73 @@ export class EmoteDatastore {
 			) {
 				return error('Invalid emote data', emote)
 			}
-			if (this.emoteNameMap.has(emote.name)) {
-				return log(`Skipping duplicate emote ${emote.name}.`)
+
+			this.emoteIdMap.set(emote.id, emote)
+
+			/**
+			 * Emote override priority order. The order of which emotes override each other.
+			 * 1. Current channel emotes, overrides 2 and 3
+			 * 2. Other channel emotes, overrides 3
+			 * 3. Global emotes
+			 *
+			 * Additionally sorted by provider order as per providerLoadOrder argument.
+			 *
+			 * 7tv > bttv > twitch/kick
+			 * Channel > other channel > global
+			 *
+			 * Channel emotes always override global emotes
+			 *
+			 * 7tv.global > twitch.global
+			 * twitch.channel > 7tv.global
+			 * 7tv.channel > twitch.channel
+			 *
+			 * Emojis always get overridden by higher priority providers
+			 */
+			const storedEmote = this.emoteNameMap.get(emote.name)
+
+			if (storedEmote) {
+				const isHigherProviderOrder =
+					providerOverrideOrder.indexOf(emoteSet.provider) >
+					providerOverrideOrder.indexOf(storedEmote.provider)
+
+				if (
+					(isHigherProviderOrder && storedEmote.isGlobalSet) ||
+					(isHigherProviderOrder && storedEmote.isEmoji) ||
+					(isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmote.isCurrentChannel) ||
+					(isHigherProviderOrder &&
+						(emoteSet.isCurrentChannel || emoteSet.isOtherChannel) &&
+						storedEmote.isOtherChannel) ||
+					(!isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmote.isCurrentChannel) ||
+					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmote.isGlobalSet)
+				) {
+					log(
+						`Registering ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV '} ${
+							storedEmote.isGlobalSet ? 'global' : 'channel'
+						} emote override for ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
+							emoteSet.isGlobalSet ? 'global' : 'channel'
+						} ${emote.name} emote.`
+					)
+
+					// Remove previously registered emote because it's being overridden
+					const storedEmoteSetEmotes = this.emoteEmoteSetMap.get(storedEmote.hid).emotes
+					storedEmoteSetEmotes.splice(storedEmoteSetEmotes.indexOf(storedEmote), 1)
+					this.fuse.remove((indexedEmote: any) => indexedEmote.name === emote.name)
+
+					// Register the new emote
+					this.emoteMap.set(emote.hid, emote)
+					this.emoteNameMap.set(emote.name, emote)
+					this.emoteEmoteSetMap.set(emote.hid, emoteSet)
+					this.fuse.add(emote)
+				} else {
+					// Remove the emote from the emote set because we already have a higher priority emote
+					emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1)
+				}
+			} else {
+				this.emoteMap.set(emote.hid, emote)
+				this.emoteNameMap.set(emote.name, emote)
+				this.emoteEmoteSetMap.set(emote.hid, emoteSet)
+				this.fuse.add(emote)
 			}
-
-			this.emoteMap.set('' + emote.hid, emote)
-			this.emoteIdMap.set('' + emote.id, emote)
-			this.emoteNameMap.set(emote.name, emote)
-			this.emoteEmoteSetMap.set(emote.hid, emoteSet)
-
-			let providerEmoteNameMap = this.emoteProviderNameMap.get(emote.provider)
-			if (!providerEmoteNameMap) {
-				providerEmoteNameMap = new Map()
-				this.emoteProviderNameMap.set(emote.provider, providerEmoteNameMap)
-			}
-			providerEmoteNameMap.set(emote.name, emote.hid)
-
-			this.fuse.add(emote)
 		})
 
 		this.eventBus.publish('ntv.datastore.emotes.changed')
@@ -131,10 +177,6 @@ export class EmoteDatastore {
 
 	getEmoteHidByName(emoteName: string) {
 		return this.emoteNameMap.get(emoteName)?.hid
-	}
-
-	getEmoteHidByProviderName(providerId: string, emoteName: string) {
-		return this.emoteProviderNameMap.get(providerId)?.get(emoteName)
 	}
 
 	getEmoteNameByHid(hid: string) {

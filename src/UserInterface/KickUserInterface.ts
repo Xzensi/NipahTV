@@ -573,25 +573,29 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
-		this.rootContext.eventBus.subscribe('ntv.providers.loaded', () => {
-			// Render emotes in chat when new messages are added
-			const observer = (this.chatObserver = new MutationObserver(mutations => {
-				mutations.forEach(mutation => {
-					if (mutation.addedNodes.length) {
-						for (const messageNode of mutation.addedNodes) {
-							if (messageNode instanceof HTMLElement) {
-								this.renderChatMessage(messageNode)
+		this.rootContext.eventBus.subscribe(
+			'ntv.providers.loaded',
+			() => {
+				// Render emotes in chat when new messages are added
+				const observer = (this.chatObserver = new MutationObserver(mutations => {
+					mutations.forEach(mutation => {
+						if (mutation.addedNodes.length) {
+							for (const messageNode of mutation.addedNodes) {
+								if (messageNode instanceof HTMLElement) {
+									this.renderChatMessage(messageNode)
+								}
+							}
+							if (this.stickyScroll) {
+								// We need to wait for the next frame paint call to render before scrolling to bottom
+								window.requestAnimationFrame(scrollToBottom)
 							}
 						}
-						if (this.stickyScroll) {
-							// We need to wait for the next frame paint call to render before scrolling to bottom
-							window.requestAnimationFrame(scrollToBottom)
-						}
-					}
-				})
-			}))
-			observer.observe(chatMessagesContainerEl, { childList: true })
-		})
+					})
+				}))
+				observer.observe(chatMessagesContainerEl, { childList: true })
+			},
+			true
+		)
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltips = this.rootContext.settingsManager.getSetting('shared.chat.tooltips.images')
@@ -887,9 +891,15 @@ export class KickUserInterface extends AbstractUserInterface {
 			messageWrapperNode = chatEntryNode.children[0]
 		}
 
-		// Replace message identity with clone to nuke all evenListeners
-		// const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
-		// messageIdentityNode?.replaceWith(messageIdentityNode.cloneNode(true))
+		const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
+		if (messageIdentityNode) {
+			messageIdentityNode.classList.add('ntv__chat-message__identity')
+			// Replace message identity with clone to nuke all evenListeners
+			// messageIdentityNode.replaceWith(messageIdentityNode.cloneNode(true))
+
+			const usernameNode = messageIdentityNode.querySelector('.chat-entry-username')
+			if (usernameNode) usernameNode.classList.add('ntv__chat-message__username')
+		}
 
 		const contentNodes = Array.from(messageWrapperNode.children)
 		const contentNodesLength = contentNodes.length

@@ -89,7 +89,10 @@ declare global {
 		name: string
 		emotes: Array<Emote>
 		enabledInMenu: boolean
+		isGlobalSet: boolean
+		isEmoji: boolean
 		isCurrentChannel: boolean
+		isOtherChannel: boolean
 		isSubscribed: boolean
 		icon: string
 		id: string

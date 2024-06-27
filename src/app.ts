@@ -5,7 +5,7 @@ import { KickUserInterface } from './UserInterface/KickUserInterface'
 
 // Providers
 import { KickEmoteProvider } from './Providers/KickEmoteProvider'
-import { SevenTVEmoteProvider } from './Providers/SevenEmoteTVProvider'
+import { SevenTVEmoteProvider } from './Providers/SevenTVEmoteProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
@@ -21,7 +21,7 @@ import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.19',
+		VERSION: '1.4.20',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -202,8 +202,8 @@ class NipahClient {
 		emotesManager.registerProvider(KickEmoteProvider)
 		emotesManager.registerProvider(SevenTVEmoteProvider)
 
-		const providerLoadOrder = [PROVIDER_ENUM.KICK, PROVIDER_ENUM.SEVENTV]
-		emotesManager.loadProviderEmotes(channelData, providerLoadOrder)
+		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
+		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
 	}
 
 	loadStyles() {
@@ -257,6 +257,10 @@ class NipahClient {
 			window.navigation.addEventListener('navigate', (event: Event) => {
 				setTimeout(() => {
 					if (locationURL === window.location.href) return
+
+					// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
+					if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
+
 					locationURL = window.location.href
 					info('Navigated to:', window.location.href)
 
@@ -266,13 +270,16 @@ class NipahClient {
 			})
 		} else {
 			setInterval(() => {
-				if (locationURL !== window.location.href) {
-					locationURL = window.location.href
-					info('Navigated to:', locationURL)
+				if (locationURL === window.location.href) return
 
-					this.cleanupOldClientEnvironment()
-					this.setupClientEnvironment()
-				}
+				// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
+				if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
+
+				locationURL = window.location.href
+				info('Navigated to:', locationURL)
+
+				this.cleanupOldClientEnvironment()
+				this.setupClientEnvironment()
 			}, 100)
 		}
 	}
@@ -289,6 +296,12 @@ class NipahClient {
 }
 
 ;(() => {
+	// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
+	if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) {
+		log('KPSDK URL detected, bailing out..')
+		return
+	}
+
 	if (__USERSCRIPT__) {
 		info('Running in userscript mode..')
 	}
