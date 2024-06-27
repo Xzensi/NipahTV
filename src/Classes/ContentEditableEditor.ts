@@ -619,7 +619,7 @@ export class ContentEditableEditor {
 			range.setEndAfter(nextSibling)
 			rangeIncludesComponent = true
 		} else if (isEndContainerTheInputNode && inputNode.childNodes[endOffset] instanceof Element) {
-			range.setEndAfter(inputNode.childNodes[endOffset])
+			if (range.collapsed) range.setEndAfter(inputNode.childNodes[endOffset])
 			rangeIncludesComponent = true
 		}
 
