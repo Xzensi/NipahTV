@@ -161,7 +161,7 @@ export class EmoteDatastore {
 				} else {
 					// Remove the emote from the emote set because we already have a higher priority emote
 					emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1)
-					log('Skipping overriden emote', emote.name)
+					log('Skipping overridden emote', emote.name)
 				}
 			} else {
 				this.emoteMap.set(emote.hid, emote)
