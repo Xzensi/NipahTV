@@ -188,6 +188,20 @@ export abstract class AbstractUserInterface {
 		return newNodes
 	}
 
+	changeInputStatus(status: 'enabled' | 'disabled', reason?: string | null) {
+		if (!this.inputController) return error('Input controller not loaded yet.')
+		const contentEditableEditor = this.inputController.contentEditableEditor
+
+		if (status === 'enabled') {
+			contentEditableEditor.enableInput()
+			contentEditableEditor.setPlaceholder('Send message..')
+		} else if (status === 'disabled') {
+			contentEditableEditor.clearInput()
+			contentEditableEditor.setPlaceholder(reason || 'Chat is disabled')
+			contentEditableEditor.disableInput()
+		}
+	}
+
 	showUserInfoModal(username: string, position?: { x: number; y: number }) {
 		log('Loading user info modal..')
 		return new UserInfoModal(

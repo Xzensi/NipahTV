@@ -56,6 +56,7 @@ export class ContentEditableEditor {
 	private eventTarget = new PriorityEventTarget()
 	private processInputContentDebounce: () => void
 	private inputEmpty = true
+	private isInputEnabled = true
 	private characterCount = 0
 	private messageContent = ''
 	private emotesInMessage: Set<string> = new Set()
@@ -108,6 +109,12 @@ export class ContentEditableEditor {
 		return this.emotesInMessage
 	}
 
+	setPlaceholder(placeholder?: string) {
+		placeholder
+			? this.inputNode.setAttribute('placeholder', placeholder)
+			: this.inputNode.removeAttribute('placeholder')
+	}
+
 	isInputEmpty() {
 		return this.inputEmpty
 	}
@@ -116,6 +123,20 @@ export class ContentEditableEditor {
 		this.inputNode.innerHTML = ''
 		this.hasUnprocessedContentChanges = true
 		this.processInputContent()
+	}
+
+	enableInput() {
+		this.inputNode.setAttribute('contenteditable', 'true')
+		this.isInputEnabled = true
+	}
+
+	disableInput() {
+		this.inputNode.setAttribute('contenteditable', 'false')
+		this.isInputEnabled = false
+	}
+
+	isEnabled() {
+		return this.isInputEnabled
 	}
 
 	addEventListener(
@@ -202,6 +223,11 @@ export class ContentEditableEditor {
 			return this.handleCtrlArrowKeyDown(event)
 		}
 
+		if (!this.isInputEnabled) {
+			event.preventDefault()
+			return
+		}
+
 		switch (event.key) {
 			case 'Backspace':
 				this.deleteBackwards(event)
@@ -244,6 +270,11 @@ export class ContentEditableEditor {
 	handleKeyUp(event: KeyboardEvent) {
 		const { inputNode } = this
 
+		if (!this.isInputEnabled) {
+			event.preventDefault()
+			return
+		}
+
 		// Contenteditable is a nightmare in Firefox, keeps injecting <br> tags.
 		//  Best solution I found yet, is to use :before to prevent collapse
 		//  but now the caret gets placed after the :before pseudo element..
@@ -271,6 +302,11 @@ export class ContentEditableEditor {
 
 	handleSpaceKey(event: KeyboardEvent) {
 		const { inputNode } = this
+
+		if (!this.isInputEnabled) {
+			event.preventDefault()
+			return
+		}
 
 		const selection = document.getSelection()
 		if (!selection || !selection.rangeCount) return
