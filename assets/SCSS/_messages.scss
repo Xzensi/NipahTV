@@ -30,6 +30,10 @@
 		white-space: normal;
 		line-height: 1.5em;
 
+		&:last-child {
+			margin-right: 0;
+		}
+
 		img[data-emote-name] {
 			cursor: pointer;
 		}
