@@ -89,7 +89,9 @@ export class EmoteDatastore {
 		this.emoteSetMap.set(emoteSet.provider + '_' + emoteSet.id, emoteSet)
 		this.emoteSets.push(emoteSet)
 
-		emoteSet.emotes.forEach((emote: Emote) => {
+		for (let i = emoteSet.emotes.length - 1; i >= 0; i--) {
+			const emote = emoteSet.emotes[i] as Emote
+
 			if (
 				!emote.hid ||
 				!emote.id ||
@@ -159,6 +161,7 @@ export class EmoteDatastore {
 				} else {
 					// Remove the emote from the emote set because we already have a higher priority emote
 					emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1)
+					log('Skipping overriden emote', emote.name)
 				}
 			} else {
 				this.emoteMap.set(emote.hid, emote)
@@ -166,7 +169,7 @@ export class EmoteDatastore {
 				this.emoteEmoteSetMap.set(emote.hid, emoteSet)
 				this.fuse.add(emote)
 			}
-		})
+		}
 
 		this.eventBus.publish('ntv.datastore.emotes.changed')
 	}
