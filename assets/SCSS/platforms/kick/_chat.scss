@@ -85,6 +85,10 @@
 		&.bg-secondary-lighter {
 			background-color: transparent;
 		}
+
+		&.opacity-50 {
+			opacity: revert;
+		}
 	}
 }
 

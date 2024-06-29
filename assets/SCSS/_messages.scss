@@ -47,6 +47,14 @@
 	// 		white-space: nowrap;
 	// 	}
 
+	&--deleted {
+		opacity: 0.38;
+
+		.ntv__chat-message__part {
+			font-style: italic;
+		}
+	}
+
 	&--theme-rounded {
 		border-radius: 0.25em;
 		margin: 0.21em 0.2em;
