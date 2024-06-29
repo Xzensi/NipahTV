@@ -25,17 +25,7 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 
 		const emoteSets = []
 		for (const dataSet of dataSets) {
-			const { emotes } = dataSet
-
-			// Filter out sub emotes when not subscribed
-			//  only need to check for the current channel's emotes
-			let emotesFiltered = emotes
-			if (dataSet.user_id === userId) {
-				emotesFiltered = emotes.filter(
-					(emote: any) => me.isBroadcaster || me.isSubscribed || !emote.subscribers_only
-				)
-			}
-			const emotesMapped = emotesFiltered.map((emote: any) => {
+			const emotesMapped = dataSet.emotes.map((emote: any) => {
 				return {
 					id: '' + emote.id,
 					hid: md5(emote.name),
@@ -88,7 +78,7 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 				isGlobalSet,
 				isCurrentChannel: dataSet.id === channelId,
 				isOtherChannel: dataSet.id !== channelId && !isGlobalSet && !isEmoji,
-				isSubscribed: dataSet.id === channelId ? !!me.isSubscribed : true,
+				isSubscribed: dataSet.id === channelId ? me.isSubscribed || me.isBroadcaster : true,
 				icon: emoteSetIcon,
 				id: '' + dataSet.id
 			} as EmoteSet)

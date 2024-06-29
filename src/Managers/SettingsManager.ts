@@ -194,6 +194,28 @@ export class SettingsManager {
 					]
 				},
 				{
+					label: 'Emotes',
+					children: [
+						{
+							label: 'Appearance',
+							children: [
+								{
+									label: 'Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them.',
+									id: 'shared.chat.emotes.hide_subscriber_emotes',
+									default: false,
+									type: 'checkbox'
+								},
+								{
+									label: 'Display images in tooltips.',
+									id: 'shared.chat.tooltips.images',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
 					label: 'Emote Menu',
 					children: [
 						{
@@ -405,22 +427,6 @@ export class SettingsManager {
 								// 	default: false,
 								// 	type: 'checkbox'
 								// },
-							]
-						}
-					]
-				},
-				{
-					label: 'Tooltips',
-					children: [
-						{
-							label: 'General',
-							children: [
-								{
-									label: 'Display images in tooltips.',
-									id: 'shared.chat.tooltips.images',
-									default: true,
-									type: 'checkbox'
-								}
 							]
 						}
 					]

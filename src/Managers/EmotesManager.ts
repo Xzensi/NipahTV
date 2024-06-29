@@ -105,6 +105,10 @@ export class EmotesManager {
 		return this.providers.get(emote.provider).getEmoteSrc(emote)
 	}
 
+	getEmoteSetByEmoteHid(emoteHid: string) {
+		return this.datastore.getEmoteSetByEmoteHid(emoteHid)
+	}
+
 	getEmoteSets() {
 		return this.datastore.emoteSets
 	}

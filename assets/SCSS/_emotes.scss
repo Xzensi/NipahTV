@@ -1,0 +1,75 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use 'sass:math';
+
+.ntv__emote {
+	min-width: $emote_size;
+	height: $emote_size;
+
+	content-visibility: auto;
+	border-radius: 0.25rem;
+	display: inline-block;
+	object-fit: contain;
+	position: relative;
+	padding: 0.209em;
+	cursor: pointer;
+
+	@include user_select;
+
+	&:hover {
+		background: hsla(0, 0%, 50%, 0.2);
+		scale: 110%;
+	}
+
+	// &[size='2'] {
+	// 	width: $emote_size * 2;
+	// }
+
+	// &[size='3'] {
+	// 	width: $emote_size * 3;
+	// }
+
+	// &[size='4'] {
+	// 	width: $emote_size * 4;
+	// }
+}
+
+.ntv__emote-box {
+	display: inline-block;
+	position: relative;
+
+	&--locked {
+		&:after {
+			background: rgba(0, 0, 0, 0.618)
+				url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' viewBox='0 0 1024 1024'><path fill='white' d='M832 464h-68V240c0-70.7-57.3-128-128-128H388c-70.7 0-128 57.3-128 128v224h-68c-17.7 0-32 14.3-32 32v384c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V496c0-17.7-14.3-32-32-32M332 240c0-30.9 25.1-56 56-56h248c30.9 0 56 25.1 56 56v224H332zm460 600H232V536h560zM484 701v53c0 4.4 3.6 8 8 8h40c4.4 0 8-3.6 8-8v-53a48.01 48.01 0 1 0-56 0' /></svg>");
+			transform: translate(-50%, -50%);
+			background-repeat: no-repeat;
+			background-position: center;
+			background-size: 80%;
+			border-radius: 0.25em;
+			pointer-events: none;
+			position: absolute;
+			user-select: none;
+			height: 61.8%;
+			width: 61.8%;
+			content: '';
+			left: 50%;
+			top: 50%;
+		}
+	}
+}
+
+.ntv__inline-emote-box {
+	position: relative;
+	display: inline;
+
+	img {
+		// height: #{1.6182 * 1.6182}em;
+		height: #{math.pow(1 + math.div(1, 3), 3)}em;
+		// margin-bottom: -0.5em;
+		vertical-align: middle;
+		position: relative;
+		// margin: -0.5em 0;
+		display: inline;
+	}
+}

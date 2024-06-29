@@ -97,7 +97,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		// Emote click event
 		this.scrollableEl?.addEventListener('click', evt => {
 			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG') return
+			if (target.tagName !== 'IMG' || target.parentElement?.classList.contains('ntv__emote-box--locked')) return
 
 			const emoteHid = target.getAttribute('data-emote-hid')
 			if (!emoteHid) return error('Invalid emote hid')
@@ -204,7 +204,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 		if (this.tooltipEl) this.tooltipEl.remove()
 
-		const { emotesManager } = this.rootContext
+		const { emotesManager, settingsManager } = this.rootContext
 		const searchVal = evt.target.value
 
 		if (searchVal.length) {
@@ -221,11 +221,38 @@ export class EmoteMenuComponent extends AbstractComponent {
 			this.panels.search.removeChild(this.panels.search.firstChild)
 		}
 
+		const hideSubscribersEmotes = settingsManager.getSetting('shared.chat.emotes.hide_subscriber_emotes')
+
 		// Render the found emotes
 		let maxResults = 75
 		for (const emoteResult of emotesResult) {
+			const emote = emoteResult.item
 			if (maxResults-- <= 0) break
-			this.panels.search?.append(parseHTML(emotesManager.getRenderableEmote(emoteResult.item, 'ntv__emote')))
+
+			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid)
+			if (!emoteSet) {
+				error('Emote set not found for emote', emote.name)
+				continue
+			}
+
+			if (emote.subscribersOnly && !emoteSet.isSubscribed) {
+				if (hideSubscribersEmotes) continue
+
+				this.panels.search?.append(
+					parseHTML(
+						`<div class="ntv__emote-box ntv__emote-box--locked">${emotesManager.getRenderableEmote(
+							emote,
+							'ntv__emote'
+						)}</div>`
+					)
+				)
+			} else {
+				this.panels.search?.append(
+					parseHTML(
+						`<div class="ntv__emote-box">${emotesManager.getRenderableEmote(emote, 'ntv__emote')}</div>`
+					)
+				)
+			}
 		}
 	}
 
@@ -250,13 +277,17 @@ export class EmoteMenuComponent extends AbstractComponent {
 	renderEmotes() {
 		log('Rendering emotes in modal')
 
-		const { sidebarSetsEl, scrollableEl } = this
+		const { sidebarSetsEl, scrollableEl, rootContext } = this
 		const { emotesManager } = this.rootContext
 		const emotesPanelEl = this.panels.emotes
 		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
 		while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild));
 		while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild));
+
+		const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
+			'shared.chat.emotes.hide_subscriber_emotes'
+		)
 
 		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
 		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex)
@@ -292,9 +323,27 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 			const newEmoteSetEmotesEl = newEmoteSetEl.querySelector('.ntv__emote-set__emotes')!
 			for (const emote of sortedEmotes) {
-				newEmoteSetEmotesEl.append(
-					parseHTML(emotesManager.getRenderableEmote(emote, 'ntv__emote ntv__emote-set__emote'))
-				)
+				if (emote.subscribersOnly && !emoteSet.isSubscribed) {
+					if (hideSubscribersEmotes) continue
+
+					newEmoteSetEmotesEl.append(
+						parseHTML(
+							`<div class="ntv__emote-box ntv__emote-box--locked">${emotesManager.getRenderableEmote(
+								emote,
+								'ntv__emote ntv__emote-set__emote'
+							)}</div>`
+						)
+					)
+				} else {
+					newEmoteSetEmotesEl.append(
+						parseHTML(
+							`<div class="ntv__emote-box">${emotesManager.getRenderableEmote(
+								emote,
+								'ntv__emote ntv__emote-set__emote'
+							)}</div>`
+						)
+					)
+				}
 			}
 		}
 
