@@ -9,7 +9,7 @@ import type { Database } from '../Classes/Database'
 import type { PLATFORM_ENUM } from '../constants'
 import type { RESTFromMain } from '../utils'
 import type { Dexie } from 'dexie'
-import type Twemoji from 'twemoji'
+// import type Twemoji from 'twemoji'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -27,7 +27,6 @@ declare global {
 	var GM_xmlhttpRequest: Function
 	var GM_addStyle: Function
 	var GM_getResourceText: Function
-	var twemoji: typeof Twemoji
 	var Fuse: Fuse
 	var Dexie: Dexie
 	var RESTFromMainService: RESTFromMain

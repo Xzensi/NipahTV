@@ -845,6 +845,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					<div> <---|| Chat message wrapper node ||
 						<span class="chat-message-identity">Foobar</span>
 						<span class="font-bold text-white">: </span>
+						<span class="chat-entry-content-deleted"></span> <--|| Element created when message is deleted, elements below are removed ||
 						<span> <---|| The content nodes start here ||
 							<span class="chat-entry-content"> <---|| Chat message components (text component) ||
 								Foobar
@@ -905,7 +906,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		const contentNodesLength = contentNodes.length
 
 		// We remove the useless wrapper node because we unpack it's contents to parent
-		messageWrapperNode.remove()
+		// messageWrapperNode.remove()
+		messageWrapperNode.appendChild(document.createElement('span'))
 
 		// Find index of first content node after username etc
 		let firstContentNodeIndex = 0
@@ -923,6 +925,11 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Chat message after username is empty..
 		if (!contentNodes[firstContentNodeIndex]) return
+
+		// const deletedMessageObservableNode = contentNodes[firstContentNodeIndex].cloneNode(true)
+		// messageWrapperNode.textContent = ''
+		// log(deletedMessageObservableNode)
+		// messageWrapperNode.append(deletedMessageObservableNode)
 
 		// Skip first two nodes, they are the username etc
 		for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
@@ -945,7 +952,9 @@ export class KickUserInterface extends AbstractUserInterface {
 						error('Chat message content node not an Element?', componentNode)
 						continue
 					}
-					this.renderEmotesInElement(componentNode, chatEntryNode)
+					const nodes = this.renderEmotesInString(componentNode.textContent || '')
+					componentNode.remove()
+					chatEntryNode.append(...nodes)
 					break
 
 				case 'chat-emote-container':
@@ -1002,7 +1011,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (!chatEntryContentNodes.length) return error('Pinned message content node not found', node)
 
 		for (const chatEntryContentNode of chatEntryContentNodes) {
-			this.renderEmotesInElement(chatEntryContentNode)
+			const nodes = this.renderEmotesInString(chatEntryContentNode.textContent || '')
+			chatEntryContentNode.after(...nodes)
+			chatEntryContentNode.remove()
 		}
 	}
 

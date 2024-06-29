@@ -37,8 +37,10 @@
 		"sass": "^1.75.0",
 		"semver": "^7.6.0",
 		"serve-static": "^1.15.0",
-		"twemoji": "^14.0.2",
 		"typescript": "^5.4.2",
 		"web-ext": "^7.11.0"
+	},
+	"dependencies": {
+		"@twemoji/parser": "^15.1.1"
 	}
 }

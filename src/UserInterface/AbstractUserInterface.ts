@@ -6,6 +6,7 @@ import { Clipboard2 } from '../Classes/Clipboard'
 import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { Toaster } from '../Classes/Toaster'
 import { PollModal } from './Modals/PollModal'
+import { parse as twemojiParse } from '@twemoji/parser'
 
 function getEmojiAttributes() {
 	return {
@@ -95,10 +96,9 @@ export abstract class AbstractUserInterface {
 		this.toaster.addToast(message, 4_000, 'error')
 	}
 
-	renderEmotesInElement(textElement: Element, appendTo?: Element) {
+	renderEmotesInString(textContent: string) {
 		const { emotesManager } = this.rootContext
-		const text = textElement.textContent || ''
-		const tokens = text.split(' ')
+		const tokens = textContent.split(' ')
 		const newNodes = []
 
 		let textBuffer = ''
@@ -106,8 +106,35 @@ export abstract class AbstractUserInterface {
 			const emoteHid = emotesManager.getEmoteHidByName(token)
 			if (emoteHid) {
 				if (textBuffer) {
+					textBuffer = textBuffer.trim()
+					const nodes = []
+
+					const entities = twemojiParse(textBuffer)
+					if (entities.length) {
+						const entitiesLength = entities.length
+						for (let i = 0; i < entitiesLength; i++) {
+							const entity = entities[i]
+							const emojiNode = document.createElement('img')
+							emojiNode.className = 'ntv__inline-emoji'
+							emojiNode.src = entity.url
+							emojiNode.alt = entity.text
+
+							const stringStart = textBuffer.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0])
+							const stringEnd = textBuffer.slice(
+								entity.indices[1],
+								entities[i + 1]?.indices[0] || textBuffer.length
+							)
+
+							stringStart.length && nodes.push(document.createTextNode(stringStart))
+							nodes.push(emojiNode)
+							stringEnd.length && nodes.push(document.createTextNode(stringEnd))
+						}
+					} else {
+						nodes.push(document.createTextNode(textBuffer))
+					}
+
 					const newNode = document.createElement('span')
-					newNode.appendChild(document.createTextNode(textBuffer.trim()))
+					newNode.append(...nodes)
 					newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
 					newNodes.push(newNode)
 					textBuffer = ''
@@ -125,23 +152,40 @@ export abstract class AbstractUserInterface {
 		}
 
 		if (textBuffer) {
+			textBuffer = textBuffer.trim()
+			const nodes = []
+
+			const entities = twemojiParse(textBuffer)
+			if (entities.length) {
+				const entitiesLength = entities.length
+				for (let i = 0; i < entitiesLength; i++) {
+					const entity = entities[i]
+					const emojiNode = document.createElement('img')
+					emojiNode.className = 'ntv__inline-emoji'
+					emojiNode.src = entity.url
+					emojiNode.alt = entity.text
+
+					const stringStart = textBuffer.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0])
+					const stringEnd = textBuffer.slice(
+						entity.indices[1],
+						entities[i + 1]?.indices[0] || textBuffer.length
+					)
+
+					nodes.push(document.createTextNode(stringStart))
+					nodes.push(emojiNode)
+					nodes.push(document.createTextNode(stringEnd))
+				}
+			} else {
+				nodes.push(document.createTextNode(textBuffer))
+			}
+
 			const newNode = document.createElement('span')
-			newNode.appendChild(document.createTextNode(textBuffer.trim()))
+			newNode.append(...nodes)
 			newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
 			newNodes.push(newNode)
 		}
 
-		if (appendTo) appendTo.append(...newNodes)
-		else textElement.after(...newNodes)
-
-		twemoji.parse((appendTo as HTMLElement) || textElement.parentElement, {
-			attributes: getEmojiAttributes,
-			className: 'ntv__inline-emoji'
-			// folder: 'svg',
-			// ext: '.svg',
-		})
-
-		textElement.remove()
+		return newNodes
 	}
 
 	showUserInfoModal(username: string, position?: { x: number; y: number }) {

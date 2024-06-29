@@ -719,7 +719,9 @@ export class UserInfoModal extends AbstractModal {
 
 		messagesHistoryEl.querySelectorAll('.ntv__chat-message[unrendered]').forEach((messageEl: Element) => {
 			messageEl.querySelectorAll('.ntv__chat-message__part').forEach((messagePartEl: Element) => {
-				userInterface!.renderEmotesInElement(messagePartEl as HTMLElement)
+				const nodes = userInterface!.renderEmotesInString(messagePartEl.textContent || '')
+				messagePartEl.after(...nodes)
+				messagePartEl.remove()
 			})
 			messageEl.removeAttribute('unrendered')
 		})

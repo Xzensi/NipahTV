@@ -325,10 +325,6 @@ class NipahClient {
 		return error('Failed to import Fuse')
 	}
 
-	if (!twemoji && !window['twemoji']) {
-		return error('Failed to import Twemoji')
-	}
-
 	PLATFORM = PLATFORM_ENUM.NULL
 	RESOURCE_ROOT = ''
 
