@@ -2,6 +2,7 @@ import { NavigatableEntriesWindowComponent } from '../../UserInterface/Component
 import { error } from '../../utils'
 
 export abstract class AbstractCompletionStrategy {
+	protected abstract id: string
 	protected navWindow?: NavigatableEntriesWindowComponent
 	protected containerEl: HTMLElement
 
@@ -14,7 +15,10 @@ export abstract class AbstractCompletionStrategy {
 	createModal() {
 		if (this.navWindow) return error('Tab completion window already exists')
 
-		const navWindow = new NavigatableEntriesWindowComponent(this.containerEl as HTMLElement, 'ntv__tab-completion')
+		const navWindow = new NavigatableEntriesWindowComponent(
+			this.containerEl as HTMLElement,
+			'ntv__' + this.id + '-window'
+		)
 		this.navWindow = navWindow.init()
 	}
 

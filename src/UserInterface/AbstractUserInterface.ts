@@ -9,13 +9,7 @@ import { Clipboard2 } from '../Classes/Clipboard'
 import { Toaster } from '../Classes/Toaster'
 import { PollModal } from './Modals/PollModal'
 import { PROVIDER_ENUM } from '../constants'
-
-function getEmojiAttributes() {
-	return {
-		height: '30px',
-		width: '30px'
-	}
-}
+import { TimerComponent } from './Components/TimerComponent'
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\s]+)/g
 
@@ -37,6 +31,7 @@ export abstract class AbstractUserInterface {
 
 	protected abstract elm: {
 		replyMessageWrapper: HTMLElement | null
+		timersContainer: HTMLElement | null
 	}
 
 	protected replyMessageComponent?: ReplyMessageComponent
@@ -89,6 +84,8 @@ export abstract class AbstractUserInterface {
 				{ once: true, passive: true }
 			)
 		})
+
+		eventBus.subscribe('ntv.ui.timers.add', this.addTimer.bind(this))
 	}
 
 	toastSuccess(message: string) {
@@ -238,6 +235,16 @@ export abstract class AbstractUserInterface {
 			username,
 			position
 		).init()
+	}
+
+	addTimer({ duration, description }: { duration: string; description: string }) {
+		log('Adding timer..', duration, description)
+		const timersContainer = this.elm.timersContainer
+		if (!timersContainer) return error('Unable to add timet, UI container does not exist yet.')
+
+		// Add a timer component to the timers container
+		const timer = new TimerComponent(duration, description).init()
+		timersContainer.appendChild(timer.element)
 	}
 
 	// Submits input to chat

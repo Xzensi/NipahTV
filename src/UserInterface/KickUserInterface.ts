@@ -35,11 +35,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		replyMessageWrapper: HTMLElement | null
 		submitButton: HTMLElement | null
 		textField: HTMLElement | null
+		timersContainer: HTMLElement | null
 	} = {
 		chatMessagesContainer: null,
 		replyMessageWrapper: null,
 		submitButton: null,
-		textField: null
+		textField: null,
+		timersContainer: null
 	}
 
 	private stickyScroll = true
@@ -116,6 +118,16 @@ export class KickUserInterface extends AbstractUserInterface {
 		waitForElements(['#chatroom-top'], 5_000)
 			.then(() => {
 				this.observePinnedMessage()
+			})
+			.catch(() => {})
+
+		waitForElements(['#chatroom-footer .send-row'], 5_000)
+			.then(() => {
+				// Initialize a container for the timers UI
+				const timersContainer = document.createElement('div')
+				timersContainer.id = 'ntv__timers-container'
+				document.querySelector('#chatroom-footer .send-row')?.after(timersContainer)
+				this.elm.timersContainer = timersContainer
 			})
 			.catch(() => {})
 
