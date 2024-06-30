@@ -120,7 +120,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 			}
 		} else {
 			const emotePartialEl = parseHTML(
-				emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote'),
+				emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')!,
 				true
 			) as HTMLElement
 			const insertIndex = this.getSortedEmoteIndex(emoteHid)

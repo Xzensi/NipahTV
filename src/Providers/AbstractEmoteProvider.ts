@@ -22,4 +22,8 @@ export abstract class AbstractEmoteProvider {
 		this.settingsManager = settingsManager
 		this.datastore = datastore
 	}
+
+	abstract fetchEmotes(params: ChannelData): Promise<Array<EmoteSet> | void>
+	abstract getRenderableEmote(emote: Emote, classes?: string): string
+	abstract getEmbeddableEmote(emote: Emote): string
 }

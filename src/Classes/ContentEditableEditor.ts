@@ -183,7 +183,7 @@ export class ContentEditableEditor {
 					const emoteHid = emotesManager.getEmoteHidByName(token)
 					if (emoteHid) {
 						newNodes.push(
-							this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
+							this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid)!)
 						)
 					} else if (i === 0 && j === 0) {
 						newNodes.push(document.createTextNode(token))

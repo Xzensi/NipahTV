@@ -105,6 +105,12 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 		return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
+	getRenderableEmoteById(emoteId: string, classes = '') {
+		const srcset = `https://files.kick.com/emotes/${emoteId}/fullsize 1x`
+
+		return `<img class="${classes}" tabindex="0" size="1" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
+	}
+
 	getEmbeddableEmote(emote: Emote) {
 		// return `[emote:${emote.id}:${emote.name}]` // Turns out name is not necessary, would save characters sent.
 		return `[emote:${emote.id}:_]`

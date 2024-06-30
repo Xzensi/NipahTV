@@ -1,12 +1,14 @@
-import type { InputController } from '../Managers/InputController'
+import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { ReplyMessageComponent } from './Components/ReplyMessageComponent'
+import type { KickEmoteProvider } from '../Providers/KickEmoteProvider'
+import type { InputController } from '../Managers/InputController'
 import { MessagesHistory } from '../Classes/MessagesHistory'
+import { parse as twemojiParse } from '@twemoji/parser'
 import { UserInfoModal } from './Modals/UserInfoModal'
 import { Clipboard2 } from '../Classes/Clipboard'
-import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { Toaster } from '../Classes/Toaster'
 import { PollModal } from './Modals/PollModal'
-import { parse as twemojiParse } from '@twemoji/parser'
+import { PROVIDER_ENUM } from '../constants'
 
 function getEmojiAttributes() {
 	return {
@@ -14,6 +16,8 @@ function getEmojiAttributes() {
 		width: '30px'
 	}
 }
+
+const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\s]+)/g
 
 export abstract class AbstractUserInterface {
 	protected rootContext: RootContext
@@ -98,94 +102,115 @@ export abstract class AbstractUserInterface {
 
 	renderEmotesInString(textContent: string) {
 		const { emotesManager } = this.rootContext
-		const tokens = textContent.split(' ')
-		const newNodes = []
+		const newNodes: Array<Text | HTMLElement> = []
 
-		let textBuffer = ''
-		for (const token of tokens) {
-			const emoteHid = emotesManager.getEmoteHidByName(token)
-			if (emoteHid) {
+		// TODO create abstraction layer for kick emote matching and rendering
+
+		let match,
+			lastIndex = 0,
+			textBuffer = ''
+		while ((match = emoteMatcherRegex.exec(textContent)) !== null) {
+			/**
+			 * Kick emote format is like [emote:1234567:name]
+			 * Plaintext emote is just a word like "vibee"
+			 */
+			const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match
+
+			if (lastIndex === 0 && match.index > 0) {
+				this.parseEmojisInString(textContent.slice(0, match.index), newNodes)
+			}
+
+			if (kickEmoteFormatMatch) {
 				if (textBuffer) {
-					textBuffer = textBuffer.trim()
-					const nodes = []
-
-					const entities = twemojiParse(textBuffer)
-					if (entities.length) {
-						const entitiesLength = entities.length
-						for (let i = 0; i < entitiesLength; i++) {
-							const entity = entities[i]
-							const emojiNode = document.createElement('img')
-							emojiNode.className = 'ntv__inline-emoji'
-							emojiNode.src = entity.url
-							emojiNode.alt = entity.text
-
-							const stringStart = textBuffer.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0])
-							const stringEnd = textBuffer.slice(
-								entity.indices[1],
-								entities[i + 1]?.indices[0] || textBuffer.length
-							)
-
-							stringStart.length && nodes.push(document.createTextNode(stringStart))
-							nodes.push(emojiNode)
-							stringEnd.length && nodes.push(document.createTextNode(stringEnd))
-						}
-					} else {
-						nodes.push(document.createTextNode(textBuffer))
-					}
-
-					const newNode = document.createElement('span')
-					newNode.append(...nodes)
-					newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
-					newNodes.push(newNode)
+					this.parseEmojisInString(textBuffer, newNodes)
 					textBuffer = ''
 				}
 
-				const newNode = document.createElement('span')
-				newNode.innerHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
-				newNode.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
-				newNode.setAttribute('data-emote-hid', emoteHid)
-				newNode.setAttribute('contenteditable', 'false')
-				newNodes.push(newNode)
-			} else if (token) {
-				textBuffer += token + ' '
+				// Handle new emote format: Extract ID and name
+				const emote = emotesManager.getEmoteById(kickEmoteFormatMatch)
+				if (emote) {
+					const emoteRender = emotesManager.getRenderableEmote(emote)!
+					newNodes.push(this.createEmoteMessagePartElement(emoteRender, emote.hid))
+				} else {
+					const kickProvider = emotesManager.getProvider(PROVIDER_ENUM.KICK) as KickEmoteProvider
+					const emoteRender = kickProvider.getRenderableEmoteById(kickEmoteFormatMatch)
+					newNodes.push(this.createEmoteMessagePartElement(emoteRender, ''))
+				}
+			} else if (plainTextEmote) {
+				// Check if word is plain text emote
+				const emoteHid = emotesManager.getEmoteHidByName(plainTextEmote)
+				if (emoteHid) {
+					const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid)
+					if (emoteRender) {
+						if (textBuffer) {
+							this.parseEmojisInString(textBuffer, newNodes)
+							textBuffer = ''
+						}
+
+						newNodes.push(this.createEmoteMessagePartElement(emoteRender, emoteHid))
+					}
+				} else {
+					// Plain text emote not found, treat as text node
+					textBuffer += textContent.slice(lastIndex, match.index + plainTextEmote.length)
+				}
 			}
+
+			lastIndex = emoteMatcherRegex.lastIndex
 		}
 
-		if (textBuffer) {
-			textBuffer = textBuffer.trim()
-			const nodes = []
-
-			const entities = twemojiParse(textBuffer)
-			if (entities.length) {
-				const entitiesLength = entities.length
-				for (let i = 0; i < entitiesLength; i++) {
-					const entity = entities[i]
-					const emojiNode = document.createElement('img')
-					emojiNode.className = 'ntv__inline-emoji'
-					emojiNode.src = entity.url
-					emojiNode.alt = entity.text
-
-					const stringStart = textBuffer.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0])
-					const stringEnd = textBuffer.slice(
-						entity.indices[1],
-						entities[i + 1]?.indices[0] || textBuffer.length
-					)
-
-					nodes.push(document.createTextNode(stringStart))
-					nodes.push(emojiNode)
-					nodes.push(document.createTextNode(stringEnd))
-				}
-			} else {
-				nodes.push(document.createTextNode(textBuffer))
-			}
-
-			const newNode = document.createElement('span')
-			newNode.append(...nodes)
-			newNode.classList.add('ntv__chat-message__part', 'ntv__chat-message--text')
-			newNodes.push(newNode)
+		if (lastIndex > 0 && lastIndex < textContent.length) {
+			this.parseEmojisInString(textBuffer + textContent.slice(lastIndex), newNodes)
+		} else if (textBuffer) {
+			this.parseEmojisInString(textBuffer, newNodes)
+		} else if (lastIndex === 0) {
+			this.parseEmojisInString(textContent, newNodes)
 		}
 
 		return newNodes
+	}
+
+	private parseEmojisInString(textContent: string, resultArray: Array<Text | HTMLElement> = []) {
+		const entities = twemojiParse(textContent)
+		if (entities.length) {
+			const entitiesLength = entities.length
+			for (let i = 0; i < entitiesLength; i++) {
+				const entity = entities[i]
+				const emojiNode = document.createElement('img')
+				emojiNode.className = 'ntv__inline-emoji'
+				emojiNode.src = entity.url
+				emojiNode.alt = entity.text
+
+				const stringStart = textContent.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0])
+				const stringEnd = textContent.slice(
+					entity.indices[1],
+					entities[i + 1]?.indices[0] || textContent.length
+				)
+
+				resultArray.push(this.createPlainTextMessagePartNode(stringStart))
+				resultArray.push(emojiNode)
+				resultArray.push(this.createPlainTextMessagePartNode(stringEnd))
+			}
+		} else {
+			resultArray.push(this.createPlainTextMessagePartNode(textContent))
+		}
+
+		return resultArray
+	}
+
+	private createEmoteMessagePartElement(emoteRender: string, emoteHid: string) {
+		const node = document.createElement('span')
+		node.appendChild(parseHTML(emoteRender, true))
+		node.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
+		node.setAttribute('data-emote-hid', emoteHid)
+		node.setAttribute('contenteditable', 'false')
+		return node
+	}
+
+	private createPlainTextMessagePartNode(textContent: string) {
+		const newNode = document.createElement('span')
+		newNode.append(document.createTextNode(textContent))
+		newNode.className = 'ntv__chat-message__part ntv__chat-message--text'
+		return newNode
 	}
 
 	changeInputStatus(status: 'enabled' | 'disabled', reason?: string | null) {

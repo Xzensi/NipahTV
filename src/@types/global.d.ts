@@ -104,6 +104,7 @@ declare global {
 		provider: number
 		subscribersOnly: boolean
 		spacing?: boolean
+		parts: string[]
 		width: number
 		size: number
 	}
