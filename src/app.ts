@@ -21,7 +21,7 @@ import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 
 class NipahClient {
 	ENV_VARS = {
-		VERSION: '1.4.21',
+		VERSION: '1.4.22',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -314,19 +314,6 @@ class NipahClient {
 			//@ts-ignore
 			window.browser = chrome
 		}
-	}
-
-	var Dexie: any
-	if (__USERSCRIPT__ && !Dexie && !window['Dexie']) {
-		return error('Failed to import Dexie')
-	}
-
-	if (!Fuse && !window['Fuse']) {
-		return error('Failed to import Fuse')
-	}
-
-	if (!twemoji && !window['twemoji']) {
-		return error('Failed to import Twemoji')
 	}
 
 	PLATFORM = PLATFORM_ENUM.NULL

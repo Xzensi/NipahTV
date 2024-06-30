@@ -7,6 +7,7 @@ import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 	private rootContext: RootContext
 	private contentEditableEditor: ContentEditableEditor
+	protected id = 'emotes'
 
 	private start = 0
 	private end = 0

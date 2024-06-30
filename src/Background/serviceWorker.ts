@@ -1,6 +1,6 @@
-import Dexie from 'dexie'
 import { Database } from '../Classes/Database'
 import { error, info, log } from '../utils'
+import Dexie from 'dexie'
 
 const TARGET_FIREFOX = 'browser' in self
 const TARGET_CHROME = !TARGET_FIREFOX && 'chrome' in self

@@ -1,9 +1,6 @@
-import type { AbstractNetworkInterface } from '../../NetworkInterfaces/AbstractNetworkInterface'
-import type { ContentEditableEditor } from '../ContentEditableEditor'
-import type { Publisher } from '../Publisher'
-
 import { countStringOccurrences, error, eventKeyIsLetterDigitPuncSpaceChar, log, parseHTML } from '../../utils'
 import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
+import type { ContentEditableEditor } from '../ContentEditableEditor'
 
 type CommandDependencies = RootContext & Session
 
@@ -119,6 +116,27 @@ const commandsMap = [
 		argValidators: {
 			'<username>': (arg: string) =>
 				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+		}
+	},
+	{
+		name: 'timer',
+		command: 'timer <seconds/minutes/hours> [description]',
+		description: 'Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.',
+		argValidators: {
+			'<seconds/minutes/hours>': (arg: string) => {
+				const time = arg.match(/^(\d+)(s|m|h)$/i)
+				if (!time) return 'Invalid time format. Use e.g. 30s, 2m or 1h.'
+				const value = parseInt(time[1], 10)
+				if (time[2] === 's' && value > 0 && value <= 3600) return null
+				if (time[2] === 'm' && value > 0 && value <= 300) return null
+				if (time[2] === 'h' && value > 0 && value <= 20) return null
+				return 'Invalid time format. Use e.g. 30s, 2m or 1h.'
+			}
+		},
+		execute: (deps: CommandDependencies, args: string[]) => {
+			const { eventBus } = deps
+			eventBus.publish('ntv.ui.timers.add', { duration: args[0], description: args[1] })
+			log('Timer command executed with args:', args)
 		}
 	},
 	{
@@ -295,6 +313,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 	private contentEditableEditor: ContentEditableEditor
 	private rootContext: RootContext
 	private session: Session
+	protected id = 'commands'
 
 	constructor(
 		rootContext: RootContext,
@@ -354,7 +373,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 					const inputArgs = inputParts.slice(1)
 
 					const commandEl = document.createElement('span')
-					commandEl.textContent = command
+					commandEl.textContent = '/' + command
 					entryEl.childNodes[0].appendChild(commandEl)
 
 					for (let i = 0; i < args.length; i++) {

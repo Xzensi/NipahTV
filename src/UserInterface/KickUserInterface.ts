@@ -23,6 +23,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	private abortController = new AbortController()
 
 	private chatObserver: MutationObserver | null = null
+	private deletedChatEntryObserver: MutationObserver | null = null
 	private replyObserver: MutationObserver | null = null
 	private pinnedMessageObserver: MutationObserver | null = null
 	private emoteMenu: EmoteMenuComponent | null = null
@@ -34,11 +35,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		replyMessageWrapper: HTMLElement | null
 		submitButton: HTMLElement | null
 		textField: HTMLElement | null
+		timersContainer: HTMLElement | null
 	} = {
 		chatMessagesContainer: null,
 		replyMessageWrapper: null,
 		submitButton: null,
-		textField: null
+		textField: null,
+		timersContainer: null
 	}
 
 	private stickyScroll = true
@@ -106,6 +109,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
 
 				this.observeChatMessages()
+				this.observeChatEntriesForDeletionEvents()
 				this.loadScrollingBehaviour()
 				this.loadReplyBehaviour()
 			})
@@ -114,6 +118,16 @@ export class KickUserInterface extends AbstractUserInterface {
 		waitForElements(['#chatroom-top'], 5_000)
 			.then(() => {
 				this.observePinnedMessage()
+			})
+			.catch(() => {})
+
+		waitForElements(['#chatroom-footer .send-row'], 5_000)
+			.then(() => {
+				// Initialize a container for the timers UI
+				const timersContainer = document.createElement('div')
+				timersContainer.id = 'ntv__timers-container'
+				document.querySelector('#chatroom-footer .send-row')?.after(timersContainer)
+				this.elm.timersContainer = timersContainer
 			})
 			.catch(() => {})
 
@@ -304,6 +318,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		inputController.loadTabCompletionBehaviour()
 		inputController.loadChatHistoryBehaviour()
 
+		// User is already timedout or banned, disable chat input and show reason
+		// TODO refactor this when websockets are implemented
+		if (originalTextFieldEl.getAttribute('contenteditable') !== 'true') {
+			this.changeInputStatus('disabled', originalTextFieldEl.getAttribute('data-placeholder'))
+		}
+
 		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
 			if (event.detail.isEmpty) {
 				submitButtonEl.setAttribute('disabled', '')
@@ -316,6 +336,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Redirect focus to proxy text field when original text field is focused.
 		originalTextFieldEl.addEventListener('focus', (evt: Event) => {
+			if (!inputController.contentEditableEditor.isEnabled()) return
 			evt.preventDefault()
 			textFieldEl.focus()
 		})
@@ -392,7 +413,8 @@ export class KickUserInterface extends AbstractUserInterface {
 				ignoredKeys[evt.key] ||
 				document.activeElement?.tagName === 'INPUT' ||
 				document.activeElement?.getAttribute('contenteditable') ||
-				(<HTMLElement>evt.target)?.hasAttribute('capture-focus')
+				(<HTMLElement>evt.target)?.hasAttribute('capture-focus') ||
+				!inputController.contentEditableEditor.isEnabled()
 			) {
 				return
 			}
@@ -400,6 +422,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			textFieldEl.focus()
 			this.inputController?.contentEditableEditor.forwardEvent(evt)
 		})
+
+		this.observeInputFieldStatusEvents(originalTextFieldEl)
 	}
 
 	loadScrollingBehaviour() {
@@ -653,6 +677,80 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 	}
 
+	observeInputFieldStatusEvents(inputField: HTMLElement) {
+		// TODO refactor this when websockets are implemented
+		const inputFieldObserver = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.attributeName === 'contenteditable') {
+					const isContentEditable = inputField.getAttribute('contenteditable') === 'true'
+
+					if (isContentEditable) {
+						this.elm.submitButton?.classList.remove('disabled')
+						this.changeInputStatus('enabled')
+					} else {
+						const reason = inputField.getAttribute('data-placeholder')
+						this.elm.submitButton?.classList.add('disabled')
+						this.changeInputStatus('disabled', reason)
+					}
+				}
+			})
+		})
+
+		inputFieldObserver.observe(inputField, {
+			childList: false,
+			subtree: false,
+			attributes: true,
+			attributeFilter: ['contenteditable']
+		})
+	}
+
+	/**
+	 * We unpack the Kick chat entries to our optimized format, however to be able to detect
+	 *  when a chat entry is deleted we need to observe a preserved untouched original Kick chat entry.
+	 *
+	 * TODO eventually replace this completely by a new funnel where receive message deletion events over websocket.
+	 */
+	observeChatEntriesForDeletionEvents() {
+		this.deletedChatEntryObserver = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
+					const addedNode = mutation.addedNodes[0]
+					const chatEntryNode = addedNode.closest('.chat-entry')! as HTMLElement
+
+					let messageWrapperNode = addedNode
+					while (messageWrapperNode.parentElement && messageWrapperNode.parentElement !== chatEntryNode)
+						messageWrapperNode = messageWrapperNode.parentElement
+					if (messageWrapperNode.parentElement !== chatEntryNode)
+						return error('Message wrapper node not found')
+
+					// For moderators Kick appends " (Deleted)" to the message content with a tailwind class of "text-xs"
+					if (addedNode.className === 'text-xs') {
+						// messageNode.remove()
+						messageWrapperNode.style.display = 'none'
+						addedNode.className = ''
+						chatEntryNode.closest('.ntv__chat-message')?.classList.add('ntv__chat-message--deleted')
+						chatEntryNode.append(addedNode)
+					}
+					// For regular viewers Kick appends a new span with a class of "chat-entry-content-deleted"
+					else if (addedNode.className === 'chat-entry-content-deleted') {
+						// messageNode.remove()
+						messageWrapperNode.style.display = 'none'
+						chatEntryNode.parentElement?.classList.add('ntv__chat-message--deleted')
+						Array.from(chatEntryNode.getElementsByClassName('ntv__chat-message__part')).forEach(node =>
+							node.remove()
+						)
+
+						const deletedMessageNode = mutation.addedNodes[0]
+						const deletedMessageContent = deletedMessageNode.textContent || 'Deleted by a moderator'
+						chatEntryNode.append(
+							parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
+						)
+					}
+				}
+			})
+		})
+	}
+
 	handleUserInfoModalClick(username: string, screenPosition?: { x: number; y: number }) {
 		// if (username) this.showUserInfoModal(username, screenPosition)
 		// waitForElements("#chatroom > .user-profile")
@@ -845,6 +943,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					<div> <---|| Chat message wrapper node ||
 						<span class="chat-message-identity">Foobar</span>
 						<span class="font-bold text-white">: </span>
+						<span class="chat-entry-content-deleted"></span> <--|| Element created when message is deleted, elements below are removed ||
 						<span> <---|| The content nodes start here ||
 							<span class="chat-entry-content"> <---|| Chat message components (text component) ||
 								Foobar
@@ -886,9 +985,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Test if message has a reply attached to it
 		if (messageNode.querySelector('[title*="Replying to"]')) {
-			messageWrapperNode = chatEntryNode.children[1]
+			messageWrapperNode = chatEntryNode.children[1] as HTMLElement
 		} else {
-			messageWrapperNode = chatEntryNode.children[0]
+			messageWrapperNode = chatEntryNode.children[0] as HTMLElement
 		}
 
 		const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
@@ -905,7 +1004,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		const contentNodesLength = contentNodes.length
 
 		// We remove the useless wrapper node because we unpack it's contents to parent
-		messageWrapperNode.remove()
+		// messageWrapperNode.remove()
+		// Temporary workaround: We hide the message wrapper node instead of removing it, because we observe descendants of the message wrapper node for deletion events
+		messageWrapperNode.style.display = 'none'
 
 		// Find index of first content node after username etc
 		let firstContentNodeIndex = 0
@@ -945,7 +1046,9 @@ export class KickUserInterface extends AbstractUserInterface {
 						error('Chat message content node not an Element?', componentNode)
 						continue
 					}
-					this.renderEmotesInElement(componentNode, chatEntryNode)
+					const nodes = this.renderEmotesInString(componentNode.textContent || '')
+					// componentNode.remove()
+					chatEntryNode.append(...nodes)
 					break
 
 				case 'chat-emote-container':
@@ -988,6 +1091,19 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}
 
+		// We remove all children of the message wrapper node but one, because we've unpacked them to the parent
+		//  and then attach an observer to the last child to listen for when the message is deleted,
+		//  so then we can handle the deletion of the message in our format.
+		for (let i = 1; i < messageWrapperNode.children.length; i++) messageWrapperNode.children[i].remove()
+		const firstChild = messageWrapperNode.children[0]
+		if (firstChild) {
+			// Observe class changes to detect when message is deleted
+			this.deletedChatEntryObserver?.observe(messageWrapperNode, {
+				childList: true,
+				subtree: false
+			})
+		}
+
 		// Adding this class removes the display: none from the chat message, causing a reflow
 		const chatTheme = settingsManager.getSetting('shared.chat.appearance.chat_theme')
 		if (chatTheme === 'rounded') {
@@ -998,12 +1114,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderPinnedMessage(node: HTMLElement) {
-		const chatEntryContentNodes = node.querySelectorAll('.chat-entry-content')
-		if (!chatEntryContentNodes.length) return error('Pinned message content node not found', node)
-
-		for (const chatEntryContentNode of chatEntryContentNodes) {
-			this.renderEmotesInElement(chatEntryContentNode)
-		}
+		this.renderChatMessage(node)
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {

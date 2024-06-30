@@ -6,7 +6,7 @@ import { SettingsManager } from './SettingsManager'
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
 
 export class EmotesManager {
-	private providers = new Map()
+	private providers: Map<number, AbstractEmoteProvider> = new Map()
 	loaded = false
 
 	private eventBus: Publisher
@@ -42,7 +42,7 @@ export class EmotesManager {
 	async loadProviderEmotes(channelData: ChannelData, providerOverrideOrder: number[]) {
 		const { datastore, providers, eventBus } = this
 
-		const fetchEmoteProviderPromises: Array<Promise<Array<any>>> = []
+		const fetchEmoteProviderPromises: Array<Promise<void | EmoteSet[]>> = []
 		providers.forEach(provider => {
 			fetchEmoteProviderPromises.push(provider.fetchEmotes(channelData))
 		})
@@ -99,10 +99,8 @@ export class EmotesManager {
 		return this.datastore.getEmoteById(id)
 	}
 
-	getEmoteSrc(emoteHid: string) {
-		const emote = this.getEmote(emoteHid)
-		if (!emote) return error('Emote not found')
-		return this.providers.get(emote.provider).getEmoteSrc(emote)
+	getEmoteSetByEmoteHid(emoteHid: string) {
+		return this.datastore.getEmoteSetByEmoteHid(emoteHid)
 	}
 
 	getEmoteSets() {
@@ -121,6 +119,10 @@ export class EmotesManager {
 		return this.datastore.getEmoteUsageCount(emoteHid)
 	}
 
+	getProvider(id: number) {
+		return this.providers.get(id)
+	}
+
 	getRenderableEmote(emote: Emote, classes = '') {
 		if (!emote) return error('No emote provided')
 
@@ -134,7 +136,7 @@ export class EmotesManager {
 		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
 
-		const provider = this.providers.get(emote.provider)
+		const provider = this.providers.get(emote.provider)!
 		return provider.getRenderableEmote(emote, classes)
 	}
 
@@ -142,7 +144,7 @@ export class EmotesManager {
 		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
 
-		const provider = this.providers.get(emote.provider)
+		const provider = this.providers.get(emote.provider)!
 		if (spacingBefore && emote.spacing) {
 			return ' ' + provider.getEmbeddableEmote(emote)
 		} else {

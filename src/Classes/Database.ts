@@ -1,21 +1,40 @@
+import Dexie, { DexieConstructor, type Table, type EntityTable } from 'dexie'
 import { log, error } from '../utils'
 
-import type { Dexie as _Dexie, DexieConstructor, Table } from 'dexie'
-export interface ExtendedDexie extends _Dexie {
-	emoteUsage: Table
-	settings: Table
+// export interface ExtendedDexie extends _Dexie {
+// 	emoteUsage: Table
+// 	settings: Table
+// }
+// declare var Dexie: DexieConstructor & ExtendedDexie
+
+interface Setting {
+	id: string
+	value: string
 }
-declare var Dexie: DexieConstructor & ExtendedDexie
+
+interface EmoteUsage {
+	channelId: string
+	emoteHid: string
+	count: number
+}
+
+interface EmoteHistory {
+	channelId: string
+	emoteHid: string
+	count: number[]
+}
 
 export class Database {
-	private idb: ExtendedDexie
+	private idb: Dexie & {
+		settings: Table<Setting, string>
+		emoteUsage: Table<EmoteUsage, [string, string]>
+		emoteHistory: Table<EmoteHistory>
+	}
 	private databaseName = 'NipahTV'
 	private ready = false
 
 	constructor(SWDexie?: DexieConstructor) {
-		this.idb = SWDexie
-			? (new SWDexie(this.databaseName) as ExtendedDexie)
-			: (new Dexie(this.databaseName) as ExtendedDexie)
+		this.idb = (SWDexie ? new SWDexie(this.databaseName) : new Dexie(this.databaseName)) as any
 
 		this.idb
 			.version(2)

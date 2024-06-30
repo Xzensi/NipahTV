@@ -21,22 +21,24 @@
 
 		&-3d {
 			[data-chat-entry] {
-				border-top: 1px solid rgba(255, 255, 255, 0.1);
+				border-top: 1px solid rgba(255, 255, 255, 0.128);
 				border-bottom: 1px solid #000;
 			}
 		}
 
 		&-3d-inset {
 			[data-chat-entry] {
-				border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+				border-bottom: 1px solid rgba(255, 255, 255, 0.128);
 				border-top: 1px solid #000;
 			}
 		}
 
 		&-wide {
 			[data-chat-entry] {
-				border-bottom: 2px solid var(--ntv-border-transparent-2);
-				border-top: 2px solid var(--ntv-border-transparent-2);
+				border-bottom: 1px solid rgba(255, 255, 255, 0.128);
+				border-top: 1px solid rgba(255, 255, 255, 0.128);
+				margin-bottom: 0.3em;
+				margin-top: 0.3em;
 				padding: 0.1em;
 			}
 		}
@@ -84,6 +86,10 @@
 
 		&.bg-secondary-lighter {
 			background-color: transparent;
+		}
+
+		&.opacity-50 {
+			opacity: revert;
 		}
 	}
 }

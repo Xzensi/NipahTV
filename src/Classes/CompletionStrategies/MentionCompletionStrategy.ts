@@ -7,6 +7,7 @@ import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 	private contentEditableEditor: ContentEditableEditor
 	private rootContext: RootContext
+	protected id = 'mentions'
 
 	private start = 0
 	private end = 0
