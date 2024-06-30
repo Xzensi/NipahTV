@@ -40,7 +40,7 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 					id: '' + emote.id,
 					hid: md5(emote.name),
 					name: emote.name,
-					subscribersOnly: emote.subscribersOnly,
+					subscribersOnly: emote.subscribers_only,
 					provider: this.id,
 					width: 32,
 					size: 1
