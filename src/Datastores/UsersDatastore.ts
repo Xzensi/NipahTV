@@ -1,5 +1,6 @@
 import { Publisher } from '../Classes/Publisher'
 import { error, log } from '../utils'
+import Fuse from 'fuse.js'
 
 export type User = {
 	id: string
@@ -16,7 +17,7 @@ export class UsersDatastore {
 	private usersCount = 0
 	private maxUsers = 50_000
 
-	private fuse = new Fuse([], {
+	private fuse = new Fuse<User>([], {
 		includeScore: true,
 		shouldSort: true,
 		includeMatches: true,

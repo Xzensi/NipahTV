@@ -25,7 +25,7 @@
 			"matches": ["https://kick.com/*"]
 		},
 		{
-			"js": ["vendor/dexie.min.js", "vendor/fuse.min.js", "index.js"],
+			"js": ["index.js"],
 			"css": ["style.min.css"],
 			"matches": ["https://kick.com/*"]
 		}

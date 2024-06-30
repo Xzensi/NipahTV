@@ -316,15 +316,6 @@ class NipahClient {
 		}
 	}
 
-	var Dexie: any
-	if (__USERSCRIPT__ && !Dexie && !window['Dexie']) {
-		return error('Failed to import Dexie')
-	}
-
-	if (!Fuse && !window['Fuse']) {
-		return error('Failed to import Fuse')
-	}
-
 	PLATFORM = PLATFORM_ENUM.NULL
 	RESOURCE_ROOT = ''
 

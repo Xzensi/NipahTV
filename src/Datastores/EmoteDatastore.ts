@@ -3,6 +3,7 @@ import { Publisher } from '../Classes/Publisher'
 import { SlidingTimestampWindow } from '../Classes/SlidingTimestampWindow'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from '../constants'
 import { log, info, error, isEmpty } from '../utils'
+import Fuse from 'fuse.js'
 
 export class EmoteDatastore {
 	private emoteMap = new Map()
@@ -17,7 +18,7 @@ export class EmoteDatastore {
 	// Map of pending emote usage changes to be synced to database
 	private pendingEmoteUsageChanges: { [key: string]: boolean } = {}
 
-	private fuse = new Fuse([], {
+	private fuse = new Fuse<Emote>([], {
 		includeScore: true,
 		shouldSort: false,
 		// includeMatches: true,
