@@ -409,12 +409,13 @@ export class KickUserInterface extends AbstractUserInterface {
 				evt.ctrlKey ||
 				evt.altKey ||
 				evt.metaKey ||
-				inputController.isShowingTabCompletorModal() ||
 				ignoredKeys[evt.key] ||
+				inputController.isShowingTabCompletorModal() ||
 				document.activeElement?.tagName === 'INPUT' ||
 				document.activeElement?.getAttribute('contenteditable') ||
 				(<HTMLElement>evt.target)?.hasAttribute('capture-focus') ||
-				!inputController.contentEditableEditor.isEnabled()
+				!inputController.contentEditableEditor.isEnabled() ||
+				document.getElementById('modal-content')
 			) {
 				return
 			}

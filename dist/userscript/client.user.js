@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.22
+// @version 1.4.23
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12856,7 +12856,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       NumLock: true
     };
     document.body.addEventListener("keydown", (evt) => {
-      if (evt.ctrlKey || evt.altKey || evt.metaKey || inputController.isShowingTabCompletorModal() || ignoredKeys[evt.key] || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus") || !inputController.contentEditableEditor.isEnabled()) {
+      if (evt.ctrlKey || evt.altKey || evt.metaKey || ignoredKeys[evt.key] || inputController.isShowingTabCompletorModal() || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus") || !inputController.contentEditableEditor.isEnabled() || document.getElementById("modal-content")) {
         return;
       }
       textFieldEl.focus();
@@ -15123,7 +15123,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.22",
+    VERSION: "1.4.23",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
