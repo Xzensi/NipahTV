@@ -1,4 +1,5 @@
 import type { ContentEditableEditor } from './ContentEditableEditor'
+import type { PriorityEventTarget } from './PriorityEventTarget'
 import { CommandCompletionStrategy } from './CompletionStrategies/CommandCompletionStrategy'
 import { MentionCompletionStrategy } from './CompletionStrategies/MentionCompletionStrategy'
 import { EmoteCompletionStrategy } from './CompletionStrategies/EmoteCompletionStrategy'
@@ -11,14 +12,17 @@ export class InputCompletor {
 	private session: Session
 	private contentEditableEditor: ContentEditableEditor
 	private containerEl: HTMLElement
+	private submitButtonPriorityEventTarget: PriorityEventTarget
 
 	constructor(
 		rootContext: RootContext,
 		session: Session,
 		{
-			contentEditableEditor
+			contentEditableEditor,
+			submitButtonPriorityEventTarget
 		}: {
 			contentEditableEditor: ContentEditableEditor
+			submitButtonPriorityEventTarget: PriorityEventTarget
 		},
 		containerEl: HTMLElement
 	) {
@@ -26,11 +30,13 @@ export class InputCompletor {
 		this.session = session
 		this.contentEditableEditor = contentEditableEditor
 		this.containerEl = containerEl
+		this.submitButtonPriorityEventTarget = submitButtonPriorityEventTarget
 	}
 
 	attachEventHandlers() {
 		this.contentEditableEditor.addEventListener('keydown', 8, this.handleKeyDown.bind(this))
 		this.contentEditableEditor.addEventListener('keyup', 10, this.handleKeyUp.bind(this))
+		this.submitButtonPriorityEventTarget.addEventListener('click', 9, this.handleSubmitButton.bind(this))
 	}
 
 	isShowingModal() {
@@ -43,37 +49,41 @@ export class InputCompletor {
 		}
 	}
 
-	handleKeyDown(event: KeyboardEvent) {
-		if (!this.currentActiveStrategy) {
-			if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
-				this.currentActiveStrategy = new CommandCompletionStrategy(
-					this.rootContext,
-					this.session,
-					{
-						contentEditableEditor: this.contentEditableEditor
-					},
-					this.containerEl
-				)
-			} else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
-				this.currentActiveStrategy = new MentionCompletionStrategy(
-					this.rootContext,
-					this.session,
-					{
-						contentEditableEditor: this.contentEditableEditor
-					},
-					this.containerEl
-				)
-			} else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
-				this.currentActiveStrategy = new EmoteCompletionStrategy(
-					this.rootContext,
-					this.session,
-					{
-						contentEditableEditor: this.contentEditableEditor
-					},
-					this.containerEl
-				)
-			}
+	private maybeSetStrategy(event: Event) {
+		if (this.currentActiveStrategy) return
+
+		if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
+			this.currentActiveStrategy = new CommandCompletionStrategy(
+				this.rootContext,
+				this.session,
+				{
+					contentEditableEditor: this.contentEditableEditor
+				},
+				this.containerEl
+			)
+		} else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
+			this.currentActiveStrategy = new MentionCompletionStrategy(
+				this.rootContext,
+				this.session,
+				{
+					contentEditableEditor: this.contentEditableEditor
+				},
+				this.containerEl
+			)
+		} else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
+			this.currentActiveStrategy = new EmoteCompletionStrategy(
+				this.rootContext,
+				this.session,
+				{
+					contentEditableEditor: this.contentEditableEditor
+				},
+				this.containerEl
+			)
 		}
+	}
+
+	private handleKeyDown(event: KeyboardEvent) {
+		this.maybeSetStrategy(event)
 
 		if (this.currentActiveStrategy) {
 			this.currentActiveStrategy.handleKeyDown(event)
@@ -84,7 +94,7 @@ export class InputCompletor {
 		}
 	}
 
-	handleKeyUp(event: KeyboardEvent) {
+	private handleKeyUp(event: KeyboardEvent) {
 		const { contentEditableEditor: contentEditableEditor } = this
 
 		if (this.currentActiveStrategy) {
@@ -94,6 +104,18 @@ export class InputCompletor {
 			}
 
 			this.currentActiveStrategy.handleKeyUp(event)
+
+			if (this.currentActiveStrategy.destroyed) {
+				delete this.currentActiveStrategy
+			}
+		}
+	}
+
+	private handleSubmitButton(event: MouseEvent) {
+		this.maybeSetStrategy(event)
+
+		if (this.currentActiveStrategy) {
+			this.currentActiveStrategy.handleSubmitButton(event)
 
 			if (this.currentActiveStrategy.destroyed) {
 				delete this.currentActiveStrategy

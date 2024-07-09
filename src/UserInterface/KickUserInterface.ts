@@ -4,10 +4,7 @@ import {
 	error,
 	assertArgDefined,
 	waitForElements,
-	cleanupHTML,
-	md5,
 	hex2rgb,
-	logNow,
 	parseHTML,
 	findNodeWithTextContent
 } from '../utils'
@@ -322,13 +319,15 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
-		submitButtonEl.addEventListener('click', () => this.submitInput())
+		this.submitButtonPriorityEventTarget.addEventListener('click', 10, this.submitInput.bind(this))
+		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
 
 		const inputController = (this.inputController = new InputController(
 			this.rootContext,
 			this.session,
 			{
-				clipboard: this.clipboard
+				clipboard: this.clipboard,
+				submitButtonPriorityEventTarget: this.submitButtonPriorityEventTarget
 			},
 			textFieldEl
 		))

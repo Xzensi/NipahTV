@@ -36,7 +36,9 @@ export abstract class AbstractCompletionStrategy {
 		return !!this.navWindow
 	}
 
+	handleKeyDown(event: KeyboardEvent) {}
 	handleKeyUp(event: KeyboardEvent) {}
+	handleSubmitButton(event: MouseEvent) {}
 
 	destroy() {
 		if (this.navWindow) this.destroyModal()

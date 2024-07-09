@@ -1,15 +1,16 @@
 import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { ReplyMessageComponent } from './Components/ReplyMessageComponent'
 import type { KickEmoteProvider } from '../Providers/KickEmoteProvider'
+import { PriorityEventTarget } from '../Classes/PriorityEventTarget'
 import type { InputController } from '../Managers/InputController'
 import { MessagesHistory } from '../Classes/MessagesHistory'
+import { TimerComponent } from './Components/TimerComponent'
 import { parse as twemojiParse } from '@twemoji/parser'
 import { UserInfoModal } from './Modals/UserInfoModal'
 import { Clipboard2 } from '../Classes/Clipboard'
-import { Toaster } from '../Classes/Toaster'
 import { PollModal } from './Modals/PollModal'
+import { Toaster } from '../Classes/Toaster'
 import { PROVIDER_ENUM } from '../constants'
-import { TimerComponent } from './Components/TimerComponent'
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
@@ -21,6 +22,7 @@ export abstract class AbstractUserInterface {
 	protected clipboard = new Clipboard2()
 	protected toaster = new Toaster()
 	protected messageHistory = new MessagesHistory()
+	protected submitButtonPriorityEventTarget = new PriorityEventTarget()
 
 	protected replyMessageData?: {
 		chatEntryId: string

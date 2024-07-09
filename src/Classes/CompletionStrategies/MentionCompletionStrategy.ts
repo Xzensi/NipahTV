@@ -29,9 +29,9 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 		this.session = session
 	}
 
-	static shouldUseStrategy(event: KeyboardEvent): boolean {
+	static shouldUseStrategy(event: Event): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		return (event.key === '@' && !word) || (word !== null && word.startsWith('@'))
+		return (event instanceof KeyboardEvent && event.key === '@' && !word) || (word !== null && word.startsWith('@'))
 	}
 
 	createModal() {
