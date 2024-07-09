@@ -112,8 +112,8 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 	}
 
 	getEmbeddableEmote(emote: Emote) {
-		// return `[emote:${emote.id}:${emote.name}]` // Turns out name is not necessary, would save characters sent.
-		return `[emote:${emote.id}:_]`
+		// return `[emote:${emote.id}:_]` // Turns out name is not necessary, would save characters sent, but it'll show _ as emote name for non-NTV users
+		return `[emote:${emote.id}:${emote.name}]`
 	}
 
 	getEmoteSrc(emote: Emote) {
