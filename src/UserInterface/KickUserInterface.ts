@@ -107,7 +107,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 
 				// Render emotes in chat when providers are loaded
-				rootEventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
+				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
 
 				this.observeChatMessages()
 				this.observeChatEntriesForDeletionEvents()
@@ -910,11 +910,14 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderChatMessages() {
+		log('FLAG_0')
 		if (!this.elm || !this.elm.chatMessagesContainer) return
+		log('FLAG_1')
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
 		const chatMessagesContainerNode = chatMessagesContainerEl
 
 		for (const messageNode of chatMessagesContainerNode.children) {
+			log('FLAG_2')
 			this.renderChatMessage(messageNode as HTMLElement)
 		}
 	}
