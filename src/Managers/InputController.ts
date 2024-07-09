@@ -34,7 +34,8 @@ export class InputController {
 
 		this.messageHistory = new MessagesHistory()
 		this.contentEditableEditor = new ContentEditableEditor(
-			this.rootContext,
+			rootContext,
+			session,
 			{ messageHistory: this.messageHistory, clipboard },
 			textFieldEl
 		)
@@ -49,7 +50,7 @@ export class InputController {
 	}
 
 	initialize() {
-		const { eventBus } = this.rootContext
+		const { eventBus } = this.session
 		const { contentEditableEditor } = this
 
 		contentEditableEditor.attachEventListeners()
@@ -65,7 +66,7 @@ export class InputController {
 	}
 
 	handleInputSubmit({ suppressEngagementEvent }: any) {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const { contentEditableEditor, messageHistory } = this
 
 		if (!suppressEngagementEvent) {
@@ -147,5 +148,9 @@ export class InputController {
 				}
 			}
 		})
+	}
+
+	destroy() {
+		this.contentEditableEditor.destroy()
 	}
 }

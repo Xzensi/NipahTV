@@ -6,6 +6,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	sortingList: Array<{ hid: string; emoteEl: HTMLElement }> = []
 
 	rootContext: RootContext
+	session: Session
 
 	element?: HTMLElement
 	emote?: HTMLElement
@@ -14,10 +15,11 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 	renderQuickEmotesCallback?: () => void
 
-	constructor(rootContext: RootContext, placeholder: HTMLElement) {
+	constructor(rootContext: RootContext, session: Session, placeholder: HTMLElement) {
 		super()
 
 		this.rootContext = rootContext
+		this.session = session
 		this.placeholder = placeholder
 	}
 
@@ -36,7 +38,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	}
 
 	attachEventHandlers() {
-		const { eventBus } = this.rootContext
+		const { eventBus } = this.session
 
 		this.element?.addEventListener('click', (evt: Event) => {
 			const target = evt.target as HTMLElement
@@ -68,18 +70,18 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	handleEmoteClick(emoteHid: string, sendImmediately = false) {
 		assertArgDefined(emoteHid)
 
-		const emote = this.rootContext.emotesManager.getEmote(emoteHid)
+		const emote = this.session.emotesManager.getEmote(emoteHid)
 		if (!emote) return error('Invalid emote')
 
 		if (this.rootContext.settingsManager.getSetting('shared.chat.quick_emote_holder.send_immediately')) {
 			sendImmediately = true
 		}
 
-		this.rootContext.eventBus.publish('ntv.ui.emote.click', { emoteHid, sendImmediately })
+		this.session.eventBus.publish('ntv.ui.emote.click', { emoteHid, sendImmediately })
 	}
 
 	renderQuickEmotes() {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		// TODO instead of looking through all emotes for history changes, use "ntv.datastore.emotes.usage.changed" event to cache the emotes that are changed on "ntv.ui.input_submitted"
 		const emoteUsageCounts = emotesManager.getEmoteUsageCounts()
 
@@ -94,7 +96,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	 * Move the emote to the correct position in the emote holder, append if new emote.
 	 */
 	renderQuickEmote(emoteHid: string) {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const emote = emotesManager.getEmote(emoteHid)
 		if (!emote) return // Emote is no longer im provider's emote sets
 		if (!emotesManager.isEmoteMenuEnabled(emote.hid)) return // Emote is not enabled in the emote menu
@@ -138,7 +140,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	getSortedEmoteIndex(emoteHid: string) {
 		// Find the correct position in sortingList to insert the emote
 		//  according to the emote history count.
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const emoteUsageCount = emotesManager.getEmoteUsageCount(emoteHid)
 		return this.sortingList.findIndex(entry => {
 			return emotesManager.getEmoteUsageCount(entry.hid) < emoteUsageCount
@@ -148,6 +150,6 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 	destroy() {
 		this.element?.remove()
 		if (this.renderQuickEmotesCallback)
-			this.rootContext.eventBus.unsubscribe('ntv.ui.input_submitted', this.renderQuickEmotesCallback)
+			this.session.eventBus.unsubscribe('ntv.ui.input_submitted', this.renderQuickEmotesCallback)
 	}
 }

@@ -48,7 +48,7 @@ export abstract class AbstractUserInterface {
 	}
 
 	loadInterface() {
-		const { eventBus } = this.rootContext
+		const { eventBus } = this.session
 
 		eventBus.subscribe('ntv.ui.show_modal.user_info', (data: { username: string }) => {
 			assertArgDefined(data.username)
@@ -98,7 +98,7 @@ export abstract class AbstractUserInterface {
 	}
 
 	renderEmotesInString(textContent: string) {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const newNodes: Array<Text | HTMLElement> = []
 
 		// TODO create abstraction layer for kick emote matching and rendering
@@ -249,7 +249,8 @@ export abstract class AbstractUserInterface {
 
 	// Submits input to chat
 	submitInput(suppressEngagementEvent?: boolean, dontClearInput?: boolean) {
-		const { eventBus, networkInterface } = this.rootContext
+		const { networkInterface } = this.session
+		const { eventBus } = this.session
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
@@ -300,7 +301,8 @@ export abstract class AbstractUserInterface {
 	}
 
 	sendEmoteToChat(emoteHid: string) {
-		const { emotesManager, networkInterface } = this.rootContext
+		const { networkInterface } = this.session
+		const { emotesManager } = this.session
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
 		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
 

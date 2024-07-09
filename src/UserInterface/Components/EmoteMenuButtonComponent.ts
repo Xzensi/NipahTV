@@ -35,7 +35,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 	}
 
 	attachEventHandlers() {
-		const { eventBus } = this.rootContext
+		const { eventBus } = this.session
 
 		eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
 			if (!this.footerLogoBtnEl) return error('Footer logo button not found, unable to set logo src')

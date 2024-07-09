@@ -450,7 +450,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 	}
 
 	getAvailableCommands() {
-		const channelData = this.rootContext.networkInterface.channelData
+		const channelData = this.session.networkInterface.channelData
 		const is_broadcaster = channelData?.me?.isBroadcaster || false
 		const is_moderator = channelData?.me?.isModerator || false
 
@@ -555,7 +555,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 				return
 			}
 
-			const { networkInterface } = this.rootContext
+			const { networkInterface } = this.session
 			if (commandEntry && typeof commandEntry.execute === 'function') {
 				commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args)
 			} else {

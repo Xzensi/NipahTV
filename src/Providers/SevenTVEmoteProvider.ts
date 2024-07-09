@@ -31,8 +31,8 @@ export class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbst
 			return []
 		}
 
-		const globalEmoteSet = this.unpackGlobalEmotes(globalData)
-		const userEmoteSet = this.unpackUserEmotes(userData)
+		const globalEmoteSet = this.unpackGlobalEmotes(globalData || {})
+		const userEmoteSet = this.unpackUserEmotes(userData || {})
 
 		if (globalEmoteSet.length + userEmoteSet.length > 1)
 			log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`)

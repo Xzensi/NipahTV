@@ -57,6 +57,7 @@ export class InputCompletor {
 			} else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
 				this.currentActiveStrategy = new MentionCompletionStrategy(
 					this.rootContext,
+					this.session,
 					{
 						contentEditableEditor: this.contentEditableEditor
 					},
@@ -65,6 +66,7 @@ export class InputCompletor {
 			} else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
 				this.currentActiveStrategy = new EmoteCompletionStrategy(
 					this.rootContext,
+					this.session,
 					{
 						contentEditableEditor: this.contentEditableEditor
 					},

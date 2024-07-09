@@ -9,7 +9,7 @@ import { SevenTVEmoteProvider } from './Providers/SevenTVEmoteProvider'
 
 // Utils
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error, RESTFromMain } from './utils'
+import { log, info, error, RESTFromMain, debounce } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
 import { Database } from './Classes/Database'
@@ -34,6 +34,9 @@ class NipahClient {
 	eventBus: Publisher | null = null
 	networkInterface: KickNetworkInterface | null = null
 	emotesManager: EmotesManager | null = null
+	rootContext: RootContext | null = null
+	settingsManagerPromise: Promise<void> | null = null
+
 	private database: DatabaseProxy | null = null
 	private sessions: Session[] = []
 
@@ -109,42 +112,69 @@ class NipahClient {
 	}
 
 	async setupClientEnvironment() {
-		const { ENV_VARS, database } = this
+		const { database } = this
 		if (!database) throw new Error('Database is not initialized.')
 
 		info('Setting up client environment..')
 
 		const eventBus = new Publisher()
-		this.eventBus = eventBus
+		const settingsManager = new SettingsManager({ database, eventBus })
+		settingsManager.initialize()
+
+		this.settingsManagerPromise = settingsManager.loadSettings().catch(err => {
+			throw new Error(`Couldn't load settings because: ${err}`)
+		})
+
+		//* The shared context for all sessions
+		this.rootContext = {
+			eventBus,
+			database,
+			settingsManager
+		}
+
+		this.createChannelSession()
+	}
+
+	async createChannelSession() {
+		log(`Creating new session for ${window.location.href}...`)
+
+		const rootContext = this.rootContext
+		if (!rootContext) throw new Error('Root context is not initialized.')
+
+		const { database, settingsManager } = rootContext
+
+		const eventBus = new Publisher()
+		const usersManager = new UsersManager({ eventBus, settingsManager })
 
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
-			this.networkInterface = new KickNetworkInterface({ ENV_VARS })
+			this.networkInterface = new KickNetworkInterface({ ENV_VARS: this.ENV_VARS })
 		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
 			// this.networkInterface = new TwitchNetworkInterface()
 			throw new Error('Twitch platform is not supported yet.')
 		} else {
 			throw new Error('Unsupported platform')
 		}
-
 		const networkInterface = this.networkInterface
-		const settingsManager = new SettingsManager({ database, eventBus })
-		settingsManager.initialize()
 
-		const promises = []
-		promises.push(
-			settingsManager.loadSettings().catch(err => {
-				throw new Error(`Couldn't load settings because: ${err}`)
-			})
-		)
-		promises.push(
+		const session = {
+			eventBus,
+			networkInterface,
+			usersManager
+		} as Session
+
+		this.sessions.push(session)
+
+		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
+
+		await Promise.allSettled([
+			this.settingsManagerPromise,
 			networkInterface.loadChannelData().catch(err => {
 				throw new Error(`Couldn't load channel data because: ${err}`)
 			})
-		)
-		await Promise.allSettled(promises)
+		])
 
-		if (!networkInterface.channelData) throw new Error('Channel data has not loaded yet.')
 		const channelData = networkInterface.channelData
+		if (!channelData) throw new Error('Channel data has not loaded yet.')
 
 		const emotesManager = (this.emotesManager = new EmotesManager(
 			{ database, eventBus, settingsManager },
@@ -152,29 +182,12 @@ class NipahClient {
 		))
 		emotesManager.initialize()
 
-		const usersManager = new UsersManager({ eventBus, settingsManager })
-
-		//* The shared context for all sessions
-		const rootContext: RootContext = {
-			eventBus,
-			networkInterface,
-			database,
+		Object.assign(session, {
 			emotesManager,
-			settingsManager,
-			usersManager
-		}
-
-		this.createChannelSession(rootContext, channelData)
-	}
-
-	createChannelSession(rootContext: RootContext, channelData: ChannelData) {
-		const { emotesManager } = rootContext
-
-		const session: Session = {
 			channelData,
 			// badgeProvider: PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
 			badgeProvider: new KickBadgeProvider(rootContext, channelData)
-		}
+		})
 
 		session.badgeProvider.initialize()
 
@@ -186,7 +199,6 @@ class NipahClient {
 		}
 
 		session.userInterface = userInterface
-		this.sessions.push(session)
 
 		if (!this.stylesLoaded) {
 			this.loadStyles()
@@ -204,6 +216,8 @@ class NipahClient {
 
 		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
 		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
+
+		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 	}
 
 	loadStyles() {
@@ -253,44 +267,40 @@ class NipahClient {
 		info('Current URL:', window.location.href)
 		let locationURL = window.location.href
 
+		const navigateFn = () => {
+			if (locationURL === window.location.href) return
+
+			// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
+			if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
+
+			const oldLocation = locationURL
+			locationURL = window.location.href
+			info('Navigated to:', locationURL)
+
+			this.cleanupSession(oldLocation)
+			log('Cleaned up old session for', oldLocation)
+			this.createChannelSession()
+		}
+
 		if (window.navigation) {
-			window.navigation.addEventListener('navigate', (event: Event) => {
-				setTimeout(() => {
-					if (locationURL === window.location.href) return
-
-					// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
-					if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
-
-					locationURL = window.location.href
-					info('Navigated to:', window.location.href)
-
-					this.cleanupOldClientEnvironment()
-					this.setupClientEnvironment()
-				}, 100)
-			})
+			window.navigation.addEventListener('navigate', debounce(navigateFn, 100))
 		} else {
-			setInterval(() => {
-				if (locationURL === window.location.href) return
-
-				// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
-				if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
-
-				locationURL = window.location.href
-				info('Navigated to:', locationURL)
-
-				this.cleanupOldClientEnvironment()
-				this.setupClientEnvironment()
-			}, 100)
+			setInterval(navigateFn, 200)
 		}
 	}
 
-	cleanupOldClientEnvironment() {
-		log('Cleaning up old session..')
-
-		if (this.eventBus) {
-			this.eventBus.publish('ntv.session.destroy')
-			this.eventBus.destroy()
-			this.eventBus = null
+	cleanupSession(oldLocation: string) {
+		const prevSession = this.sessions.shift()
+		if (prevSession) {
+			log(
+				`Cleaning up previous session for channel ${
+					prevSession?.channelData?.channelName || '[CHANNEL NOT LOADED]'
+				}...`
+			)
+			prevSession.isDestroyed = true
+			prevSession.eventBus.publish('ntv.session.destroy')
+		} else {
+			log(`No session to clean up for ${oldLocation}..`)
 		}
 	}
 }

@@ -92,7 +92,8 @@ export class EmoteMenuComponent extends AbstractComponent {
 	}
 
 	attachEventHandlers() {
-		const { eventBus, settingsManager, emotesManager } = this.rootContext
+		const { settingsManager } = this.rootContext
+		const { eventBus, emotesManager } = this.session
 
 		// Emote click event
 		this.scrollableEl?.addEventListener('click', evt => {
@@ -167,7 +168,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 		// Settings button click event
 		this.settingsBtnEl?.addEventListener('click', () => {
-			eventBus.publish('ntv.ui.settings.toggle_show')
+			this.rootContext.eventBus.publish('ntv.ui.settings.toggle_show')
 		})
 
 		eventBus.subscribe('ntv.providers.loaded', this.renderEmotes.bind(this), true)
@@ -204,7 +205,8 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 		if (this.tooltipEl) this.tooltipEl.remove()
 
-		const { emotesManager, settingsManager } = this.rootContext
+		const { settingsManager } = this.rootContext
+		const { emotesManager } = this.session
 		const searchVal = evt.target.value
 
 		if (searchVal.length) {
@@ -278,7 +280,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		log('Rendering emotes in modal')
 
 		const { sidebarSetsEl, scrollableEl, rootContext } = this
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const emotesPanelEl = this.panels.emotes
 		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
