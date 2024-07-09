@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.23
+// @version 1.4.24
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-dc26720a.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-3a9b7451.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -8284,13 +8284,15 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   // The sorting list shadow reflects the order of emotes in this.$element
   sortingList = [];
   rootContext;
+  session;
   element;
   emote;
   placeholder;
   renderQuickEmotesCallback;
-  constructor(rootContext, placeholder) {
+  constructor(rootContext, session, placeholder) {
     super();
     this.rootContext = rootContext;
+    this.session = session;
     this.placeholder = placeholder;
   }
   render() {
@@ -8304,7 +8306,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     this.placeholder.replaceWith(this.element);
   }
   attachEventHandlers() {
-    const { eventBus } = this.rootContext;
+    const { eventBus } = this.session;
     this.element?.addEventListener("click", (evt) => {
       const target = evt.target;
       if (target.tagName !== "IMG") return;
@@ -8327,15 +8329,15 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   }
   handleEmoteClick(emoteHid, sendImmediately = false) {
     assertArgDefined(emoteHid);
-    const emote = this.rootContext.emotesManager.getEmote(emoteHid);
+    const emote = this.session.emotesManager.getEmote(emoteHid);
     if (!emote) return error("Invalid emote");
     if (this.rootContext.settingsManager.getSetting("shared.chat.quick_emote_holder.send_immediately")) {
       sendImmediately = true;
     }
-    this.rootContext.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
+    this.session.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
   }
   renderQuickEmotes() {
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const emoteUsageCounts = emotesManager.getEmoteUsageCounts();
     if (emoteUsageCounts.size) {
       for (const [emoteHid] of emoteUsageCounts) {
@@ -8347,7 +8349,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
    * Move the emote to the correct position in the emote holder, append if new emote.
    */
   renderQuickEmote(emoteHid) {
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const emote = emotesManager.getEmote(emoteHid);
     if (!emote) return;
     if (!emotesManager.isEmoteMenuEnabled(emote.hid)) return;
@@ -8381,7 +8383,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     }
   }
   getSortedEmoteIndex(emoteHid) {
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const emoteUsageCount = emotesManager.getEmoteUsageCount(emoteHid);
     return this.sortingList.findIndex((entry) => {
       return emotesManager.getEmoteUsageCount(entry.hid) < emoteUsageCount;
@@ -8390,7 +8392,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   destroy() {
     this.element?.remove();
     if (this.renderQuickEmotesCallback)
-      this.rootContext.eventBus.unsubscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
+      this.session.eventBus.unsubscribe("ntv.ui.input_submitted", this.renderQuickEmotesCallback);
   }
 };
 
@@ -8421,7 +8423,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     document.querySelector("#chatroom-footer .send-row")?.prepend(this.element);
   }
   attachEventHandlers() {
-    const { eventBus } = this.rootContext;
+    const { eventBus } = this.session;
     eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
       if (!this.footerLogoBtnEl) return error("Footer logo button not found, unable to set logo src");
       const filename = this.getFile();
@@ -8542,7 +8544,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.parentContainer.appendChild(this.containerEl);
   }
   attachEventHandlers() {
-    const { eventBus, settingsManager, emotesManager } = this.rootContext;
+    const { settingsManager } = this.rootContext;
+    const { eventBus, emotesManager } = this.session;
     this.scrollableEl?.addEventListener("click", (evt) => {
       const target = evt.target;
       if (target.tagName !== "IMG" || target.parentElement?.classList.contains("ntv__emote-box--locked")) return;
@@ -8596,7 +8599,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       emoteSet.classList.toggle("ntv__emote-set--collapsed");
     });
     this.settingsBtnEl?.addEventListener("click", () => {
-      eventBus.publish("ntv.ui.settings.toggle_show");
+      this.rootContext.eventBus.publish("ntv.ui.settings.toggle_show");
     });
     eventBus.subscribe("ntv.providers.loaded", this.renderEmotes.bind(this), true);
     eventBus.subscribe("ntv.ui.footer.click", this.toggleShow.bind(this));
@@ -8623,7 +8626,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   handleSearchInput(evt) {
     if (!(evt.target instanceof HTMLInputElement)) return;
     if (this.tooltipEl) this.tooltipEl.remove();
-    const { emotesManager, settingsManager } = this.rootContext;
+    const { settingsManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const searchVal = evt.target.value;
     if (searchVal.length) {
       this.switchPanel("search");
@@ -8681,7 +8685,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
   renderEmotes() {
     log("Rendering emotes in modal");
     const { sidebarSetsEl, scrollableEl, rootContext } = this;
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const emotesPanelEl = this.panels.emotes;
     if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error("Invalid emote menu elements");
     while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild)) ;
@@ -8861,6 +8865,93 @@ var ReplyMessageComponent = class extends AbstractComponent {
   }
 };
 
+// src/Classes/PriorityEventTarget.ts
+var notAllowed = function() {
+  throw new Error("PreventDefault cannot be called because the event was set as passive.");
+};
+var stopPropagation = function() {
+  this._stopPropagation();
+  this.stoppedPropagation = true;
+};
+var stopImmediatePropagation = function() {
+  this._stopImmediatePropagation();
+  this.stoppedImmediatePropagation = true;
+};
+var PriorityEventTarget = class {
+  events = /* @__PURE__ */ new Map();
+  /**
+   * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.
+   * @param type
+   * @param priority
+   * @param listener
+   * @param options
+   */
+  addEventListener(type, priority, listener, options) {
+    if (!this.events.has(type)) {
+      this.events.set(type, []);
+    }
+    const priorities = this.events.get(type);
+    if (!priorities[priority]) priorities[priority] = [];
+    const listeners = priorities[priority];
+    if (options) listeners.push([listener, options]);
+    else listeners.push([listener]);
+    if (options && options.signal) {
+      options.signal.addEventListener("abort", () => {
+        this.removeEventListener(type, priority, listener, options);
+      });
+    }
+  }
+  removeEventListener(type, priority, listener, options) {
+    if (this.events.has(type)) {
+      const priorities = this.events.get(type);
+      const listeners = priorities[priority];
+      if (!listeners) return;
+      for (let i = 0; i < listeners.length; i++) {
+        let listenerItem = listeners[i][0];
+        let optionsItem = listeners[i][1];
+        if (listenerItem === listener && optionsItem === options) {
+          listeners.splice(i, 1);
+          i--;
+        }
+      }
+    }
+  }
+  dispatchEvent(event) {
+    ;
+    event._stopPropagation = event.stopPropagation;
+    event.stopPropagation = stopPropagation;
+    event._stopImmediatePropagation = event.stopImmediatePropagation;
+    event.stopImmediatePropagation = stopImmediatePropagation;
+    const type = event.type;
+    if (this.events.has(type)) {
+      const priorities = this.events.get(type);
+      for (const key in priorities) {
+        const listeners = priorities[key];
+        for (let i = 0; i < listeners.length; i++) {
+          const listener = listeners[i][0];
+          const options = listeners[i][1];
+          if (options) {
+            if (options.once) {
+              listeners.splice(i, 1);
+              i--;
+            }
+            if (options.passive) {
+              event.preventDefault = notAllowed;
+            }
+          }
+          listener(event);
+          if (event.stoppedImmediatePropagation) {
+            return;
+          }
+        }
+        if (event.stoppedPropagation) {
+          return;
+        }
+      }
+    }
+  }
+};
+
 // src/Classes/MessagesHistory.ts
 var MessagesHistory = class {
   messages;
@@ -8912,6 +9003,91 @@ var MessagesHistory = class {
   }
   resetCursor() {
     this.cursorIndex = -1;
+  }
+};
+
+// src/UserInterface/Components/TimerComponent.ts
+var TimerComponent = class extends AbstractComponent {
+  remainingTime;
+  paused = false;
+  interval;
+  event = new EventTarget();
+  element;
+  constructor(duration, description) {
+    super();
+    this.remainingTime = parseInt(duration) * (duration.includes("s") ? 1 : duration.includes("m") ? 60 : 3600);
+    this.element = parseHTML(
+      cleanupHTML(`
+                <div class="ntv__timer">
+                    <div class="ntv__timer__body">
+                        <div class="ntv__timer__duration">${this.formatTime(this.remainingTime)}</div>
+                        <div class="ntv__timer__description">${description || ""}</div>
+                    </div>
+                    <div class="ntv__timer__buttons">
+                        <button class="ntv__timer__pause ntv__icon-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 20 20">
+                                <path fill="currentColor" d="M5 4h3v12H5zm7 0h3v12h-3z" />
+                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M10.804 8L5 4.633v6.734zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696z" />
+                            </svg>
+                        </button>
+                        <button class="ntv__timer__remove ntv__icon-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
+                                <path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
+                                <path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+        `),
+      true
+    );
+  }
+  render() {
+  }
+  attachEventHandlers() {
+    const pauseButton = this.element.querySelector(".ntv__timer__pause");
+    const removeButton = this.element.querySelector(".ntv__timer__remove");
+    pauseButton.addEventListener("click", () => {
+      if (this.paused) {
+        this.paused = false;
+        pauseButton.classList.remove("ntv__timer__pause--paused");
+        this.startTimer();
+        this.event.dispatchEvent(new CustomEvent("unpaused"));
+      } else {
+        this.paused = true;
+        pauseButton.classList.add("ntv__timer__pause--paused");
+        if (this.interval) {
+          clearInterval(this.interval);
+          delete this.interval;
+        }
+        this.event.dispatchEvent(new CustomEvent("paused"));
+      }
+    });
+    removeButton.addEventListener("click", () => {
+      this.event.dispatchEvent(new CustomEvent("destroy"));
+      this.element.remove();
+    });
+    this.startTimer();
+  }
+  startTimer() {
+    const durationEl = this.element.querySelector(".ntv__timer__duration");
+    this.interval = setInterval(() => {
+      this.remainingTime--;
+      durationEl.textContent = this.formatTime(this.remainingTime);
+      if (this.remainingTime <= 0) {
+        durationEl?.classList.add("ntv__timer__duration--expired");
+      }
+    }, 1e3);
+  }
+  formatTime(time) {
+    const sign = time < 0 ? "-" : "";
+    time = Math.abs(time);
+    const hours = Math.floor(time / 3600);
+    const minutes = Math.floor(time % 3600 / 60);
+    const seconds = time % 60;
+    return `${sign}${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }
 };
 
@@ -9146,8 +9322,7 @@ var UserInfoModal = class extends AbstractModal {
   }
   async render() {
     super.render();
-    const { channelData, badgeProvider } = this.session;
-    const { usersManager } = this.rootContext;
+    const { channelData, usersManager, badgeProvider } = this.session;
     const isModerator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster;
     await this.updateUserInfo();
     const userInfo = this.userInfo || {
@@ -9317,7 +9492,7 @@ var UserInfoModal = class extends AbstractModal {
     this.eventTarget.dispatchEvent(new Event("gift_sub_click"));
   }
   async clickFollowHandler() {
-    const { networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
     const { userInfo } = this;
     if (!userInfo) return;
     this.actionFollowEl.classList.add("ntv__button--disabled");
@@ -9356,7 +9531,7 @@ var UserInfoModal = class extends AbstractModal {
     const { userInfo } = this;
     if (!userInfo) return;
     const { id, username } = userInfo;
-    const { usersManager } = this.rootContext;
+    const { usersManager } = this.session;
     const user = usersManager.getUserById(id);
     if (!user) return;
     if (user.muted) {
@@ -9402,7 +9577,7 @@ var UserInfoModal = class extends AbstractModal {
       const reason = timeoutWrapperEl.querySelector("textarea").value;
       timeoutPageEl.setAttribute("disabled", "");
       try {
-        await this.rootContext.networkInterface.sendCommand({
+        await this.session.networkInterface.sendCommand({
           name: "timeout",
           args: [this.username, duration, reason]
         });
@@ -9427,7 +9602,7 @@ var UserInfoModal = class extends AbstractModal {
     });
   }
   async clickVIPHandler() {
-    const { networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
     const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo) return;
     const { channelData } = this.session;
@@ -9481,7 +9656,7 @@ var UserInfoModal = class extends AbstractModal {
     this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
   }
   async clickModHandler() {
-    const { networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
     const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo) return;
     const { channelData } = this.session;
@@ -9537,7 +9712,7 @@ var UserInfoModal = class extends AbstractModal {
   async clickBanHandler() {
     if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled")) return;
     this.modActionButtonBanEl.classList.add("ntv__icon-button--disabled");
-    const { networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
     const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo) return;
     if (userChannelInfo.banned) {
@@ -9598,7 +9773,7 @@ var UserInfoModal = class extends AbstractModal {
     messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
   }
   async loadMoreMessagesHistory() {
-    const { networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
     const { channelData, userInterface } = this.session;
     const { userInfo, modLogsPageEl, messagesHistoryEl } = this;
     if (!userInfo || !modLogsPageEl || !messagesHistoryEl) return;
@@ -9721,7 +9896,7 @@ var UserInfoModal = class extends AbstractModal {
     this.userChannelInfo.badges = this.userChannelInfo.badges.filter((badge) => badge.type !== "moderator");
   }
   async updateUserInfo() {
-    const { networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
     const { channelData } = this.session;
     try {
       delete this.userInfo;
@@ -10095,38 +10270,6 @@ var Clipboard2 = class {
   }
 };
 
-// src/Classes/Toaster.ts
-var Toaster = class {
-  toasts = [];
-  addToast(message, duration, type = "info") {
-    const toastEl = parseHTML(
-      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
-      true
-    );
-    const timeout = Date.now() + duration;
-    const toast = { message, type, timeout, element: toastEl };
-    this.toasts.push(toast);
-    document.body.appendChild(toastEl);
-    setTimeout(() => {
-      const index = this.toasts.indexOf(toast);
-      if (index !== -1) {
-        this.toasts[index].element.remove();
-        this.toasts.splice(index, 1);
-      }
-    }, duration);
-    this.moveToasts();
-  }
-  moveToasts() {
-    const spacing = 20;
-    let y = 20;
-    const toasts = this.toasts.toReversed();
-    for (const toast of toasts) {
-      toast.element.style.top = `${y}px`;
-      y += toast.element.clientHeight + spacing;
-    }
-  }
-};
-
 // src/UserInterface/Modals/PollModal.ts
 var PollModal = class extends AbstractModal {
   rootContext;
@@ -10224,7 +10367,7 @@ var PollModal = class extends AbstractModal {
         return;
       }
       const channelName = this.session.channelData.channelName;
-      this.rootContext.networkInterface.createPoll(channelName, question, options, duration, displayDuration);
+      this.session.networkInterface.createPoll(channelName, question, options, duration, displayDuration);
       this.destroy();
     });
     this.cancelButtonEl.addEventListener("click", async () => {
@@ -10233,93 +10376,40 @@ var PollModal = class extends AbstractModal {
   }
 };
 
-// src/UserInterface/Components/TimerComponent.ts
-var TimerComponent = class extends AbstractComponent {
-  remainingTime;
-  paused = false;
-  interval;
-  event = new EventTarget();
-  element;
-  constructor(duration, description) {
-    super();
-    this.remainingTime = parseInt(duration) * (duration.includes("s") ? 1 : duration.includes("m") ? 60 : 3600);
-    this.element = parseHTML(
-      cleanupHTML(`
-                <div class="ntv__timer">
-                    <div class="ntv__timer__body">
-                        <div class="ntv__timer__duration">${this.formatTime(this.remainingTime)}</div>
-                        <div class="ntv__timer__description">${description || ""}</div>
-                    </div>
-                    <div class="ntv__timer__buttons">
-                        <button class="ntv__timer__pause ntv__icon-button">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 20 20">
-                                <path fill="currentColor" d="M5 4h3v12H5zm7 0h3v12h-3z" />
-                            </svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
-                                <path fill="currentColor" d="M10.804 8L5 4.633v6.734zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696z" />
-                            </svg>
-                        </button>
-                        <button class="ntv__timer__remove ntv__icon-button">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
-                                <path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
-                                <path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-        `),
+// src/Classes/Toaster.ts
+var Toaster = class {
+  toasts = [];
+  addToast(message, duration, type = "info") {
+    const toastEl = parseHTML(
+      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
       true
     );
-  }
-  render() {
-  }
-  attachEventHandlers() {
-    const pauseButton = this.element.querySelector(".ntv__timer__pause");
-    const removeButton = this.element.querySelector(".ntv__timer__remove");
-    pauseButton.addEventListener("click", () => {
-      if (this.paused) {
-        this.paused = false;
-        pauseButton.classList.remove("ntv__timer__pause--paused");
-        this.startTimer();
-        this.event.dispatchEvent(new CustomEvent("unpaused"));
-      } else {
-        this.paused = true;
-        pauseButton.classList.add("ntv__timer__pause--paused");
-        if (this.interval) {
-          clearInterval(this.interval);
-          delete this.interval;
-        }
-        this.event.dispatchEvent(new CustomEvent("paused"));
+    const timeout = Date.now() + duration;
+    const toast = { message, type, timeout, element: toastEl };
+    this.toasts.push(toast);
+    document.body.appendChild(toastEl);
+    setTimeout(() => {
+      const index = this.toasts.indexOf(toast);
+      if (index !== -1) {
+        this.toasts[index].element.remove();
+        this.toasts.splice(index, 1);
       }
-    });
-    removeButton.addEventListener("click", () => {
-      this.event.dispatchEvent(new CustomEvent("destroy"));
-      this.element.remove();
-    });
-    this.startTimer();
+    }, duration);
+    this.moveToasts();
   }
-  startTimer() {
-    const durationEl = this.element.querySelector(".ntv__timer__duration");
-    this.interval = setInterval(() => {
-      this.remainingTime--;
-      durationEl.textContent = this.formatTime(this.remainingTime);
-      if (this.remainingTime <= 0) {
-        durationEl?.classList.add("ntv__timer__duration--expired");
-      }
-    }, 1e3);
-  }
-  formatTime(time) {
-    const sign = time < 0 ? "-" : "";
-    time = Math.abs(time);
-    const hours = Math.floor(time / 3600);
-    const minutes = Math.floor(time % 3600 / 60);
-    const seconds = time % 60;
-    return `${sign}${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  moveToasts() {
+    const spacing = 20;
+    let y = 20;
+    const toasts = this.toasts.toReversed();
+    for (const toast of toasts) {
+      toast.element.style.top = `${y}px`;
+      y += toast.element.clientHeight + spacing;
+    }
   }
 };
 
 // src/UserInterface/AbstractUserInterface.ts
-var emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\s]+)/g;
+var emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g;
 var AbstractUserInterface = class {
   rootContext;
   session;
@@ -10327,6 +10417,7 @@ var AbstractUserInterface = class {
   clipboard = new Clipboard2();
   toaster = new Toaster();
   messageHistory = new MessagesHistory();
+  submitButtonPriorityEventTarget = new PriorityEventTarget();
   replyMessageData;
   replyMessageComponent;
   maxMessageLength = 500;
@@ -10339,7 +10430,7 @@ var AbstractUserInterface = class {
     this.session = session;
   }
   loadInterface() {
-    const { eventBus } = this.rootContext;
+    const { eventBus } = this.session;
     eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
       assertArgDefined(data.username);
       this.showUserInfoModal(data.username);
@@ -10377,14 +10468,11 @@ var AbstractUserInterface = class {
     this.toaster.addToast(message, 4e3, "error");
   }
   renderEmotesInString(textContent) {
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const newNodes = [];
     let match, lastIndex = 0, textBuffer = "";
     while ((match = emoteMatcherRegex.exec(textContent)) !== null) {
       const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match;
-      if (lastIndex === 0 && match.index > 0) {
-        this.parseEmojisInString(textContent.slice(0, match.index), newNodes);
-      }
       if (kickEmoteFormatMatch) {
         if (textBuffer) {
           this.parseEmojisInString(textBuffer, newNodes);
@@ -10426,23 +10514,26 @@ var AbstractUserInterface = class {
     return newNodes;
   }
   parseEmojisInString(textContent, resultArray = []) {
-    const entities = (0, import_parser.parse)(textContent);
-    if (entities.length) {
-      const entitiesLength = entities.length;
-      for (let i = 0; i < entitiesLength; i++) {
-        const entity = entities[i];
+    const emojiEntries = (0, import_parser.parse)(textContent);
+    if (emojiEntries.length) {
+      const totalEmojis = emojiEntries.length;
+      let lastIndex = 0;
+      for (let i = 0; i < totalEmojis; i++) {
+        const emojiData = emojiEntries[i];
         const emojiNode = document.createElement("img");
-        emojiNode.className = "ntv__inline-emoji";
-        emojiNode.src = entity.url;
-        emojiNode.alt = entity.text;
-        const stringStart = textContent.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0]);
-        const stringEnd = textContent.slice(
-          entity.indices[1],
-          entities[i + 1]?.indices[0] || textContent.length
-        );
-        resultArray.push(this.createPlainTextMessagePartNode(stringStart));
+        emojiNode.className = "ntv__chat-message__part ntv__inline-emoji";
+        emojiNode.src = emojiData.url;
+        emojiNode.alt = emojiData.text;
+        const stringStart = textContent.slice(lastIndex, emojiData.indices[0]);
+        if (stringStart) {
+          resultArray.push(this.createPlainTextMessagePartNode(stringStart));
+        }
         resultArray.push(emojiNode);
-        resultArray.push(this.createPlainTextMessagePartNode(stringEnd));
+        lastIndex = emojiData.indices[1];
+      }
+      const remainingText = textContent.slice(lastIndex);
+      if (remainingText) {
+        resultArray.push(this.createPlainTextMessagePartNode(remainingText));
       }
     } else {
       resultArray.push(this.createPlainTextMessagePartNode(textContent));
@@ -10496,7 +10587,8 @@ var AbstractUserInterface = class {
   }
   // Submits input to chat
   submitInput(suppressEngagementEvent, dontClearInput) {
-    const { eventBus, networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
+    const { eventBus } = this.session;
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor) return error("Unable to submit input, the input controller is not loaded yet.");
     if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
@@ -10534,7 +10626,8 @@ var AbstractUserInterface = class {
     dontClearInput || contentEditableEditor.clearInput();
   }
   sendEmoteToChat(emoteHid) {
-    const { emotesManager, networkInterface } = this.rootContext;
+    const { networkInterface } = this.session;
+    const { emotesManager } = this.session;
     const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
     if (!emoteEmbedding) return error("Failed to send emote to chat, emote embedding not found.");
     networkInterface.sendMessage(emoteEmbedding).then((res) => {
@@ -10570,96 +10663,10 @@ var AbstractUserInterface = class {
   }
 };
 
-// src/Classes/PriorityEventTarget.ts
-var notAllowed = function() {
-  throw new Error("PreventDefault cannot be called because the event was set as passive.");
-};
-var stopPropagation = function() {
-  this._stopPropagation();
-  this.stoppedPropagation = true;
-};
-var stopImmediatePropagation = function() {
-  this._stopImmediatePropagation();
-  this.stoppedImmediatePropagation = true;
-};
-var PriorityEventTarget = class {
-  events = /* @__PURE__ */ new Map();
-  /**
-   * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.
-   * @param type
-   * @param priority
-   * @param listener
-   * @param options
-   */
-  addEventListener(type, priority, listener, options) {
-    if (!this.events.has(type)) {
-      this.events.set(type, []);
-    }
-    const priorities = this.events.get(type);
-    if (!priorities[priority]) priorities[priority] = [];
-    const listeners = priorities[priority];
-    if (options) listeners.push([listener, options]);
-    else listeners.push([listener]);
-    if (options && options.signal) {
-      options.signal.addEventListener("abort", () => {
-        this.removeEventListener(type, priority, listener, options);
-      });
-    }
-  }
-  removeEventListener(type, priority, listener, options) {
-    if (this.events.has(type)) {
-      const priorities = this.events.get(type);
-      const listeners = priorities[priority];
-      if (!listeners) return;
-      for (let i = 0; i < listeners.length; i++) {
-        let listenerItem = listeners[i][0];
-        let optionsItem = listeners[i][1];
-        if (listenerItem === listener && optionsItem === options) {
-          listeners.splice(i, 1);
-          i--;
-        }
-      }
-    }
-  }
-  dispatchEvent(event) {
-    ;
-    event._stopPropagation = event.stopPropagation;
-    event.stopPropagation = stopPropagation;
-    event._stopImmediatePropagation = event.stopImmediatePropagation;
-    event.stopImmediatePropagation = stopImmediatePropagation;
-    const type = event.type;
-    if (this.events.has(type)) {
-      const priorities = this.events.get(type);
-      for (const key in priorities) {
-        const listeners = priorities[key];
-        for (let i = 0; i < listeners.length; i++) {
-          const listener = listeners[i][0];
-          const options = listeners[i][1];
-          if (options) {
-            if (options.once) {
-              listeners.splice(i, 1);
-              i--;
-            }
-            if (options.passive) {
-              event.preventDefault = notAllowed;
-            }
-          }
-          listener(event);
-          if (event.stoppedImmediatePropagation) {
-            return;
-          }
-        }
-        if (event.stoppedPropagation) {
-          return;
-        }
-      }
-    }
-  }
-};
-
 // src/Classes/ContentEditableEditor.ts
 var ContentEditableEditor = class {
   rootContext;
+  session;
   messageHistory;
   clipboard;
   inputNode;
@@ -10672,15 +10679,19 @@ var ContentEditableEditor = class {
   emotesInMessage = /* @__PURE__ */ new Set();
   hasMouseDown = false;
   hasUnprocessedContentChanges = false;
-  constructor(rootContext, {
+  constructor(rootContext, session, {
     messageHistory,
     clipboard
   }, contentEditableEl) {
     this.rootContext = rootContext;
+    this.session = session;
     this.messageHistory = messageHistory;
     this.clipboard = clipboard;
     this.inputNode = contentEditableEl;
     this.processInputContentDebounce = debounce(this.processInputContent.bind(this), 25);
+  }
+  destroy() {
+    if (this.inputNode) this.inputNode.remove();
   }
   getInputNode() {
     return this.inputNode;
@@ -10732,7 +10743,7 @@ var ContentEditableEditor = class {
     this.eventTarget.dispatchEvent(event);
   }
   attachEventListeners() {
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const { inputNode, clipboard } = this;
     document.addEventListener("selectionchange", (evt) => {
       const activeElement = document.activeElement;
@@ -10798,7 +10809,7 @@ var ContentEditableEditor = class {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (!this.inputEmpty) {
-          this.rootContext.eventBus.publish("ntv.input_controller.submit", {
+          this.session.eventBus.publish("ntv.input_controller.submit", {
             dontClearInput: event.ctrlKey
           });
         }
@@ -10858,7 +10869,7 @@ var ContentEditableEditor = class {
       event.preventDefault();
       return this.insertText(" ");
     }
-    const emoteHid = this.rootContext.emotesManager.getEmoteHidByName(word);
+    const emoteHid = this.session.emotesManager.getEmoteHidByName(word);
     if (!emoteHid) {
       event.preventDefault();
       return this.insertText(" ");
@@ -10974,7 +10985,7 @@ var ContentEditableEditor = class {
   }
   processInputContent() {
     if (!this.hasUnprocessedContentChanges) return;
-    const { eventBus, emotesManager } = this.rootContext;
+    const { eventBus, emotesManager } = this.session;
     const { inputNode } = this;
     const buffer = [];
     let bufferString = "";
@@ -11366,7 +11377,7 @@ var ContentEditableEditor = class {
   insertEmote(emoteHid) {
     assertArgDefined(emoteHid);
     const { messageHistory, eventTarget } = this;
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     messageHistory.resetCursor();
     const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
     if (!emoteHTML) {
@@ -11384,7 +11395,7 @@ var ContentEditableEditor = class {
     return emoteComponent;
   }
   replaceEmote(component, emoteHid) {
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
     if (!emoteHTML) {
       error("Invalid emote embed");
@@ -11578,7 +11589,11 @@ var AbstractCompletionStrategy = class {
   isShowingNavWindow() {
     return !!this.navWindow;
   }
+  handleKeyDown(event) {
+  }
   handleKeyUp(event) {
+  }
+  handleSubmitButton(event) {
   }
   destroy() {
     if (this.navWindow) this.destroyModal();
@@ -11880,7 +11895,7 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
   }
   static shouldUseStrategy(event, contentEditableEditor) {
     const firstChar = contentEditableEditor.getFirstCharacter();
-    return firstChar === "/" || event.key === "/" && contentEditableEditor.isInputEmpty();
+    return firstChar === "/" || event instanceof KeyboardEvent && event.key === "/" && contentEditableEditor.isInputEmpty();
   }
   createModal() {
     super.createModal();
@@ -11897,9 +11912,9 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     } else {
       commandEntries = availableCommands.filter((commandEntry) => commandEntry.name.startsWith(commandName));
     }
+    if (!this.navWindow) this.createModal();
+    else this.navWindow.clearEntries();
     if (commandEntries && commandEntries.length) {
-      if (!this.navWindow) this.createModal();
-      else this.navWindow.clearEntries();
       for (const commandEntry of commandEntries) {
         const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true);
         entryEl.childNodes[1].textContent = commandEntry.description;
@@ -11936,7 +11951,6 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
         this.navWindow.addEntry(commandEntry, entryEl);
       }
     } else {
-      this.destroy();
     }
   }
   renderInlineCompletion() {
@@ -11971,7 +11985,7 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     return null;
   }
   getAvailableCommands() {
-    const channelData = this.rootContext.networkInterface.channelData;
+    const channelData = this.session.networkInterface.channelData;
     const is_broadcaster = channelData?.me?.isBroadcaster || false;
     const is_moderator = channelData?.me?.isModerator || false;
     return commandsMap.filter((commandEntry) => {
@@ -12020,6 +12034,42 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
     this.navWindow.moveSelectorDown();
     this.renderInlineCompletion();
   }
+  attemptSubmit(event) {
+    const { contentEditableEditor } = this;
+    const firstNode = contentEditableEditor.getInputNode().firstChild;
+    if (!firstNode || !(firstNode instanceof Text)) {
+      this.destroy();
+      return;
+    }
+    const nodeData = firstNode.data;
+    const firstChar = nodeData[0];
+    if (firstChar !== "/") {
+      this.destroy();
+      return;
+    }
+    const isInvalid = this.validateInputCommand(nodeData.substring(1));
+    const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1));
+    event.stopPropagation();
+    if (isInvalid || !commandData) {
+      return;
+    }
+    const { networkInterface } = this.session;
+    if (commandEntry && typeof commandEntry.execute === "function") {
+      commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args);
+    } else {
+      networkInterface.sendCommand(commandData).then((res) => {
+        if (res.error) {
+          this.session.userInterface?.toastError(res.error);
+        } else if (!res.success) {
+          this.session.userInterface?.toastError("Command failed. No reason given.");
+        }
+      }).catch((err) => {
+        this.session.userInterface?.toastError("Command failed. " + (err.message || ""));
+      });
+    }
+    contentEditableEditor.clearInput();
+    this.destroy();
+  }
   handleKeyDown(event) {
     const { contentEditableEditor } = this;
     if (event.key === "ArrowUp") {
@@ -12043,28 +12093,8 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
       return;
     }
     if (event.key === "Enter") {
-      const isInvalid = this.validateInputCommand(nodeData.substring(1));
-      const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1));
-      event.stopPropagation();
       event.preventDefault();
-      if (isInvalid || !commandData) {
-        return;
-      }
-      const { networkInterface } = this.rootContext;
-      if (commandEntry && typeof commandEntry.execute === "function") {
-        commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args);
-      } else {
-        networkInterface.sendCommand(commandData).then((res) => {
-          if (res.error) {
-            this.session.userInterface?.toastError(res.error);
-          } else if (!res.success) {
-            this.session.userInterface?.toastError("Command failed. No reason given.");
-          }
-        }).catch((err) => {
-          this.session.userInterface?.toastError("Command failed. " + (err.message || ""));
-        });
-      }
-      contentEditableEditor.clearInput();
+      this.attemptSubmit(event);
     }
   }
   handleKeyUp(event) {
@@ -12088,26 +12118,31 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
       this.updateCompletionEntries(commandName, nodeData);
     }
   }
+  handleSubmitButton(event) {
+    this.attemptSubmit(event);
+  }
 };
 
 // src/Classes/CompletionStrategies/MentionCompletionStrategy.ts
 var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
   contentEditableEditor;
   rootContext;
+  session;
   id = "mentions";
   start = 0;
   end = 0;
   node = null;
   word = null;
   mentionEnd = 0;
-  constructor(rootContext, { contentEditableEditor }, containerEl) {
+  constructor(rootContext, session, { contentEditableEditor }, containerEl) {
     super(containerEl);
     this.contentEditableEditor = contentEditableEditor;
     this.rootContext = rootContext;
+    this.session = session;
   }
   static shouldUseStrategy(event) {
     const word = Caret.getWordBeforeCaret().word;
-    return event.key === "@" && !word || word !== null && word.startsWith("@");
+    return event instanceof KeyboardEvent && event.key === "@" && !word || word !== null && word.startsWith("@");
   }
   createModal() {
     super.createModal();
@@ -12128,7 +12163,7 @@ var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
     this.start = start;
     this.end = end;
     this.node = node;
-    const searchResults = this.rootContext.usersManager.searchUsers(word.substring(1, 20), 20);
+    const searchResults = this.session.usersManager.searchUsers(word.substring(1, 20), 20);
     const userNames = searchResults.map((result) => result.item.name);
     const userIds = searchResults.map((result) => result.item.id);
     if (userNames.length) {
@@ -12232,6 +12267,7 @@ var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
 // src/Classes/CompletionStrategies/EmoteCompletionStrategy.ts
 var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
   rootContext;
+  session;
   contentEditableEditor;
   id = "emotes";
   start = 0;
@@ -12239,14 +12275,15 @@ var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
   node = null;
   word = null;
   emoteComponent = null;
-  constructor(rootContext, { contentEditableEditor }, containerEl) {
+  constructor(rootContext, session, { contentEditableEditor }, containerEl) {
     super(containerEl);
     this.rootContext = rootContext;
+    this.session = session;
     this.contentEditableEditor = contentEditableEditor;
   }
   static shouldUseStrategy(event) {
     const word = Caret.getWordBeforeCaret().word;
-    return event.key === "Tab" && word !== null;
+    return event instanceof KeyboardEvent && event.key === "Tab" && word !== null;
   }
   createModal() {
     super.createModal();
@@ -12262,7 +12299,7 @@ var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
       this.destroy();
       return;
     }
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     this.word = word;
     this.start = start;
     this.end = end;
@@ -12390,17 +12427,21 @@ var InputCompletor = class {
   session;
   contentEditableEditor;
   containerEl;
+  submitButtonPriorityEventTarget;
   constructor(rootContext, session, {
-    contentEditableEditor
+    contentEditableEditor,
+    submitButtonPriorityEventTarget
   }, containerEl) {
     this.rootContext = rootContext;
     this.session = session;
     this.contentEditableEditor = contentEditableEditor;
     this.containerEl = containerEl;
+    this.submitButtonPriorityEventTarget = submitButtonPriorityEventTarget;
   }
   attachEventHandlers() {
     this.contentEditableEditor.addEventListener("keydown", 8, this.handleKeyDown.bind(this));
     this.contentEditableEditor.addEventListener("keyup", 10, this.handleKeyUp.bind(this));
+    this.submitButtonPriorityEventTarget.addEventListener("click", 9, this.handleSubmitButton.bind(this));
   }
   isShowingModal() {
     return this.currentActiveStrategy?.isShowingNavWindow() || false;
@@ -12410,35 +12451,39 @@ var InputCompletor = class {
       this.reset();
     }
   }
-  handleKeyDown(event) {
-    if (!this.currentActiveStrategy) {
-      if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
-        this.currentActiveStrategy = new CommandCompletionStrategy(
-          this.rootContext,
-          this.session,
-          {
-            contentEditableEditor: this.contentEditableEditor
-          },
-          this.containerEl
-        );
-      } else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
-        this.currentActiveStrategy = new MentionCompletionStrategy(
-          this.rootContext,
-          {
-            contentEditableEditor: this.contentEditableEditor
-          },
-          this.containerEl
-        );
-      } else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
-        this.currentActiveStrategy = new EmoteCompletionStrategy(
-          this.rootContext,
-          {
-            contentEditableEditor: this.contentEditableEditor
-          },
-          this.containerEl
-        );
-      }
+  maybeSetStrategy(event) {
+    if (this.currentActiveStrategy) return;
+    if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
+      this.currentActiveStrategy = new CommandCompletionStrategy(
+        this.rootContext,
+        this.session,
+        {
+          contentEditableEditor: this.contentEditableEditor
+        },
+        this.containerEl
+      );
+    } else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
+      this.currentActiveStrategy = new MentionCompletionStrategy(
+        this.rootContext,
+        this.session,
+        {
+          contentEditableEditor: this.contentEditableEditor
+        },
+        this.containerEl
+      );
+    } else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
+      this.currentActiveStrategy = new EmoteCompletionStrategy(
+        this.rootContext,
+        this.session,
+        {
+          contentEditableEditor: this.contentEditableEditor
+        },
+        this.containerEl
+      );
     }
+  }
+  handleKeyDown(event) {
+    this.maybeSetStrategy(event);
     if (this.currentActiveStrategy) {
       this.currentActiveStrategy.handleKeyDown(event);
       if (this.currentActiveStrategy.destroyed) {
@@ -12459,6 +12504,15 @@ var InputCompletor = class {
       }
     }
   }
+  handleSubmitButton(event) {
+    this.maybeSetStrategy(event);
+    if (this.currentActiveStrategy) {
+      this.currentActiveStrategy.handleSubmitButton(event);
+      if (this.currentActiveStrategy.destroyed) {
+        delete this.currentActiveStrategy;
+      }
+    }
+  }
   reset() {
     this.currentActiveStrategy?.destroy();
     delete this.currentActiveStrategy;
@@ -12473,13 +12527,15 @@ var InputController = class {
   tabCompletor;
   contentEditableEditor;
   constructor(rootContext, session, {
-    clipboard
+    clipboard,
+    submitButtonPriorityEventTarget
   }, textFieldEl) {
     this.rootContext = rootContext;
     this.session = session;
     this.messageHistory = new MessagesHistory();
     this.contentEditableEditor = new ContentEditableEditor(
-      this.rootContext,
+      rootContext,
+      session,
       { messageHistory: this.messageHistory, clipboard },
       textFieldEl
     );
@@ -12487,13 +12543,14 @@ var InputController = class {
       rootContext,
       session,
       {
-        contentEditableEditor: this.contentEditableEditor
+        contentEditableEditor: this.contentEditableEditor,
+        submitButtonPriorityEventTarget
       },
       textFieldEl.parentElement
     );
   }
   initialize() {
-    const { eventBus } = this.rootContext;
+    const { eventBus } = this.session;
     const { contentEditableEditor } = this;
     contentEditableEditor.attachEventListeners();
     contentEditableEditor.addEventListener("keydown", 9, (event) => {
@@ -12504,7 +12561,7 @@ var InputController = class {
     eventBus.subscribe("ntv.ui.input_submitted", this.handleInputSubmit.bind(this));
   }
   handleInputSubmit({ suppressEngagementEvent }) {
-    const { emotesManager } = this.rootContext;
+    const { emotesManager } = this.session;
     const { contentEditableEditor, messageHistory } = this;
     if (!suppressEngagementEvent) {
       const emotesInMessage = contentEditableEditor.getEmotesInMessage();
@@ -12561,6 +12618,9 @@ var InputController = class {
       }
     });
   }
+  destroy() {
+    this.contentEditableEditor.destroy();
+  }
 };
 
 // src/UserInterface/KickUserInterface.ts
@@ -12588,12 +12648,13 @@ var KickUserInterface = class extends AbstractUserInterface {
   async loadInterface() {
     info("Creating user interface..");
     super.loadInterface();
-    const { eventBus, settingsManager } = this.rootContext;
-    const { channelData } = this.session;
+    const { settingsManager, eventBus: rootEventBus } = this.rootContext;
+    const { channelData, eventBus } = this.session;
     const { abortController } = this;
     const abortSignal = abortController.signal;
     this.loadSettings();
     waitForElements(["#message-input", "#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
+      if (this.session.isDestroyed) return;
       this.loadShadowProxyElements();
       this.loadEmoteMenu();
       this.loadEmoteMenuButton();
@@ -12605,6 +12666,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     });
     const chatMessagesContainerSelector = channelData.isVod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
     waitForElements([chatMessagesContainerSelector], 5e3, abortSignal).then(() => {
+      if (this.session.isDestroyed) return;
       this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector);
       const chatroomEl = document.getElementById("chatroom");
       if (chatroomEl) {
@@ -12619,7 +12681,7 @@ var KickUserInterface = class extends AbstractUserInterface {
           this.clipboard.handleCopyEvent(evt);
         });
       }
-      eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
+      rootEventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
       this.observeChatMessages();
       this.observeChatEntriesForDeletionEvents();
       this.loadScrollingBehaviour();
@@ -12627,10 +12689,12 @@ var KickUserInterface = class extends AbstractUserInterface {
     }).catch(() => {
     });
     waitForElements(["#chatroom-top"], 5e3).then(() => {
+      if (this.session.isDestroyed) return;
       this.observePinnedMessage();
     }).catch(() => {
     });
     waitForElements(["#chatroom-footer .send-row"], 5e3).then(() => {
+      if (this.session.isDestroyed) return;
       const timersContainer = document.createElement("div");
       timersContainer.id = "ntv__timers-container";
       document.querySelector("#chatroom-footer .send-row")?.after(timersContainer);
@@ -12649,19 +12713,19 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     eventBus.subscribe("ntv.input_controller.submit", (data) => this.submitInput(false, data?.dontClearInput));
-    eventBus.subscribe(
+    rootEventBus.subscribe(
       "ntv.settings.change.shared.chat.behavior.smooth_scrolling",
       ({ value, prevValue }) => {
         document.getElementById("chatroom")?.classList.toggle("ntv__smooth-scrolling", !!value);
       }
     );
-    eventBus.subscribe(
+    rootEventBus.subscribe(
       "ntv.settings.change.shared.chat.appearance.alternating_background",
       ({ value, prevValue }) => {
         document.getElementById("chatroom")?.classList.toggle("ntv__alternating-background", !!value);
       }
     );
-    eventBus.subscribe(
+    rootEventBus.subscribe(
       "ntv.settings.change.shared.chat.appearance.seperators",
       ({ value, prevValue }) => {
         if (prevValue !== "none")
@@ -12670,7 +12734,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         document.getElementById("chatroom")?.classList.add(`ntv__seperators-${value}`);
       }
     );
-    eventBus.subscribe(
+    rootEventBus.subscribe(
       "ntv.settings.change.shared.chat.appearance.chat_theme",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
@@ -12693,12 +12757,13 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session).init();
   }
   async loadQuickEmotesHolder() {
-    const { eventBus, settingsManager } = this.rootContext;
+    const { settingsManager } = this.rootContext;
+    const { eventBus } = this.session;
     const quickEmotesHolderEnabled = settingsManager.getSetting("shared.chat.quick_emote_holder.enabled");
     if (quickEmotesHolderEnabled) {
       const placeholder = document.createElement("div");
       document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
-      this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init();
+      this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init();
     }
     eventBus.subscribe(
       "ntv.settings.change.shared.chat.quick_emote_holder.enabled",
@@ -12706,7 +12771,11 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (value) {
           const placeholder = document.createElement("div");
           document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
-          this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init();
+          this.quickEmotesHolder = new QuickEmotesHolderComponent(
+            this.rootContext,
+            this.session,
+            placeholder
+          ).init();
         } else {
           this.quickEmotesHolder?.destroy();
           this.quickEmotesHolder = null;
@@ -12719,7 +12788,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     });
   }
   loadSettings() {
-    const { eventBus, settingsManager } = this.rootContext;
+    const { settingsManager } = this.rootContext;
+    const { eventBus } = this.session;
     const firstMessageHighlightColor = settingsManager.getSetting("shared.chat.appearance.highlight_color");
     if (firstMessageHighlightColor) {
       const rgb = hex2rgb(firstMessageHighlightColor);
@@ -12763,17 +12833,21 @@ var KickUserInterface = class extends AbstractUserInterface {
       `<div class="ntv__message-input__wrapper" data-char-limit="${this.maxMessageLength}"></div>`,
       true
     );
+    document.querySelectorAll(".ntv__message-input__wrapper").forEach((el) => el.remove());
+    document.querySelectorAll(".ntv__message-input").forEach((el) => el.remove());
     originalTextFieldEl.parentElement.parentElement?.append(textFieldWrapperEl);
     textFieldWrapperEl.append(textFieldEl);
     const moderatorChatIdentityBadgeIconEl = document.querySelector(".chat-input-wrapper .chat-input-icon");
     if (moderatorChatIdentityBadgeIconEl) textFieldEl.before(moderatorChatIdentityBadgeIconEl);
     document.getElementById("chatroom")?.classList.add("ntv__hide-chat-input");
-    submitButtonEl.addEventListener("click", () => this.submitInput());
+    this.submitButtonPriorityEventTarget.addEventListener("click", 10, this.submitInput.bind(this));
+    submitButtonEl.addEventListener("click", (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event));
     const inputController = this.inputController = new InputController(
       this.rootContext,
       this.session,
       {
-        clipboard: this.clipboard
+        clipboard: this.clipboard,
+        submitButtonPriorityEventTarget: this.submitButtonPriorityEventTarget
       },
       textFieldEl
     );
@@ -12800,7 +12874,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldEl.addEventListener("cut", (evt) => {
       this.clipboard.handleCutEvent(evt);
     });
-    this.rootContext.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
+    this.session.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
       if (value > this.maxMessageLength) {
         textFieldWrapperEl.setAttribute("data-char-count", value);
         textFieldWrapperEl.classList.add("ntv__message-input__wrapper--char-limit-reached");
@@ -12990,7 +13064,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
     if (!chatMessagesContainerEl) return error("Chat messages container not loaded for observing");
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
-    this.rootContext.eventBus.subscribe(
+    this.session.eventBus.subscribe(
       "ntv.providers.loaded",
       () => {
         const observer = this.chatObserver = new MutationObserver((mutations) => {
@@ -13187,7 +13261,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   observePinnedMessage() {
     const chatroomTopEl = document.getElementById("chatroom-top");
     if (!chatroomTopEl) return error("Chatroom top not loaded for observing pinned message");
-    this.rootContext.eventBus.subscribe("ntv.providers.loaded", () => {
+    this.session.eventBus.subscribe("ntv.providers.loaded", () => {
       const observer = this.pinnedMessageObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes.length) {
@@ -13215,7 +13289,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
   }
   renderChatMessage(messageNode) {
-    const { usersManager, settingsManager, emotesManager } = this.rootContext;
+    const { settingsManager } = this.rootContext;
+    const { emotesManager, usersManager } = this.session;
     const { channelData } = this.session;
     if (!channelData.isVod) {
       const usernameEl = messageNode.querySelector(".chat-entry-username");
@@ -13392,6 +13467,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.chatObserver) this.chatObserver.disconnect();
     if (this.replyObserver) this.replyObserver.disconnect();
     if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect();
+    if (this.inputController) this.inputController.destroy();
     if (this.emoteMenu) this.emoteMenu.destroy();
     if (this.emoteMenuButton) this.emoteMenuButton.destroy();
     if (this.quickEmotesHolder) this.quickEmotesHolder.destroy();
@@ -13500,7 +13576,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
     return `<img class="${classes}" tabindex="0" size="1" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
   }
   getEmbeddableEmote(emote) {
-    return `[emote:${emote.id}:_]`;
+    return `[emote:${emote.id}:${emote.name}]`;
   }
   getEmoteSrc(emote) {
     return `https://files.kick.com/emotes/${emote.id}/fullsize`;
@@ -13531,8 +13607,8 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       this.status = "connection_failed";
       return [];
     }
-    const globalEmoteSet = this.unpackGlobalEmotes(globalData);
-    const userEmoteSet = this.unpackUserEmotes(userData);
+    const globalEmoteSet = this.unpackGlobalEmotes(globalData || {});
+    const userEmoteSet = this.unpackUserEmotes(userData || {});
     if (globalEmoteSet.length + userEmoteSet.length > 1)
       log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`);
     else log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`);
@@ -15123,7 +15199,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.23",
+    VERSION: "1.4.24",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -15135,6 +15211,8 @@ var NipahClient = class {
   eventBus = null;
   networkInterface = null;
   emotesManager = null;
+  rootContext = null;
+  settingsManagerPromise = null;
   database = null;
   sessions = [];
   initialize() {
@@ -15181,58 +15259,63 @@ var NipahClient = class {
     });
   }
   async setupClientEnvironment() {
-    const { ENV_VARS, database } = this;
+    const { database } = this;
     if (!database) throw new Error("Database is not initialized.");
     info("Setting up client environment..");
     const eventBus = new Publisher();
-    this.eventBus = eventBus;
+    const settingsManager = new SettingsManager({ database, eventBus });
+    settingsManager.initialize();
+    this.settingsManagerPromise = settingsManager.loadSettings().catch((err) => {
+      throw new Error(`Couldn't load settings because: ${err}`);
+    });
+    this.rootContext = {
+      eventBus,
+      database,
+      settingsManager
+    };
+    this.createChannelSession();
+  }
+  async createChannelSession() {
+    log(`Creating new session for ${window.location.href}...`);
+    const rootContext = this.rootContext;
+    if (!rootContext) throw new Error("Root context is not initialized.");
+    const { database, settingsManager } = rootContext;
+    const eventBus = new Publisher();
+    const usersManager = new UsersManager({ eventBus, settingsManager });
     if (PLATFORM === 1 /* KICK */) {
-      this.networkInterface = new KickNetworkInterface({ ENV_VARS });
+      this.networkInterface = new KickNetworkInterface({ ENV_VARS: this.ENV_VARS });
     } else if (PLATFORM === 2 /* TWITCH */) {
       throw new Error("Twitch platform is not supported yet.");
     } else {
       throw new Error("Unsupported platform");
     }
     const networkInterface = this.networkInterface;
-    const settingsManager = new SettingsManager({ database, eventBus });
-    settingsManager.initialize();
-    const promises = [];
-    promises.push(
-      settingsManager.loadSettings().catch((err) => {
-        throw new Error(`Couldn't load settings because: ${err}`);
-      })
-    );
-    promises.push(
+    const session = {
+      eventBus,
+      networkInterface,
+      usersManager
+    };
+    this.sessions.push(session);
+    if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName);
+    await Promise.allSettled([
+      this.settingsManagerPromise,
       networkInterface.loadChannelData().catch((err) => {
         throw new Error(`Couldn't load channel data because: ${err}`);
       })
-    );
-    await Promise.allSettled(promises);
-    if (!networkInterface.channelData) throw new Error("Channel data has not loaded yet.");
+    ]);
     const channelData = networkInterface.channelData;
+    if (!channelData) throw new Error("Channel data has not loaded yet.");
     const emotesManager = this.emotesManager = new EmotesManager(
       { database, eventBus, settingsManager },
       channelData.channelId
     );
     emotesManager.initialize();
-    const usersManager = new UsersManager({ eventBus, settingsManager });
-    const rootContext = {
-      eventBus,
-      networkInterface,
-      database,
+    Object.assign(session, {
       emotesManager,
-      settingsManager,
-      usersManager
-    };
-    this.createChannelSession(rootContext, channelData);
-  }
-  createChannelSession(rootContext, channelData) {
-    const { emotesManager } = rootContext;
-    const session = {
       channelData,
       // badgeProvider: PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
       badgeProvider: new KickBadgeProvider(rootContext, channelData)
-    };
+    });
     session.badgeProvider.initialize();
     let userInterface;
     if (PLATFORM === 1 /* KICK */) {
@@ -15241,7 +15324,6 @@ var NipahClient = class {
       return error("Platform has no user interface implemented..", PLATFORM);
     }
     session.userInterface = userInterface;
-    this.sessions.push(session);
     if (!this.stylesLoaded) {
       this.loadStyles().then(() => {
         this.stylesLoaded = true;
@@ -15254,6 +15336,7 @@ var NipahClient = class {
     emotesManager.registerProvider(SevenTVEmoteProvider);
     const providerOverrideOrder = [2 /* SEVENTV */, 1 /* KICK */];
     emotesManager.loadProviderEmotes(channelData, providerOverrideOrder);
+    if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName);
   }
   loadStyles() {
     if (false) return Promise.resolve();
@@ -15292,34 +15375,32 @@ var NipahClient = class {
   attachPageNavigationListener() {
     info("Current URL:", window.location.href);
     let locationURL = window.location.href;
+    const navigateFn = () => {
+      if (locationURL === window.location.href) return;
+      if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) return;
+      const oldLocation = locationURL;
+      locationURL = window.location.href;
+      info("Navigated to:", locationURL);
+      this.cleanupSession(oldLocation);
+      log("Cleaned up old session for", oldLocation);
+      this.createChannelSession();
+    };
     if (window.navigation) {
-      window.navigation.addEventListener("navigate", (event) => {
-        setTimeout(() => {
-          if (locationURL === window.location.href) return;
-          if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) return;
-          locationURL = window.location.href;
-          info("Navigated to:", window.location.href);
-          this.cleanupOldClientEnvironment();
-          this.setupClientEnvironment();
-        }, 100);
-      });
+      window.navigation.addEventListener("navigate", debounce(navigateFn, 100));
     } else {
-      setInterval(() => {
-        if (locationURL === window.location.href) return;
-        if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) return;
-        locationURL = window.location.href;
-        info("Navigated to:", locationURL);
-        this.cleanupOldClientEnvironment();
-        this.setupClientEnvironment();
-      }, 100);
+      setInterval(navigateFn, 200);
     }
   }
-  cleanupOldClientEnvironment() {
-    log("Cleaning up old session..");
-    if (this.eventBus) {
-      this.eventBus.publish("ntv.session.destroy");
-      this.eventBus.destroy();
-      this.eventBus = null;
+  cleanupSession(oldLocation) {
+    const prevSession = this.sessions.shift();
+    if (prevSession) {
+      log(
+        `Cleaning up previous session for channel ${prevSession?.channelData?.channelName || "[CHANNEL NOT LOADED]"}...`
+      );
+      prevSession.isDestroyed = true;
+      prevSession.eventBus.publish("ntv.session.destroy");
+    } else {
+      log(`No session to clean up for ${oldLocation}..`);
     }
   }
 };
