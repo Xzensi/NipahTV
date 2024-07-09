@@ -173,7 +173,7 @@ export abstract class AbstractUserInterface {
 			for (let i = 0; i < totalEmojis; i++) {
 				const emojiData = emojiEntries[i]
 				const emojiNode = document.createElement('img')
-				emojiNode.className = 'ntv__inline-emoji'
+				emojiNode.className = 'ntv__chat-message__part ntv__inline-emoji'
 				emojiNode.src = emojiData.url
 				emojiNode.alt = emojiData.text
 
