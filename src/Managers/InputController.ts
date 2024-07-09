@@ -1,4 +1,5 @@
 import type { AbstractNetworkInterface } from '../NetworkInterfaces/AbstractNetworkInterface'
+import type { PriorityEventTarget } from '../Classes/PriorityEventTarget'
 import type { SettingsManager } from './SettingsManager'
 import type { Clipboard2 } from '../Classes/Clipboard'
 import type { Publisher } from '../Classes/Publisher'
@@ -23,9 +24,11 @@ export class InputController {
 		rootContext: RootContext,
 		session: Session,
 		{
-			clipboard
+			clipboard,
+			submitButtonPriorityEventTarget
 		}: {
 			clipboard: Clipboard2
+			submitButtonPriorityEventTarget: PriorityEventTarget
 		},
 		textFieldEl: HTMLElement
 	) {
@@ -34,7 +37,8 @@ export class InputController {
 
 		this.messageHistory = new MessagesHistory()
 		this.contentEditableEditor = new ContentEditableEditor(
-			this.rootContext,
+			rootContext,
+			session,
 			{ messageHistory: this.messageHistory, clipboard },
 			textFieldEl
 		)
@@ -42,14 +46,15 @@ export class InputController {
 			rootContext,
 			session,
 			{
-				contentEditableEditor: this.contentEditableEditor
+				contentEditableEditor: this.contentEditableEditor,
+				submitButtonPriorityEventTarget
 			},
 			textFieldEl.parentElement as HTMLElement
 		)
 	}
 
 	initialize() {
-		const { eventBus } = this.rootContext
+		const { eventBus } = this.session
 		const { contentEditableEditor } = this
 
 		contentEditableEditor.attachEventListeners()
@@ -65,7 +70,7 @@ export class InputController {
 	}
 
 	handleInputSubmit({ suppressEngagementEvent }: any) {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const { contentEditableEditor, messageHistory } = this
 
 		if (!suppressEngagementEvent) {
@@ -147,5 +152,9 @@ export class InputController {
 				}
 			}
 		})
+	}
+
+	destroy() {
+		this.contentEditableEditor.destroy()
 	}
 }

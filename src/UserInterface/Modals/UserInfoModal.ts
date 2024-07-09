@@ -84,8 +84,7 @@ export class UserInfoModal extends AbstractModal {
 	async render() {
 		super.render()
 
-		const { channelData, badgeProvider } = this.session
-		const { usersManager } = this.rootContext
+		const { channelData, usersManager, badgeProvider } = this.session
 		const isModerator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster
 
 		await this.updateUserInfo()
@@ -291,7 +290,7 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async clickFollowHandler() {
-		const { networkInterface } = this.rootContext
+		const { networkInterface } = this.session
 		const { userInfo } = this
 		if (!userInfo) return
 
@@ -335,7 +334,7 @@ export class UserInfoModal extends AbstractModal {
 		if (!userInfo) return
 
 		const { id, username } = userInfo
-		const { usersManager } = this.rootContext
+		const { usersManager } = this.session
 
 		const user = usersManager.getUserById(id)
 		if (!user) return
@@ -395,7 +394,7 @@ export class UserInfoModal extends AbstractModal {
 			timeoutPageEl.setAttribute('disabled', '')
 
 			try {
-				await this.rootContext.networkInterface.sendCommand({
+				await this.session.networkInterface.sendCommand({
 					name: 'timeout',
 					args: [this.username, duration, reason]
 				})
@@ -426,7 +425,7 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async clickVIPHandler() {
-		const { networkInterface } = this.rootContext
+		const { networkInterface } = this.session
 		const { userInfo, userChannelInfo } = this
 		if (!userInfo || !userChannelInfo) return
 
@@ -491,7 +490,7 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async clickModHandler() {
-		const { networkInterface } = this.rootContext
+		const { networkInterface } = this.session
 		const { userInfo, userChannelInfo } = this
 		if (!userInfo || !userChannelInfo) return
 
@@ -560,7 +559,7 @@ export class UserInfoModal extends AbstractModal {
 
 		this.modActionButtonBanEl!.classList.add('ntv__icon-button--disabled')
 
-		const { networkInterface } = this.rootContext
+		const { networkInterface } = this.session
 		const { userInfo, userChannelInfo } = this
 		if (!userInfo || !userChannelInfo) return
 
@@ -639,7 +638,7 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async loadMoreMessagesHistory() {
-		const { networkInterface } = this.rootContext
+		const { networkInterface } = this.session
 		const { channelData, userInterface } = this.session
 
 		const { userInfo, modLogsPageEl, messagesHistoryEl } = this
@@ -796,7 +795,7 @@ export class UserInfoModal extends AbstractModal {
 	}
 
 	async updateUserInfo() {
-		const { networkInterface } = this.rootContext
+		const { networkInterface } = this.session
 		const { channelData } = this.session
 
 		try {

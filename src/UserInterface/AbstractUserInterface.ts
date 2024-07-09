@@ -1,17 +1,18 @@
 import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { ReplyMessageComponent } from './Components/ReplyMessageComponent'
 import type { KickEmoteProvider } from '../Providers/KickEmoteProvider'
+import { PriorityEventTarget } from '../Classes/PriorityEventTarget'
 import type { InputController } from '../Managers/InputController'
 import { MessagesHistory } from '../Classes/MessagesHistory'
+import { TimerComponent } from './Components/TimerComponent'
 import { parse as twemojiParse } from '@twemoji/parser'
 import { UserInfoModal } from './Modals/UserInfoModal'
 import { Clipboard2 } from '../Classes/Clipboard'
-import { Toaster } from '../Classes/Toaster'
 import { PollModal } from './Modals/PollModal'
+import { Toaster } from '../Classes/Toaster'
 import { PROVIDER_ENUM } from '../constants'
-import { TimerComponent } from './Components/TimerComponent'
 
-const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\s]+)/g
+const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
 export abstract class AbstractUserInterface {
 	protected rootContext: RootContext
@@ -21,6 +22,7 @@ export abstract class AbstractUserInterface {
 	protected clipboard = new Clipboard2()
 	protected toaster = new Toaster()
 	protected messageHistory = new MessagesHistory()
+	protected submitButtonPriorityEventTarget = new PriorityEventTarget()
 
 	protected replyMessageData?: {
 		chatEntryId: string
@@ -48,7 +50,7 @@ export abstract class AbstractUserInterface {
 	}
 
 	loadInterface() {
-		const { eventBus } = this.rootContext
+		const { eventBus } = this.session
 
 		eventBus.subscribe('ntv.ui.show_modal.user_info', (data: { username: string }) => {
 			assertArgDefined(data.username)
@@ -98,7 +100,7 @@ export abstract class AbstractUserInterface {
 	}
 
 	renderEmotesInString(textContent: string) {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const newNodes: Array<Text | HTMLElement> = []
 
 		// TODO create abstraction layer for kick emote matching and rendering
@@ -112,10 +114,6 @@ export abstract class AbstractUserInterface {
 			 * Plaintext emote is just a word like "vibee"
 			 */
 			const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match
-
-			if (lastIndex === 0 && match.index > 0) {
-				this.parseEmojisInString(textContent.slice(0, match.index), newNodes)
-			}
 
 			if (kickEmoteFormatMatch) {
 				if (textBuffer) {
@@ -167,25 +165,34 @@ export abstract class AbstractUserInterface {
 	}
 
 	private parseEmojisInString(textContent: string, resultArray: Array<Text | HTMLElement> = []) {
-		const entities = twemojiParse(textContent)
-		if (entities.length) {
-			const entitiesLength = entities.length
-			for (let i = 0; i < entitiesLength; i++) {
-				const entity = entities[i]
+		const emojiEntries = twemojiParse(textContent)
+		if (emojiEntries.length) {
+			const totalEmojis = emojiEntries.length
+			let lastIndex = 0
+
+			for (let i = 0; i < totalEmojis; i++) {
+				const emojiData = emojiEntries[i]
 				const emojiNode = document.createElement('img')
-				emojiNode.className = 'ntv__inline-emoji'
-				emojiNode.src = entity.url
-				emojiNode.alt = entity.text
+				emojiNode.className = 'ntv__chat-message__part ntv__inline-emoji'
+				emojiNode.src = emojiData.url
+				emojiNode.alt = emojiData.text
 
-				const stringStart = textContent.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0])
-				const stringEnd = textContent.slice(
-					entity.indices[1],
-					entities[i + 1]?.indices[0] || textContent.length
-				)
+				// Get the string before the current emoji based on the last index processed
+				const stringStart = textContent.slice(lastIndex, emojiData.indices[0])
 
-				resultArray.push(this.createPlainTextMessagePartNode(stringStart))
+				if (stringStart) {
+					resultArray.push(this.createPlainTextMessagePartNode(stringStart))
+				}
 				resultArray.push(emojiNode)
-				resultArray.push(this.createPlainTextMessagePartNode(stringEnd))
+
+				// Update lastIndex to the end of the current emoji
+				lastIndex = emojiData.indices[1]
+			}
+
+			// After the loop, add any remaining text that comes after the last emoji
+			const remainingText = textContent.slice(lastIndex)
+			if (remainingText) {
+				resultArray.push(this.createPlainTextMessagePartNode(remainingText))
 			}
 		} else {
 			resultArray.push(this.createPlainTextMessagePartNode(textContent))
@@ -249,7 +256,8 @@ export abstract class AbstractUserInterface {
 
 	// Submits input to chat
 	submitInput(suppressEngagementEvent?: boolean, dontClearInput?: boolean) {
-		const { eventBus, networkInterface } = this.rootContext
+		const { networkInterface } = this.session
+		const { eventBus } = this.session
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
@@ -300,7 +308,8 @@ export abstract class AbstractUserInterface {
 	}
 
 	sendEmoteToChat(emoteHid: string) {
-		const { emotesManager, networkInterface } = this.rootContext
+		const { networkInterface } = this.session
+		const { emotesManager } = this.session
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
 		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
 

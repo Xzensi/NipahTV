@@ -6,6 +6,7 @@ import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 
 export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 	private rootContext: RootContext
+	private session: Session
 	private contentEditableEditor: ContentEditableEditor
 	protected id = 'emotes'
 
@@ -17,18 +18,20 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 
 	constructor(
 		rootContext: RootContext,
+		session: Session,
 		{ contentEditableEditor }: { contentEditableEditor: ContentEditableEditor },
 		containerEl: HTMLElement
 	) {
 		super(containerEl)
 
 		this.rootContext = rootContext
+		this.session = session
 		this.contentEditableEditor = contentEditableEditor
 	}
 
-	static shouldUseStrategy(event: KeyboardEvent): boolean {
+	static shouldUseStrategy(event: Event): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		return event.key === 'Tab' && word !== null
+		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null
 	}
 
 	createModal() {
@@ -49,7 +52,7 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 			return
 		}
 
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 
 		this.word = word
 		this.start = start

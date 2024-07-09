@@ -4,10 +4,7 @@ import {
 	error,
 	assertArgDefined,
 	waitForElements,
-	cleanupHTML,
-	md5,
 	hex2rgb,
-	logNow,
 	parseHTML,
 	findNodeWithTextContent
 } from '../utils'
@@ -56,8 +53,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		super.loadInterface()
 
-		const { eventBus, settingsManager } = this.rootContext
-		const { channelData } = this.session
+		const { settingsManager, eventBus: rootEventBus } = this.rootContext
+		const { channelData, eventBus } = this.session
 		const { abortController } = this
 		const abortSignal = abortController.signal
 
@@ -66,6 +63,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		// Wait for text input & submit button to load
 		waitForElements(['#message-input', '#chatroom-footer button.base-button'], 5_000, abortSignal)
 			.then(() => {
+				if (this.session.isDestroyed) return
+
 				this.loadShadowProxyElements()
 				this.loadEmoteMenu()
 				this.loadEmoteMenuButton()
@@ -84,6 +83,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		waitForElements([chatMessagesContainerSelector], 5_000, abortSignal)
 			.then(() => {
+				if (this.session.isDestroyed) return
+
 				this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector)
 
 				const chatroomEl = document.getElementById('chatroom')
@@ -106,7 +107,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 
 				// Render emotes in chat when providers are loaded
-				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
+				rootEventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
 
 				this.observeChatMessages()
 				this.observeChatEntriesForDeletionEvents()
@@ -117,12 +118,16 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		waitForElements(['#chatroom-top'], 5_000)
 			.then(() => {
+				if (this.session.isDestroyed) return
+
 				this.observePinnedMessage()
 			})
 			.catch(() => {})
 
 		waitForElements(['#chatroom-footer .send-row'], 5_000)
 			.then(() => {
+				if (this.session.isDestroyed) return
+
 				// Initialize a container for the timers UI
 				const timersContainer = document.createElement('div')
 				timersContainer.id = 'ntv__timers-container'
@@ -149,7 +154,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		eventBus.subscribe('ntv.input_controller.submit', (data: any) => this.submitInput(false, data?.dontClearInput))
 
 		// Set chat smooth scrolling mode
-		eventBus.subscribe(
+		rootEventBus.subscribe(
 			'ntv.settings.change.shared.chat.behavior.smooth_scrolling',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				document.getElementById('chatroom')?.classList.toggle('ntv__smooth-scrolling', !!value)
@@ -157,7 +162,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Add alternating background color to chat messages
-		eventBus.subscribe(
+		rootEventBus.subscribe(
 			'ntv.settings.change.shared.chat.appearance.alternating_background',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				document.getElementById('chatroom')?.classList.toggle('ntv__alternating-background', !!value)
@@ -165,7 +170,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Add seperator lines to chat messages
-		eventBus.subscribe(
+		rootEventBus.subscribe(
 			'ntv.settings.change.shared.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				if (prevValue !== 'none')
@@ -176,7 +181,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Chat theme change
-		eventBus.subscribe(
+		rootEventBus.subscribe(
 			'ntv.settings.change.shared.chat.appearance.chat_theme',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
@@ -206,12 +211,13 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadQuickEmotesHolder() {
-		const { eventBus, settingsManager } = this.rootContext
+		const { settingsManager } = this.rootContext
+		const { eventBus } = this.session
 		const quickEmotesHolderEnabled = settingsManager.getSetting('shared.chat.quick_emote_holder.enabled')
 		if (quickEmotesHolderEnabled) {
 			const placeholder = document.createElement('div')
 			document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
-			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init()
+			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init()
 		}
 
 		eventBus.subscribe(
@@ -220,7 +226,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (value) {
 					const placeholder = document.createElement('div')
 					document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
-					this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, placeholder).init()
+					this.quickEmotesHolder = new QuickEmotesHolderComponent(
+						this.rootContext,
+						this.session,
+						placeholder
+					).init()
 				} else {
 					this.quickEmotesHolder?.destroy()
 					this.quickEmotesHolder = null
@@ -237,7 +247,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadSettings() {
-		const { eventBus, settingsManager } = this.rootContext
+		const { settingsManager } = this.rootContext
+		const { eventBus } = this.session
 
 		const firstMessageHighlightColor = settingsManager.getSetting('shared.chat.appearance.highlight_color')
 		if (firstMessageHighlightColor) {
@@ -294,6 +305,10 @@ export class KickUserInterface extends AbstractUserInterface {
 			true
 		) as HTMLElement
 
+		// Cleanup any remaining chat input wrappers from previous sessions
+		document.querySelectorAll('.ntv__message-input__wrapper').forEach(el => el.remove())
+		document.querySelectorAll('.ntv__message-input').forEach(el => el.remove())
+
 		originalTextFieldEl.parentElement!.parentElement?.append(textFieldWrapperEl)
 		textFieldWrapperEl.append(textFieldEl)
 
@@ -304,13 +319,15 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
-		submitButtonEl.addEventListener('click', () => this.submitInput())
+		this.submitButtonPriorityEventTarget.addEventListener('click', 10, this.submitInput.bind(this))
+		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
 
 		const inputController = (this.inputController = new InputController(
 			this.rootContext,
 			this.session,
 			{
-				clipboard: this.clipboard
+				clipboard: this.clipboard,
+				submitButtonPriorityEventTarget: this.submitButtonPriorityEventTarget
 			},
 			textFieldEl
 		))
@@ -345,7 +362,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			this.clipboard.handleCutEvent(evt)
 		})
 
-		this.rootContext.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
+		this.session.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
 			if (value > this.maxMessageLength) {
 				textFieldWrapperEl.setAttribute('data-char-count', value)
 				textFieldWrapperEl.classList.add('ntv__message-input__wrapper--char-limit-reached')
@@ -598,7 +615,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
-		this.rootContext.eventBus.subscribe(
+		this.session.eventBus.subscribe(
 			'ntv.providers.loaded',
 			() => {
 				// Render emotes in chat when new messages are added
@@ -870,7 +887,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const chatroomTopEl = document.getElementById('chatroom-top')
 		if (!chatroomTopEl) return error('Chatroom top not loaded for observing pinned message')
 
-		this.rootContext.eventBus.subscribe('ntv.providers.loaded', () => {
+		this.session.eventBus.subscribe('ntv.providers.loaded', () => {
 			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
 				mutations.forEach(mutation => {
 					if (mutation.addedNodes.length) {
@@ -903,7 +920,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderChatMessage(messageNode: HTMLElement) {
-		const { usersManager, settingsManager, emotesManager } = this.rootContext
+		const { settingsManager } = this.rootContext
+		const { emotesManager, usersManager } = this.session
 		const { channelData } = this.session
 
 		if (!channelData.isVod) {
@@ -1193,6 +1211,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.chatObserver) this.chatObserver.disconnect()
 		if (this.replyObserver) this.replyObserver.disconnect()
 		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
+		if (this.inputController) this.inputController.destroy()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()

@@ -50,6 +50,7 @@ function maybeInsertSpaceCharacterAfterComponent(component: HTMLElement) {
 
 export class ContentEditableEditor {
 	private rootContext: RootContext
+	private session: Session
 	private messageHistory: MessagesHistory
 	private clipboard: Clipboard2
 	private inputNode: HTMLElement
@@ -65,6 +66,7 @@ export class ContentEditableEditor {
 
 	constructor(
 		rootContext: RootContext,
+		session: Session,
 		{
 			messageHistory,
 			clipboard
@@ -75,11 +77,16 @@ export class ContentEditableEditor {
 		contentEditableEl: HTMLElement
 	) {
 		this.rootContext = rootContext
+		this.session = session
 		this.messageHistory = messageHistory
 		this.clipboard = clipboard
 		this.inputNode = contentEditableEl satisfies ElementContentEditable
 
 		this.processInputContentDebounce = debounce(this.processInputContent.bind(this), 25)
+	}
+
+	destroy() {
+		if (this.inputNode) this.inputNode.remove()
 	}
 
 	getInputNode() {
@@ -153,7 +160,7 @@ export class ContentEditableEditor {
 	}
 
 	attachEventListeners() {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 		const { inputNode, clipboard } = this
 
 		// inputNode.addEventListener('selectstart', (evt: Event) => {
@@ -241,7 +248,7 @@ export class ContentEditableEditor {
 				event.preventDefault()
 				event.stopImmediatePropagation()
 				if (!this.inputEmpty) {
-					this.rootContext.eventBus.publish('ntv.input_controller.submit', {
+					this.session.eventBus.publish('ntv.input_controller.submit', {
 						dontClearInput: event.ctrlKey
 					})
 				}
@@ -324,7 +331,7 @@ export class ContentEditableEditor {
 			return this.insertText(' ')
 		}
 
-		const emoteHid = this.rootContext.emotesManager.getEmoteHidByName(word)
+		const emoteHid = this.session.emotesManager.getEmoteHidByName(word)
 		if (!emoteHid) {
 			event.preventDefault()
 			return this.insertText(' ')
@@ -498,7 +505,7 @@ export class ContentEditableEditor {
 	processInputContent() {
 		if (!this.hasUnprocessedContentChanges) return
 
-		const { eventBus, emotesManager } = this.rootContext
+		const { eventBus, emotesManager } = this.session
 		const { inputNode } = this
 		const buffer = []
 		let bufferString = ''
@@ -1008,7 +1015,7 @@ export class ContentEditableEditor {
 	insertEmote(emoteHid: string) {
 		assertArgDefined(emoteHid)
 		const { messageHistory, eventTarget } = this
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		messageHistory.resetCursor()
@@ -1036,7 +1043,7 @@ export class ContentEditableEditor {
 	}
 
 	replaceEmote(component: HTMLElement, emoteHid: string) {
-		const { emotesManager } = this.rootContext
+		const { emotesManager } = this.session
 
 		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
 		if (!emoteHTML) {

@@ -40,17 +40,19 @@ declare global {
 
 	type RootContext = {
 		eventBus: Publisher
-		networkInterface: KickNetworkInterface
 		database: Database
-		emotesManager: EmotesManager
 		settingsManager: SettingsManager
-		usersManager: UsersManager
 	}
 
 	type Session = {
+		eventBus: Publisher
+		networkInterface: KickNetworkInterface
 		channelData: ChannelData
+		usersManager: UsersManager
 		userInterface?: AbstractUserInterface
+		emotesManager: EmotesManager
 		badgeProvider: IBadgeProvider
+		isDestroyed?: boolean
 	}
 
 	type ChannelData = {

@@ -1,6 +1,7 @@
 import { countStringOccurrences, error, eventKeyIsLetterDigitPuncSpaceChar, log, parseHTML } from '../../utils'
 import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 import type { ContentEditableEditor } from '../ContentEditableEditor'
+import type { PriorityEventTarget } from '../PriorityEventTarget'
 
 type CommandDependencies = RootContext & Session
 
@@ -332,9 +333,12 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		this.contentEditableEditor = contentEditableEditor
 	}
 
-	static shouldUseStrategy(event: KeyboardEvent, contentEditableEditor: ContentEditableEditor): boolean {
+	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		const firstChar = contentEditableEditor.getFirstCharacter()
-		return firstChar === '/' || (event.key === '/' && contentEditableEditor.isInputEmpty())
+		return (
+			firstChar === '/' ||
+			(event instanceof KeyboardEvent && event.key === '/' && contentEditableEditor.isInputEmpty())
+		)
 	}
 
 	createModal() {
@@ -355,10 +359,10 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			commandEntries = availableCommands.filter(commandEntry => commandEntry.name.startsWith(commandName))
 		}
 
-		if (commandEntries && commandEntries.length) {
-			if (!this.navWindow) this.createModal()
-			else this.navWindow.clearEntries()
+		if (!this.navWindow) this.createModal()
+		else this.navWindow.clearEntries()
 
+		if (commandEntries && commandEntries.length) {
 			for (const commandEntry of commandEntries as any[]) {
 				const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true) as HTMLElement
 				entryEl.childNodes[1].textContent = commandEntry.description
@@ -404,7 +408,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 				this.navWindow!.addEntry(commandEntry, entryEl)
 			}
 		} else {
-			this.destroy()
+			// this.destroy()
 		}
 	}
 
@@ -450,7 +454,7 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 	}
 
 	getAvailableCommands() {
-		const channelData = this.rootContext.networkInterface.channelData
+		const channelData = this.session.networkInterface.channelData
 		const is_broadcaster = channelData?.me?.isBroadcaster || false
 		const is_moderator = channelData?.me?.isModerator || false
 
@@ -509,6 +513,53 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		this.renderInlineCompletion()
 	}
 
+	attemptSubmit(event: Event) {
+		const { contentEditableEditor } = this
+
+		const firstNode = contentEditableEditor.getInputNode().firstChild
+		if (!firstNode || !(firstNode instanceof Text)) {
+			this.destroy()
+			return
+		}
+		const nodeData = firstNode.data
+		const firstChar = nodeData[0]
+		if (firstChar !== '/') {
+			this.destroy()
+			return
+		}
+
+		// TODO implement it as settings option whether to validate and block invalid commands, might be useful for custom commands
+		const isInvalid = this.validateInputCommand(nodeData.substring(1))
+		const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1))
+
+		event.stopPropagation()
+
+		if (isInvalid || !commandData) {
+			return
+		}
+
+		const { networkInterface } = this.session
+		if (commandEntry && typeof commandEntry.execute === 'function') {
+			commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args)
+		} else {
+			networkInterface
+				.sendCommand(commandData)
+				.then(res => {
+					if (res.error) {
+						this.session.userInterface?.toastError(res.error)
+					} else if (!res.success) {
+						this.session.userInterface?.toastError('Command failed. No reason given.')
+					}
+				})
+				.catch(err => {
+					this.session.userInterface?.toastError('Command failed. ' + (err.message || ''))
+				})
+		}
+
+		contentEditableEditor.clearInput()
+		this.destroy()
+	}
+
 	handleKeyDown(event: KeyboardEvent) {
 		const { contentEditableEditor } = this
 
@@ -544,36 +595,8 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		}
 
 		if (event.key === 'Enter') {
-			// TODO implement it as settings option whether to validate and block invalid commands, might be useful for custom commands
-			const isInvalid = this.validateInputCommand(nodeData.substring(1))
-			const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1))
-
-			event.stopPropagation()
 			event.preventDefault()
-
-			if (isInvalid || !commandData) {
-				return
-			}
-
-			const { networkInterface } = this.rootContext
-			if (commandEntry && typeof commandEntry.execute === 'function') {
-				commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args)
-			} else {
-				networkInterface
-					.sendCommand(commandData)
-					.then(res => {
-						if (res.error) {
-							this.session.userInterface?.toastError(res.error)
-						} else if (!res.success) {
-							this.session.userInterface?.toastError('Command failed. No reason given.')
-						}
-					})
-					.catch(err => {
-						this.session.userInterface?.toastError('Command failed. ' + (err.message || ''))
-					})
-			}
-
-			contentEditableEditor.clearInput()
+			this.attemptSubmit(event)
 		}
 	}
 
@@ -601,5 +624,9 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			const commandName = nodeData.substring(1, i)
 			this.updateCompletionEntries(commandName, nodeData)
 		}
+	}
+
+	handleSubmitButton(event: MouseEvent) {
+		this.attemptSubmit(event)
 	}
 }

@@ -7,6 +7,7 @@ import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
 export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 	private contentEditableEditor: ContentEditableEditor
 	private rootContext: RootContext
+	private session: Session
 	protected id = 'mentions'
 
 	private start = 0
@@ -17,6 +18,7 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 
 	constructor(
 		rootContext: RootContext,
+		session: Session,
 		{ contentEditableEditor }: { contentEditableEditor: ContentEditableEditor },
 		containerEl: HTMLElement
 	) {
@@ -24,11 +26,12 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 
 		this.contentEditableEditor = contentEditableEditor
 		this.rootContext = rootContext
+		this.session = session
 	}
 
-	static shouldUseStrategy(event: KeyboardEvent): boolean {
+	static shouldUseStrategy(event: Event): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		return (event.key === '@' && !word) || (word !== null && word.startsWith('@'))
+		return (event instanceof KeyboardEvent && event.key === '@' && !word) || (word !== null && word.startsWith('@'))
 	}
 
 	createModal() {
@@ -55,7 +58,7 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 		this.end = end
 		this.node = node
 
-		const searchResults = this.rootContext.usersManager.searchUsers(word.substring(1, 20), 20)
+		const searchResults = this.session.usersManager.searchUsers(word.substring(1, 20), 20)
 		const userNames = searchResults.map((result: any) => result.item.name)
 		const userIds = searchResults.map((result: any) => result.item.id)
 
