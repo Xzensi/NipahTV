@@ -11,7 +11,7 @@ import { PollModal } from './Modals/PollModal'
 import { PROVIDER_ENUM } from '../constants'
 import { TimerComponent } from './Components/TimerComponent'
 
-const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\s]+)/g
+const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
 export abstract class AbstractUserInterface {
 	protected rootContext: RootContext
@@ -113,10 +113,6 @@ export abstract class AbstractUserInterface {
 			 */
 			const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match
 
-			if (lastIndex === 0 && match.index > 0) {
-				this.parseEmojisInString(textContent.slice(0, match.index), newNodes)
-			}
-
 			if (kickEmoteFormatMatch) {
 				if (textBuffer) {
 					this.parseEmojisInString(textBuffer, newNodes)
@@ -167,25 +163,34 @@ export abstract class AbstractUserInterface {
 	}
 
 	private parseEmojisInString(textContent: string, resultArray: Array<Text | HTMLElement> = []) {
-		const entities = twemojiParse(textContent)
-		if (entities.length) {
-			const entitiesLength = entities.length
-			for (let i = 0; i < entitiesLength; i++) {
-				const entity = entities[i]
+		const emojiEntries = twemojiParse(textContent)
+		if (emojiEntries.length) {
+			const totalEmojis = emojiEntries.length
+			let lastIndex = 0
+
+			for (let i = 0; i < totalEmojis; i++) {
+				const emojiData = emojiEntries[i]
 				const emojiNode = document.createElement('img')
 				emojiNode.className = 'ntv__inline-emoji'
-				emojiNode.src = entity.url
-				emojiNode.alt = entity.text
+				emojiNode.src = emojiData.url
+				emojiNode.alt = emojiData.text
 
-				const stringStart = textContent.slice(entities[i - 1]?.indices[1] || 0, entity.indices[0])
-				const stringEnd = textContent.slice(
-					entity.indices[1],
-					entities[i + 1]?.indices[0] || textContent.length
-				)
+				// Get the string before the current emoji based on the last index processed
+				const stringStart = textContent.slice(lastIndex, emojiData.indices[0])
 
-				resultArray.push(this.createPlainTextMessagePartNode(stringStart))
+				if (stringStart) {
+					resultArray.push(this.createPlainTextMessagePartNode(stringStart))
+				}
 				resultArray.push(emojiNode)
-				resultArray.push(this.createPlainTextMessagePartNode(stringEnd))
+
+				// Update lastIndex to the end of the current emoji
+				lastIndex = emojiData.indices[1]
+			}
+
+			// After the loop, add any remaining text that comes after the last emoji
+			const remainingText = textContent.slice(lastIndex)
+			if (remainingText) {
+				resultArray.push(this.createPlainTextMessagePartNode(remainingText))
 			}
 		} else {
 			resultArray.push(this.createPlainTextMessagePartNode(textContent))
