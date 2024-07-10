@@ -144,6 +144,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		if (channelData.isVod) {
 			document.body.classList.add('ntv__kick__page-vod')
+		} else {
+			document.body.classList.add('ntv__kick__page-live-stream')
 		}
 
 		// Inject or send emote to chat on emote click
@@ -498,11 +500,18 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.session.isDestroyed) return
 
 		const { settingsManager } = this.rootContext
+		const { channelData } = this.session
 
 		const handleTheatreModeSwitchFn = (isTheatreMode: boolean) => {
 			log('Theater mode button clicked', isTheatreMode)
 
 			if (settingsManager.getSetting('shared.appearance.layout.overlay_chat')) {
+				if (channelData.isVod) {
+				} else {
+				}
+
+				log('FLAG_0')
+				log(document.getElementById('main-view')?.querySelector('.chat-container')?.parentElement)
 				log(document.getElementById('theaterModeChatHolder')?.parentElement)
 				log(document.getElementById('video-holder'))
 
@@ -532,8 +541,6 @@ export class KickUserInterface extends AbstractUserInterface {
 					if (this.session.isDestroyed) return
 
 					const [theaterModeVideoHolderEl, mainViewEl, theaterModeButtonEl] = foundElements
-					log('Theater mode elements found', theaterModeVideoHolderEl, theaterModeButtonEl)
-
 					theaterModeButtonEl.addEventListener(
 						'click',
 						() => {
@@ -543,7 +550,7 @@ export class KickUserInterface extends AbstractUserInterface {
 							setTimeout(() => {
 								handleTheatreModeSwitchFn(this.isTheatreMode)
 								handleTheatreModeButtonFn()
-							}, 2)
+							}, 5)
 						},
 						{ passive: true, once: true }
 					)
