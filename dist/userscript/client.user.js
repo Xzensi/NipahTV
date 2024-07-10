@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.24
+// @version 1.4.25
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-3a9b7451.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e062eeef.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -6290,7 +6290,7 @@ function waitForElements(selectors, timeout = 1e4, signal = null) {
     const checkElements = function() {
       if (selectors.every((selector) => document.querySelector(selector))) {
         clearInterval(interval);
-        resolve(void 0);
+        resolve(selectors.map((selector) => document.querySelector(selector)));
       } else if (Date.now() > timeoutTimestamp) {
         clearInterval(interval);
         reject(new Error("Timeout"));
@@ -9817,7 +9817,7 @@ var UserInfoModal = class extends AbstractModal {
       }
       entriesHTML += `<div class="ntv__chat-message" unrendered>
 				<span class="ntv__chat-message__identity">
-					<span class="ntv__chat-message__timestamp">${time} </span>
+					<span class="ntv__chat-message__timestamp">${time}</span>
 					<span class="ntv__chat-message__badges"></span>
 					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
 					<span class="ntv__chat-message__separator">: </span>
@@ -11215,6 +11215,7 @@ var ContentEditableEditor = class {
   }
   insertText(text) {
     const { inputNode } = this;
+    if (!this.isInputEnabled) return;
     const selection = window.getSelection();
     if (!selection) {
       inputNode.append(new Text(text));
@@ -11378,6 +11379,7 @@ var ContentEditableEditor = class {
     assertArgDefined(emoteHid);
     const { messageHistory, eventTarget } = this;
     const { emotesManager } = this.session;
+    if (!this.isInputEnabled) return null;
     messageHistory.resetCursor();
     const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
     if (!emoteHTML) {
@@ -12642,6 +12644,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   };
   stickyScroll = true;
   maxMessageLength = 500;
+  isTheatreMode = false;
   constructor(rootContext, session) {
     super(rootContext, session);
   }
@@ -12653,7 +12656,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { abortController } = this;
     const abortSignal = abortController.signal;
     this.loadSettings();
-    waitForElements(["#message-input", "#chatroom-footer button.base-button"], 5e3, abortSignal).then(() => {
+    waitForElements(["#message-input", "#chatroom-footer button.base-button"], 1e4, abortSignal).then((foundElements) => {
       if (this.session.isDestroyed) return;
       this.loadShadowProxyElements();
       this.loadEmoteMenu();
@@ -12664,11 +12667,14 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     }).catch(() => {
     });
+    const chatroomContainerSelector = channelData.isVod ? "chatroom-replay" : "chatroom";
     const chatMessagesContainerSelector = channelData.isVod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom > div:nth-child(2) > .overflow-y-scroll";
-    waitForElements([chatMessagesContainerSelector], 5e3, abortSignal).then(() => {
+    waitForElements([chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
       if (this.session.isDestroyed) return;
-      this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector);
-      const chatroomEl = document.getElementById("chatroom");
+      const [chatMessagesContainerEl] = foundElements;
+      chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
+      this.elm.chatMessagesContainer = chatMessagesContainerEl;
+      const chatroomEl = document.getElementById(chatroomContainerSelector);
       if (chatroomEl) {
         if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
           chatroomEl.classList.add("ntv__alternating-background");
@@ -12681,26 +12687,30 @@ var KickUserInterface = class extends AbstractUserInterface {
           this.clipboard.handleCopyEvent(evt);
         });
       }
-      rootEventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
+      eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
       this.observeChatMessages();
       this.observeChatEntriesForDeletionEvents();
       this.loadScrollingBehaviour();
       this.loadReplyBehaviour();
     }).catch(() => {
     });
-    waitForElements(["#chatroom-top"], 5e3).then(() => {
+    waitForElements(["#chatroom-top"], 1e4).then(() => {
       if (this.session.isDestroyed) return;
       this.observePinnedMessage();
     }).catch(() => {
     });
-    waitForElements(["#chatroom-footer .send-row"], 5e3).then(() => {
+    waitForElements(["#chatroom-footer .send-row"], 1e4).then((foundElements) => {
       if (this.session.isDestroyed) return;
       const timersContainer = document.createElement("div");
       timersContainer.id = "ntv__timers-container";
-      document.querySelector("#chatroom-footer .send-row")?.after(timersContainer);
+      foundElements[0].after(timersContainer);
       this.elm.timersContainer = timersContainer;
     }).catch(() => {
     });
+    this.loadTheatreModeBehaviour();
+    if (channelData.isVod) {
+      document.body.classList.add("ntv__kick__page-vod");
+    }
     eventBus.subscribe(
       "ntv.ui.emote.click",
       ({ emoteHid, sendImmediately }) => {
@@ -12716,7 +12726,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     rootEventBus.subscribe(
       "ntv.settings.change.shared.chat.behavior.smooth_scrolling",
       ({ value, prevValue }) => {
-        document.getElementById("chatroom")?.classList.toggle("ntv__smooth-scrolling", !!value);
+        document.getElementById(chatroomContainerSelector)?.classList.toggle("ntv__smooth-scrolling", !!value);
       }
     );
     rootEventBus.subscribe(
@@ -12729,9 +12739,9 @@ var KickUserInterface = class extends AbstractUserInterface {
       "ntv.settings.change.shared.chat.appearance.seperators",
       ({ value, prevValue }) => {
         if (prevValue !== "none")
-          document.getElementById("chatroom")?.classList.remove(`ntv__seperators-${prevValue}`);
+          document.getElementById(chatroomContainerSelector)?.classList.remove(`ntv__seperators-${prevValue}`);
         if (!value || value === "none") return;
-        document.getElementById("chatroom")?.classList.add(`ntv__seperators-${value}`);
+        document.getElementById(chatroomContainerSelector)?.classList.add(`ntv__seperators-${value}`);
       }
     );
     rootEventBus.subscribe(
@@ -12967,6 +12977,49 @@ var KickUserInterface = class extends AbstractUserInterface {
       },
       { passive: true }
     );
+  }
+  loadTheatreModeBehaviour() {
+    if (this.session.isDestroyed) return;
+    const { settingsManager } = this.rootContext;
+    const handleTheatreModeSwitchFn = (isTheatreMode) => {
+      log("Theater mode button clicked", isTheatreMode);
+      if (settingsManager.getSetting("shared.appearance.layout.overlay_chat")) {
+        log(document.getElementById("theaterModeChatHolder")?.parentElement);
+        log(document.getElementById("video-holder"));
+        document.getElementById("main-view")?.querySelector(".chat-container")?.parentElement?.classList.toggle("ntv__kick__theater-mode__chat-container", isTheatreMode);
+        document.getElementById("theaterModeChatHolder")?.parentElement?.classList.toggle("ntv__kick__theater-mode__chat-container", isTheatreMode);
+        document.getElementById("video-holder")?.classList.toggle("ntv__kick__theater-mode__video-holder", isTheatreMode);
+      }
+    };
+    const handleTheatreModeButtonFn = () => {
+      waitForElements(
+        [
+          "#theaterModeVideoHolder",
+          "#main-view",
+          "#video-holder .vjs-control-bar .vjs-button > .kick-icon-theater"
+        ],
+        1e4
+      ).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        const [theaterModeVideoHolderEl, mainViewEl, theaterModeButtonEl] = foundElements;
+        log("Theater mode elements found", theaterModeVideoHolderEl, theaterModeButtonEl);
+        theaterModeButtonEl.addEventListener(
+          "click",
+          () => {
+            this.isTheatreMode = !this.isTheatreMode;
+            theaterModeVideoHolderEl.classList.toggle("ntv__kick__theater-mode", this.isTheatreMode);
+            mainViewEl.classList.toggle("ntv__kick__theater-mode", this.isTheatreMode);
+            setTimeout(() => {
+              handleTheatreModeSwitchFn(this.isTheatreMode);
+              handleTheatreModeButtonFn();
+            }, 2);
+          },
+          { passive: true, once: true }
+        );
+      }).catch(() => {
+      });
+    };
+    handleTheatreModeButtonFn();
   }
   getMessageContentString(chatMessageEl) {
     const messageNodes = Array.from(
@@ -13337,6 +13390,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     const contentNodes = Array.from(messageWrapperNode.children);
     const contentNodesLength = contentNodes.length;
     messageWrapperNode.style.display = "none";
+    if (contentNodes.length && contentNodes[0].classList.contains("text-gray-400")) {
+      contentNodes[0].classList.add("ntv__chat-message__timestamp");
+    }
     let firstContentNodeIndex = 0;
     for (let i = 0; i < contentNodes.length; i++) {
       if (contentNodes[i].textContent === ": ") {
@@ -14060,41 +14116,54 @@ var SettingsManager = class {
          = Chat
              = Appearance
                  (Appearance)
-  			- Hide Kick's emote menu button
-                 - Highlight first user messages
-  			- Highlight first user messages only for channels where you are a moderator
-                 - Highlight Color	
-                 - Display lines with alternating background colors
-                 - Separators (dropdown)
+                     - Highlight first user messages
+                     - Highlight first user messages only for channels where you are a moderator
+                     - Highlight Color
+                     - Display lines with alternating background colors
+                     - Separators (dropdown)
+                     - Chat theme (dropdown)
                  (General)
-                 - Use Ctrl+E to open the Emote Menu
-                 - Use Ctrl+Spacebar for quick emote access
-  		= Behavior
-  			(General)
-  			- Enable chat smooth scrolling
+                     - Use Ctrl+E to open the Emote Menu
+                     - Use Ctrl+Spacebar for quick emote access
+             = Behavior
+                 (General)
+                     - Enable chat smooth scrolling
+                 (Search)
+                     - Add bias to emotes of channels you are subscribed to
+                     - Add extra bias to emotes of the current channel you are watching the stream of
+             = Emotes
+                 (Appearance)
+                     - Hide subscriber emotes for channels you are not subscribed to
+                     - Display images in tooltips
              = Emote Menu
                  (Appearance)
-                 - Show a quick navigation bar along the side of the menu
-                 - Show the search box
-  		= Emote providers
-  			(Kick)
-  			- Show global emote set
-  			- Show current channel emote set
-  			- Show other channel emote sets
-  			- Show Emoji emote set
+                     - Choose the style of the emote menu button (dropdown)
+                     - Show the search box
+                     - Close the emote menu after clicking an emote
+             = Quick emote holder
+                 (Appearance)
+                     - Show quick emote holder
+                     - Rows of emotes to display (number)
+                 (Behavior)
+                     - Send emotes to chat immediately on click
+             = Emote providers
+                 (Kick)
+                     - Show emotes in chat
+                     - Show global emote set
+                     - Show current channel emote set
+                     - Show other channel emote sets
+                     - Show Emoji emote set
+                 (7TV)
+                     - Show emotes in chat
+                     - Show global emote set
+                     - Show current channel emote set
              = Input
-  			(Recent Messages)
-  			- Allow pressing up and down to recall previously sent chat messages
-  			(Tab completion)
-  			- Display multiple entries in the tab-completion tooltip
-  			- Display a tooltip when using tab-completion
-  			- Allow tab-completion of emoji
-  			- Allow tab-completion of emotes without typing a colon. (:) 
-  			- Priortize favorite emotes at the top
-             = Tooltips
-  			(General)
-  			- Display images in tooltips
-     */
+                 (Recent Messages)
+                     - Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages
+                 (Tab completion)
+                     - Display a tooltip when using tab-completion
+                     - Enable automatic in-place tab-completion suggestions in text input while typing
+  */
   sharedSettings = [
     {
       label: "Appearance",
@@ -14103,8 +14172,16 @@ var SettingsManager = class {
           label: "Layout",
           children: [
             {
-              label: "Channel",
-              children: []
+              label: "Appearance",
+              description: "These settings require a page refresh to take effect.",
+              children: [
+                {
+                  label: "Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)",
+                  id: "shared.appearance.layout.overlay_chat",
+                  default: false,
+                  type: "checkbox"
+                }
+              ]
             }
           ]
         }
@@ -14228,13 +14305,13 @@ var SettingsManager = class {
               description: "These settings require a page refresh to take effect.",
               children: [
                 {
-                  label: "Add bias to emotes of channels you are subscribed to.",
+                  label: "Add bias to emotes of channels you are subscribed to",
                   id: "shared.chat.behavior.search_bias_subscribed_channels",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Add extra bias to emotes of the current channel you are watching the stream of.",
+                  label: "Add extra bias to emotes of the current channel you are watching the stream of",
                   id: "shared.chat.behavior.search_bias_current_channels",
                   default: true,
                   type: "checkbox"
@@ -14250,13 +14327,13 @@ var SettingsManager = class {
               label: "Appearance",
               children: [
                 {
-                  label: "Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them.",
+                  label: "Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them",
                   id: "shared.chat.emotes.hide_subscriber_emotes",
                   default: false,
                   type: "checkbox"
                 },
                 {
-                  label: "Display images in tooltips.",
+                  label: "Display images in tooltips",
                   id: "shared.chat.tooltips.images",
                   default: true,
                   type: "checkbox"
@@ -14272,7 +14349,7 @@ var SettingsManager = class {
               label: "Appearance",
               children: [
                 {
-                  label: "Choose the style of the emote menu button.",
+                  label: "Choose the style of the emote menu button",
                   id: "shared.chat.emote_menu.appearance.button_style",
                   default: "nipah",
                   type: "dropdown",
@@ -14315,7 +14392,7 @@ var SettingsManager = class {
                 // 	type: 'checkbox'
                 // },
                 {
-                  label: "Show the search box.",
+                  label: "Show the search box",
                   id: "shared.chat.emote_menu.search_box",
                   default: true,
                   type: "checkbox"
@@ -14326,7 +14403,7 @@ var SettingsManager = class {
               label: "Appearance",
               children: [
                 {
-                  label: "Close the emote menu after clicking an emote.",
+                  label: "Close the emote menu after clicking an emote",
                   id: "shared.chat.emote_menu.close_on_click",
                   default: false,
                   type: "checkbox"
@@ -14348,7 +14425,7 @@ var SettingsManager = class {
                   default: true
                 },
                 {
-                  label: "Rows of emotes to display.",
+                  label: "Rows of emotes to display",
                   id: "shared.chat.quick_emote_holder.rows",
                   type: "number",
                   default: 2,
@@ -14361,7 +14438,7 @@ var SettingsManager = class {
               label: "Behavior",
               children: [
                 {
-                  label: "Send emotes to chat immediately on click.",
+                  label: "Send emotes to chat immediately on click",
                   id: "shared.chat.quick_emote_holder.send_immediately",
                   type: "checkbox",
                   default: false
@@ -14378,31 +14455,31 @@ var SettingsManager = class {
               description: "These settings require a page refresh to take effect.",
               children: [
                 {
-                  label: "Show emotes in chat.",
+                  label: "Show emotes in chat",
                   id: "shared.chat.emote_providers.kick.show_emotes",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show global emote set in emote menu.",
+                  label: "Show global emote set in emote menu",
                   id: "shared.emote_menu.emote_providers.kick.show_global",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show current channel emote set in emote menu.",
+                  label: "Show current channel emote set in emote menu",
                   id: "shared.emote_menu.emote_providers.kick.show_current_channel",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show other channel emote sets in emote menu.",
+                  label: "Show other channel emote sets in emote menu",
                   id: "shared.emote_menu.emote_providers.kick.show_other_channels",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show Emoji emote set in emote menu.",
+                  label: "Show Emoji emote set in emote menu",
                   id: "shared.emote_menu.emote_providers.kick.show_emojis",
                   default: false,
                   type: "checkbox"
@@ -14414,19 +14491,19 @@ var SettingsManager = class {
               description: "These settings require a page refresh to take effect.",
               children: [
                 {
-                  label: "Show emotes in chat.",
+                  label: "Show emotes in chat",
                   id: "shared.chat.emote_providers.7tv.show_emotes",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show global emote set in emote menu.",
+                  label: "Show global emote set in emote menu",
                   id: "shared.emote_menu.emote_providers.7tv.show_global",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show current channel emote set in emote menu.",
+                  label: "Show current channel emote set in emote menu",
                   id: "shared.emote_menu.emote_providers.7tv.show_current_channel",
                   default: true,
                   type: "checkbox"
@@ -14442,7 +14519,7 @@ var SettingsManager = class {
               label: "Recent Messages",
               children: [
                 {
-                  label: "Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages.",
+                  label: "Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages",
                   id: "shared.chat.input.history.enabled",
                   default: true,
                   type: "checkbox"
@@ -14453,7 +14530,7 @@ var SettingsManager = class {
               label: "Tab completion",
               children: [
                 {
-                  label: "Display a tooltip when using tab-completion.",
+                  label: "Display a tooltip when using tab-completion",
                   id: "shared.chat.input.tab_completion.tooltip",
                   default: true,
                   type: "checkbox"
@@ -15199,7 +15276,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.24",
+    VERSION: "1.4.25",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
