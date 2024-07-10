@@ -1,35 +1,35 @@
-.ntv__kick__theater-mode {
-	&__video-holder {
-		margin-right: 22rem;
+// .ntv__kick__theater-mode {
+// 	&__video-holder {
+// 		margin-right: 22rem;
 
-		video.vjs-tech {
-			max-width: 100vw;
-			width: 100vw;
-		}
-	}
+// 		video.vjs-tech {
+// 			max-width: 100vw;
+// 			width: 100vw;
+// 		}
+// 	}
 
-	&__chat-container {
-		background: transparent;
-		position: absolute;
-		right: 0;
+// 	&__chat-container {
+// 		background: transparent;
+// 		position: absolute;
+// 		right: 0;
 
-		.chat-container {
-			border-left: none;
-			width: 100%;
-		}
+// 		.chat-container {
+// 			border-left: none;
+// 			width: 100%;
+// 		}
 
-		.chat-content {
-			background: transparent;
-		}
+// 		.chat-content {
+// 			background: transparent;
+// 		}
 
-		.chatroom-footer {
-			backdrop-filter: blur(10px);
-			background: rgba(0, 0, 10, 0.0618) !important;
-		}
+// 		.chatroom-footer {
+// 			backdrop-filter: blur(10px);
+// 			background: rgba(0, 0, 10, 0.0618) !important;
+// 		}
 
-		.ntv__chat-message {
-			backdrop-filter: blur(4px);
-			background: rgba(0, 0, 10, 0.0618) !important;
-		}
-	}
-}
+// 		.ntv__chat-message {
+// 			backdrop-filter: blur(4px);
+// 			background: rgba(0, 0, 10, 0.0618) !important;
+// 		}
+// 	}
+// }

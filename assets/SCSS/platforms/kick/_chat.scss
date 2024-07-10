@@ -95,20 +95,20 @@
 	}
 }
 
-.ntv__kick__page {
-	&-live-stream {
-		#theaterModeVideoHolder + .ntv__kick__theater-mode__chat-container {
-			display: none;
-		}
-	}
+// .ntv__kick__page {
+// 	&-live-stream {
+// 		#theaterModeVideoHolder + .ntv__kick__theater-mode__chat-container {
+// 			display: none;
+// 		}
+// 	}
 
-	&-vod {
-		#main-view .chat-container,
-		#theaterModeChatHolder {
-			width: auto;
-		}
-	}
-}
+// 	&-vod {
+// 		#main-view .chat-container,
+// 		#theaterModeChatHolder {
+// 			width: auto;
+// 		}
+// 	}
+// }
 
 .ntv__smooth-scrolling {
 	.overflow-y-scroll {

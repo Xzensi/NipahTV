@@ -65,18 +65,18 @@ export class SettingsManager {
 				{
 					label: 'Layout',
 					children: [
-						{
-							label: 'Appearance',
-							description: 'These settings require a page refresh to take effect.',
-							children: [
-								{
-									label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
-									id: 'shared.appearance.layout.overlay_chat',
-									default: false,
-									type: 'checkbox'
-								}
-							]
-						}
+						// {
+						// 	label: 'Appearance',
+						// 	description: 'These settings require a page refresh to take effect.',
+						// 	children: [
+						// 		{
+						// 			label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
+						// 			id: 'shared.appearance.layout.overlay_chat',
+						// 			default: false,
+						// 			type: 'checkbox'
+						// 		}
+						// 	]
+						// }
 					]
 				}
 			]
