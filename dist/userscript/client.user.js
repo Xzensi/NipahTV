@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.25
+// @version 1.4.26
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e062eeef.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-b377ff7b.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12710,6 +12710,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.loadTheatreModeBehaviour();
     if (channelData.isVod) {
       document.body.classList.add("ntv__kick__page-vod");
+    } else {
+      document.body.classList.add("ntv__kick__page-live-stream");
     }
     eventBus.subscribe(
       "ntv.ui.emote.click",
@@ -12981,9 +12983,15 @@ var KickUserInterface = class extends AbstractUserInterface {
   loadTheatreModeBehaviour() {
     if (this.session.isDestroyed) return;
     const { settingsManager } = this.rootContext;
+    const { channelData } = this.session;
     const handleTheatreModeSwitchFn = (isTheatreMode) => {
       log("Theater mode button clicked", isTheatreMode);
       if (settingsManager.getSetting("shared.appearance.layout.overlay_chat")) {
+        if (channelData.isVod) {
+        } else {
+        }
+        log("FLAG_0");
+        log(document.getElementById("main-view")?.querySelector(".chat-container")?.parentElement);
         log(document.getElementById("theaterModeChatHolder")?.parentElement);
         log(document.getElementById("video-holder"));
         document.getElementById("main-view")?.querySelector(".chat-container")?.parentElement?.classList.toggle("ntv__kick__theater-mode__chat-container", isTheatreMode);
@@ -13002,7 +13010,6 @@ var KickUserInterface = class extends AbstractUserInterface {
       ).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [theaterModeVideoHolderEl, mainViewEl, theaterModeButtonEl] = foundElements;
-        log("Theater mode elements found", theaterModeVideoHolderEl, theaterModeButtonEl);
         theaterModeButtonEl.addEventListener(
           "click",
           () => {
@@ -13012,7 +13019,7 @@ var KickUserInterface = class extends AbstractUserInterface {
             setTimeout(() => {
               handleTheatreModeSwitchFn(this.isTheatreMode);
               handleTheatreModeButtonFn();
-            }, 2);
+            }, 5);
           },
           { passive: true, once: true }
         );
@@ -14171,18 +14178,18 @@ var SettingsManager = class {
         {
           label: "Layout",
           children: [
-            {
-              label: "Appearance",
-              description: "These settings require a page refresh to take effect.",
-              children: [
-                {
-                  label: "Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)",
-                  id: "shared.appearance.layout.overlay_chat",
-                  default: false,
-                  type: "checkbox"
-                }
-              ]
-            }
+            // {
+            // 	label: 'Appearance',
+            // 	description: 'These settings require a page refresh to take effect.',
+            // 	children: [
+            // 		{
+            // 			label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
+            // 			id: 'shared.appearance.layout.overlay_chat',
+            // 			default: false,
+            // 			type: 'checkbox'
+            // 		}
+            // 	]
+            // }
           ]
         }
       ]
@@ -15276,7 +15283,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.25",
+    VERSION: "1.4.26",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
