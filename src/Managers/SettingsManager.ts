@@ -9,41 +9,54 @@ export class SettingsManager {
         = Chat
             = Appearance
                 (Appearance)
-				- Hide Kick's emote menu button
-                - Highlight first user messages
-				- Highlight first user messages only for channels where you are a moderator
-                - Highlight Color	
-                - Display lines with alternating background colors
-                - Separators (dropdown)
+                    - Highlight first user messages
+                    - Highlight first user messages only for channels where you are a moderator
+                    - Highlight Color
+                    - Display lines with alternating background colors
+                    - Separators (dropdown)
+                    - Chat theme (dropdown)
                 (General)
-                - Use Ctrl+E to open the Emote Menu
-                - Use Ctrl+Spacebar for quick emote access
-			= Behavior
-				(General)
-				- Enable chat smooth scrolling
+                    - Use Ctrl+E to open the Emote Menu
+                    - Use Ctrl+Spacebar for quick emote access
+            = Behavior
+                (General)
+                    - Enable chat smooth scrolling
+                (Search)
+                    - Add bias to emotes of channels you are subscribed to
+                    - Add extra bias to emotes of the current channel you are watching the stream of
+            = Emotes
+                (Appearance)
+                    - Hide subscriber emotes for channels you are not subscribed to
+                    - Display images in tooltips
             = Emote Menu
                 (Appearance)
-                - Show a quick navigation bar along the side of the menu
-                - Show the search box
-			= Emote providers
-				(Kick)
-				- Show global emote set
-				- Show current channel emote set
-				- Show other channel emote sets
-				- Show Emoji emote set
+                    - Choose the style of the emote menu button (dropdown)
+                    - Show the search box
+                    - Close the emote menu after clicking an emote
+            = Quick emote holder
+                (Appearance)
+                    - Show quick emote holder
+                    - Rows of emotes to display (number)
+                (Behavior)
+                    - Send emotes to chat immediately on click
+            = Emote providers
+                (Kick)
+                    - Show emotes in chat
+                    - Show global emote set
+                    - Show current channel emote set
+                    - Show other channel emote sets
+                    - Show Emoji emote set
+                (7TV)
+                    - Show emotes in chat
+                    - Show global emote set
+                    - Show current channel emote set
             = Input
-				(Recent Messages)
-				- Allow pressing up and down to recall previously sent chat messages
-				(Tab completion)
-				- Display multiple entries in the tab-completion tooltip
-				- Display a tooltip when using tab-completion
-				- Allow tab-completion of emoji
-				- Allow tab-completion of emotes without typing a colon. (:) 
-				- Priortize favorite emotes at the top
-            = Tooltips
-				(General)
-				- Display images in tooltips
-    */
+                (Recent Messages)
+                    - Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages
+                (Tab completion)
+                    - Display a tooltip when using tab-completion
+                    - Enable automatic in-place tab-completion suggestions in text input while typing
+	*/
 
 	private sharedSettings = [
 		{
@@ -53,8 +66,16 @@ export class SettingsManager {
 					label: 'Layout',
 					children: [
 						{
-							label: 'Channel',
-							children: []
+							label: 'Appearance',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
+									id: 'shared.appearance.layout.overlay_chat',
+									default: false,
+									type: 'checkbox'
+								}
+							]
 						}
 					]
 				}
@@ -178,13 +199,13 @@ export class SettingsManager {
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
-									label: 'Add bias to emotes of channels you are subscribed to.',
+									label: 'Add bias to emotes of channels you are subscribed to',
 									id: 'shared.chat.behavior.search_bias_subscribed_channels',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Add extra bias to emotes of the current channel you are watching the stream of.',
+									label: 'Add extra bias to emotes of the current channel you are watching the stream of',
 									id: 'shared.chat.behavior.search_bias_current_channels',
 									default: true,
 									type: 'checkbox'
@@ -200,13 +221,13 @@ export class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
-									label: 'Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them.',
+									label: 'Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them',
 									id: 'shared.chat.emotes.hide_subscriber_emotes',
 									default: false,
 									type: 'checkbox'
 								},
 								{
-									label: 'Display images in tooltips.',
+									label: 'Display images in tooltips',
 									id: 'shared.chat.tooltips.images',
 									default: true,
 									type: 'checkbox'
@@ -222,7 +243,7 @@ export class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
-									label: 'Choose the style of the emote menu button.',
+									label: 'Choose the style of the emote menu button',
 									id: 'shared.chat.emote_menu.appearance.button_style',
 									default: 'nipah',
 									type: 'dropdown',
@@ -265,7 +286,7 @@ export class SettingsManager {
 								// 	type: 'checkbox'
 								// },
 								{
-									label: 'Show the search box.',
+									label: 'Show the search box',
 									id: 'shared.chat.emote_menu.search_box',
 									default: true,
 									type: 'checkbox'
@@ -276,7 +297,7 @@ export class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
-									label: 'Close the emote menu after clicking an emote.',
+									label: 'Close the emote menu after clicking an emote',
 									id: 'shared.chat.emote_menu.close_on_click',
 									default: false,
 									type: 'checkbox'
@@ -298,7 +319,7 @@ export class SettingsManager {
 									default: true
 								},
 								{
-									label: 'Rows of emotes to display.',
+									label: 'Rows of emotes to display',
 									id: 'shared.chat.quick_emote_holder.rows',
 									type: 'number',
 									default: 2,
@@ -311,7 +332,7 @@ export class SettingsManager {
 							label: 'Behavior',
 							children: [
 								{
-									label: 'Send emotes to chat immediately on click.',
+									label: 'Send emotes to chat immediately on click',
 									id: 'shared.chat.quick_emote_holder.send_immediately',
 									type: 'checkbox',
 									default: false
@@ -328,31 +349,31 @@ export class SettingsManager {
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
-									label: 'Show emotes in chat.',
+									label: 'Show emotes in chat',
 									id: 'shared.chat.emote_providers.kick.show_emotes',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show global emote set in emote menu.',
+									label: 'Show global emote set in emote menu',
 									id: 'shared.emote_menu.emote_providers.kick.show_global',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show current channel emote set in emote menu.',
+									label: 'Show current channel emote set in emote menu',
 									id: 'shared.emote_menu.emote_providers.kick.show_current_channel',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show other channel emote sets in emote menu.',
+									label: 'Show other channel emote sets in emote menu',
 									id: 'shared.emote_menu.emote_providers.kick.show_other_channels',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show Emoji emote set in emote menu.',
+									label: 'Show Emoji emote set in emote menu',
 									id: 'shared.emote_menu.emote_providers.kick.show_emojis',
 									default: false,
 									type: 'checkbox'
@@ -364,19 +385,19 @@ export class SettingsManager {
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
-									label: 'Show emotes in chat.',
+									label: 'Show emotes in chat',
 									id: 'shared.chat.emote_providers.7tv.show_emotes',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show global emote set in emote menu.',
+									label: 'Show global emote set in emote menu',
 									id: 'shared.emote_menu.emote_providers.7tv.show_global',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show current channel emote set in emote menu.',
+									label: 'Show current channel emote set in emote menu',
 									id: 'shared.emote_menu.emote_providers.7tv.show_current_channel',
 									default: true,
 									type: 'checkbox'
@@ -392,7 +413,7 @@ export class SettingsManager {
 							label: 'Recent Messages',
 							children: [
 								{
-									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages.',
+									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages',
 									id: 'shared.chat.input.history.enabled',
 									default: true,
 									type: 'checkbox'
@@ -403,7 +424,7 @@ export class SettingsManager {
 							label: 'Tab completion',
 							children: [
 								{
-									label: 'Display a tooltip when using tab-completion.',
+									label: 'Display a tooltip when using tab-completion',
 									id: 'shared.chat.input.tab_completion.tooltip',
 									default: true,
 									type: 'checkbox'

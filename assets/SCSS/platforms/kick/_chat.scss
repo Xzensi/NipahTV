@@ -2,12 +2,13 @@
 @use '../../mixins' as *;
 @use 'sass:math';
 
-#chatroom {
+#chatroom,
+#chatroom-replay {
 	[data-chat-entry] {
 	}
 
 	&.ntv__alternating-background {
-		[data-chat-entry]:not(.ntv__highlight-first-message):nth-child(odd) {
+		[data-chat-entry]:not(.ntv__highlight-first-message):not(:hover):nth-child(odd) {
 			background-color: rgba(127, 127, 127, 0.05);
 		}
 	}
@@ -91,6 +92,13 @@
 		&.opacity-50 {
 			opacity: revert;
 		}
+	}
+}
+
+.ntv__kick__page-vod {
+	#main-view .chat-container,
+	#theaterModeChatHolder {
+		width: auto;
 	}
 }
 
