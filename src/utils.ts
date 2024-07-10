@@ -276,7 +276,11 @@ export function hex2rgb(hex: string) {
  * Wait for a set of elements to be present in the DOM.
  * Pass an AbortSignal to abort the promise.
  */
-export function waitForElements(selectors: Array<string>, timeout = 10000, signal: AbortSignal | null = null) {
+export function waitForElements(
+	selectors: Array<string>,
+	timeout = 10000,
+	signal: AbortSignal | null = null
+): Promise<Array<Element>> {
 	return new Promise((resolve, reject) => {
 		let interval: NodeJS.Timeout
 		let timeoutTimestamp = Date.now() + timeout
@@ -284,7 +288,7 @@ export function waitForElements(selectors: Array<string>, timeout = 10000, signa
 		const checkElements = function () {
 			if (selectors.every(selector => document.querySelector(selector))) {
 				clearInterval(interval)
-				resolve(void 0)
+				resolve(selectors.map(selector => document.querySelector(selector) as Element))
 			} else if (Date.now() > timeoutTimestamp) {
 				clearInterval(interval)
 				reject(new Error('Timeout'))

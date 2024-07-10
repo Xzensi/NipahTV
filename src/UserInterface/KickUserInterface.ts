@@ -43,6 +43,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	private stickyScroll = true
 	protected maxMessageLength = 500
+	private isTheatreMode = false
 
 	constructor(rootContext: RootContext, session: Session) {
 		super(rootContext, session)
@@ -61,8 +62,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.loadSettings()
 
 		// Wait for text input & submit button to load
-		waitForElements(['#message-input', '#chatroom-footer button.base-button'], 5_000, abortSignal)
-			.then(() => {
+		waitForElements(['#message-input', '#chatroom-footer button.base-button'], 10_000, abortSignal)
+			.then(foundElements => {
 				if (this.session.isDestroyed) return
 
 				this.loadShadowProxyElements()
@@ -77,18 +78,21 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 
 		// Wait for chat messages container to load
+		const chatroomContainerSelector = channelData.isVod ? 'chatroom-replay' : 'chatroom'
 		const chatMessagesContainerSelector = channelData.isVod
 			? '#chatroom-replay > .overflow-y-scroll > .flex-col-reverse'
 			: '#chatroom > div:nth-child(2) > .overflow-y-scroll'
 
-		waitForElements([chatMessagesContainerSelector], 5_000, abortSignal)
-			.then(() => {
+		waitForElements([chatMessagesContainerSelector], 10_000, abortSignal)
+			.then(foundElements => {
 				if (this.session.isDestroyed) return
 
-				this.elm.chatMessagesContainer = document.querySelector(chatMessagesContainerSelector)
+				const [chatMessagesContainerEl] = foundElements as HTMLElement[]
+				chatMessagesContainerEl.classList.add('ntv__chat-messages-container')
 
-				const chatroomEl = document.getElementById('chatroom')
+				this.elm.chatMessagesContainer = chatMessagesContainerEl
 
+				const chatroomEl = document.getElementById(chatroomContainerSelector)
 				if (chatroomEl) {
 					// Add alternating background color to chat messages
 					if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
@@ -107,7 +111,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 
 				// Render emotes in chat when providers are loaded
-				rootEventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
+				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
 
 				this.observeChatMessages()
 				this.observeChatEntriesForDeletionEvents()
@@ -116,7 +120,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
-		waitForElements(['#chatroom-top'], 5_000)
+		waitForElements(['#chatroom-top'], 10_000)
 			.then(() => {
 				if (this.session.isDestroyed) return
 
@@ -124,17 +128,25 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
-		waitForElements(['#chatroom-footer .send-row'], 5_000)
-			.then(() => {
+		waitForElements(['#chatroom-footer .send-row'], 10_000)
+			.then(foundElements => {
 				if (this.session.isDestroyed) return
 
 				// Initialize a container for the timers UI
 				const timersContainer = document.createElement('div')
 				timersContainer.id = 'ntv__timers-container'
-				document.querySelector('#chatroom-footer .send-row')?.after(timersContainer)
+				foundElements[0].after(timersContainer)
 				this.elm.timersContainer = timersContainer
 			})
 			.catch(() => {})
+
+		this.loadTheatreModeBehaviour()
+
+		if (channelData.isVod) {
+			document.body.classList.add('ntv__kick__page-vod')
+		} else {
+			document.body.classList.add('ntv__kick__page-live-stream')
+		}
 
 		// Inject or send emote to chat on emote click
 		eventBus.subscribe(
@@ -157,7 +169,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		rootEventBus.subscribe(
 			'ntv.settings.change.shared.chat.behavior.smooth_scrolling',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
-				document.getElementById('chatroom')?.classList.toggle('ntv__smooth-scrolling', !!value)
+				document.getElementById(chatroomContainerSelector)?.classList.toggle('ntv__smooth-scrolling', !!value)
 			}
 		)
 
@@ -165,6 +177,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		rootEventBus.subscribe(
 			'ntv.settings.change.shared.chat.appearance.alternating_background',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				//* Not respecting chatroomContainerSelector on purpose here because vods reverse the order of chat messages resulting in alternating background not working as expected
 				document.getElementById('chatroom')?.classList.toggle('ntv__alternating-background', !!value)
 			}
 		)
@@ -174,9 +187,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			'ntv.settings.change.shared.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				if (prevValue !== 'none')
-					document.getElementById('chatroom')?.classList.remove(`ntv__seperators-${prevValue}`)
+					document.getElementById(chatroomContainerSelector)?.classList.remove(`ntv__seperators-${prevValue}`)
 				if (!value || value === 'none') return
-				document.getElementById('chatroom')?.classList.add(`ntv__seperators-${value}`)
+				document.getElementById(chatroomContainerSelector)?.classList.add(`ntv__seperators-${value}`)
 			}
 		)
 
@@ -481,6 +494,71 @@ export class KickUserInterface extends AbstractUserInterface {
 			},
 			{ passive: true }
 		)
+	}
+
+	loadTheatreModeBehaviour() {
+		if (this.session.isDestroyed) return
+
+		const { settingsManager } = this.rootContext
+		const { channelData } = this.session
+
+		const handleTheatreModeSwitchFn = (isTheatreMode: boolean) => {
+			log('Theater mode button clicked', isTheatreMode)
+
+			if (settingsManager.getSetting('shared.appearance.layout.overlay_chat')) {
+				if (channelData.isVod) {
+				} else {
+				}
+
+				log('FLAG_0')
+				log(document.getElementById('main-view')?.querySelector('.chat-container')?.parentElement)
+				log(document.getElementById('theaterModeChatHolder')?.parentElement)
+				log(document.getElementById('video-holder'))
+
+				document
+					.getElementById('main-view')
+					?.querySelector('.chat-container')
+					?.parentElement?.classList.toggle('ntv__kick__theater-mode__chat-container', isTheatreMode)
+				document
+					.getElementById('theaterModeChatHolder')
+					?.parentElement?.classList.toggle('ntv__kick__theater-mode__chat-container', isTheatreMode)
+				document
+					.getElementById('video-holder')
+					?.classList.toggle('ntv__kick__theater-mode__video-holder', isTheatreMode)
+			}
+		}
+
+		const handleTheatreModeButtonFn = () => {
+			waitForElements(
+				[
+					'#theaterModeVideoHolder',
+					'#main-view',
+					'#video-holder .vjs-control-bar .vjs-button > .kick-icon-theater'
+				],
+				10_000
+			)
+				.then(foundElements => {
+					if (this.session.isDestroyed) return
+
+					const [theaterModeVideoHolderEl, mainViewEl, theaterModeButtonEl] = foundElements
+					theaterModeButtonEl.addEventListener(
+						'click',
+						() => {
+							this.isTheatreMode = !this.isTheatreMode
+							theaterModeVideoHolderEl.classList.toggle('ntv__kick__theater-mode', this.isTheatreMode)
+							mainViewEl.classList.toggle('ntv__kick__theater-mode', this.isTheatreMode)
+							setTimeout(() => {
+								handleTheatreModeSwitchFn(this.isTheatreMode)
+								handleTheatreModeButtonFn()
+							}, 5)
+						},
+						{ passive: true, once: true }
+					)
+				})
+				.catch(() => {})
+		}
+
+		handleTheatreModeButtonFn()
 	}
 
 	getMessageContentString(chatMessageEl: HTMLElement) {
@@ -1026,6 +1104,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		// messageWrapperNode.remove()
 		// Temporary workaround: We hide the message wrapper node instead of removing it, because we observe descendants of the message wrapper node for deletion events
 		messageWrapperNode.style.display = 'none'
+
+		if (contentNodes.length && contentNodes[0].classList.contains('text-gray-400')) {
+			contentNodes[0].classList.add('ntv__chat-message__timestamp')
+		}
 
 		// Find index of first content node after username etc
 		let firstContentNodeIndex = 0

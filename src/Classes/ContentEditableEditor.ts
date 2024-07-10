@@ -812,6 +812,8 @@ export class ContentEditableEditor {
 	insertText(text: string) {
 		const { inputNode } = this
 
+		if (!this.isInputEnabled) return
+
 		const selection = window.getSelection()
 		if (!selection) {
 			inputNode.append(new Text(text))
@@ -875,7 +877,7 @@ export class ContentEditableEditor {
 		this.hasUnprocessedContentChanges = true
 	}
 
-	insertNodes(nodes: Node[]) {
+	private insertNodes(nodes: Node[]) {
 		const selection = document.getSelection()
 		if (!selection) return
 
@@ -925,7 +927,7 @@ export class ContentEditableEditor {
 		this.hasUnprocessedContentChanges = true
 	}
 
-	insertComponent(component: HTMLElement) {
+	private insertComponent(component: HTMLElement) {
 		const { inputNode } = this
 
 		const selection = document.getSelection()
@@ -1016,6 +1018,8 @@ export class ContentEditableEditor {
 		assertArgDefined(emoteHid)
 		const { messageHistory, eventTarget } = this
 		const { emotesManager } = this.session
+
+		if (!this.isInputEnabled) return null
 
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		messageHistory.resetCursor()

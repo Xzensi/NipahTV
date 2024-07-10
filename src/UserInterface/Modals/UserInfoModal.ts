@@ -694,7 +694,7 @@ export class UserInfoModal extends AbstractModal {
 
 			entriesHTML += `<div class="ntv__chat-message" unrendered>
 				<span class="ntv__chat-message__identity">
-					<span class="ntv__chat-message__timestamp">${time} </span>
+					<span class="ntv__chat-message__timestamp">${time}</span>
 					<span class="ntv__chat-message__badges"></span>
 					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
 					<span class="ntv__chat-message__separator">: </span>
