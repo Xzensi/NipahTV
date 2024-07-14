@@ -95,6 +95,32 @@
 	}
 }
 
+#theaterModeChatHolder {
+	// This breaks chat collapsing, but I've observed Kick once to set width: 350px
+	//  for VODs which is why this was necessary, but I'm unable to reproduce it.
+	// Leaving it as reminder for now, reavaluate later if necessary.
+	// width: 340px;
+
+	.ntv__chat-messages-container {
+		width: 100%;
+	}
+}
+
+.ntv__kick__page-vod {
+	.chat-container {
+		width: 340px;
+	}
+
+	.ntv__chat-messages-container {
+		flex-direction: column-reverse;
+
+		// Necessary hack, because Y scrollbar causes overflow issues
+		//  causing X scrollbar to appear. For some reason only
+		//  necessary on VOD page, not sure why.
+		width: 100%;
+	}
+}
+
 // .ntv__kick__page {
 // 	&-live-stream {
 // 		#theaterModeVideoHolder + .ntv__kick__theater-mode__chat-container {
