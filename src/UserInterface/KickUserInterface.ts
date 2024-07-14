@@ -506,7 +506,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		 *  As a result the code to handle this is sadly quite a mess.
 		 */
 
-		// TODO refactor this to methods handleCollapseTheatreChat, handleUncollapseTheatreChat etc
+		// TODO refactor this to methods handleTheatreCollapseChat, handleTheatreUncollapseChat etc
 
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		let prevSetting: string | null = null
@@ -541,16 +541,22 @@ export class KickUserInterface extends AbstractUserInterface {
 				isOverlayMode
 			)
 
-			if (!isTheatreModeChatCollapsed) {
+			log('Overlay mode classes toggled', isOverlayMode, setting, isTheatreModeChatCollapsed)
+			if (isOverlayMode && !isTheatreModeChatCollapsed) {
 				document
 					.getElementById('video-holder')
-					?.classList.toggle('ntv__kick__theatre-overlay-mode__video-holder', isOverlayMode)
+					?.classList.toggle('ntv__kick__theatre-overlay-mode__video-holder', true)
+			} else if (!isOverlayMode || isTheatreModeChatCollapsed) {
+				document
+					.getElementById('video-holder')
+					?.classList.remove('ntv__kick__theatre-overlay-mode__video-holder')
 			}
 		}
 
 		const handleTheatreModeSwitchFn = (isTheatreMode: boolean) => {
 			const overlayChatSetting: string = settingsManager.getSetting('shared.appearance.layout.overlay_chat')
 			if (overlayChatSetting && overlayChatSetting !== 'none') {
+				log('Theatre mode switch detected', isTheatreMode, overlayChatSetting)
 				toggleOverlayModeClasses(isTheatreMode, overlayChatSetting)
 			}
 
@@ -569,6 +575,8 @@ export class KickUserInterface extends AbstractUserInterface {
 					theaterModeButtonEl.addEventListener(
 						'click',
 						() => {
+							log('Theatre mode button clicked')
+
 							this.isTheatreMode = !this.isTheatreMode
 							setTimeout(() => {
 								handleTheatreModeSwitchFn(this.isTheatreMode)
