@@ -878,6 +878,8 @@ export class ContentEditableEditor {
 	}
 
 	private insertNodes(nodes: Node[]) {
+		log('Inserting nodes', nodes)
+
 		const selection = document.getSelection()
 		if (!selection) return
 
@@ -913,7 +915,6 @@ export class ContentEditableEditor {
 		}
 
 		let range = selection.getRangeAt(0)
-		selection.removeRange(range)
 		range.deleteContents()
 
 		for (let i = nodes.length - 1; i >= 0; i--) {
@@ -921,7 +922,6 @@ export class ContentEditableEditor {
 		}
 
 		range.collapse()
-		selection.addRange(range)
 		inputNode.normalize()
 
 		this.hasUnprocessedContentChanges = true
