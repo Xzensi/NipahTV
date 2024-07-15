@@ -541,7 +541,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				isOverlayMode
 			)
 
-			log('Overlay mode classes toggled', isOverlayMode, setting, isTheatreModeChatCollapsed)
 			if (isOverlayMode && !isTheatreModeChatCollapsed) {
 				document
 					.getElementById('video-holder')
@@ -556,7 +555,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		const handleTheatreModeSwitchFn = (isTheatreMode: boolean) => {
 			const overlayChatSetting: string = settingsManager.getSetting('shared.appearance.layout.overlay_chat')
 			if (overlayChatSetting && overlayChatSetting !== 'none') {
-				log('Theatre mode switch detected', isTheatreMode, overlayChatSetting)
 				toggleOverlayModeClasses(isTheatreMode, overlayChatSetting)
 			}
 
@@ -575,8 +573,6 @@ export class KickUserInterface extends AbstractUserInterface {
 					theaterModeButtonEl.addEventListener(
 						'click',
 						() => {
-							log('Theatre mode button clicked')
-
 							this.isTheatreMode = !this.isTheatreMode
 							setTimeout(() => {
 								handleTheatreModeSwitchFn(this.isTheatreMode)
