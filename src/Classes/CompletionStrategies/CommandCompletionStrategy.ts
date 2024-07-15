@@ -545,10 +545,14 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 			networkInterface
 				.sendCommand(commandData)
 				.then(res => {
-					if (res.error) {
-						this.session.userInterface?.toastError(res.error)
-					} else if (!res.success) {
-						this.session.userInterface?.toastError('Command failed. No reason given.')
+					if (res.status?.error) {
+						this.session.userInterface?.toastError(res.status.message || 'Command failed. No reason given.')
+					} else if (res.error) {
+						this.session.userInterface?.toastError(
+							typeof res.error === 'string'
+								? res.error
+								: res.message || 'Command failed. No reason given.'
+						)
 					}
 				})
 				.catch(err => {
