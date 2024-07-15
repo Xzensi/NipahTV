@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.26
+// @version 1.4.27
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-b377ff7b.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e42a4ba0.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11269,6 +11269,7 @@ var ContentEditableEditor = class {
     this.hasUnprocessedContentChanges = true;
   }
   insertNodes(nodes) {
+    log("Inserting nodes", nodes);
     const selection = document.getSelection();
     if (!selection) return;
     if (!selection.rangeCount) {
@@ -11299,13 +11300,11 @@ var ContentEditableEditor = class {
       }
     }
     let range = selection.getRangeAt(0);
-    selection.removeRange(range);
     range.deleteContents();
     for (let i = nodes.length - 1; i >= 0; i--) {
       range.insertNode(nodes[i]);
     }
     range.collapse();
-    selection.addRange(range);
     inputNode.normalize();
     this.hasUnprocessedContentChanges = true;
   }
@@ -12662,6 +12661,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.loadEmoteMenu();
       this.loadEmoteMenuButton();
       this.loadQuickEmotesHolder();
+      this.loadTheatreModeBehaviour();
       if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
         document.getElementById("chatroom")?.classList.add("ntv__smooth-scrolling");
       }
@@ -12707,9 +12707,9 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.elm.timersContainer = timersContainer;
     }).catch(() => {
     });
-    this.loadTheatreModeBehaviour();
     if (channelData.isVod) {
       document.body.classList.add("ntv__kick__page-vod");
+      this.loadTheatreModeBehaviour();
     } else {
       document.body.classList.add("ntv__kick__page-live-stream");
     }
@@ -12982,44 +12982,57 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   loadTheatreModeBehaviour() {
     if (this.session.isDestroyed) return;
-    const { settingsManager } = this.rootContext;
-    const { channelData } = this.session;
+    const { settingsManager, eventBus: rootEventBus } = this.rootContext;
+    let prevSetting = null;
+    let isTheatreModeChatCollapsed = false;
+    const toggleOverlayModeClasses = (isOverlayMode, setting) => {
+      const mainViewEl = document.getElementById("main-view");
+      const theatreModeChatHolderEl = document.getElementById("theaterModeChatHolder");
+      if (isOverlayMode && setting) {
+        prevSetting = setting.replaceAll("_", "-");
+        const overlayStyleClass = "ntv__kick__theatre-overlay-mode--" + prevSetting;
+        mainViewEl?.classList.toggle(overlayStyleClass, isOverlayMode);
+        theatreModeChatHolderEl?.classList.toggle(overlayStyleClass, isOverlayMode);
+      } else if (prevSetting) {
+        const overlayStyleClass = "ntv__kick__theatre-overlay-mode--" + prevSetting;
+        mainViewEl?.classList.remove(overlayStyleClass);
+        theatreModeChatHolderEl?.classList.remove(overlayStyleClass);
+        prevSetting = null;
+      }
+      mainViewEl?.classList.toggle("ntv__kick__theatre-overlay-mode", isOverlayMode);
+      mainViewEl?.querySelector(".chat-container")?.parentElement?.classList.toggle("ntv__kick__theatre-overlay-mode__chat-container", isOverlayMode);
+      document.getElementById("theaterModeVideoHolder")?.parentElement?.classList.toggle("ntv__kick__theatre-overlay-mode", isOverlayMode);
+      theatreModeChatHolderEl?.parentElement?.classList.toggle(
+        "ntv__kick__theatre-overlay-mode__chat-container",
+        isOverlayMode
+      );
+      if (isOverlayMode && !isTheatreModeChatCollapsed) {
+        document.getElementById("video-holder")?.classList.toggle("ntv__kick__theatre-overlay-mode__video-holder", true);
+      } else if (!isOverlayMode || isTheatreModeChatCollapsed) {
+        document.getElementById("video-holder")?.classList.remove("ntv__kick__theatre-overlay-mode__video-holder");
+      }
+    };
     const handleTheatreModeSwitchFn = (isTheatreMode) => {
-      log("Theater mode button clicked", isTheatreMode);
-      if (settingsManager.getSetting("shared.appearance.layout.overlay_chat")) {
-        if (channelData.isVod) {
-        } else {
-        }
-        log("FLAG_0");
-        log(document.getElementById("main-view")?.querySelector(".chat-container")?.parentElement);
-        log(document.getElementById("theaterModeChatHolder")?.parentElement);
-        log(document.getElementById("video-holder"));
-        document.getElementById("main-view")?.querySelector(".chat-container")?.parentElement?.classList.toggle("ntv__kick__theater-mode__chat-container", isTheatreMode);
-        document.getElementById("theaterModeChatHolder")?.parentElement?.classList.toggle("ntv__kick__theater-mode__chat-container", isTheatreMode);
-        document.getElementById("video-holder")?.classList.toggle("ntv__kick__theater-mode__video-holder", isTheatreMode);
+      const overlayChatSetting = settingsManager.getSetting("shared.appearance.layout.overlay_chat");
+      if (overlayChatSetting && overlayChatSetting !== "none") {
+        toggleOverlayModeClasses(isTheatreMode, overlayChatSetting);
+      }
+      if (isTheatreMode) {
+        handleTheatreUncollapseChatButtonGn();
       }
     };
     const handleTheatreModeButtonFn = () => {
-      waitForElements(
-        [
-          "#theaterModeVideoHolder",
-          "#main-view",
-          "#video-holder .vjs-control-bar .vjs-button > .kick-icon-theater"
-        ],
-        1e4
-      ).then((foundElements) => {
+      waitForElements(["#video-holder .vjs-control-bar .vjs-button > .kick-icon-theater"], 1e4).then((foundElements) => {
         if (this.session.isDestroyed) return;
-        const [theaterModeVideoHolderEl, mainViewEl, theaterModeButtonEl] = foundElements;
+        const [theaterModeButtonEl] = foundElements;
         theaterModeButtonEl.addEventListener(
           "click",
           () => {
             this.isTheatreMode = !this.isTheatreMode;
-            theaterModeVideoHolderEl.classList.toggle("ntv__kick__theater-mode", this.isTheatreMode);
-            mainViewEl.classList.toggle("ntv__kick__theater-mode", this.isTheatreMode);
             setTimeout(() => {
               handleTheatreModeSwitchFn(this.isTheatreMode);
               handleTheatreModeButtonFn();
-            }, 5);
+            }, 50);
           },
           { passive: true, once: true }
         );
@@ -13027,6 +13040,95 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
     };
     handleTheatreModeButtonFn();
+    waitForElements(["#chatroom-top .cursor-pointer"], 1e4).then((foundElements) => {
+      if (this.session.isDestroyed) return;
+      const [collapseChatButtonEl] = foundElements;
+      collapseChatButtonEl.addEventListener(
+        "click",
+        () => {
+          const overlayChatSetting = settingsManager.getSetting(
+            "shared.appearance.layout.overlay_chat"
+          );
+          if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== "none") {
+            isTheatreModeChatCollapsed = true;
+            const mainViewEl = document.getElementById("main-view");
+            mainViewEl?.querySelector(".chat-container")?.parentElement?.classList.toggle(
+              "ntv__kick__theatre-overlay-mode__chat-container",
+              true
+            );
+            document.querySelector("ntv__kick__theatre-overlay-mode__video-holder")?.classList.remove("ntv__kick__theatre-overlay-mode__video-holder");
+          }
+        },
+        { passive: true }
+      );
+    }).catch(() => {
+    });
+    const handleTheatreUncollapseChatButtonGn = () => {
+      waitForElements(["#theaterModeChatHolder"], 1e4).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        const [theatreModeChatHolderEl] = foundElements;
+        const uncollapseChatButtonEl = theatreModeChatHolderEl.parentElement?.querySelector(".cursor-pointer");
+        uncollapseChatButtonEl?.addEventListener(
+          "click",
+          () => {
+            const overlayChatSetting = settingsManager.getSetting(
+              "shared.appearance.layout.overlay_chat"
+            );
+            if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== "none") {
+              const mainViewEl = document.getElementById("main-view");
+              mainViewEl?.querySelector(".chat-container")?.parentElement?.classList.toggle(
+                "ntv__kick__theatre-overlay-mode__chat-container",
+                true
+              );
+              if (this.session.channelData.isVod) {
+                document.getElementById("video-holder")?.classList.toggle(
+                  "ntv__kick__theatre-overlay-mode__video-holder",
+                  isTheatreModeChatCollapsed
+                );
+                isTheatreModeChatCollapsed = !isTheatreModeChatCollapsed;
+              } else {
+                isTheatreModeChatCollapsed = false;
+                document.getElementById("video-holder")?.classList.toggle("ntv__kick__theatre-overlay-mode__video-holder", true);
+              }
+            }
+            setTimeout(() => {
+              handleTheatreUncollapseChatButtonGn();
+            }, 5);
+          },
+          { passive: true, once: true }
+        );
+      }).catch(() => {
+      });
+    };
+    rootEventBus.subscribe(
+      "ntv.settings.change.shared.appearance.layout.overlay_chat",
+      ({ value, prevValue }) => {
+        if (this.isTheatreMode) {
+          const mainViewEl = document.getElementById("main-view");
+          if (prevValue && prevValue === "none") {
+            toggleOverlayModeClasses(true);
+          } else if (prevValue) {
+            mainViewEl?.classList.remove(
+              "ntv__kick__theatre-overlay-mode--" + prevValue.replaceAll("_", "-")
+            );
+          }
+          if (value === "none") {
+            toggleOverlayModeClasses(false);
+          } else {
+            mainViewEl?.classList.add("ntv__kick__theatre-overlay-mode--" + value.replaceAll("_", "-"));
+          }
+        }
+      }
+    );
+    window.addEventListener("keyup", (event) => {
+      if (event.key === "Escape" && this.isTheatreMode) {
+        this.isTheatreMode = false;
+        handleTheatreModeSwitchFn(false);
+        setTimeout(() => {
+          handleTheatreModeButtonFn();
+        }, 20);
+      }
+    });
   }
   getMessageContentString(chatMessageEl) {
     const messageNodes = Array.from(
@@ -14178,18 +14280,36 @@ var SettingsManager = class {
         {
           label: "Layout",
           children: [
-            // {
-            // 	label: 'Appearance',
-            // 	description: 'These settings require a page refresh to take effect.',
-            // 	children: [
-            // 		{
-            // 			label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
-            // 			id: 'shared.appearance.layout.overlay_chat',
-            // 			default: false,
-            // 			type: 'checkbox'
-            // 		}
-            // 	]
-            // }
+            {
+              label: "Appearance",
+              description: "These settings require a page refresh to take effect.",
+              children: [
+                {
+                  label: "Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)",
+                  id: "shared.appearance.layout.overlay_chat",
+                  default: "none",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "Disabled",
+                      value: "none"
+                    },
+                    {
+                      label: "Very translucent",
+                      value: "very_translucent"
+                    },
+                    {
+                      label: "Semi translucent",
+                      value: "semi_translucent"
+                    },
+                    {
+                      label: "Dark translucent",
+                      value: "dark_translucent"
+                    }
+                  ]
+                }
+              ]
+            }
           ]
         }
       ]
@@ -15283,7 +15403,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.26",
+    VERSION: "1.4.27",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',

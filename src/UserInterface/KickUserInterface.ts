@@ -70,6 +70,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.loadEmoteMenu()
 				this.loadEmoteMenuButton()
 				this.loadQuickEmotesHolder()
+				this.loadTheatreModeBehaviour()
 
 				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
 					document.getElementById('chatroom')?.classList.add('ntv__smooth-scrolling')
@@ -140,10 +141,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
-		this.loadTheatreModeBehaviour()
-
 		if (channelData.isVod) {
 			document.body.classList.add('ntv__kick__page-vod')
+			this.loadTheatreModeBehaviour()
 		} else {
 			document.body.classList.add('ntv__kick__page-live-stream')
 		}
@@ -499,58 +499,85 @@ export class KickUserInterface extends AbstractUserInterface {
 	loadTheatreModeBehaviour() {
 		if (this.session.isDestroyed) return
 
-		const { settingsManager } = this.rootContext
-		const { channelData } = this.session
+		/**
+		 * Kick has 2 different chat containers with isolated collapse state.
+		 *  One for the main chat and one for the theatre mode chat. It
+		 *  remembers the collapse state for each chat container separately.
+		 *  As a result the code to handle this is sadly quite a mess.
+		 */
 
-		const handleTheatreModeSwitchFn = (isTheatreMode: boolean) => {
-			log('Theater mode button clicked', isTheatreMode)
+		// TODO refactor this to methods handleTheatreCollapseChat, handleTheatreUncollapseChat etc
 
-			if (settingsManager.getSetting('shared.appearance.layout.overlay_chat')) {
-				if (channelData.isVod) {
-				} else {
-				}
+		const { settingsManager, eventBus: rootEventBus } = this.rootContext
+		let prevSetting: string | null = null
+		let isTheatreModeChatCollapsed = false
 
-				log('FLAG_0')
-				log(document.getElementById('main-view')?.querySelector('.chat-container')?.parentElement)
-				log(document.getElementById('theaterModeChatHolder')?.parentElement)
-				log(document.getElementById('video-holder'))
+		const toggleOverlayModeClasses = (isOverlayMode: boolean, setting?: string) => {
+			const mainViewEl = document.getElementById('main-view')
+			const theatreModeChatHolderEl = document.getElementById('theaterModeChatHolder')
 
-				document
-					.getElementById('main-view')
-					?.querySelector('.chat-container')
-					?.parentElement?.classList.toggle('ntv__kick__theater-mode__chat-container', isTheatreMode)
-				document
-					.getElementById('theaterModeChatHolder')
-					?.parentElement?.classList.toggle('ntv__kick__theater-mode__chat-container', isTheatreMode)
+			if (isOverlayMode && setting) {
+				prevSetting = setting.replaceAll('_', '-')
+				const overlayStyleClass = 'ntv__kick__theatre-overlay-mode--' + prevSetting
+				mainViewEl?.classList.toggle(overlayStyleClass, isOverlayMode)
+				theatreModeChatHolderEl?.classList.toggle(overlayStyleClass, isOverlayMode)
+			} else if (prevSetting) {
+				const overlayStyleClass = 'ntv__kick__theatre-overlay-mode--' + prevSetting
+				mainViewEl?.classList.remove(overlayStyleClass)
+				theatreModeChatHolderEl?.classList.remove(overlayStyleClass)
+				prevSetting = null
+			}
+
+			mainViewEl?.classList.toggle('ntv__kick__theatre-overlay-mode', isOverlayMode)
+			mainViewEl
+				?.querySelector('.chat-container')
+				?.parentElement?.classList.toggle('ntv__kick__theatre-overlay-mode__chat-container', isOverlayMode)
+
+			document
+				.getElementById('theaterModeVideoHolder')
+				?.parentElement?.classList.toggle('ntv__kick__theatre-overlay-mode', isOverlayMode)
+			theatreModeChatHolderEl?.parentElement?.classList.toggle(
+				'ntv__kick__theatre-overlay-mode__chat-container',
+				isOverlayMode
+			)
+
+			if (isOverlayMode && !isTheatreModeChatCollapsed) {
 				document
 					.getElementById('video-holder')
-					?.classList.toggle('ntv__kick__theater-mode__video-holder', isTheatreMode)
+					?.classList.toggle('ntv__kick__theatre-overlay-mode__video-holder', true)
+			} else if (!isOverlayMode || isTheatreModeChatCollapsed) {
+				document
+					.getElementById('video-holder')
+					?.classList.remove('ntv__kick__theatre-overlay-mode__video-holder')
 			}
 		}
 
+		const handleTheatreModeSwitchFn = (isTheatreMode: boolean) => {
+			const overlayChatSetting: string = settingsManager.getSetting('shared.appearance.layout.overlay_chat')
+			if (overlayChatSetting && overlayChatSetting !== 'none') {
+				toggleOverlayModeClasses(isTheatreMode, overlayChatSetting)
+			}
+
+			if (isTheatreMode) {
+				handleTheatreUncollapseChatButtonGn()
+			}
+		}
+
+		// Handle clicking the theatre mode button
 		const handleTheatreModeButtonFn = () => {
-			waitForElements(
-				[
-					'#theaterModeVideoHolder',
-					'#main-view',
-					'#video-holder .vjs-control-bar .vjs-button > .kick-icon-theater'
-				],
-				10_000
-			)
+			waitForElements(['#video-holder .vjs-control-bar .vjs-button > .kick-icon-theater'], 10_000)
 				.then(foundElements => {
 					if (this.session.isDestroyed) return
 
-					const [theaterModeVideoHolderEl, mainViewEl, theaterModeButtonEl] = foundElements
+					const [theaterModeButtonEl] = foundElements
 					theaterModeButtonEl.addEventListener(
 						'click',
 						() => {
 							this.isTheatreMode = !this.isTheatreMode
-							theaterModeVideoHolderEl.classList.toggle('ntv__kick__theater-mode', this.isTheatreMode)
-							mainViewEl.classList.toggle('ntv__kick__theater-mode', this.isTheatreMode)
 							setTimeout(() => {
 								handleTheatreModeSwitchFn(this.isTheatreMode)
 								handleTheatreModeButtonFn()
-							}, 5)
+							}, 50)
 						},
 						{ passive: true, once: true }
 					)
@@ -559,6 +586,133 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		handleTheatreModeButtonFn()
+
+		// Handle clicking the chat collapse button
+		waitForElements(['#chatroom-top .cursor-pointer'], 10_000)
+			.then(foundElements => {
+				if (this.session.isDestroyed) return
+
+				const [collapseChatButtonEl] = foundElements
+				collapseChatButtonEl.addEventListener(
+					'click',
+					() => {
+						const overlayChatSetting: string = settingsManager.getSetting(
+							'shared.appearance.layout.overlay_chat'
+						)
+
+						if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== 'none') {
+							isTheatreModeChatCollapsed = true
+
+							// Re-apply the theatre overlay mode classes that got removed when chat was collapsed
+							const mainViewEl = document.getElementById('main-view')
+							mainViewEl
+								?.querySelector('.chat-container')
+								?.parentElement?.classList.toggle(
+									'ntv__kick__theatre-overlay-mode__chat-container',
+									true
+								)
+
+							// Already removed by Kick client on collapse, but just in case
+							document
+								.querySelector('ntv__kick__theatre-overlay-mode__video-holder')
+								?.classList.remove('ntv__kick__theatre-overlay-mode__video-holder')
+						}
+					},
+					{ passive: true }
+				)
+			})
+			.catch(() => {})
+
+		// Handle clicking the chat uncollapse button
+		// The uncollapse button only exists when in theatre mode
+		const handleTheatreUncollapseChatButtonGn = () => {
+			waitForElements(['#theaterModeChatHolder'], 10_000)
+				.then(foundElements => {
+					if (this.session.isDestroyed) return
+
+					const [theatreModeChatHolderEl] = foundElements
+					const uncollapseChatButtonEl =
+						theatreModeChatHolderEl.parentElement?.querySelector('.cursor-pointer')
+
+					uncollapseChatButtonEl?.addEventListener(
+						'click',
+						() => {
+							const overlayChatSetting: string = settingsManager.getSetting(
+								'shared.appearance.layout.overlay_chat'
+							)
+							if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== 'none') {
+								// Re-apply the theatre overlay mode classes that got removed when chat was collapsed
+								const mainViewEl = document.getElementById('main-view')
+								mainViewEl
+									?.querySelector('.chat-container')
+									?.parentElement?.classList.toggle(
+										'ntv__kick__theatre-overlay-mode__chat-container',
+										true
+									)
+
+								// Sadly Kick's UI is such a mess to also use this button to collapse & uncollapse chat for vods..
+								if (this.session.channelData.isVod) {
+									document
+										.getElementById('video-holder')
+										?.classList.toggle(
+											'ntv__kick__theatre-overlay-mode__video-holder',
+											isTheatreModeChatCollapsed
+										)
+
+									// Toggle the chat collapse state for vods
+									isTheatreModeChatCollapsed = !isTheatreModeChatCollapsed
+								} else {
+									isTheatreModeChatCollapsed = false
+									document
+										.getElementById('video-holder')
+										?.classList.toggle('ntv__kick__theatre-overlay-mode__video-holder', true)
+								}
+							}
+
+							setTimeout(() => {
+								handleTheatreUncollapseChatButtonGn()
+							}, 5)
+						},
+						{ passive: true, once: true }
+					)
+				})
+				.catch(() => {})
+		}
+
+		// Handle changing the overlay chat setting
+		rootEventBus.subscribe(
+			'ntv.settings.change.shared.appearance.layout.overlay_chat',
+			({ value, prevValue }: { value: string; prevValue?: string }) => {
+				if (this.isTheatreMode) {
+					const mainViewEl = document.getElementById('main-view')
+
+					if (prevValue && prevValue === 'none') {
+						toggleOverlayModeClasses(true)
+					} else if (prevValue) {
+						mainViewEl?.classList.remove(
+							'ntv__kick__theatre-overlay-mode--' + prevValue.replaceAll('_', '-')
+						)
+					}
+
+					if (value === 'none') {
+						toggleOverlayModeClasses(false)
+					} else {
+						mainViewEl?.classList.add('ntv__kick__theatre-overlay-mode--' + value.replaceAll('_', '-'))
+					}
+				}
+			}
+		)
+
+		// Handle pressing escape key to exit theatre mode
+		window.addEventListener('keyup', (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && this.isTheatreMode) {
+				this.isTheatreMode = false
+				handleTheatreModeSwitchFn(false)
+				setTimeout(() => {
+					handleTheatreModeButtonFn()
+				}, 20)
+			}
+		})
 	}
 
 	getMessageContentString(chatMessageEl: HTMLElement) {

@@ -1,35 +1,92 @@
-// .ntv__kick__theater-mode {
-// 	&__video-holder {
-// 		margin-right: 22rem;
+.ntv__kick__theatre-overlay-mode {
+	&__video-holder {
+		margin-right: 340px !important;
+	}
 
-// 		video.vjs-tech {
-// 			max-width: 100vw;
-// 			width: 100vw;
-// 		}
-// 	}
+	&__chat-container {
+		background: transparent !important;
+		position: absolute !important;
+		right: 0 !important;
 
-// 	&__chat-container {
-// 		background: transparent;
-// 		position: absolute;
-// 		right: 0;
+		#theaterModeChatHolder {
+			background-color: transparent !important;
+		}
 
-// 		.chat-container {
-// 			border-left: none;
-// 			width: 100%;
-// 		}
+		.chat-container {
+			border-left: none;
+		}
 
-// 		.chat-content {
-// 			background: transparent;
-// 		}
+		#chatroom-top {
+			// Ensure Top and pinned messages are above the chat
+			z-index: 2;
 
-// 		.chatroom-footer {
-// 			backdrop-filter: blur(10px);
-// 			background: rgba(0, 0, 10, 0.0618) !important;
-// 		}
+			.pinned-message__container {
+				background-color: transparent;
+			}
+		}
 
-// 		.ntv__chat-message {
-// 			backdrop-filter: blur(4px);
-// 			background: rgba(0, 0, 10, 0.0618) !important;
-// 		}
-// 	}
-// }
+		.chat-content {
+			background: transparent;
+		}
+
+		#chatroom-top,
+		.chatroom-footer,
+		.ntv__chat-message {
+			backdrop-filter: blur(4px);
+			background: rgba(0, 0, 10, 0.0618) !important;
+		}
+
+		.bg-secondary-dark {
+			background-color: transparent;
+		}
+	}
+
+	&--very-translucent {
+		#chatroom-top,
+		.chatroom-footer,
+		.ntv__chat-message {
+			backdrop-filter: blur(5px);
+			background-color: rgba(0, 0, 10, 0.0618) !important;
+		}
+
+		.ntv__chat-message.pinned-message {
+			// Blur doesnt work in chromium due to ancient bug
+			// https://issues.chromium.org/u/1/issues/40942655?pli=1
+			backdrop-filter: blur(20px);
+			background-color: rgba(0, 0, 10, 0.618) !important;
+		}
+	}
+
+	&--semi-translucent {
+		#chatroom-top,
+		.chatroom-footer,
+		.ntv__chat-message {
+			backdrop-filter: blur(6px);
+			background-color: rgba(0, 0, 10, 0.2) !important;
+		}
+
+		.ntv__chat-message.pinned-message {
+			backdrop-filter: blur(8px);
+			background-color: rgba(0, 0, 10, 0.618) !important;
+		}
+	}
+
+	&--dark-translucent {
+		#chatroom-top,
+		.chatroom-footer,
+		.ntv__chat-message {
+			backdrop-filter: blur(8px);
+			background-color: rgba(0, 0, 10, 0.45) !important;
+		}
+
+		.ntv__chat-message.pinned-message {
+			backdrop-filter: blur(9px);
+			background-color: rgba(0, 0, 10, 0.618) !important;
+		}
+	}
+
+	video.vjs-tech {
+		max-width: 100vw;
+		width: 100vw;
+	}
+}
