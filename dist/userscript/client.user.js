@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.27
+// @version 1.4.28
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12059,10 +12059,12 @@ var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
       commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args);
     } else {
       networkInterface.sendCommand(commandData).then((res) => {
-        if (res.error) {
-          this.session.userInterface?.toastError(res.error);
-        } else if (!res.success) {
-          this.session.userInterface?.toastError("Command failed. No reason given.");
+        if (res.status?.error) {
+          this.session.userInterface?.toastError(res.status.message || "Command failed. No reason given.");
+        } else if (res.error) {
+          this.session.userInterface?.toastError(
+            typeof res.error === "string" ? res.error : res.message || "Command failed. No reason given."
+          );
         }
       }).catch((err) => {
         this.session.userInterface?.toastError("Command failed. " + (err.message || ""));
@@ -15403,7 +15405,7 @@ var KickBadgeProvider = class {
 // src/app.ts
 var NipahClient = class {
   ENV_VARS = {
-    VERSION: "1.4.27",
+    VERSION: "1.4.28",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
