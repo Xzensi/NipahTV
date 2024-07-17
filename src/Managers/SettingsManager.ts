@@ -540,24 +540,14 @@ export class SettingsManager {
 		}
 
 		//! Temporary migration code
-		;[
-			['shared.chat.emote_providers.kick.filter_emojis', 'shared.emote_menu.emote_providers.kick.show_emojis'],
-			[
-				'shared.chat.emote_providers.kick.filter_other_channels',
-				'shared.emote_menu.emote_providers.kick.show_other_channels'
-			],
-			[
-				'shared.chat.emote_providers.kick.filter_current_channel',
-				'shared.emote_menu.emote_providers.kick.show_current_channel'
-			],
-			['shared.chat.emote_providers.kick.filter_global', 'shared.emote_menu.emote_providers.kick.show_global']
-		].forEach(([oldKey, newKey]) => {
-			if (this.settingsMap.has(oldKey)) {
-				const val = this.settingsMap.get(oldKey)
-				this.setSetting(newKey, val)
-				database.deleteSetting(oldKey)
-			}
-		})
+		// ;[
+		// ].forEach(([oldKey, newKey]) => {
+		// 	if (this.settingsMap.has(oldKey)) {
+		// 		const val = this.settingsMap.get(oldKey)
+		// 		this.setSetting(newKey, val)
+		// 		database.deleteSetting(oldKey)
+		// 	}
+		// })
 
 		this.isLoaded = true
 	}
