@@ -167,7 +167,7 @@ function updateDirectory(source, destination) {
 			bundle: true,
 			allowOverwrite: true,
 			minify: false,
-			sourcemap: false,
+			sourcemap: true,
 			format: 'esm',
 			tsconfig: 'tsconfig.json',
 			define: {}
@@ -187,7 +187,7 @@ function updateDirectory(source, destination) {
 			bundle: true,
 			allowOverwrite: true,
 			minify: false,
-			sourcemap: false,
+			sourcemap: true,
 			format: 'esm',
 			tsconfig: 'tsconfig.json',
 			define: {}
