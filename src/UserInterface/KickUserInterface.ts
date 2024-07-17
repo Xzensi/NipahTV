@@ -292,6 +292,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
+		Array.from(document.getElementsByClassName('ntv__submit-button')).forEach(element => {
+			element.remove()
+		})
+
 		const submitButtonEl = (this.elm.submitButton = parseHTML(
 			`<button class="ntv__submit-button disabled">Chat</button>`,
 			true
@@ -306,6 +310,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		///////////////////////////////////
 		//====// Proxy Text Field //====//
+		Array.from(document.getElementsByClassName('ntv__message-input')).forEach(element => {
+			element.remove()
+		})
+
 		const originalTextFieldEl = document.querySelector('#message-input') as HTMLElement | undefined
 		if (!originalTextFieldEl) return error('Original text field not found')
 

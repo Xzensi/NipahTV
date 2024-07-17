@@ -16,7 +16,9 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 
 	render() {
 		// Delete any existing footer logo button, in case cached page got loaded somehow
-		document.querySelector('.ntv__emote-menu-button')?.remove()
+		Array.from(document.getElementsByClassName('ntv__emote-menu-button')).forEach(element => {
+			element.remove()
+		})
 
 		const basePath = RESOURCE_ROOT + 'assets/img/btn'
 		const filename = this.getFile()

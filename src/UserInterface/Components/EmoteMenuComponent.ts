@@ -37,7 +37,9 @@ export class EmoteMenuComponent extends AbstractComponent {
 		const showSidebar = true //settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
 
 		// Delete any existing emote menus, in case cached page got loaded somehow
-		document.querySelectorAll('.ntv__emote-menu').forEach(el => el.remove())
+		Array.from(document.getElementsByClassName('ntv__emote-menu')).forEach(element => {
+			element.remove()
+		})
 
 		this.containerEl = parseHTML(
 			cleanupHTML(`
