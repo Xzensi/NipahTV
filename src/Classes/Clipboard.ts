@@ -143,7 +143,7 @@ export class Clipboard2 {
 
 	parsePastedMessage(evt: ClipboardEvent) {
 		const clipboardData = evt.clipboardData || window.clipboardData
-		if (!clipboardData) return
+		if (!clipboardData) return []
 
 		const html = clipboardData.getData('text/html')
 		if (html) {
@@ -151,7 +151,7 @@ export class Clipboard2 {
 			const childNodes = doc.body.childNodes
 
 			if (childNodes.length === 0) {
-				return
+				return []
 			}
 
 			// Find the comment nodes containing the start and end markers
@@ -175,7 +175,7 @@ export class Clipboard2 {
 
 			if (startFragmentComment === null || endFragmentComment === null) {
 				error('Failed to find fragment markers, clipboard data seems to be corrupted.')
-				return
+				return []
 			}
 
 			// Slice away the content between the start and end markers
@@ -195,9 +195,10 @@ export class Clipboard2 {
 			}
 
 			if (parsedNodes.length) return parsedNodes
+			return []
 		} else {
 			const text = clipboardData.getData('text/plain')
-			if (!text) return
+			if (!text) return []
 
 			return [text.replaceAll(CHAR_ZWSP, '')]
 		}

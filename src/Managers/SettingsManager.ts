@@ -6,6 +6,10 @@ import { error, log } from '../utils'
 export class SettingsManager {
 	/*
     - Shared global settings
+		= Appearance
+		    = Layout
+				(Appearance)
+		            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
         = Chat
             = Appearance
                 (Appearance)
@@ -18,6 +22,9 @@ export class SettingsManager {
                 (General)
                     - Use Ctrl+E to open the Emote Menu
                     - Use Ctrl+Spacebar for quick emote access
+			= Badges
+				(Badges)
+					- Show the NipahTV badge for NTV users
             = Behavior
                 (General)
                     - Enable chat smooth scrolling
@@ -33,13 +40,7 @@ export class SettingsManager {
                     - Choose the style of the emote menu button (dropdown)
                     - Show the search box
                     - Close the emote menu after clicking an emote
-            = Quick emote holder
-                (Appearance)
-                    - Show quick emote holder
-                    - Rows of emotes to display (number)
-                (Behavior)
-                    - Send emotes to chat immediately on click
-            = Emote providers
+            = Emote Providers
                 (Kick)
                     - Show emotes in chat
                     - Show global emote set
@@ -56,6 +57,12 @@ export class SettingsManager {
                 (Tab completion)
                     - Display a tooltip when using tab-completion
                     - Enable automatic in-place tab-completion suggestions in text input while typing
+			= Quick Emote Holder
+                (Appearance)
+                    - Show quick emote holder
+                    - Rows of emotes to display (number)
+                (Behavior)
+                    - Send emotes to chat immediately on click
 	*/
 
 	private sharedSettings = [
@@ -67,7 +74,6 @@ export class SettingsManager {
 					children: [
 						{
 							label: 'Appearance',
-							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
 									label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
@@ -191,6 +197,23 @@ export class SettingsManager {
 								{
 									label: 'Use Ctrl+Spacebar to open the Emote Menu',
 									id: 'shared.chat.appearance.emote_menu_ctrl_spacebar',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Badges',
+					children: [
+						{
+							label: 'Badges',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Show the NipahTV badge for NTV users',
+									id: 'shared.chat.badges.show_ntv_badge',
 									default: true,
 									type: 'checkbox'
 								}
@@ -325,42 +348,7 @@ export class SettingsManager {
 					]
 				},
 				{
-					label: 'Quick emote holder',
-					children: [
-						{
-							label: 'Appearance',
-							children: [
-								{
-									label: 'Show quick emote holder',
-									id: 'shared.chat.quick_emote_holder.enabled',
-									type: 'checkbox',
-									default: true
-								},
-								{
-									label: 'Rows of emotes to display',
-									id: 'shared.chat.quick_emote_holder.rows',
-									type: 'number',
-									default: 2,
-									min: 1,
-									max: 10
-								}
-							]
-						},
-						{
-							label: 'Behavior',
-							children: [
-								{
-									label: 'Send emotes to chat immediately on click',
-									id: 'shared.chat.quick_emote_holder.send_immediately',
-									type: 'checkbox',
-									default: false
-								}
-							]
-						}
-					]
-				},
-				{
-					label: 'Emote providers',
+					label: 'Emote Providers',
 					children: [
 						{
 							label: 'Kick',
@@ -466,6 +454,41 @@ export class SettingsManager {
 								// 	default: false,
 								// 	type: 'checkbox'
 								// },
+							]
+						}
+					]
+				},
+				{
+					label: 'Quick Emote Holder',
+					children: [
+						{
+							label: 'Appearance',
+							children: [
+								{
+									label: 'Show quick emote holder',
+									id: 'shared.chat.quick_emote_holder.enabled',
+									type: 'checkbox',
+									default: true
+								},
+								{
+									label: 'Rows of emotes to display',
+									id: 'shared.chat.quick_emote_holder.rows',
+									type: 'number',
+									default: 2,
+									min: 1,
+									max: 10
+								}
+							]
+						},
+						{
+							label: 'Behavior',
+							children: [
+								{
+									label: 'Send emotes to chat immediately on click',
+									id: 'shared.chat.quick_emote_holder.send_immediately',
+									type: 'checkbox',
+									default: false
+								}
 							]
 						}
 					]
