@@ -20,8 +20,9 @@ import { UsersManager } from './Managers/UsersManager'
 import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 
 class NipahClient {
+	VERSION = '1.4.28'
+
 	ENV_VARS = {
-		VERSION: '1.4.28',
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -42,8 +43,9 @@ class NipahClient {
 
 	initialize() {
 		const { ENV_VARS } = this
+		window.APP_VERSION = this.VERSION
 
-		info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`)
+		info(`Initializing Nipah client [${APP_VERSION}]..`)
 
 		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')

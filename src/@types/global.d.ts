@@ -29,6 +29,7 @@ declare global {
 
 	var PLATFORM: ValueOf<typeof PLATFORM_ENUM>
 	var RESOURCE_ROOT: string
+	var APP_VERSION: string
 
 	interface Window {
 		navigation: any

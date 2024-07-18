@@ -1277,7 +1277,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 						// Setting .className prop is forbidden here because it has no setter
 						badgeEl.setAttribute('class', 'relative badge-tooltip h-4 ml-1 first:ml-0')
-						badgesContainer.prepend(badgeEl)
+						badgesContainer.append(badgeEl)
 					}
 				}
 			}

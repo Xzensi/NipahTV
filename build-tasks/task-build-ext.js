@@ -110,7 +110,7 @@ function updateDirectory(source, destination) {
 		})
 		.then(async () => {
 			const appContent = fs.readFileSync('src/app.ts', 'utf8')
-			const version = appContent.match(/VERSION:\s['"]([0-9.]+)['"]/m)[1]
+			const version = appContent.match(/VERSION\s=\s['"]([0-9.]+)['"]/m)[1]
 			const branch = appContent.match(/RELEASE_BRANCH:\s['"](\S+)['"]/m)[1]
 			log('Version:', version)
 			log('Branch:', branch)

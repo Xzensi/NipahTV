@@ -67,6 +67,15 @@ export class SettingsManager {
 
 	private sharedSettings = [
 		{
+			label: 'NipahTV',
+			children: [
+				{
+					label: 'Changelog',
+					children: []
+				}
+			]
+		},
+		{
 			label: 'Appearance',
 			children: [
 				{
@@ -209,7 +218,6 @@ export class SettingsManager {
 					children: [
 						{
 							label: 'Badges',
-							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
 									label: 'Show the NipahTV badge for NTV users',
