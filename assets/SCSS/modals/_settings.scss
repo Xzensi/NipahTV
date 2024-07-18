@@ -14,7 +14,6 @@
 	width: var(--width);
 	height: 50vh;
 	height: var(--height);
-	margin: 25px;
 
 	top: 25%;
 	left: 25%;
@@ -126,9 +125,28 @@
 		flex-direction: column;
 		display: flex;
 		flex: 1 1;
+	}
 
-		&__panel {
-			padding-top: $golden_ratio_inverse * 1em;
+	&__panel {
+		padding-top: $golden_ratio_inverse * 1em;
+
+		&[data-panel='nipahtv.changelog'] {
+			h4 {
+				margin-bottom: 1em;
+				font-size: 1.333em;
+				font-weight: bold;
+
+				span {
+					font-weight: normal;
+					font-size: 0.618em;
+					color: inherit;
+				}
+			}
+
+			p {
+				white-space: preserve;
+				margin-bottom: 1em;
+			}
 		}
 	}
 
@@ -158,6 +176,6 @@
 	}
 
 	.ntv__modal__body {
-		padding: 2em 3em 3em 3em;
+		padding: 2em 3em 3em 2em;
 	}
 }

@@ -5,6 +5,7 @@ import { Caret } from '../UserInterface/Caret'
 import { PriorityEventTarget } from './PriorityEventTarget'
 import { Clipboard2 } from './Clipboard'
 import { Publisher } from './Publisher'
+import { U_TAG_NTV_AFFIX } from '../constants'
 
 /**
  * Inserts a space character before the component if there is no space character before it.
@@ -179,7 +180,12 @@ export class ContentEditableEditor {
 			evt.preventDefault()
 
 			const messageParts = clipboard.parsePastedMessage(evt)
-			if (!messageParts || !messageParts.length) return
+			if (!messageParts.length) return
+
+			// Remove reserved Unicode range U+E0001 to U+E007F. These are used for internal tag characters.
+			messageParts.forEach((part, index) => {
+				messageParts[index] = part.replace(/[\uE0001-\uE007F]/g, '')
+			})
 
 			const newNodes = []
 			for (let i = 0; i < messageParts.length; i++) {

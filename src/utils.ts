@@ -145,19 +145,21 @@ export class RESTFromMain {
 	promiseMap = new Map()
 
 	constructor() {
-		document.addEventListener('ntv_upstream', (evt: Event) => {
-			const data = JSON.parse((evt as CustomEvent).detail)
-			const { rID, xhr } = data
-			const { resolve, reject } = this.promiseMap.get(rID)
-			this.promiseMap.delete(rID)
+		if (__EXTENSION__) {
+			document.addEventListener('ntv_upstream', (evt: Event) => {
+				const data = JSON.parse((evt as CustomEvent).detail)
+				const { rID, xhr } = data
+				const { resolve, reject } = this.promiseMap.get(rID)
+				this.promiseMap.delete(rID)
 
-			if (xhr.status >= 200 && xhr.status < 300) {
-				if (xhr.text) resolve(JSON.parse(xhr.text))
-				else resolve(void 0)
-			} else {
-				reject('Request failed with status code ' + xhr.status)
-			}
-		})
+				if (xhr.status >= 200 && xhr.status < 300) {
+					if (xhr.text) resolve(JSON.parse(xhr.text))
+					else resolve(void 0)
+				} else {
+					reject('Request failed with status code ' + xhr.status)
+				}
+			})
+		}
 	}
 
 	async initialize() {

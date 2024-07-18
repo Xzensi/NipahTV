@@ -18,7 +18,7 @@ export class AbstractModal extends AbstractComponent {
 	protected geometry?: ModalGeometry
 
 	protected element: HTMLElement
-	protected modalHeaderEl: HTMLElement
+	protected modalHeaderBodyEl: HTMLElement
 	protected modalBodyEl: HTMLElement
 	protected modalCloseBtn: HTMLElement
 	private destroyed = false
@@ -45,7 +45,7 @@ export class AbstractModal extends AbstractComponent {
 			cleanupHTML(
 				`<div class="ntv__modal ${this.className ? `ntv__${this.className}-modal` : ''}" ${styleAttribute}>
 								<div class="ntv__modal__header">
-									<h3 class="ntv__modal__title"></h3>
+									<div class="ntv__modal__header__body"></div>
 									<button class="ntv__modal__close-btn">🞨</button>
 								</div>
 								<div class="ntv__modal__body"></div>
@@ -54,7 +54,8 @@ export class AbstractModal extends AbstractComponent {
 			true
 		) as HTMLElement
 
-		this.modalHeaderEl = this.element.querySelector('.ntv__modal__header') as HTMLElement
+		const modalHeaderEl = this.element.querySelector('.ntv__modal__header') as HTMLElement
+		this.modalHeaderBodyEl = this.element.querySelector('.ntv__modal__header__body') as HTMLElement
 		this.modalBodyEl = this.element.querySelector('.ntv__modal__body') as HTMLElement
 		this.modalCloseBtn = this.element.querySelector('.ntv__modal__close-btn') as HTMLElement
 
@@ -64,7 +65,7 @@ export class AbstractModal extends AbstractComponent {
 			this.eventTarget.dispatchEvent(new Event('close'))
 		})
 
-		this.modalHeaderEl.addEventListener('mousedown', this.handleModalDrag.bind(this))
+		modalHeaderEl.addEventListener('mousedown', this.handleModalDrag.bind(this))
 
 		// On window resize adjust the modal position
 		if (this.geometry?.position === 'center') {

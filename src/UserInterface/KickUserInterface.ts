@@ -14,7 +14,9 @@ import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
 import { AbstractUserInterface } from './AbstractUserInterface'
 import { InputController } from '../Managers/InputController'
 import type { UserInfoModal } from './Modals/UserInfoModal'
+import type { Badge } from '../Providers/BadgeProvider'
 import { Caret } from './Caret'
+import { U_TAG_NTV_AFFIX } from '../constants'
 
 export class KickUserInterface extends AbstractUserInterface {
 	private abortController = new AbortController()
@@ -290,6 +292,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
+		Array.from(document.getElementsByClassName('ntv__submit-button')).forEach(element => {
+			element.remove()
+		})
+
 		const submitButtonEl = (this.elm.submitButton = parseHTML(
 			`<button class="ntv__submit-button disabled">Chat</button>`,
 			true
@@ -304,6 +310,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		///////////////////////////////////
 		//====// Proxy Text Field //====//
+		Array.from(document.getElementsByClassName('ntv__message-input')).forEach(element => {
+			element.remove()
+		})
+
 		const originalTextFieldEl = document.querySelector('#message-input') as HTMLElement | undefined
 		if (!originalTextFieldEl) return error('Original text field not found')
 
@@ -1249,6 +1259,28 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			const usernameNode = messageIdentityNode.querySelector('.chat-entry-username')
 			if (usernameNode) usernameNode.classList.add('ntv__chat-message__username')
+
+			// Add NTV badge to badges container
+			if (settingsManager.getSetting('shared.chat.badges.show_ntv_badge')) {
+				// Check if message has been signed by NTV
+				const lastElChild = messageWrapperNode.lastElementChild
+				if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
+					const badgesContainer = messageIdentityNode.getElementsByClassName('items-center')[0]
+					if (badgesContainer) {
+						// Kick normally adds a margin-right tailwind class when container is no longer empty so we simulate it
+						if (!badgesContainer.children.length) badgesContainer.classList.add('mr-1')
+
+						const badgeEl = parseHTML(
+							this.session.badgeProvider.getBadge({ type: 'nipahtv' } as Badge) as string,
+							true
+						) as HTMLElement
+
+						// Setting .className prop is forbidden here because it has no setter
+						badgeEl.setAttribute('class', 'relative badge-tooltip h-4 ml-1 first:ml-0')
+						badgesContainer.append(badgeEl)
+					}
+				}
+			}
 		}
 
 		const contentNodes = Array.from(messageWrapperNode.children)

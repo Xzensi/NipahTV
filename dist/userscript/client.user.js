@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.28
+// @version 1.4.29
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e42a4ba0.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-c22d827b.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -6182,18 +6182,20 @@ var RESTFromMain = class {
   requestID = 0;
   promiseMap = /* @__PURE__ */ new Map();
   constructor() {
-    document.addEventListener("ntv_upstream", (evt) => {
-      const data = JSON.parse(evt.detail);
-      const { rID, xhr } = data;
-      const { resolve, reject } = this.promiseMap.get(rID);
-      this.promiseMap.delete(rID);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        if (xhr.text) resolve(JSON.parse(xhr.text));
-        else resolve(void 0);
-      } else {
-        reject("Request failed with status code " + xhr.status);
-      }
-    });
+    if (false) {
+      document.addEventListener("ntv_upstream", (evt) => {
+        const data = JSON.parse(evt.detail);
+        const { rID, xhr } = data;
+        const { resolve, reject } = this.promiseMap.get(rID);
+        this.promiseMap.delete(rID);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          if (xhr.text) resolve(JSON.parse(xhr.text));
+          else resolve(void 0);
+        } else {
+          reject("Request failed with status code " + xhr.status);
+        }
+      });
+    }
   }
   async initialize() {
     return new Promise((resolve) => {
@@ -6617,6 +6619,50 @@ var Publisher = class {
     this.firedEvents.clear();
   }
 };
+
+// src/constants.ts
+var U_TAG_LATIN_A = String.fromCodePoint(917569);
+var U_TAG_LATIN_B = String.fromCodePoint(917570);
+var U_TAG_LATIN_C = String.fromCodePoint(917571);
+var U_TAG_LATIN_D = String.fromCodePoint(917572);
+var U_TAG_LATIN_E = String.fromCodePoint(917573);
+var U_TAG_LATIN_F = String.fromCodePoint(917574);
+var U_TAG_LATIN_G = String.fromCodePoint(917575);
+var U_TAG_LATIN_H = String.fromCodePoint(917576);
+var U_TAG_LATIN_I = String.fromCodePoint(917577);
+var U_TAG_LATIN_J = String.fromCodePoint(917578);
+var U_TAG_LATIN_K = String.fromCodePoint(917579);
+var U_TAG_LATIN_L = String.fromCodePoint(917580);
+var U_TAG_LATIN_M = String.fromCodePoint(917581);
+var U_TAG_LATIN_N = String.fromCodePoint(917582);
+var U_TAG_LATIN_O = String.fromCodePoint(917583);
+var U_TAG_LATIN_P = String.fromCodePoint(917584);
+var U_TAG_LATIN_Q = String.fromCodePoint(917585);
+var U_TAG_LATIN_R = String.fromCodePoint(917586);
+var U_TAG_LATIN_S = String.fromCodePoint(917587);
+var U_TAG_LATIN_T = String.fromCodePoint(917588);
+var U_TAG_LATIN_U = String.fromCodePoint(917589);
+var U_TAG_LATIN_V = String.fromCodePoint(917590);
+var U_TAG_LATIN_W = String.fromCodePoint(917591);
+var U_TAG_LATIN_X = String.fromCodePoint(917592);
+var U_TAG_LATIN_Y = String.fromCodePoint(917593);
+var U_TAG_LATIN_Z = String.fromCodePoint(917594);
+var U_TAG_DIGIT_0 = String.fromCodePoint(917552);
+var U_TAG_DIGIT_1 = String.fromCodePoint(917553);
+var U_TAG_DIGIT_2 = String.fromCodePoint(917554);
+var U_TAG_DIGIT_3 = String.fromCodePoint(917555);
+var U_TAG_DIGIT_4 = String.fromCodePoint(917556);
+var U_TAG_DIGIT_5 = String.fromCodePoint(917557);
+var U_TAG_DIGIT_6 = String.fromCodePoint(917558);
+var U_TAG_DIGIT_7 = String.fromCodePoint(917559);
+var U_TAG_DIGIT_8 = String.fromCodePoint(917560);
+var U_TAG_DIGIT_9 = String.fromCodePoint(917561);
+var U_TAG_SPACE = String.fromCodePoint(917536);
+var U_TAG_EXCLAMATION_MARK = String.fromCodePoint(917537);
+var U_TAG_COMMERCIAL_AT = String.fromCodePoint(917568);
+var U_TAG_CANCEL = String.fromCodePoint(917631);
+var U_TAG_NTV = U_TAG_LATIN_N + U_TAG_LATIN_T + U_TAG_LATIN_V;
+var U_TAG_NTV_AFFIX = U_TAG_EXCLAMATION_MARK;
 
 // node_modules/fuse.js/dist/fuse.mjs
 function isArray(value) {
@@ -8408,7 +8454,9 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     this.session = session;
   }
   render() {
-    document.querySelector(".ntv__emote-menu-button")?.remove();
+    Array.from(document.getElementsByClassName("ntv__emote-menu-button")).forEach((element) => {
+      element.remove();
+    });
     const basePath = RESOURCE_ROOT + "assets/img/btn";
     const filename = this.getFile();
     this.element = parseHTML(
@@ -8497,7 +8545,9 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { settingsManager } = this.rootContext;
     const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.search_box");
     const showSidebar = true;
-    document.querySelectorAll(".ntv__emote-menu").forEach((el) => el.remove());
+    Array.from(document.getElementsByClassName("ntv__emote-menu")).forEach((element) => {
+      element.remove();
+    });
     this.containerEl = parseHTML(
       cleanupHTML(`
 				<div class="ntv__emote-menu" style="display: none">
@@ -8527,6 +8577,11 @@ var EmoteMenuComponent = class extends AbstractComponent {
 										<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
 									</svg>
 								</div>
+								<a href="https://github.com/Xzensi/NipahTV/issues" class="ntv__emote-menu__sidebar-btn" target="_blank" alt="Report bug">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+										<path fill="currentColor" d="M304 280h416c4.4 0 8-3.6 8-8c0-40-8.8-76.7-25.9-108.1c-17.2-31.5-42.5-56.8-74-74C596.7 72.8 560 64 520 64h-16c-40 0-76.7 8.8-108.1 25.9c-31.5 17.2-56.8 42.5-74 74C304.8 195.3 296 232 296 272c0 4.4 3.6 8 8 8" /><path fill="currentColor" d="M940 512H792V412c76.8 0 139-62.2 139-139c0-4.4-3.6-8-8-8h-60c-4.4 0-8 3.6-8 8c0 34.8-28.2 63-63 63H232c-34.8 0-63-28.2-63-63c0-4.4-3.6-8-8-8h-60c-4.4 0-8 3.6-8 8c0 76.8 62.2 139 139 139v100H84c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h148v96c0 6.5.2 13 .7 19.3C164.1 728.6 116 796.7 116 876c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8c0-44.2 23.9-82.9 59.6-103.7c6 17.2 13.6 33.6 22.7 49c24.3 41.5 59 76.2 100.5 100.5c28.9 16.9 61 28.8 95.3 34.5c4.4 0 8-3.6 8-8V484c0-4.4 3.6-8 8-8h60c4.4 0 8 3.6 8 8v464.2c0 4.4 3.6 8 8 8c34.3-5.7 66.4-17.6 95.3-34.5c41.5-24.3 76.2-59 100.5-100.5c9.1-15.5 16.7-31.9 22.7-49C812.1 793.1 836 831.8 836 876c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8c0-79.3-48.1-147.4-116.7-176.7c.4-6.4.7-12.8.7-19.3v-96h148c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8" />
+									</svg>
+								</a>
 							</div>
 						</div>
 					</div>
@@ -9144,7 +9199,7 @@ var AbstractModal = class extends AbstractComponent {
   className;
   geometry;
   element;
-  modalHeaderEl;
+  modalHeaderBodyEl;
   modalBodyEl;
   modalCloseBtn;
   destroyed = false;
@@ -9166,7 +9221,7 @@ var AbstractModal = class extends AbstractComponent {
       cleanupHTML(
         `<div class="ntv__modal ${this.className ? `ntv__${this.className}-modal` : ""}" ${styleAttribute}>
 								<div class="ntv__modal__header">
-									<h3 class="ntv__modal__title"></h3>
+									<div class="ntv__modal__header__body"></div>
 									<button class="ntv__modal__close-btn">\u{1F7A8}</button>
 								</div>
 								<div class="ntv__modal__body"></div>
@@ -9174,14 +9229,15 @@ var AbstractModal = class extends AbstractComponent {
       ),
       true
     );
-    this.modalHeaderEl = this.element.querySelector(".ntv__modal__header");
+    const modalHeaderEl = this.element.querySelector(".ntv__modal__header");
+    this.modalHeaderBodyEl = this.element.querySelector(".ntv__modal__header__body");
     this.modalBodyEl = this.element.querySelector(".ntv__modal__body");
     this.modalCloseBtn = this.element.querySelector(".ntv__modal__close-btn");
     this.modalCloseBtn.addEventListener("click", () => {
       this.destroy();
       this.eventTarget.dispatchEvent(new Event("close"));
     });
-    this.modalHeaderEl.addEventListener("mousedown", this.handleModalDrag.bind(this));
+    modalHeaderEl.addEventListener("mousedown", this.handleModalDrag.bind(this));
     if (this.geometry?.position === "center") {
       window.addEventListener("resize", this.centerModal.bind(this));
     } else {
@@ -10222,13 +10278,13 @@ var Clipboard2 = class {
   }
   parsePastedMessage(evt) {
     const clipboardData = evt.clipboardData || window.clipboardData;
-    if (!clipboardData) return;
+    if (!clipboardData) return [];
     const html = clipboardData.getData("text/html");
     if (html) {
       const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
       const childNodes = doc.body.childNodes;
       if (childNodes.length === 0) {
-        return;
+        return [];
       }
       let startFragmentComment = null, endFragmentComment = null;
       for (let i = 0; i < childNodes.length; i++) {
@@ -10246,7 +10302,7 @@ var Clipboard2 = class {
       }
       if (startFragmentComment === null || endFragmentComment === null) {
         error("Failed to find fragment markers, clipboard data seems to be corrupted.");
-        return;
+        return [];
       }
       const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
       const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
@@ -10262,9 +10318,10 @@ var Clipboard2 = class {
         }
       }
       if (parsedNodes.length) return parsedNodes;
+      return [];
     } else {
       const text = clipboardData.getData("text/plain");
-      if (!text) return;
+      if (!text) return [];
       return [text.replaceAll(CHAR_ZWSP, "")];
     }
   }
@@ -10470,6 +10527,9 @@ var AbstractUserInterface = class {
   renderEmotesInString(textContent) {
     const { emotesManager } = this.session;
     const newNodes = [];
+    if (textContent.endsWith(U_TAG_NTV_AFFIX)) {
+      textContent = textContent.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1);
+    }
     let match, lastIndex = 0, textBuffer = "";
     while ((match = emoteMatcherRegex.exec(textContent)) !== null) {
       const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match;
@@ -10591,7 +10651,7 @@ var AbstractUserInterface = class {
     const { eventBus } = this.session;
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor) return error("Unable to submit input, the input controller is not loaded yet.");
-    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
+    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
       return this.toastError("Message is too long to send.");
     }
     const replyContent = contentEditableEditor.getMessageContent();
@@ -10753,7 +10813,10 @@ var ContentEditableEditor = class {
     inputNode.addEventListener("paste", (evt) => {
       evt.preventDefault();
       const messageParts = clipboard.parsePastedMessage(evt);
-      if (!messageParts || !messageParts.length) return;
+      if (!messageParts.length) return;
+      messageParts.forEach((part, index) => {
+        messageParts[index] = part.replace(/[\uE0001-\uE007F]/g, "");
+      });
       const newNodes = [];
       for (let i = 0; i < messageParts.length; i++) {
         const tokens = messageParts[i].split(" ");
@@ -12826,6 +12889,9 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   loadShadowProxyElements() {
     if (!this.session.channelData.me.isLoggedIn) return;
+    Array.from(document.getElementsByClassName("ntv__submit-button")).forEach((element) => {
+      element.remove();
+    });
     const submitButtonEl = this.elm.submitButton = parseHTML(
       `<button class="ntv__submit-button disabled">Chat</button>`,
       true
@@ -12836,6 +12902,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     } else {
       error("Submit button not found");
     }
+    Array.from(document.getElementsByClassName("ntv__message-input")).forEach((element) => {
+      element.remove();
+    });
     const originalTextFieldEl = document.querySelector("#message-input");
     if (!originalTextFieldEl) return error("Original text field not found");
     const placeholder = originalTextFieldEl.dataset.placeholder || "Send message...";
@@ -13497,6 +13566,21 @@ var KickUserInterface = class extends AbstractUserInterface {
       messageIdentityNode.classList.add("ntv__chat-message__identity");
       const usernameNode = messageIdentityNode.querySelector(".chat-entry-username");
       if (usernameNode) usernameNode.classList.add("ntv__chat-message__username");
+      if (settingsManager.getSetting("shared.chat.badges.show_ntv_badge")) {
+        const lastElChild = messageWrapperNode.lastElementChild;
+        if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
+          const badgesContainer = messageIdentityNode.getElementsByClassName("items-center")[0];
+          if (badgesContainer) {
+            if (!badgesContainer.children.length) badgesContainer.classList.add("mr-1");
+            const badgeEl = parseHTML(
+              this.session.badgeProvider.getBadge({ type: "nipahtv" }),
+              true
+            );
+            badgeEl.setAttribute("class", "relative badge-tooltip h-4 ml-1 first:ml-0");
+            badgesContainer.append(badgeEl);
+          }
+        }
+      }
     }
     const contentNodes = Array.from(messageWrapperNode.children);
     const contentNodesLength = contentNodes.length;
@@ -14054,6 +14138,520 @@ var ColorComponent = class extends AbstractComponent {
   }
 };
 
+// src/changelog.ts
+var CHANGELOG = [
+  {
+    version: "1.4.29",
+    date: "2024-07-18",
+    description: `
+                  Users with NipahTV will now show a NTV badge in chat. If you don't like this feature, you can disable it in the settings.
+
+                  Feat: Added NTV badge for NTV users
+                  Feat: Added report bug button to emote menu
+                  Feat: Added changelog to settings modal
+                  Fix: Commands showing false positive error toasts due to inconsistent Kick API definitions
+                  Fix: Emote tooltips show under message in overlay chat mode
+                  Fix: Multiple chat submit buttons when navigating
+            `
+  },
+  {
+    version: "1.4.27",
+    date: "2024-07-15",
+    description: `
+                  Added experimental feature, a new settings option to overlay chat transparently over stream. It can be found under Settings > Appearance > Layout. I pushed this feature in prior version but it accidentally completely messed up the chat so I had to revert it, apologies for the inconvenience for the few that noticed it.
+            
+                  Feat: Overlay chat on top of stream transparently #66
+                  Feat: Improve the video player control bar, no more ugly and annoying opaque color bar that has a completely different gradient style than the entire rest of the Kick interface.. Why Kick, why?
+                  Fix: Pasting inserts at wrong cursor position in Chrome #95
+            `
+  },
+  {
+    version: "1.4.26",
+    date: "2024-07-10",
+    description: `
+                  Fix: Chat messages not loading on providers load
+                  Fix: Can insert emotes from quick emote holder when banned #93
+                  Fix: Chat messages not loading with appropriate styling for VODs
+                  Fix: Annoying horizontal scrollbar due to poor styling of Kick
+                  Fix: Add more spacing for timestamps
+            `
+  },
+  {
+    version: "1.4.24",
+    date: "2024-07-02",
+    description: `
+                  Fix: Can send commands as plaintext messages when using chat button #89
+                  Fix: Pinned messages show double message #90
+                  Fix: Odd-pair brackets [ are incorrectly parsed as emote text messing up the message #91
+                  Fix: Rapid channel switching sometimes results in multiple input fields #92 @Nebride 
+                  Fix: Misaligned message user identity styling
+                  Fix: Revert truncating Kick emote names to underscore (because non-NTV users would see emote tooltips as underscore)
+                  Chore: Improved emoji spacing 
+            `
+  },
+  {
+    version: "1.4.23",
+    date: "2024-07-02",
+    description: `
+                  Fix: Input focus getting stolen on creators dashboard #85
+            `
+  },
+  {
+    version: "1.4.22",
+    date: "2024-06-30",
+    description: `
+                  There's a new fancy command /timer that allows you to track duration of something.
+                  Channels where you are not subbed now show unlockable subscribers emotes.
+                  Native Kick emotes now get rendered in user info modals when viewing message history (moderators only).
+                  Input now actually shows when you are timed out or banned with the appropriate message.
+                  Before deleted messages never really got deleted at all, message deletion now works correctly.
+                  Lastly fixed some bugs and annoyances.
+            
+                  Fix: Emotes randomly not loading due to overrides
+                  Fix: Deleted messages aren't deleted #81
+                  Fix: No visual feedback when banned or timedout #82
+                  Fix: Message parts overflowing to empty next line
+                  Fix: Native kick emotes not rendering in user info modal #71
+                  Feat: Timer command to keep track of duration of something #83
+                  Feat: Show unlockable sub emotes for unsubbed viewers #80
+                  Feat: Add settings option to hide subscriber emotes when not subscribed
+                  Major refactor: Move Dexie & Fuse vendor scripts to ESM imports
+                  Refactor: Complete rewrite of emotes in message rendering
+                  Refactor: Twemoji got moved from content script to ESM import
+                  Refactor: Emotes no longer render in-place
+                  Chore: Adjust separator styling
+            `
+  },
+  {
+    version: "1.4.20",
+    date: "2024-06-27",
+    description: `
+                  Fix: Incorrect provider emote overrides #72
+                  Fix: Emotes sometimes dont load for VODs due to load event racing #79
+                  Fix: Backspace when selecting emotes deletes following emote as well
+                  Fix: Forward delete when selecting emotes deletes following emote as well
+                  Fix: Misaligned message usernames
+            `
+  },
+  {
+    version: "1.4.19",
+    date: "2024-06-24",
+    description: `
+                  It's now possible to enable/disable emote provider emotes for menu while still allowing them to render in chat. There's also new 7TV emote provider settings to enable/disable new 7TV global emotes & 7Tv channel emotes.
+            
+                  Feat: Support for 7TV global emotes (emote picker/rendering) #72
+                  Fix: Tiny gap in sticky emote set header
+            `
+  },
+  {
+    version: "1.4.18",
+    date: "2024-06-20",
+    description: `
+                  Fix: Emote menu always showing sub-only Kick emotes
+            `
+  },
+  {
+    version: "1.4.17",
+    date: "2024-06-20",
+    description: `
+                  Fix: Command completion lagging behind one key event on backspace
+                  Fix: Follow not using the correct slug
+                  Fix: Relative formatted datetimes get output as local locale instead of English
+            `
+  },
+  {
+    version: "1.4.14",
+    date: "2024-06-17",
+    description: `
+                  I messed up, forgot to remove the test code that always gave everyone all badges including global moderator and staff badges.. Whoops.
+            
+                  Hotfix: Everyone had all badges
+            `
+  },
+  {
+    version: "1.4.13",
+    date: "2024-06-17",
+    description: `
+                  User info modals (when clicking on usernames) are now fully replaced with new custom user info modals. The gift sub button has been implemented and is fully functional as well, which was a bit hard to hack in but it works well. There's also a new chat theme in settings options.
+            
+                  Fix: Add gift a sub button to user info modal #70
+                  Fix: Keep user info modal within viewport on window resize
+                  Fix: User info requests failing because Kick has no consistency in username slug format
+                  Feat: Re-enabled user info modal to replace default Kick user info modal #60
+                  Feat: Added general tooltips
+                  Feat: Added tooltips for all badges
+                  Feat: Added new rounded chat theme settings option
+            `
+  },
+  {
+    version: "1.4.12",
+    date: "2024-06-16",
+    description: `
+                  After many hours of debugging Kasada I still managed to add in some new features as well for version 1.4.12. I already figured out how to deal with Kasada, however the solution sadly wasn't easily portable from Userscript to extensions. After trying a lot of prototype implementations it now works smoothly and Kasada won't be a limitation anymore. 
+            
+                  I'm not sure how, but copy pasting works much more reliably now after fixing some clipboard issues. Lastly, after all this time struggling again and again in the end I still haven't been able to get it ready for Firefox because there's so many weird bugs in the Gecko engine due to standard Web APIs not working in |globalThis| that are fine in Chromium.
+            
+                  Feat: Added new commands /follow, /unfollow, /mute, /unmute
+                  Feat: New settings option to always send quick emote holder emotes to chat immediately
+                  Feat: Ctrl + enter now allows sending of messages without clearing input #49
+                  Feat: User info modal now loads the actual channel subscribers badges instead of generic default
+                  -Feat-: Replace Kick user info modal with our new user info modal #60 (postponed until Gift a sub button #70 is implemented)
+                  Feat: Implement the VIP and MOD buttons for user info modal #68
+                  Feat: /raid being an alias for /host #53
+                  Fix: Kasasa anti-bot WAF causing API authorization issues #56
+                  Fix: Space after mention completion does not close the completion #58
+                  Fix: Command /poll cancel button does nothing #47
+                  Fix: Twemoji emojis not rendering in pinned messages #46
+                  Fix: Lowered /user commmand minimum allowed role. Viewers can now see a few commands available.
+                  Fix: Error when loading non-existing 7tv emotesets
+                  Fix: Moderator commands not parsing sentences correctly
+                  Fix: Copy & paste issues when copying from chat
+                  Fix: Added toast notifications for command errors
+                  Fix: User info modal gets pushed out of screen depending on chat message click coordinates #69
+            `
+  },
+  {
+    version: "1.4.11",
+    date: "2024-06-07",
+    description: `
+                  Feat: Added poll command, polls now finally work!
+                  Fix: Non-sub emotes not showing for broadcasters
+            `
+  },
+  {
+    version: "1.4.6",
+    date: "2024-05-25",
+    description: `
+                  Fix: Tooltips stuck on screen when searching for emotes
+                  Chore: Replaced outdated screenshots and video in readme
+            `
+  },
+  {
+    version: "1.4.5",
+    date: "2024-05-24",
+    description: `
+                  Feat: Added mute button to user info modal (actually works now)
+                  Fix: Styling issues with settings modal sidebar
+                  Fix: Background highlight accent color no longer working
+                  Fix: Settings rows of emotes not updating immediately, no longer requires page refresh
+                  Fix: Tooltips no longer working after removing jquery technical debt
+                  Refactor: Major refactor of dependency injections throughout entire codebase, now based on session contexts
+                  Chore: Removed setting hide Kick emote menu button
+            `
+  },
+  {
+    version: "1.4.4",
+    date: "2024-05-23",
+    description: `
+                  Fix: First user message still used name partially instead of ID
+            `
+  },
+  {
+    version: "1.4.3",
+    date: "2024-05-23",
+    description: `
+                  Feat: Added badges to user info modal
+                  Feat: Added progressive message history loading to user info modal
+                  Feat: Added timeline labeling to user info modal
+                  Fix: First user message highlighting now uses ID instead of name to prevent triggering on name change
+            `
+  },
+  {
+    version: "1.4.2",
+    date: "2024-05-21",
+    description: `
+                  Fix: Changed emote name in Kick emotes for third party compatibility
+            `
+  },
+  {
+    version: "1.4.1",
+    date: "2024-05-15",
+    description: `
+                  Fix: Message history no longer working
+            `
+  },
+  {
+    version: "1.4.0",
+    date: "2024-05-14",
+    description: `
+                  The update this time has been a bit of a pain, because of Kick forcing scope creep where I'm progressively just completely replacing the entire website, but fixes were made and long standing important features that I put aside for a while have now finally been implemented.
+            
+                  The primary focus of this update was to implement support for native Kick commands for moderators, and improve upon the overal UX and usability of the rather lacking native commands UX of Kick.
+            
+                  Initially NipahTV employed shadow proxy elements that forwarded all inputs to the original Kick elements and simulated browser input events to make Kick submit the inputs to the servers. However this proved to be impossible to make work with Kick commands, so a network interface for the Kick API was necessary to send messages and commands to the Kick API servers directly, completely bypassing the Kick frontend browser client.
+            
+                  However after doing that, some commands would popup some window with more information like /user and /poll, which promptly led to the conclusion that I'd need to implement all of this user interfacing as well.
+            
+                  At least now we can finally start recommending NipahTV to moderators as well because Kick commands finally work.
+            
+                  MODERATOR NOTE: There are still a couple missing command actions because low priority, they'll be added in due time. This regards the /poll command and the VIP & MOD buttons on the /user {{user}} modal. The VIP and MOD commands should work fine however.
+            
+                  Feat: Added Kick network interface, messages and commands are now sent to Kick API directly.
+                  Feat: Added command completion strategy, native Kick commands are now largely supported.
+                  Feat: Added kick /user command
+                  Feat: Added ban action to user info modal
+                  Feat: Added channel user messages history to user info modal
+                  Feat: Added account creation date and profile pic to user info modal
+                  Feat: 7tv emotes in user info modal message history now get rendered
+                  Feat: Added follow/unfollow actions to user info modal
+                  Feat: Added timeout action to user info modal
+                  Feat: Added status page to user info modal
+                  Feat: Added toasts for error messaging
+                  Feat: Can now reply to messages
+                  Feat: Settings menu is now mobile friendly
+                  Fix: Emotes not inserting at correct anchored position in some edgecases.
+                  Fix: Unable to log in because of proxy fields blocking native Kick fields.
+                  Fix: Bug in REST requests causing 7tv load failure.
+                  Fix: User info modal showing message history in wrong chronological order
+                  Fix: Modals mouse drag events no longer working correctly and being positioned wrong
+                  Fix: Native send chat button showing double depending on options setting
+                  Fix: Typing text next to emote gets pushed past emote
+                  Fix: Stealing focus after keydown was too late preventing input from registering the change
+                  Chore: Lubricated my second-hand Nokia 9300i
+                  Chore: Implemented abstract navigatable scrolling view component
+                  Chore: Removed jQuery technical debt
+                  Refactor: Major refactor of SCSS structure
+                  Refactor: Decoupled input completor logic to NavigatableEntriesWindowComponent class.
+                  Refactor: Decoupled input completor logic to separate strategy classes.
+            `
+  },
+  {
+    version: "1.3.9",
+    date: "2024-04-16",
+    description: `
+                  Fix: Regression of 7tv emotes sometimes not rendering correctly in pinned messages
+                  Fix: Tab completion edgecase results in double space
+                  Fix: Submitting after typing exceptionally fast causes racing issue with text cutting off
+            `
+  },
+  {
+    version: "1.3.6",
+    date: "2024-04-06",
+    description: `
+                  Feat: Added Twemoji emoji rendering
+                  Fix: Ctrl+Arrow key caret navigation skips over entire inline text node instead of word #28
+                  Fix: Changing kick identity makes native emote holder reappear #29
+                  Fix: Rapidly clicking 7tv emotes in chat makes them disappear #30
+            `
+  },
+  {
+    version: "1.3.5",
+    date: "2024-03-28",
+    description: `
+                  Feat: Added settings option to enable first user message highlighting only in channels where you are a moderator
+                  Fix: Insert space after mention tab completions
+            `
+  },
+  {
+    version: "1.3.4",
+    date: "2024-03-24",
+    description: `
+                  Hotfix: User mentions completions not updating input controller's state
+            `
+  },
+  {
+    version: "1.3.1",
+    date: "2024-03-24",
+    description: `
+                  A major update, many things got completely rewritten and/or added. Many annoying caret navigation issues got solved by custom overriding behaviour implementations for input handling, including mouse cursor selections. Previously Ctrl/Ctrl+Shift handling was practically unusable. This now works intuitively and smoothly.
+            
+                  The only remaining annoyance of which I'm not sure how to solve yet is mouse cursor selections starting on top of emotes and between emotes, because selections work by anchor and focus (start point and drag end point). However it is not obvious what the start point would be, when click and drag to start a selection with emotes. Arrow key selection handling however works flawless now.
+            
+                  Another big change is that after endless issues particularily due to how Kick handles spaces, I decided to just completely get rid of padding spaces altogether. There's no more need for spaces between emotes or text at all.
+            
+                  Feat: Reworked navigation behaviour for default caret navigation
+                  Feat: New behaviour implementation for Ctrl-key caret navigation
+                  Feat: New behaviour implementation for Shift-key selection handling
+                  Feat: New behaviour implementation for Ctrl+Shift-key caret selection navigation
+                  Feat: New behaviour implementation for mouse based emote selections
+                  Fix: Chat messages history no longer working due to settings ID change
+                  Fix: Replacing selections with emote cause corrupt component leftovers
+                  Fix: Update character count limit on input paste
+                  BREAKING CHANGE: Decided to remove all padding spaces from input components
+                  Major refactor: Decoupled all tab completion and message history logic away from UI
+                  Style: Reworked emote spacing
+                  Chore: Input emote character counting is now more efficient through debouncing
+            `
+  },
+  {
+    version: "1.2.17",
+    date: "2024-03-22",
+    description: `
+                  Feat: Input field now dynamically shows character count limit feedback
+                  Fix: Clipboard copy/paste space padding issues
+                  Chore: Improving Delete key handling (WIP)
+            `
+  },
+  {
+    version: "1.2.16",
+    date: "2024-03-22",
+    description: `
+                  Feat: New settings option whether to show quick emote holder
+            `
+  },
+  {
+    version: "1.2.15",
+    date: "2024-03-21",
+    description: `
+                  Fix: Alternating message highlighting overrides new user message highlighting
+                  Fix: In some cases text can be written into input components
+                  Fix: Backspace behaving weirdly deleting a lot more than it should
+                  Fix: Tab completor sometimes inserting redundant padding space
+                  Fix: Settings modal sidebar now highlights the active panel
+            `
+  },
+  {
+    version: "1.2.13",
+    date: "2024-03-20",
+    description: `
+                  Feat: Emote rendering now works for VODs
+                  Feat: Emotes now get rendered in pinned messages
+            `
+  },
+  {
+    version: "1.2.11",
+    date: "2024-03-20",
+    description: `
+                  Fix: Replies attached to messages not rendering
+            `
+  },
+  {
+    version: "1.2.10",
+    date: "2024-03-20",
+    description: `
+                  Fix: Subscriber emotes of other channels causing NTV to stop rendering emotes
+                  Fix: NTV not loading when not logged in on Kick
+                  Fix: Selection caret getting stuck when selecting in certain situations
+            `
+  },
+  {
+    version: "1.2.8",
+    date: "2024-03-19",
+    description: `
+                  Fix: Closing tab completion with enter or right arrow key resulted in double spaces
+            `
+  },
+  {
+    version: "1.2.7",
+    date: "2024-03-19",
+    description: `
+                  Fix: Closing tab completion with space resulted in double spaces
+            `
+  },
+  {
+    version: "1.2.6",
+    date: "2024-03-19",
+    description: `
+                  Fix: Links not rendering in chat messages
+                  Fix: Special characters getting HTML escaped
+                  Fix: Missing emote names for native Kick emotes in chat
+                  Fix: Improved emote spacing
+            `
+  },
+  {
+    version: "1.2.1",
+    date: "2024-03-17",
+    description: `
+                  It took me a little while (about 5 complete rewrites) since implementing a nearly full blown rich content text editor turned out to be quite a bit more tricky than thought because endless weird edge cases, but it's finally wrapped up and shipped. This now allowed me to fix most of the outstanding bugs.
+            
+                  There's a couple new big features and improvements.
+                  A nearly full blown rich content text editor has been implemented for the input field for better and more reliable emote processing. It now works much better with copy pasting.
+                  It's now possible to enable first user message highlighting.
+                  It's now possible to change color of first user message highlighting.
+                  Manually typed emotes are now automatically completed upon closing the name with a space.
+                  Native Kick emotes have been optimized, it's now possible to send more native Kick emotes in a message than normally possible without NipahTV.
+                  Copy pasting has been completely reworked and works much better now.
+            
+                  Feat: Increase higher possible amount of native Kick emotes sent than normal #21
+                  Feat: First new user message highlighting #9
+                  Feat: Render manually typed emotes #4
+                  Feat: First user message highlighting now works
+                  Fix: Native kick chat identity button missing from shadow proxy input field #20
+                  Fix: Arrow keys get blocked by message history when caret is right after emotes #17
+                  Fix: Chat input text is not same height as inline emotes, causing subtle small shifts in vertical caret positioning #16
+                  Fix: Pasting emotes inserts them at start of input line instead after Caret position #15
+                  Fix: Username mentions lack extra padding after tab completion #14
+                  Fix: Tooltips no longer working with new structure
+                  Fix: Clicking emotes in chat no longer working with new emote structure
+                  Fix: Forward deletion with caret inside component not working correctly
+                  Fix: Caret positioning right before emote component did not get pushed out
+                  Fix: Incorrect caret positioning during insertions
+                  Fix: Selection caret should not go inside input components
+                  Fix: Reimplemented clipboard copy & paste
+                  Fix: Copy/paste gets blocked #13
+            `
+  },
+  {
+    version: "1.1.12",
+    date: "2024-03-03",
+    description: `
+                  Feat: Added settings option to change quick emote holder rows
+                  Fix: prevent Kick from stealing focus from chat input
+                  Chore: Changed order of Emoji emoteset to lower
+            `
+  },
+  {
+    version: "1.1.10",
+    date: "2024-03-03",
+    description: `
+                  Fix: emotes registering double in quick emote holder because id conflicts.
+                  Refactor: Major refactor of all provider specific emote ids to name hashes for better future provider compatibility and emote reliability.
+                  Chore: Changed database engine from LocalStorage to NoSQL IndexedDB.
+            `
+  },
+  {
+    version: "1.1.8",
+    date: "2024-03-03",
+    description: `
+                  Feat: Added tooltips for emotes in chat
+                  Feat: Added clicking emotes inserts them to chat input
+                  Feat: Added guards against potential memory leaks
+                  Chore: Improved global visual clarity
+            `
+  },
+  {
+    version: "1.1.6",
+    date: "2024-03-03",
+    description: `
+                  Feat: Added clipboard handling, can now copy & paste emotes
+                  Feat: Added @ user mention capability for tab-completion
+                  Feat: Added max message character limit of 500
+            `
+  },
+  {
+    version: "1.1.4",
+    date: "2024-03-03",
+    description: `
+                  Fix: loading pages without chat input causing the interface to duplicate
+            `
+  },
+  {
+    version: "1.1.3",
+    date: "2024-03-02",
+    description: `
+                  Fix: tab completion not doing initial scroll
+                  Fix: tab completion shift & tab key not working correctly because @ mentions
+            `
+  },
+  {
+    version: "1.1.2",
+    date: "2024-03-02",
+    description: `
+                  Fixed some issues, particularily regarding the tab completion and chat history behaviour and the new Kick update. 
+            
+                  The input fields and chat button have now been completely replaced with new proxy fields. This was done to work around Kick messing with the input field and buttons. As a result I was also force to implement inline emote rendering, so picking emotes now will actually show the emotes in the input field. Typing emotes manually however will not automatically turn them into inline emotes just yet.
+            
+                  @ username mentions currently is not implemented yet either.
+            
+                  The emote tab completion has been completely reworked with more contextfully meaningful searching by splitting up all emotes into semantical groupings (e.g. nebrideLove -> ["nebride", "love"]), so that tab completions and searching for emotes can better find the most relevant emotes.
+            
+                  There are a few new settings options like enabling search bias for current/other channel emotes, menu button styles, etc.
+            
+                  A good amount issues and behaviour quirks have been fixed like having to press keys twice to navigate chat history, tab completion menu navigation and scrolling, etc.
+            `
+  }
+];
+
 // src/UserInterface/Modals/SettingsModal.ts
 var SettingsModal = class extends AbstractModal {
   eventBus;
@@ -14080,6 +14678,14 @@ var SettingsModal = class extends AbstractModal {
     const settingsMap = this.settingsOpts.settingsMap;
     const modalBodyEl = this.modalBodyEl;
     const windowWidth = window.innerWidth;
+    const modalHeaderEl = this.modalHeaderBodyEl;
+    modalHeaderEl.prepend(
+      parseHTML(
+        cleanupHTML(`
+					<svg class="ntv__modal__logo" alt="NipahTV" width="32" height="32" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0230583" d="M 0.2512317,15.995848 0.2531577,6.8477328 C 0.24943124,6.3032776 0.7989812,5.104041 1.8304975,4.5520217 2.4476507,4.2217505 2.9962666,4.1106784 4.0212875,4.0887637 5.0105274,4.067611 5.5052433,4.2710769 5.6829817,4.3608374 c 0.4879421,0.2263549 0.995257,0.7009925 1.134824,0.9054343 l 4.4137403,6.8270373 c 0.262057,0.343592 0.582941,0.565754 0.919866,0.529874 0.284783,-0.0234 0.4358,-0.268186 0.437049,-0.491242 l 0.003,-9.2749904 L 0.25,2.8575985 0.25004315,0 15.747898,2.1455645e-4 15.747791,13.08679 c -0.0055,0.149056 -0.09606,1.191174 -1.033875,2.026391 -0.839525,0.807902 -2.269442,0.879196 -2.269442,0.879196 -0.601658,0.0088 -1.057295,0.02361 -1.397155,-0.04695 -0.563514,-0.148465 -0.807905,-0.274059 -1.274522,-0.607992 -0.4091245,-0.311857 -0.6818768,-0.678904 -0.9118424,-0.98799 0,0 -1.0856521,-1.86285 -1.8718165,-3.044031 C 6.3863506,10.352753 5.3651096,8.7805786 4.8659674,8.1123589 4.4859461,7.5666062 4.2214229,7.4478431 4.0798053,7.3975803 3.9287117,7.3478681 3.7624996,7.39252 3.6345251,7.4474753 3.5213234,7.5006891 3.4249644,7.5987165 3.4078407,7.7314301 l 7.632e-4,8.2653999 z"/></svg>
+					<span class="ntv__modal__version">v${APP_VERSION}</span>`)
+      )
+    );
     this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true);
     this.sidebarEl = parseHTML(
       `<div class="ntv__settings-modal__sidebar ${windowWidth < 768 ? "" : "ntv__settings-modal__sidebar--open"}"><ul></ul></div>`,
@@ -14124,7 +14730,24 @@ var SettingsModal = class extends AbstractModal {
           `<div data-panel="${categoryId}" class="ntv__settings-modal__panel" style="display: none"></div>`,
           true
         );
-        this.panelsEl.appendChild(subCategoryPanelEl);
+        if (subCategory.label === "Changelog") {
+          const changelogListEl = parseHTML("<ul></ul>", true);
+          subCategoryPanelEl.appendChild(changelogListEl);
+          for (const change of CHANGELOG) {
+            const changeEl = parseHTML(
+              cleanupHTML(
+                `<li>
+								<h4>${change.version} <span>(${change.date})</span></h4>
+							</li>`
+              ),
+              true
+            );
+            const descriptionEl = document.createElement("p");
+            descriptionEl.textContent = change.description.trim().replace(/^[^\S\r\n]+/gm, "");
+            changeEl.appendChild(descriptionEl);
+            changelogListEl.appendChild(changeEl);
+          }
+        }
         for (const group of subCategory.children) {
           const groupEl = parseHTML(
             cleanupHTML(
@@ -14183,9 +14806,10 @@ var SettingsModal = class extends AbstractModal {
             });
           }
         }
+        this.panelsEl.appendChild(subCategoryPanelEl);
       }
     }
-    const defaultPanel = "chat.appearance";
+    const defaultPanel = "nipahtv.changelog";
     this.panelsEl.querySelector(`[data-panel="${defaultPanel}"]`)?.setAttribute("style", "display: block");
     this.sidebarEl.querySelector(`[data-panel="${defaultPanel}"]`)?.classList.add("ntv__settings-modal__sub-category--active");
     modalBodyEl.appendChild(this.sidebarBtnEl);
@@ -14224,6 +14848,10 @@ var SettingsModal = class extends AbstractModal {
 var SettingsManager = class {
   /*
      - Shared global settings
+  	= Appearance
+  	    = Layout
+  			(Appearance)
+  	            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
          = Chat
              = Appearance
                  (Appearance)
@@ -14236,6 +14864,9 @@ var SettingsManager = class {
                  (General)
                      - Use Ctrl+E to open the Emote Menu
                      - Use Ctrl+Spacebar for quick emote access
+  		= Badges
+  			(Badges)
+  				- Show the NipahTV badge for NTV users
              = Behavior
                  (General)
                      - Enable chat smooth scrolling
@@ -14251,13 +14882,7 @@ var SettingsManager = class {
                      - Choose the style of the emote menu button (dropdown)
                      - Show the search box
                      - Close the emote menu after clicking an emote
-             = Quick emote holder
-                 (Appearance)
-                     - Show quick emote holder
-                     - Rows of emotes to display (number)
-                 (Behavior)
-                     - Send emotes to chat immediately on click
-             = Emote providers
+             = Emote Providers
                  (Kick)
                      - Show emotes in chat
                      - Show global emote set
@@ -14274,8 +14899,23 @@ var SettingsManager = class {
                  (Tab completion)
                      - Display a tooltip when using tab-completion
                      - Enable automatic in-place tab-completion suggestions in text input while typing
+  		= Quick Emote Holder
+                 (Appearance)
+                     - Show quick emote holder
+                     - Rows of emotes to display (number)
+                 (Behavior)
+                     - Send emotes to chat immediately on click
   */
   sharedSettings = [
+    {
+      label: "NipahTV",
+      children: [
+        {
+          label: "Changelog",
+          children: []
+        }
+      ]
+    },
     {
       label: "Appearance",
       children: [
@@ -14284,7 +14924,6 @@ var SettingsManager = class {
           children: [
             {
               label: "Appearance",
-              description: "These settings require a page refresh to take effect.",
               children: [
                 {
                   label: "Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)",
@@ -14408,6 +15047,22 @@ var SettingsManager = class {
                 {
                   label: "Use Ctrl+Spacebar to open the Emote Menu",
                   id: "shared.chat.appearance.emote_menu_ctrl_spacebar",
+                  default: true,
+                  type: "checkbox"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          label: "Badges",
+          children: [
+            {
+              label: "Badges",
+              children: [
+                {
+                  label: "Show the NipahTV badge for NTV users",
+                  id: "shared.chat.badges.show_ntv_badge",
                   default: true,
                   type: "checkbox"
                 }
@@ -14542,42 +15197,7 @@ var SettingsManager = class {
           ]
         },
         {
-          label: "Quick emote holder",
-          children: [
-            {
-              label: "Appearance",
-              children: [
-                {
-                  label: "Show quick emote holder",
-                  id: "shared.chat.quick_emote_holder.enabled",
-                  type: "checkbox",
-                  default: true
-                },
-                {
-                  label: "Rows of emotes to display",
-                  id: "shared.chat.quick_emote_holder.rows",
-                  type: "number",
-                  default: 2,
-                  min: 1,
-                  max: 10
-                }
-              ]
-            },
-            {
-              label: "Behavior",
-              children: [
-                {
-                  label: "Send emotes to chat immediately on click",
-                  id: "shared.chat.quick_emote_holder.send_immediately",
-                  type: "checkbox",
-                  default: false
-                }
-              ]
-            }
-          ]
-        },
-        {
-          label: "Emote providers",
+          label: "Emote Providers",
           children: [
             {
               label: "Kick",
@@ -14686,6 +15306,41 @@ var SettingsManager = class {
               ]
             }
           ]
+        },
+        {
+          label: "Quick Emote Holder",
+          children: [
+            {
+              label: "Appearance",
+              children: [
+                {
+                  label: "Show quick emote holder",
+                  id: "shared.chat.quick_emote_holder.enabled",
+                  type: "checkbox",
+                  default: true
+                },
+                {
+                  label: "Rows of emotes to display",
+                  id: "shared.chat.quick_emote_holder.rows",
+                  type: "number",
+                  default: 2,
+                  min: 1,
+                  max: 10
+                }
+              ]
+            },
+            {
+              label: "Behavior",
+              children: [
+                {
+                  label: "Send emotes to chat immediately on click",
+                  id: "shared.chat.quick_emote_holder.send_immediately",
+                  type: "checkbox",
+                  default: false
+                }
+              ]
+            }
+          ]
         }
       ]
     }
@@ -14720,25 +15375,6 @@ var SettingsManager = class {
       const { id, value } = setting;
       this.settingsMap.set(id, value);
     }
-    ;
-    [
-      ["shared.chat.emote_providers.kick.filter_emojis", "shared.emote_menu.emote_providers.kick.show_emojis"],
-      [
-        "shared.chat.emote_providers.kick.filter_other_channels",
-        "shared.emote_menu.emote_providers.kick.show_other_channels"
-      ],
-      [
-        "shared.chat.emote_providers.kick.filter_current_channel",
-        "shared.emote_menu.emote_providers.kick.show_current_channel"
-      ],
-      ["shared.chat.emote_providers.kick.filter_global", "shared.emote_menu.emote_providers.kick.show_global"]
-    ].forEach(([oldKey, newKey]) => {
-      if (this.settingsMap.has(oldKey)) {
-        const val = this.settingsMap.get(oldKey);
-        this.setSetting(newKey, val);
-        database.deleteSetting(oldKey);
-      }
-    });
     this.isLoaded = true;
   }
   setSetting(key, value) {
@@ -15000,9 +15636,10 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
   }
   async sendMessage(message) {
     if (!this.channelData) throw new Error("Channel data is not loaded yet.");
+    message[message.length - 1] === " " || (message += " ");
     const chatroomId = this.channelData.chatroom.id;
     return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
-      content: message,
+      content: message + U_TAG_NTV_AFFIX,
       type: "message"
     });
   }
@@ -15356,8 +15993,10 @@ var KickBadgeProvider = class {
   getGlobalBadge(badge) {
     const randomId = "_" + (Math.random() * 1e7 << 0);
     switch (badge.type) {
+      case "nipahtv":
+        return `<svg class="ntv__badge" ntv-tooltip="NipahTV" width="16" height="16" viewBox="0 0 8.4666666 8.4666666" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0111579" d="M 0.4221268,8.0408451 0.42307359,3.6833954 C 0.42124174,3.4240591 0.69139827,2.852836 1.1984875,2.589897 1.5018775,2.4325816 1.771575,2.3796758 2.2754711,2.3692371 2.7617771,2.3591602 3.0049777,2.4560776 3.092353,2.498832 3.3322233,2.6066496 3.5816174,2.8327302 3.6502278,2.9301102 L 5.8200061,6.1819793 C 5.9488304,6.3456396 6.106575,6.45146 6.2722071,6.4343707 6.412206,6.4231911 6.4864439,6.306628 6.4870601,6.2003826 l 0.00164,-4.4178854 -6.0671778,3.085e-4 2.121e-5,-1.36113751 7.61868519,1.0221e-4 -5.51e-5,6.233427 C 8.0372902,6.7261965 7.9929708,7.2225777 7.5319251,7.6204112 7.1192154,8.0052328 6.4162735,8.0391936 6.4162735,8.0391936 6.1205021,8.0438214 5.8965138,8.0504547 5.7294412,8.0168546 5.4524182,7.9461162 5.3322768,7.8862918 5.1028895,7.7272332 4.9017657,7.5786892 4.767682,7.4038567 4.6546318,7.2566277 c 0,0 -0.5337022,-0.8873138 -0.9201774,-1.4499359 C 3.4381265,5.3529145 2.9360884,4.6040529 2.6907121,4.2857648 2.5038952,4.0258106 2.3738568,3.9692413 2.3042378,3.9452998 2.22996,3.9216198 2.1482519,3.942895 2.0853403,3.9690655 c -0.055649,0.025347 -0.1030197,0.07204 -0.1114378,0.135254 l 3.748e-4,3.9369937 z" /></svg>`;
       case "broadcaster":
-        return `<svg class="ntv__badge" ntv-tooltip="Broadcaster" version="1.1" x="0px" y="0px" viewBox="0 0 16 16" xml:space="preserve" width="16" height="16"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1${randomId}" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2${randomId});" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3${randomId}" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3${randomId});" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4${randomId}" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5${randomId});" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6${randomId}"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6${randomId});" width="1.6" height="3.2"></rect></g></svg>`;
+        return `<svg class="ntv__badge" ntv-tooltip="Broadcaster" x="0px" y="0px" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1${randomId}" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2${randomId});" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3${randomId}" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3${randomId});" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4${randomId}" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5${randomId});" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6${randomId}"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6${randomId});" width="1.6" height="3.2"></rect></g></svg>`;
       case "verified":
         return `<svg class="ntv__badge" ntv-tooltip="Verified" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<defs><linearGradient id="badge-verified-gradient${randomId}" x1="25.333%" y1="99.375%" x2="73.541%" y2="2.917%" gradientUnits="objectBoundingBox"><stop stop-color="#1EFF00"/><stop offset="0.99" stop-color="#00FF8C"/></linearGradient></defs><path d="M14.72 7.00003V6.01336H15.64V4.12003H14.6733V3.16003H9.97332V1.2667H8.96665V0.280029H7.03332V1.2667H6.03332V3.16003H1.32665V4.12003H0.359985V6.01336H1.28665V7.00003H2.23332V9.0067H1.28665V9.99336H0.359985V11.8867H1.32665V12.8467H6.03332V14.74H7.03332V15.7267H8.96665V14.74H9.97332V12.8467H14.6733V11.8867H15.64V9.99336H14.72V9.0067H13.7733V7.00003H14.72ZM12.5 6.59336H11.44V7.66003H10.3733V8.72003H9.31332V9.7867H8.24665V10.8467L7.09332 10.9V11.8H6.02665V10.8467H5.05999V9.7867H3.99332V7.66003H6.11999V8.72003H7.18665V7.66003H8.24665V6.59336H9.31332V5.53336H10.3733V4.4667H12.5V6.59336Z" fill="url(#badge-verified-gradient${randomId})"/></svg>`;
@@ -15404,8 +16043,8 @@ var KickBadgeProvider = class {
 
 // src/app.ts
 var NipahClient = class {
+  VERSION = "1.4.29";
   ENV_VARS = {
-    VERSION: "1.4.28",
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
     // GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
@@ -15423,7 +16062,8 @@ var NipahClient = class {
   sessions = [];
   initialize() {
     const { ENV_VARS } = this;
-    info(`Initializing Nipah client [${ENV_VARS.VERSION}]..`);
+    window.APP_VERSION = this.VERSION;
+    info(`Initializing Nipah client [${APP_VERSION}]..`);
     if (false) {
       info("Running in debug mode enabled..");
       RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;

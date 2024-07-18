@@ -1,3 +1,4 @@
+import { U_TAG_NTV_AFFIX } from '../constants'
 import { REST, assertArgDefined, error, info, log } from '../utils'
 import { AbstractNetworkInterface, UserMessage } from './AbstractNetworkInterface'
 
@@ -113,9 +114,21 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 	async sendMessage(message: string) {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
+		// let randomSpamFilterBustingTag = ''
+		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0)) +
+		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0))
+		// const count = (Math.random() * 40 + 1) << 0
+		// for (let i = 0; i < count; i++) {
+		// 	randomSpamFilterBustingTag += String.fromCodePoint(0x0030 + ((Math.random() * 10) << 0))
+		// }
+
+		// log(`Random spam filter busting tag: "${randomSpamFilterBustingTag}"`)
+
+		message[message.length - 1] === ' ' || (message += ' ')
+
 		const chatroomId = this.channelData.chatroom.id
 		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
-			content: message,
+			content: message + U_TAG_NTV_AFFIX,
 			type: 'message'
 		})
 	}

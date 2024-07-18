@@ -10,7 +10,7 @@ import { UserInfoModal } from './Modals/UserInfoModal'
 import { Clipboard2 } from '../Classes/Clipboard'
 import { PollModal } from './Modals/PollModal'
 import { Toaster } from '../Classes/Toaster'
-import { PROVIDER_ENUM } from '../constants'
+import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../constants'
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
@@ -102,6 +102,10 @@ export abstract class AbstractUserInterface {
 	renderEmotesInString(textContent: string) {
 		const { emotesManager } = this.session
 		const newNodes: Array<Text | HTMLElement> = []
+
+		if (textContent.endsWith(U_TAG_NTV_AFFIX)) {
+			textContent = textContent.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1)
+		}
 
 		// TODO create abstraction layer for kick emote matching and rendering
 
@@ -261,7 +265,8 @@ export abstract class AbstractUserInterface {
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
-		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength) {
+		// 14 is the magic number of encoded unicode message tag
+		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
 			return this.toastError('Message is too long to send.')
 		}
 
