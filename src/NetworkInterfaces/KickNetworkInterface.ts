@@ -142,9 +142,11 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 	) {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
+		message[message.length - 1] === ' ' || (message += ' ')
+
 		const chatroomId = this.channelData.chatroom.id
 		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
-			content: message,
+			content: message + U_TAG_NTV_AFFIX,
 			type: 'reply',
 			metadata: {
 				original_message: {
