@@ -14141,7 +14141,7 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
-    version: "1.4.28",
+    version: "1.4.29",
     date: "2024-07-18",
     description: `
                   Users with NipahTV will now show a NTV badge in chat. If you don't like this feature, you can disable it in the settings.
