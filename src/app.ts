@@ -20,7 +20,7 @@ import { UsersManager } from './Managers/UsersManager'
 import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 
 class NipahClient {
-	VERSION = '1.4.29'
+	VERSION = '1.4.30'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -43,9 +43,11 @@ class NipahClient {
 
 	initialize() {
 		const { ENV_VARS } = this
-		window.APP_VERSION = this.VERSION
 
-		info(`Initializing Nipah client [${APP_VERSION}]..`)
+		// TODO should probably rename this to prevent naming conflicts with native client
+		window.NTV_APP_VERSION = this.VERSION
+
+		info(`Initializing Nipah client [${NTV_APP_VERSION}]..`)
 
 		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')

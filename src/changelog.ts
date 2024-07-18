@@ -1,5 +1,13 @@
 export const CHANGELOG = [
 	{
+		version: '1.4.30',
+		date: '2024-07-18',
+		description: `
+                  Fix: Copy paste no longer working
+                  Fix: NTV badge not rendering for reply messages
+            `
+	},
+	{
 		version: '1.4.29',
 		date: '2024-07-18',
 		description: `
