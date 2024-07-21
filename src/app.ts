@@ -330,6 +330,14 @@ class NipahClient {
 		}
 	}
 
+	// Firefox add-on compatibility fixes
+	if (__FIREFOX_MV2__ || __FIREFOX_MV3__) {
+		// https://bugzilla.mozilla.org/show_bug.cgi?id=1208775
+		// @ts-ignore https://stackoverflow.com/questions/78761215
+		// delete globalThis['EventTarget']
+		globalThis['EventTarget'] = window['EventTarget']
+	}
+
 	PLATFORM = PLATFORM_ENUM.NULL
 	RESOURCE_ROOT = ''
 
