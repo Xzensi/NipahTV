@@ -105,7 +105,8 @@ function updateDirectory(source, destination) {
 				__EXTENSION__: 'true',
 				__CHROMIUM_M2__: 'false',
 				__CHROMIUM_M3__: TARGET_CHROME ? 'true' : 'false',
-				__FIREFOX_MV2__: TARGET_FIREFOX ? 'true' : 'false'
+				__FIREFOX_MV2__: TARGET_FIREFOX ? 'true' : 'false',
+				__FIREFOX_MV3__: 'false'
 			}
 		})
 		.then(async () => {

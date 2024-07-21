@@ -16275,6 +16275,9 @@ var NipahClient = class {
       window.browser = chrome;
     }
   }
+  if (__FIREFOX_MV3__) {
+    globalThis["EventTarget"] = window["EventTarget"];
+  }
   PLATFORM = 0 /* NULL */;
   RESOURCE_ROOT = "";
   const nipahClient = new NipahClient();

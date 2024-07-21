@@ -20,6 +20,7 @@ declare global {
 	var __CHROMIUM_M2__: boolean
 	var __CHROMIUM_M3__: boolean
 	var __FIREFOX_MV2__: boolean
+	var __FIREFOX_MV3__: boolean
 
 	var unsafeWindow: Window
 	var GM_xmlhttpRequest: Function
