@@ -4,6 +4,7 @@
 	"short_name": "NTV",
 	"author": "Xzensi",
 	"homepage_url": "https://nipahtv.com",
+	"github_url": "https://github.com/Xzensi/NipahTV",
 	"description": "Transform your chat experience on Kick with new features, emotes and performance improvements.",
 	"version": "{{VERSION}}",
 	"icons": {
