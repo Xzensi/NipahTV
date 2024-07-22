@@ -44,7 +44,6 @@ class NipahClient {
 	initialize() {
 		const { ENV_VARS } = this
 
-		// TODO should probably rename this to prevent naming conflicts with native client
 		window.NTV_APP_VERSION = this.VERSION
 
 		info(`Initializing Nipah client [${NTV_APP_VERSION}]..`)
