@@ -28,7 +28,8 @@ esbuild
 			__EXTENSION__: 'false',
 			__CHROMIUM_M2__: 'false',
 			__CHROMIUM_M3__: 'false',
-			__FIREFOX_MV2__: 'false'
+			__FIREFOX_MV2__: 'false',
+			__FIREFOX_MV3__: 'false'
 		}
 	})
 	.then(() => {
