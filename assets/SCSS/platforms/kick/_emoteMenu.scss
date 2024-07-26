@@ -87,8 +87,8 @@
 	}
 
 	&__sidebar {
-		background-color: var(--ntv-background-color-tint-1);
 		border-left: 1px solid var(--ntv-border-transparent-2);
+		background-color: var(--ntv-background-color-tint-1);
 		// background: hsla(0, 0%, 50%, 0.06);
 		justify-content: space-between;
 		flex: 0 0 $sidebar_width;
@@ -110,11 +110,28 @@
 					background-color: var(--ntv-background-highlight-2) !important;
 				}
 			}
+
+			svg {
+				height: 1.5em;
+				width: 1.5em;
+			}
+
+			.ntv__emote-menu__sidebar-btn {
+				border-bottom: solid 2px #94949417;
+				border-top: solid 2px #0f0f0f2a;
+			}
 		}
 
 		&__extra {
 			flex: 0 0 fit-content;
 			width: 100%;
+
+			svg {
+				@include user_select;
+				pointer-events: none;
+				height: 1.1em;
+				width: 1.1em;
+			}
 		}
 
 		&-btn {
@@ -135,9 +152,6 @@
 		}
 
 		img {
-			border-bottom: solid 2px #94949491;
-			border-top: solid 2px #0f0f0f91;
-			box-sizing: content-box;
 			pointer-events: none;
 			// padding: 0.5em 0.3em;
 			height: 1.618em;
@@ -146,11 +160,8 @@
 
 		svg {
 			vertical-align: middle;
-			@include user_select;
 			pointer-events: none;
 			margin: 0 auto;
-			height: 1.1em;
-			width: 1.1em;
 		}
 	}
 
