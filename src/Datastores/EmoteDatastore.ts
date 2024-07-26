@@ -6,14 +6,14 @@ import { log, info, error, isEmpty } from '../utils'
 import Fuse from 'fuse.js'
 
 export class EmoteDatastore {
-	private emoteMap = new Map()
-	private emoteIdMap = new Map()
-	private emoteNameMap = new Map()
-	private emoteEmoteSetMap = new Map()
-	private emoteSetMap = new Map()
+	private emoteMap = new Map<string, Emote>()
+	private emoteIdMap = new Map<string, Emote>()
+	private emoteNameMap = new Map<string, Emote>()
+	private emoteEmoteSetMap = new Map<string, EmoteSet>()
+	private emoteSetMap = new Map<string, EmoteSet>()
 
-	emoteSets: Array<any> = []
-	emoteUsage = new Map()
+	emoteSets: Array<EmoteSet> = []
+	emoteUsage = new Map<string, number>()
 
 	// Map of pending emote usage changes to be synced to database
 	private pendingEmoteUsageChanges: { [key: string]: boolean } = {}
@@ -91,7 +91,7 @@ export class EmoteDatastore {
 		this.emoteSets.push(emoteSet)
 
 		for (let i = emoteSet.emotes.length - 1; i >= 0; i--) {
-			const emote = emoteSet.emotes[i] as Emote
+			const emote = emoteSet.emotes[i]
 
 			if (
 				!emote.hid ||
@@ -125,32 +125,33 @@ export class EmoteDatastore {
 			 * Emojis always get overridden by higher priority providers
 			 */
 			const storedEmote = this.emoteNameMap.get(emote.name)
+			const storedEmoteSet = this.emoteEmoteSetMap.get(emote.hid)
 
-			if (storedEmote) {
+			if (storedEmote && storedEmoteSet) {
 				const isHigherProviderOrder =
 					providerOverrideOrder.indexOf(emoteSet.provider) >
 					providerOverrideOrder.indexOf(storedEmote.provider)
 
 				if (
-					(isHigherProviderOrder && storedEmote.isGlobalSet) ||
-					(isHigherProviderOrder && storedEmote.isEmoji) ||
-					(isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmote.isCurrentChannel) ||
+					(isHigherProviderOrder && storedEmoteSet.isGlobalSet) ||
+					(isHigherProviderOrder && storedEmoteSet.isEmoji) ||
+					(isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmoteSet.isCurrentChannel) ||
 					(isHigherProviderOrder &&
 						(emoteSet.isCurrentChannel || emoteSet.isOtherChannel) &&
-						storedEmote.isOtherChannel) ||
-					(!isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmote.isCurrentChannel) ||
-					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmote.isGlobalSet)
+						storedEmoteSet.isOtherChannel) ||
+					(!isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmoteSet.isCurrentChannel) ||
+					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet)
 				) {
 					log(
 						`Registering ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV '} ${
-							storedEmote.isGlobalSet ? 'global' : 'channel'
+							storedEmoteSet.isGlobalSet ? 'global' : 'channel'
 						} emote override for ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							emoteSet.isGlobalSet ? 'global' : 'channel'
 						} ${emote.name} emote.`
 					)
 
 					// Remove previously registered emote because it's being overridden
-					const storedEmoteSetEmotes = this.emoteEmoteSetMap.get(storedEmote.hid).emotes
+					const storedEmoteSetEmotes = storedEmoteSet.emotes
 					storedEmoteSetEmotes.splice(storedEmoteSetEmotes.indexOf(storedEmote), 1)
 					this.fuse.remove((indexedEmote: any) => indexedEmote.name === emote.name)
 
@@ -211,7 +212,7 @@ export class EmoteDatastore {
 		}
 
 		this.pendingEmoteUsageChanges[emoteHid] = true
-		this.emoteUsage.set(emoteHid, this.emoteUsage.get(emoteHid) + 1)
+		this.emoteUsage.set(emoteHid, (this.emoteUsage.get(emoteHid) || 0) + 1)
 		this.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
 	}
 
@@ -296,13 +297,13 @@ export class EmoteDatastore {
 			// const isSubscribedA = this.emoteEmoteSetMap.get(aItem.id).is_subscribed
 			// const isSubscribedB = this.emoteEmoteSetMap.get(bItem.id).is_subscribed
 
-			const aEmoteSet = this.emoteEmoteSetMap.get(aItem.hid)
-			const bEmoteSet = this.emoteEmoteSetMap.get(bItem.hid)
+			const aEmoteSet = this.emoteEmoteSetMap.get(aItem.hid)!
+			const bEmoteSet = this.emoteEmoteSetMap.get(bItem.hid)!
 
 			if (biasSubscribedChannels) {
 				// Check if emote is part of a subscribed channel
-				const aIsSubscribedChannelEmote = aEmoteSet.is_subscribed
-				const bIsSubscribedChannelEmote = bEmoteSet.is_subscribed
+				const aIsSubscribedChannelEmote = aEmoteSet.isSubscribed
+				const bIsSubscribedChannelEmote = bEmoteSet.isSubscribed
 
 				// Add bias for emotes from subscribed channels
 				if (aIsSubscribedChannelEmote && !bIsSubscribedChannelEmote) {
@@ -314,8 +315,8 @@ export class EmoteDatastore {
 
 			if (biasCurrentChannel) {
 				// Check if emote is part of the current channel
-				const aIsCurrentChannel = aEmoteSet.is_current_channel
-				const bIsCurrentChannel = bEmoteSet.is_current_channel
+				const aIsCurrentChannel = aEmoteSet.isCurrentChannel
+				const bIsCurrentChannel = bEmoteSet.isCurrentChannel
 
 				// Add bias for emotes from the current channel
 				if (aIsCurrentChannel && !bIsCurrentChannel) {
