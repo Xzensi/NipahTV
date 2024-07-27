@@ -1,5 +1,5 @@
-import type { Database } from './Database'
-import { error } from '../utils'
+import type Database from '../Database/Database'
+import { error, log } from '../utils'
 
 /**
  * For userscripts:
@@ -20,13 +20,16 @@ const DatabaseProxyHandler: ProxyHandler<Database | {}> = {
 						.then(r => (!r || 'error' in r ? reject(r && r.error) : resolve(r.data)))
 				})
 		}
+
 		// For userscripts, we just call the method directly.
-		else if (typeof target[prop] === 'function') {
+		if (typeof target[prop] === 'object') {
+			return Reflect.get(target, prop, receiver)
+		} else if (typeof target[prop] === 'function') {
 			return (target[prop] as (...args: any[]) => any).bind(target)
 			// } else if (target.hasOwnProperty(prop)) {
 			// 	return Reflect.get(target, prop, receiver)
 		} else {
-			error(`Method "${prop}" not found on database.`)
+			error(`Method "${String(prop)}" not found on database.`)
 		}
 	}
 }

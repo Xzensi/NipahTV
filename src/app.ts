@@ -12,12 +12,12 @@ import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, RESTFromMain, debounce } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
-import { Database } from './Classes/Database'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
 import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
 import { UsersManager } from './Managers/UsersManager'
 import { KickBadgeProvider } from './Providers/KickBadgeProvider'
+import Database from './Database/Database'
 
 class NipahClient {
 	VERSION = '1.4.30'

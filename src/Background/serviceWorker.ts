@@ -1,5 +1,5 @@
-import { Database } from '../Classes/Database'
 import { error, info, log } from '../utils'
+import Database from '../Database/Database'
 import Dexie from 'dexie'
 
 const TARGET_FIREFOX = 'browser' in self

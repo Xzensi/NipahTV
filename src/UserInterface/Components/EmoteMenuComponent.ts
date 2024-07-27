@@ -17,6 +17,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 	private scrollableEl?: HTMLElement
 	private settingsBtnEl?: HTMLElement
 	private sidebarSetsEl?: HTMLElement
+	private favoritesEmoteSetEl?: HTMLElement
 	private tooltipEl?: HTMLElement
 
 	private closeModalClickListenerHandle?: Function
@@ -103,18 +104,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 		const { eventBus, emotesManager } = this.session
 
 		// Emote click event
-		this.scrollableEl?.addEventListener('click', evt => {
-			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG' || target.parentElement?.classList.contains('ntv__emote-box--locked')) return
-
-			const emoteHid = target.getAttribute('data-emote-hid')
-			if (!emoteHid) return error('Invalid emote hid')
-
-			eventBus.publish('ntv.ui.emote.click', { emoteHid })
-
-			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.close_on_click')
-			if (closeOnClick) this.toggleShow(false)
-		})
+		this.scrollableEl?.addEventListener('click', this.handleEmoteClick.bind(this))
 
 		// Tooltip for emotes
 		let lastEnteredElement: HTMLElement | null = null
@@ -179,6 +169,8 @@ export class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		eventBus.subscribe('ntv.providers.loaded', this.renderEmotes.bind(this), true)
+		eventBus.subscribe('ntv.datastore.emotes.favorites.loaded', this.renderFavoriteEmotes.bind(this))
+		eventBus.subscribe('ntv.datastore.emotes.favorites.changed', this.renderFavoriteEmotes.bind(this))
 		eventBus.subscribe('ntv.ui.footer.click', this.toggleShow.bind(this))
 
 		// On escape key, close the modal
@@ -298,6 +290,34 @@ export class EmoteMenuComponent extends AbstractComponent {
 			'shared.chat.emotes.hide_subscriber_emotes'
 		)
 
+		const sidebarFavoritesBtn = parseHTML(
+			`<div class="ntv__emote-menu__sidebar-btn"><svg data-id="favorites" xmlns="http://www.w3.org/2000/svg" width="1.5em" height="1.5em" viewBox="0 0 24 24"><path fill="currentColor" d="m19 23.3l-.6-.5c-2-1.9-3.4-3.1-3.4-4.6c0-1.2 1-2.2 2.2-2.2c.7 0 1.4.3 1.8.8c.4-.5 1.1-.8 1.8-.8c1.2 0 2.2.9 2.2 2.2c0 1.5-1.4 2.7-3.4 4.6zM17 4v6l-2-2l-2 2V4H9v16h4.08c.12.72.37 1.39.72 2H7c-1.05 0-2-.95-2-2v-1H3v-2h2v-4H3v-2h2V7H3V5h2V4a2 2 0 0 1 2-2h12c1.05 0 2 .95 2 2v9.34c-.63-.22-1.3-.34-2-.34V4zM5 19h2v-2H5zm0-6h2v-2H5zm0-6h2V5H5z" /></svg></div`,
+			true
+		) as HTMLElement
+
+		sidebarSetsEl.appendChild(sidebarFavoritesBtn)
+		this.sidebarMap.set('favorites', sidebarFavoritesBtn)
+
+		this.favoritesEmoteSetEl = parseHTML(
+			cleanupHTML(
+				`<div class="ntv__emote-set" data-id="favorites">
+					<div class="ntv__emote-set__header">
+						<svg xmlns="http://www.w3.org/2000/svg" width="1.5em" height="1.5em" viewBox="0 0 24 24"><path fill="currentColor" d="m19 23.3l-.6-.5c-2-1.9-3.4-3.1-3.4-4.6c0-1.2 1-2.2 2.2-2.2c.7 0 1.4.3 1.8.8c.4-.5 1.1-.8 1.8-.8c1.2 0 2.2.9 2.2 2.2c0 1.5-1.4 2.7-3.4 4.6zM17 4v6l-2-2l-2 2V4H9v16h4.08c.12.72.37 1.39.72 2H7c-1.05 0-2-.95-2-2v-1H3v-2h2v-4H3v-2h2V7H3V5h2V4a2 2 0 0 1 2-2h12c1.05 0 2 .95 2 2v9.34c-.63-.22-1.3-.34-2-.34V4zM5 19h2v-2H5zm0-6h2v-2H5zm0-6h2V5H5z" /></svg>
+						<span>Favorites</span>
+						<div class="ntv__chevron">
+							<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
+						</div>
+					</div>
+					<div class="ntv__emote-set__emotes"></div>
+				</div>`
+			),
+			true
+		) as HTMLElement
+
+		emotesPanelEl.append(this.favoritesEmoteSetEl)
+
+		this.renderFavoriteEmotes()
+
 		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
 		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex)
 
@@ -359,13 +379,10 @@ export class EmoteMenuComponent extends AbstractComponent {
 		sidebarSetsEl.addEventListener('click', evt => {
 			const target = evt.target as HTMLElement
 
-			const imgEl = target.querySelector('img')
-			if (!imgEl) return
-
 			const scrollableEl = this.scrollableEl
 			if (!scrollableEl) return
 
-			const emoteSetId = imgEl.getAttribute('data-id')
+			const emoteSetId = target.querySelector('img, svg')?.getAttribute('data-id')
 			const emoteSetEl = this.containerEl?.querySelector(
 				`.ntv__emote-set[data-id="${emoteSetId}"]`
 			) as HTMLElement
@@ -410,6 +427,61 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 		const emoteSetEls = emotesPanelEl.querySelectorAll('.ntv__emote-set')
 		for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl)
+	}
+
+	renderFavoriteEmotes() {
+		if (!this.favoritesEmoteSetEl) return error('Invalid favorites emote set element')
+
+		const { emotesManager } = this.session
+
+		const emotesEl = this.favoritesEmoteSetEl.getElementsByClassName('ntv__emote-set__emotes')[0]
+		while (emotesEl.firstChild) emotesEl.removeChild(emotesEl.firstChild)
+
+		const favorites = [...emotesManager.getFavoriteEmotes()].sort((a, b) => b.orderIndex - a.orderIndex)
+
+		for (const favoriteEmote of favorites) {
+			const emoteIsLoaded = emotesManager.getEmote(favoriteEmote.emote.hid)
+			const unavailableClass = emoteIsLoaded ? '' : 'ntv__emote-box--unavailable'
+
+			emotesEl.append(
+				parseHTML(
+					`<div class="ntv__emote-box ${unavailableClass}">${emotesManager.getRenderableEmote(
+						favoriteEmote.emote,
+						'ntv__emote ntv__emote-set__emote'
+					)}</div>`
+				)
+			)
+		}
+	}
+
+	handleEmoteClick(evt: MouseEvent) {
+		const { settingsManager } = this.rootContext
+		const { emotesManager, eventBus } = this.session
+		const isHoldingCtrl = evt.ctrlKey
+
+		const target = evt.target as HTMLElement
+		if (target.tagName !== 'IMG' || target.parentElement?.classList.contains('ntv__emote-box--locked')) return
+
+		const emoteHid = target.getAttribute('data-emote-hid')
+		if (!emoteHid) return error('Invalid emote hid')
+
+		if (isHoldingCtrl) {
+			// User tries to favorite an emote
+			const isFavorited = emotesManager.isEmoteFavorited(emoteHid)
+			if (isFavorited) emotesManager.removeEmoteFromFavorites(emoteHid)
+			else emotesManager.addEmoteToFavorites(emoteHid)
+		} else {
+			if (target.parentElement?.classList.contains('ntv__emote-box--unavailable')) return
+
+			const emote = emotesManager.getEmote(emoteHid)
+			if (!emote) return error('Emote not found')
+
+			// User wants to use an emote
+			eventBus.publish('ntv.ui.emote.click', { emoteHid })
+
+			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.close_on_click')
+			if (closeOnClick) this.toggleShow(false)
+		}
 	}
 
 	handleOutsideModalClick(evt: MouseEvent) {

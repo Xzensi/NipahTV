@@ -49,8 +49,8 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			}
 
 			Object.assign(channelData, {
-				userId: user_id,
-				channelId: id,
+				userId: '' + user_id,
+				channelId: '' + id,
 				channelName: user.username,
 				isVod: true,
 				me: {}
@@ -76,11 +76,11 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 			}
 
 			Object.assign(channelData, {
-				userId: responseChannelData.user_id,
-				channelId: responseChannelData.id,
+				userId: '' + responseChannelData.user_id,
+				channelId: '' + responseChannelData.id,
 				channelName: channelName,
 				chatroom: {
-					id: responseChannelData.chatroom.id,
+					id: '' + responseChannelData.chatroom.id,
 					messageInterval: responseChannelData.chatroom.message_interval || 0
 				},
 				me: { isLoggedIn: false }

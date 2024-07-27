@@ -540,7 +540,7 @@ export class SettingsManager {
 
 	async loadSettings() {
 		const { database } = this
-		const settingsRecords = await database.getSettings()
+		const settingsRecords = await database.settings.getRecords()
 
 		for (const setting of settingsRecords) {
 			const { id, value } = setting
@@ -564,8 +564,8 @@ export class SettingsManager {
 		if (!key || typeof value === 'undefined') return error('Invalid setting key or value', key, value)
 		const { database } = this
 
-		database
-			.putSetting({ id: key, value })
+		database.settings
+			.putRecord({ id: key, value })
 			.catch((err: Error) => error('Failed to save setting to database.', err.message))
 
 		this.settingsMap.set(key, value)

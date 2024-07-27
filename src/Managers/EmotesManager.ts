@@ -107,6 +107,10 @@ export class EmotesManager {
 		return this.datastore.emoteSets
 	}
 
+	getFavoriteEmotes() {
+		return this.datastore.favoriteEmotes
+	}
+
 	getMenuEnabledEmoteSets() {
 		return this.datastore.emoteSets.filter(set => set.enabledInMenu)
 	}
@@ -150,6 +154,18 @@ export class EmotesManager {
 		} else {
 			return provider.getEmbeddableEmote(emote)
 		}
+	}
+
+	addEmoteToFavorites(emoteHid: string) {
+		this.datastore.addEmoteToFavorites(emoteHid)
+	}
+
+	removeEmoteFromFavorites(emoteHid: string) {
+		this.datastore.removeEmoteFromFavorites(emoteHid)
+	}
+
+	isEmoteFavorited(emoteHid: string) {
+		return this.datastore.isEmoteFavorited(emoteHid)
 	}
 
 	isEmoteMenuEnabled(emoteHid: string) {

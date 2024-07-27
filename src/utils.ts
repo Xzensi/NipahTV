@@ -1,4 +1,5 @@
 import { Logger } from './Classes/Logger'
+import { PLATFORM_ENUM } from './constants'
 
 const logger = new Logger()
 export const log = logger.log.bind(logger)
@@ -25,6 +26,32 @@ export const assertArray = (arg: Array<any>) => {
 export const assertArgDefined = (arg: any) => {
 	if (typeof arg === 'undefined') {
 		throw new Error('Invalid argument, expected defined value')
+	}
+}
+
+export function getPlatformName() {
+	switch (PLATFORM) {
+		case PLATFORM_ENUM.KICK:
+			return 'Kick'
+		case PLATFORM_ENUM.TWITCH:
+			return 'Twitch'
+		case PLATFORM_ENUM.YOUTUBE:
+			return 'YouTube'
+		default:
+			return 'Unknown'
+	}
+}
+
+export function getPlatformSlug() {
+	switch (PLATFORM) {
+		case PLATFORM_ENUM.KICK:
+			return 'kick'
+		case PLATFORM_ENUM.TWITCH:
+			return 'twitch'
+		case PLATFORM_ENUM.YOUTUBE:
+			return 'youTube'
+		default:
+			return 'unknown'
 	}
 }
 

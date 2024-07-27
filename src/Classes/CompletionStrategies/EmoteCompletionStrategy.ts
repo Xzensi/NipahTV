@@ -69,7 +69,7 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 			for (let i = 0; i < emoteNames.length; i++) {
 				const emoteName = emoteNames[i]
 				const emoteHid = emoteHids[i]
-				const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')
+				const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid!, 'ntv__emote')
 
 				this.navWindow.addEntry(
 					{ emoteHid },
