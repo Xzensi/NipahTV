@@ -107,8 +107,12 @@ export class EmotesManager {
 		return this.datastore.emoteSets
 	}
 
-	getFavoriteEmotes() {
-		return this.datastore.favoriteEmotes
+	getFavoriteEmoteDocuments() {
+		return this.datastore.favoriteEmoteDocuments
+	}
+
+	getFavoriteEmoteDocument(emoteHid: string) {
+		return this.datastore.getFavoriteEmoteDocument(emoteHid)
 	}
 
 	getMenuEnabledEmoteSets() {
@@ -144,6 +148,13 @@ export class EmotesManager {
 		return provider.getRenderableEmote(emote, classes)
 	}
 
+	getRenderableEmoteByEmote(emote: Emote, classes = '') {
+		const provider = this.providers.get(emote.provider)
+		if (!provider) return error('Provider not found for emote', emote)
+
+		return provider.getRenderableEmote(emote, classes)
+	}
+
 	getEmoteEmbeddable(emoteHid: string, spacingBefore = false) {
 		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
@@ -158,6 +169,10 @@ export class EmotesManager {
 
 	addEmoteToFavorites(emoteHid: string) {
 		this.datastore.addEmoteToFavorites(emoteHid)
+	}
+
+	updateFavoriteEmoteOrderIndex(emoteHid: string, orderIndex: number) {
+		this.datastore.updateFavoriteEmoteOrderIndex(emoteHid, orderIndex)
 	}
 
 	removeEmoteFromFavorites(emoteHid: string) {

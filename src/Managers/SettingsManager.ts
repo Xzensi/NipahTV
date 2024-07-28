@@ -39,6 +39,7 @@ export class SettingsManager {
                 (Appearance)
                     - Choose the style of the emote menu button (dropdown)
                     - Show the search box
+					- Show favorited emotes in the emote menu
                     - Close the emote menu after clicking an emote
             = Emote Providers
                 (Kick)
@@ -61,6 +62,8 @@ export class SettingsManager {
                 (Appearance)
                     - Show quick emote holder
                     - Rows of emotes to display (number)
+					- Show favorited emotes in the quick emote holder
+					- Show favorited emotes of other channels that cannot be used, because theyre not cross-channel emotes
                 (Behavior)
                     - Send emotes to chat immediately on click
 	*/
@@ -339,12 +342,13 @@ export class SettingsManager {
 									id: 'shared.chat.emote_menu.search_box',
 									default: true,
 									type: 'checkbox'
-								}
-							]
-						},
-						{
-							label: 'Appearance',
-							children: [
+								},
+								{
+									label: 'Show favorited emotes in the emote menu (requires page refresh)',
+									id: 'shared.emote_menu.show_favorites',
+									default: true,
+									type: 'checkbox'
+								},
 								{
 									label: 'Close the emote menu after clicking an emote',
 									id: 'shared.chat.emote_menu.close_on_click',
@@ -474,17 +478,29 @@ export class SettingsManager {
 							children: [
 								{
 									label: 'Show quick emote holder',
-									id: 'shared.chat.quick_emote_holder.enabled',
+									id: 'shared.quick_emote_holder.enabled',
 									type: 'checkbox',
 									default: true
 								},
 								{
 									label: 'Rows of emotes to display',
-									id: 'shared.chat.quick_emote_holder.rows',
+									id: 'shared.quick_emote_holder.rows',
 									type: 'number',
 									default: 2,
 									min: 1,
 									max: 10
+								},
+								{
+									label: 'Show favorited emotes in the quick emote holder',
+									id: 'shared.quick_emote_holder.show_favorites',
+									type: 'checkbox',
+									default: true
+								},
+								{
+									label: 'Show favorited emotes of other channels that cannot be used, because theyre not cross-channel emotes',
+									id: 'shared.quick_emote_holder.show_non_cross_channel_favorites',
+									type: 'checkbox',
+									default: false
 								}
 							]
 						},
@@ -532,10 +548,6 @@ export class SettingsManager {
 		}
 
 		eventBus.subscribe('ntv.ui.settings.toggle_show', this.handleShowModal.bind(this))
-
-		// setTimeout(() => {
-		// 	this.showModal()
-		// }, 10)
 	}
 
 	async loadSettings() {
@@ -548,14 +560,16 @@ export class SettingsManager {
 		}
 
 		//! Temporary migration code
-		// ;[
-		// ].forEach(([oldKey, newKey]) => {
-		// 	if (this.settingsMap.has(oldKey)) {
-		// 		const val = this.settingsMap.get(oldKey)
-		// 		this.setSetting(newKey, val)
-		// 		database.deleteSetting(oldKey)
-		// 	}
-		// })
+		;[
+			['shared.chat.quick_emote_holder.rows', 'shared.quick_emote_holder.rows'],
+			['shared.chat.quick_emote_holder.enabled', 'shared.quick_emote_holder.enabled']
+		].forEach(([oldKey, newKey]) => {
+			if (this.settingsMap.has(oldKey)) {
+				const val = this.settingsMap.get(oldKey)
+				this.setSetting(newKey, val)
+				database.settings.deleteRecord(oldKey)
+			}
+		})
 
 		this.isLoaded = true
 	}

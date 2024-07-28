@@ -23,7 +23,7 @@ export default class FavoriteEmotesModel {
 		return this.db.favoriteEmotes.where(query).toArray()
 	}
 
-	async reorderRecord(platformId: string, emoteHid: string, orderIndex: number) {
+	async modifyRecordOrderIndex(platformId: string, emoteHid: string, orderIndex: number) {
 		return this.db.favoriteEmotes.where({ platformId, emoteHid }).modify({ orderIndex })
 	}
 
@@ -35,9 +35,9 @@ export default class FavoriteEmotesModel {
 		return this.db.favoriteEmotes.bulkPut(documents)
 	}
 
-	async bulkReorderRecords(records: { platformId: string; emoteHid: string; orderIndex: number }[]) {
+	async bulkOrderRecords(records: { platformId: string; emoteHid: string; orderIndex: number }[]) {
 		return Promise.all(
-			records.map(record => this.reorderRecord(record.platformId, record.emoteHid, record.orderIndex))
+			records.map(record => this.modifyRecordOrderIndex(record.platformId, record.emoteHid, record.orderIndex))
 		)
 	}
 
