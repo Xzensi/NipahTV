@@ -39,6 +39,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 	attachEventHandlers() {
 		const { eventBus } = this.session
+		const { eventBus: rootEventBus } = this.rootContext
 
 		this.element?.addEventListener('click', (evt: Event) => {
 			const target = evt.target as HTMLElement
@@ -60,7 +61,8 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		eventBus.subscribe('ntv.ui.input_submitted', this.renderQuickEmotesCallback)
 
 		eventBus.subscribe(
-			'ntv.settings.change.shared.chat.quick_emote_holder.rows',
+		rootEventBus.subscribe(
+			'ntv.settings.change.shared.quick_emote_holder.rows',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				this.element?.setAttribute('data-rows', value || '0')
 			}
