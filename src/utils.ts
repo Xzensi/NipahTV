@@ -30,7 +30,7 @@ export const assertArgDefined = (arg: any) => {
 }
 
 export function getPlatformName() {
-	switch (PLATFORM) {
+	switch (NTV_PLATFORM) {
 		case PLATFORM_ENUM.KICK:
 			return 'Kick'
 		case PLATFORM_ENUM.TWITCH:
@@ -43,7 +43,7 @@ export function getPlatformName() {
 }
 
 export function getPlatformSlug() {
-	switch (PLATFORM) {
+	switch (NTV_PLATFORM) {
 		case PLATFORM_ENUM.KICK:
 			return 'kick'
 		case PLATFORM_ENUM.TWITCH:

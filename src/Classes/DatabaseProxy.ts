@@ -9,38 +9,57 @@ import { error, log } from '../utils'
  * scope -> DatabaseProxy --(via sendMessage, received on service worker)--> Database
  */
 
-const DatabaseProxyHandler: ProxyHandler<Database | {}> = {
-	get: function (target: Database, prop: keyof Database, receiver: any) {
-		// We forward the method call over sendMessage for extensions.
-		if (__EXTENSION__) {
-			return (...args: any[]) =>
-				new Promise((resolve, reject) => {
-					browser.runtime
-						.sendMessage({ action: 'database', method: prop, args })
-						.then(r => (!r || 'error' in r ? reject(r && r.error) : resolve(r.data)))
-				})
+// export type DatabaseProxy = ReturnType<typeof DatabaseProxyFactory.create>
+export type DatabaseProxy = Database
+
+interface DatabaseMessage {
+	action: string
+	stack: string[]
+	args?: any[]
+}
+
+const extensionProxyHandler: ProxyHandler<{}> = {
+	get(target: [] | { (): any; stack: string[] }, prop: string, receiver: ProxyConstructor) {
+		// @ts-ignore
+		if (target.prototype === undefined) {
+			// @ts-ignore
+			target = function () {}
+			// @ts-ignore
+			target.stack = [prop]
+		} else {
+			// @ts-ignore
+			target.stack.push(prop)
 		}
 
-		// For userscripts, we just call the method directly.
-		if (typeof target[prop] === 'object') {
-			return Reflect.get(target, prop, receiver)
-		} else if (typeof target[prop] === 'function') {
-			return (target[prop] as (...args: any[]) => any).bind(target)
-			// } else if (target.hasOwnProperty(prop)) {
-			// 	return Reflect.get(target, prop, receiver)
-		} else {
-			error(`Method "${String(prop)}" not found on database.`)
-		}
+		return new Proxy(target, extensionProxyHandler)
+	},
+
+	apply(target: { (): any; stack: string[] }, thisArg: any, args: any[]) {
+		return new Promise((resolve, reject) => {
+			browser.runtime
+				.sendMessage(<DatabaseMessage>{
+					action: 'database',
+					stack: target.stack,
+					args
+				})
+				.then(r => {
+					!r || 'error' in r ? reject(r && r.error) : resolve(r.data)
+				})
+		})
 	}
 }
 
 export class DatabaseProxyFactory {
-	static create(database?: Database) {
-		if (__USERSCRIPT__ && !database) throw new Error('Database instance required for userscripts.')
+	static create(database?: Database): DatabaseProxy {
+		if (__USERSCRIPT__) {
+			if (!database) throw new Error('Database instance required for userscripts.')
+			return database
+		}
 
-		return new Proxy(database || {}, DatabaseProxyHandler) as DatabaseProxy
+		if (__EXTENSION__) {
+			return new Proxy([], extensionProxyHandler) as DatabaseProxy
+		} else {
+			throw new Error('Unable to create database handle for unknown environment.')
+		}
 	}
 }
-
-// export type DatabaseProxy = ReturnType<typeof DatabaseProxyFactory.create>
-export type DatabaseProxy = Database

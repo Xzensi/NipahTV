@@ -27,7 +27,7 @@ export default class Database {
 			.version(2)
 			.stores({
 				settings: settingsSchema,
-				emoteUsages: '&[channelId+emoteHid]',
+				emoteUsage: '&[channelId+emoteHid]',
 				emoteHistory: null
 			})
 			.upgrade(async tx => {
@@ -80,7 +80,7 @@ export default class Database {
 		this.favoriteEmotes = new FavoriteEmotesModel(this.idb)
 	}
 
-	checkCompatibility() {
+	async checkCompatibility() {
 		return new Promise((resolve, reject) => {
 			if (this.ready) return resolve(void 0)
 

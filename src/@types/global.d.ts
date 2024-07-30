@@ -28,8 +28,8 @@ declare global {
 	var GM_getResourceText: Function
 	var RESTFromMainService: RESTFromMain
 
-	var PLATFORM: ValueOf<typeof PLATFORM_ENUM>
-	var RESOURCE_ROOT: string
+	var NTV_PLATFORM: ValueOf<typeof PLATFORM_ENUM>
+	var NTV_RESOURCE_ROOT: string
 	var NTV_APP_VERSION: string
 
 	interface Window {
