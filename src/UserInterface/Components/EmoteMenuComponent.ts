@@ -413,8 +413,11 @@ export class EmoteMenuComponent extends AbstractComponent {
 			(a, b) => b.orderIndex - a.orderIndex
 		)
 
+		const showUnavailableEmotes = settingsManager.getSetting('shared.emote_menu.show_unavailable_favorites')
+
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
 			const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
+			if (!emoteIsLoaded && !showUnavailableEmotes) continue
 			const unavailableClass = emoteIsLoaded ? '' : 'ntv__emote-box--unavailable'
 
 			emotesEl.append(

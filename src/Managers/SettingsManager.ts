@@ -33,13 +33,14 @@ export class SettingsManager {
                     - Add extra bias to emotes of the current channel you are watching the stream of
             = Emotes
                 (Appearance)
-                    - Hide subscriber emotes for channels you are not subscribed to
+                    - Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them
                     - Display images in tooltips
             = Emote Menu
                 (Appearance)
                     - Choose the style of the emote menu button (dropdown)
                     - Show the search box
-					- Show favorited emotes in the emote menu
+					- Show favorited emotes in the emote menu (requires page refresh)
+					- Show favorited emotes of other channels that cannot be used, because they\'re not cross-channel emotes (requires page refresh)
                     - Close the emote menu after clicking an emote
             = Emote Providers
                 (Kick)
@@ -63,7 +64,7 @@ export class SettingsManager {
                     - Show quick emote holder
                     - Rows of emotes to display (number)
 					- Show favorited emotes in the quick emote holder
-					- Show favorited emotes of other channels that cannot be used, because theyre not cross-channel emotes
+					- Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes
                 (Behavior)
                     - Send emotes to chat immediately on click
 	*/
@@ -350,6 +351,12 @@ export class SettingsManager {
 									type: 'checkbox'
 								},
 								{
+									label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes (requires page refresh)",
+									id: 'shared.emote_menu.show_unavailable_favorites',
+									default: false,
+									type: 'checkbox'
+								},
+								{
 									label: 'Close the emote menu after clicking an emote',
 									id: 'shared.chat.emote_menu.close_on_click',
 									default: false,
@@ -497,7 +504,7 @@ export class SettingsManager {
 									default: true
 								},
 								{
-									label: 'Show favorited emotes of other channels that cannot be used, because theyre not cross-channel emotes',
+									label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes",
 									id: 'shared.quick_emote_holder.show_non_cross_channel_favorites',
 									type: 'checkbox',
 									default: false
