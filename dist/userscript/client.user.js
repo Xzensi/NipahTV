@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.31
+// @version 1.4.32
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -6099,50 +6099,6 @@ var Logger = class {
   }
 };
 
-// src/constants.ts
-var U_TAG_LATIN_A = String.fromCodePoint(917569);
-var U_TAG_LATIN_B = String.fromCodePoint(917570);
-var U_TAG_LATIN_C = String.fromCodePoint(917571);
-var U_TAG_LATIN_D = String.fromCodePoint(917572);
-var U_TAG_LATIN_E = String.fromCodePoint(917573);
-var U_TAG_LATIN_F = String.fromCodePoint(917574);
-var U_TAG_LATIN_G = String.fromCodePoint(917575);
-var U_TAG_LATIN_H = String.fromCodePoint(917576);
-var U_TAG_LATIN_I = String.fromCodePoint(917577);
-var U_TAG_LATIN_J = String.fromCodePoint(917578);
-var U_TAG_LATIN_K = String.fromCodePoint(917579);
-var U_TAG_LATIN_L = String.fromCodePoint(917580);
-var U_TAG_LATIN_M = String.fromCodePoint(917581);
-var U_TAG_LATIN_N = String.fromCodePoint(917582);
-var U_TAG_LATIN_O = String.fromCodePoint(917583);
-var U_TAG_LATIN_P = String.fromCodePoint(917584);
-var U_TAG_LATIN_Q = String.fromCodePoint(917585);
-var U_TAG_LATIN_R = String.fromCodePoint(917586);
-var U_TAG_LATIN_S = String.fromCodePoint(917587);
-var U_TAG_LATIN_T = String.fromCodePoint(917588);
-var U_TAG_LATIN_U = String.fromCodePoint(917589);
-var U_TAG_LATIN_V = String.fromCodePoint(917590);
-var U_TAG_LATIN_W = String.fromCodePoint(917591);
-var U_TAG_LATIN_X = String.fromCodePoint(917592);
-var U_TAG_LATIN_Y = String.fromCodePoint(917593);
-var U_TAG_LATIN_Z = String.fromCodePoint(917594);
-var U_TAG_DIGIT_0 = String.fromCodePoint(917552);
-var U_TAG_DIGIT_1 = String.fromCodePoint(917553);
-var U_TAG_DIGIT_2 = String.fromCodePoint(917554);
-var U_TAG_DIGIT_3 = String.fromCodePoint(917555);
-var U_TAG_DIGIT_4 = String.fromCodePoint(917556);
-var U_TAG_DIGIT_5 = String.fromCodePoint(917557);
-var U_TAG_DIGIT_6 = String.fromCodePoint(917558);
-var U_TAG_DIGIT_7 = String.fromCodePoint(917559);
-var U_TAG_DIGIT_8 = String.fromCodePoint(917560);
-var U_TAG_DIGIT_9 = String.fromCodePoint(917561);
-var U_TAG_SPACE = String.fromCodePoint(917536);
-var U_TAG_EXCLAMATION_MARK = String.fromCodePoint(917537);
-var U_TAG_COMMERCIAL_AT = String.fromCodePoint(917568);
-var U_TAG_CANCEL = String.fromCodePoint(917631);
-var U_TAG_NTV = U_TAG_LATIN_N + U_TAG_LATIN_T + U_TAG_LATIN_V;
-var U_TAG_NTV_AFFIX = U_TAG_EXCLAMATION_MARK;
-
 // src/utils.ts
 var logger = new Logger();
 var log = logger.log.bind(logger);
@@ -6168,16 +6124,7 @@ var assertArgDefined = (arg) => {
   }
 };
 function getPlatformSlug() {
-  switch (NTV_PLATFORM) {
-    case 1 /* KICK */:
-      return "kick";
-    case 2 /* TWITCH */:
-      return "twitch";
-    case 3 /* YOUTUBE */:
-      return "youTube";
-    default:
-      return "unknown";
-  }
+  return "kick";
 }
 var REST = class {
   static get(url) {
@@ -6681,6 +6628,50 @@ var Publisher = class {
     this.firedEvents.clear();
   }
 };
+
+// src/constants.ts
+var U_TAG_LATIN_A = String.fromCodePoint(917569);
+var U_TAG_LATIN_B = String.fromCodePoint(917570);
+var U_TAG_LATIN_C = String.fromCodePoint(917571);
+var U_TAG_LATIN_D = String.fromCodePoint(917572);
+var U_TAG_LATIN_E = String.fromCodePoint(917573);
+var U_TAG_LATIN_F = String.fromCodePoint(917574);
+var U_TAG_LATIN_G = String.fromCodePoint(917575);
+var U_TAG_LATIN_H = String.fromCodePoint(917576);
+var U_TAG_LATIN_I = String.fromCodePoint(917577);
+var U_TAG_LATIN_J = String.fromCodePoint(917578);
+var U_TAG_LATIN_K = String.fromCodePoint(917579);
+var U_TAG_LATIN_L = String.fromCodePoint(917580);
+var U_TAG_LATIN_M = String.fromCodePoint(917581);
+var U_TAG_LATIN_N = String.fromCodePoint(917582);
+var U_TAG_LATIN_O = String.fromCodePoint(917583);
+var U_TAG_LATIN_P = String.fromCodePoint(917584);
+var U_TAG_LATIN_Q = String.fromCodePoint(917585);
+var U_TAG_LATIN_R = String.fromCodePoint(917586);
+var U_TAG_LATIN_S = String.fromCodePoint(917587);
+var U_TAG_LATIN_T = String.fromCodePoint(917588);
+var U_TAG_LATIN_U = String.fromCodePoint(917589);
+var U_TAG_LATIN_V = String.fromCodePoint(917590);
+var U_TAG_LATIN_W = String.fromCodePoint(917591);
+var U_TAG_LATIN_X = String.fromCodePoint(917592);
+var U_TAG_LATIN_Y = String.fromCodePoint(917593);
+var U_TAG_LATIN_Z = String.fromCodePoint(917594);
+var U_TAG_DIGIT_0 = String.fromCodePoint(917552);
+var U_TAG_DIGIT_1 = String.fromCodePoint(917553);
+var U_TAG_DIGIT_2 = String.fromCodePoint(917554);
+var U_TAG_DIGIT_3 = String.fromCodePoint(917555);
+var U_TAG_DIGIT_4 = String.fromCodePoint(917556);
+var U_TAG_DIGIT_5 = String.fromCodePoint(917557);
+var U_TAG_DIGIT_6 = String.fromCodePoint(917558);
+var U_TAG_DIGIT_7 = String.fromCodePoint(917559);
+var U_TAG_DIGIT_8 = String.fromCodePoint(917560);
+var U_TAG_DIGIT_9 = String.fromCodePoint(917561);
+var U_TAG_SPACE = String.fromCodePoint(917536);
+var U_TAG_EXCLAMATION_MARK = String.fromCodePoint(917537);
+var U_TAG_COMMERCIAL_AT = String.fromCodePoint(917568);
+var U_TAG_CANCEL = String.fromCodePoint(917631);
+var U_TAG_NTV = U_TAG_LATIN_N + U_TAG_LATIN_T + U_TAG_LATIN_V;
+var U_TAG_NTV_AFFIX = U_TAG_EXCLAMATION_MARK;
 
 // node_modules/fuse.js/dist/fuse.mjs
 function isArray(value) {
@@ -14624,6 +14615,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.4.32",
+    date: "2024-07-30",
+    description: `
+                  Discovered a bug where the platform constant was not available in extension background workers, causing all emotes to be registered and loaded under the wrong platform ID. As a result all emote usages history was seemingly wiped, apologies for the inconvenience!
+
+                  Hotfix: Constant PLATFORM not available in extension background workers
+            `
+  },
+  {
     version: "1.4.31",
     date: "2024-07-30",
     description: `
@@ -16659,7 +16659,7 @@ var Database = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.4.31";
+  VERSION = "1.4.32";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

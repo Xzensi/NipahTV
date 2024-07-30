@@ -30,29 +30,32 @@ export const assertArgDefined = (arg: any) => {
 }
 
 export function getPlatformName() {
-	switch (NTV_PLATFORM) {
-		case PLATFORM_ENUM.KICK:
-			return 'Kick'
-		case PLATFORM_ENUM.TWITCH:
-			return 'Twitch'
-		case PLATFORM_ENUM.YOUTUBE:
-			return 'YouTube'
-		default:
-			return 'Unknown'
-	}
+	return 'Kick'
+	// switch (NTV_PLATFORM) {
+	// 	case PLATFORM_ENUM.KICK:
+	// 		return 'Kick'
+	// 	case PLATFORM_ENUM.TWITCH:
+	// 		return 'Twitch'
+	// 	case PLATFORM_ENUM.YOUTUBE:
+	// 		return 'YouTube'
+	// 	default:
+	// 		return 'Unknown'
+	// }
 }
 
 export function getPlatformSlug() {
-	switch (NTV_PLATFORM) {
-		case PLATFORM_ENUM.KICK:
-			return 'kick'
-		case PLATFORM_ENUM.TWITCH:
-			return 'twitch'
-		case PLATFORM_ENUM.YOUTUBE:
-			return 'youTube'
-		default:
-			return 'unknown'
-	}
+	return 'kick'
+
+	// switch (NTV_PLATFORM) {
+	// 	case PLATFORM_ENUM.KICK:
+	// 		return 'kick'
+	// 	case PLATFORM_ENUM.TWITCH:
+	// 		return 'twitch'
+	// 	case PLATFORM_ENUM.YOUTUBE:
+	// 		return 'youTube'
+	// 	default:
+	// 		return 'unknown'
+	// }
 }
 
 export class REST {
