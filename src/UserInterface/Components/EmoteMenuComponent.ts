@@ -17,10 +17,16 @@ export class EmoteMenuComponent extends AbstractComponent {
 	private scrollableEl?: HTMLElement
 	private settingsBtnEl?: HTMLElement
 	private sidebarSetsEl?: HTMLElement
+	private favoritesEmoteSetEl?: HTMLElement
 	private tooltipEl?: HTMLElement
 
 	private closeModalClickListenerHandle?: Function
 	private scrollableHeight: number = 0
+
+	private isDraggingEmote = false
+	private dragHandleEmoteEl: HTMLElement | null = null
+	private dragEmoteNewIndex: number | null = null
+	private lastDraggedEmoteEl: string | null = null
 
 	constructor(rootContext: RootContext, session: Session, container: HTMLElement) {
 		super()
@@ -95,6 +101,8 @@ export class EmoteMenuComponent extends AbstractComponent {
 		this.panels.emotes = this.containerEl.querySelector('.ntv__emote-menu__panel__emotes')!
 		this.panels.search = this.containerEl.querySelector('.ntv__emote-menu__panel__search')!
 
+		this.renderFavoriteEmoteSet()
+
 		this.parentContainer.appendChild(this.containerEl)
 	}
 
@@ -102,19 +110,77 @@ export class EmoteMenuComponent extends AbstractComponent {
 		const { settingsManager } = this.rootContext
 		const { eventBus, emotesManager } = this.session
 
+		let mouseDownTimeout: NodeJS.Timeout | null = null
+
+		// Because click event comes after mouseUp, so we can't check for isDraggingEmote
+		let skipClickEvent = false
+
 		// Emote click event
 		this.scrollableEl?.addEventListener('click', evt => {
+			const isHoldingCtrl = evt.ctrlKey
+
 			const target = evt.target as HTMLElement
 			if (target.tagName !== 'IMG' || target.parentElement?.classList.contains('ntv__emote-box--locked')) return
 
 			const emoteHid = target.getAttribute('data-emote-hid')
 			if (!emoteHid) return error('Invalid emote hid')
 
-			eventBus.publish('ntv.ui.emote.click', { emoteHid })
+			if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
+			if (skipClickEvent) {
+				skipClickEvent = false
+				return
+			}
 
-			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.close_on_click')
-			if (closeOnClick) this.toggleShow(false)
+			this.handleEmoteClick(target, emoteHid, isHoldingCtrl)
 		})
+
+		this.favoritesEmoteSetEl?.addEventListener(
+			'mousedown',
+			(evt: MouseEvent) => {
+				const emoteEl = evt.target as HTMLElement
+
+				if (
+					!(emoteEl instanceof HTMLElement) ||
+					emoteEl.tagName !== 'IMG' ||
+					!emoteEl.classList.contains('ntv__emote')
+				)
+					return
+				if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
+
+				const emoteHid = emoteEl.getAttribute('data-emote-hid')
+				if (!emoteHid) return error('Unable to start dragging emote, invalid emote hid')
+
+				const emoteBoxEl = emoteEl.parentElement as HTMLElement
+
+				mouseDownTimeout = setTimeout(() => {
+					// Double check that emote still exists
+					if (!emoteEl.isConnected) return
+
+					this.startDragFavoriteEmote(evt, emoteBoxEl, emoteEl)
+				}, 500)
+
+				emoteBoxEl.addEventListener(
+					'mouseleave',
+					() => {
+						if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
+					},
+					{ once: true, passive: true }
+				)
+
+				window.addEventListener(
+					'mouseup',
+					() => {
+						if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
+						if (this.isDraggingEmote) {
+							this.stopDragFavoriteEmote(emoteBoxEl, emoteHid)
+							skipClickEvent = true
+						}
+					},
+					{ once: true, passive: true }
+				)
+			},
+			{ passive: true }
+		)
 
 		// Tooltip for emotes
 		let lastEnteredElement: HTMLElement | null = null
@@ -178,7 +244,21 @@ export class EmoteMenuComponent extends AbstractComponent {
 			this.rootContext.eventBus.publish('ntv.ui.settings.toggle_show')
 		})
 
-		eventBus.subscribe('ntv.providers.loaded', this.renderEmotes.bind(this), true)
+		eventBus.subscribe('ntv.providers.loaded', this.renderEmoteSets.bind(this), true)
+		eventBus.subscribeAllOnce(
+			['ntv.providers.loaded', 'ntv.datastore.emotes.favorites.loaded'],
+			this.renderFavoriteEmotes.bind(this)
+		)
+		eventBus.subscribe(
+			'ntv.datastore.emotes.favorites.changed',
+			(data: { added?: string; reordered?: string; removed?: string }) => {
+				if (this.lastDraggedEmoteEl === data.reordered) {
+					this.lastDraggedEmoteEl = null
+					return
+				}
+				this.renderFavoriteEmotes()
+			}
+		)
 		eventBus.subscribe('ntv.ui.footer.click', this.toggleShow.bind(this))
 
 		// On escape key, close the modal
@@ -283,16 +363,86 @@ export class EmoteMenuComponent extends AbstractComponent {
 		this.activePanel = panel
 	}
 
-	renderEmotes() {
-		log('Rendering emotes in modal')
+	renderFavoriteEmoteSet() {
+		const { sidebarSetsEl, scrollableEl } = this
+		const emotesPanelEl = this.panels.emotes
+		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
+		const { settingsManager } = this.rootContext
+		if (!settingsManager.getSetting('shared.emote_menu.show_favorites')) return
+
+		const sidebarFavoritesBtn = parseHTML(
+			`<div class="ntv__emote-menu__sidebar-btn"><svg data-id="favorites" xmlns="http://www.w3.org/2000/svg" width="1.5em" height="1.5em" viewBox="0 0 24 24"><path fill="currentColor" d="m19 23.3l-.6-.5c-2-1.9-3.4-3.1-3.4-4.6c0-1.2 1-2.2 2.2-2.2c.7 0 1.4.3 1.8.8c.4-.5 1.1-.8 1.8-.8c1.2 0 2.2.9 2.2 2.2c0 1.5-1.4 2.7-3.4 4.6zM17 4v6l-2-2l-2 2V4H9v16h4.08c.12.72.37 1.39.72 2H7c-1.05 0-2-.95-2-2v-1H3v-2h2v-4H3v-2h2V7H3V5h2V4a2 2 0 0 1 2-2h12c1.05 0 2 .95 2 2v9.34c-.63-.22-1.3-.34-2-.34V4zM5 19h2v-2H5zm0-6h2v-2H5zm0-6h2V5H5z" /></svg></div`,
+			true
+		) as HTMLElement
+
+		sidebarSetsEl.appendChild(sidebarFavoritesBtn)
+		this.sidebarMap.set('favorites', sidebarFavoritesBtn)
+
+		this.favoritesEmoteSetEl = parseHTML(
+			cleanupHTML(
+				`<div class="ntv__emote-set" data-id="favorites">
+					<div class="ntv__emote-set__header">
+						<svg xmlns="http://www.w3.org/2000/svg" width="1.5em" height="1.5em" viewBox="0 0 24 24"><path fill="currentColor" d="m19 23.3l-.6-.5c-2-1.9-3.4-3.1-3.4-4.6c0-1.2 1-2.2 2.2-2.2c.7 0 1.4.3 1.8.8c.4-.5 1.1-.8 1.8-.8c1.2 0 2.2.9 2.2 2.2c0 1.5-1.4 2.7-3.4 4.6zM17 4v6l-2-2l-2 2V4H9v16h4.08c.12.72.37 1.39.72 2H7c-1.05 0-2-.95-2-2v-1H3v-2h2v-4H3v-2h2V7H3V5h2V4a2 2 0 0 1 2-2h12c1.05 0 2 .95 2 2v9.34c-.63-.22-1.3-.34-2-.34V4zM5 19h2v-2H5zm0-6h2v-2H5zm0-6h2V5H5z" /></svg>
+						<span>Favorites</span>
+						<div class="ntv__chevron">
+							<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
+						</div>
+					</div>
+					<div class="ntv__emote-set__emotes"></div>
+				</div>`
+			),
+			true
+		) as HTMLElement
+
+		emotesPanelEl.append(this.favoritesEmoteSetEl)
+	}
+
+	renderFavoriteEmotes() {
+		const { settingsManager } = this.rootContext
+		if (!settingsManager.getSetting('shared.emote_menu.show_favorites')) return
+
+		if (!this.favoritesEmoteSetEl) return error('Invalid favorites emote set element')
+		log('Rendering favorite emote set in emote menu..')
+
+		const { emotesManager } = this.session
+		const emotesEl = this.favoritesEmoteSetEl.getElementsByClassName('ntv__emote-set__emotes')[0]
+		while (emotesEl.firstChild) emotesEl.removeChild(emotesEl.firstChild)
+
+		const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
+			(a, b) => b.orderIndex - a.orderIndex
+		)
+
+		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
+			const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
+			const unavailableClass = emoteIsLoaded ? '' : 'ntv__emote-box--unavailable'
+
+			emotesEl.append(
+				parseHTML(
+					`<div class="ntv__emote-box ${unavailableClass}">${emotesManager.getRenderableEmote(
+						favoriteEmoteDoc.emote,
+						'ntv__emote ntv__emote-set__emote'
+					)}</div>`
+				)
+			)
+		}
+	}
+
+	renderEmoteSets() {
 		const { sidebarSetsEl, scrollableEl, rootContext } = this
 		const { emotesManager } = this.session
 		const emotesPanelEl = this.panels.emotes
 		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
-		while (sidebarSetsEl.firstChild && sidebarSetsEl.removeChild(sidebarSetsEl.firstChild));
-		while (emotesPanelEl.firstChild && emotesPanelEl.removeChild(emotesPanelEl.firstChild));
+		// Clear any existing emote sets except for the favorites emote set
+		const emotesPanelElChildren = Array.from(emotesPanelEl.children)
+		for (const child of emotesPanelElChildren) {
+			if (child.getAttribute('data-id') !== 'favorites') child.remove()
+		}
+		const sidebarSetsElChildren = Array.from(sidebarSetsEl.children)
+		for (const child of sidebarSetsElChildren) {
+			if (child.children[0]?.getAttribute('data-id') !== 'favorites') child.remove()
+		}
 
 		const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
 			'shared.chat.emotes.hide_subscriber_emotes'
@@ -300,6 +450,8 @@ export class EmoteMenuComponent extends AbstractComponent {
 
 		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
 		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex)
+
+		log(`Rendering ${orderedEmoteSets.length} emote sets in emote menu..`)
 
 		for (const emoteSet of orderedEmoteSets) {
 			const sortedEmotes = (emoteSet as EmoteSet).emotes.sort((a, b) => a.width - b.width)
@@ -359,13 +511,10 @@ export class EmoteMenuComponent extends AbstractComponent {
 		sidebarSetsEl.addEventListener('click', evt => {
 			const target = evt.target as HTMLElement
 
-			const imgEl = target.querySelector('img')
-			if (!imgEl) return
-
 			const scrollableEl = this.scrollableEl
 			if (!scrollableEl) return
 
-			const emoteSetId = imgEl.getAttribute('data-id')
+			const emoteSetId = target.querySelector('img, svg')?.getAttribute('data-id')
 			const emoteSetEl = this.containerEl?.querySelector(
 				`.ntv__emote-set[data-id="${emoteSetId}"]`
 			) as HTMLElement
@@ -412,11 +561,111 @@ export class EmoteMenuComponent extends AbstractComponent {
 		for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl)
 	}
 
+	handleEmoteClick(target: HTMLElement, emoteHid: string, isHoldingCtrl: boolean) {
+		const { settingsManager } = this.rootContext
+		const { emotesManager, eventBus } = this.session
+
+		if (isHoldingCtrl) {
+			// User tries to favorite an emote
+			const isFavorited = emotesManager.isEmoteFavorited(emoteHid)
+			if (isFavorited) emotesManager.removeEmoteFromFavorites(emoteHid)
+			else emotesManager.addEmoteToFavorites(emoteHid)
+		} else {
+			if (target.parentElement?.classList.contains('ntv__emote-box--unavailable')) return
+
+			const emote = emotesManager.getEmote(emoteHid)
+			if (!emote) return error('Emote not found')
+
+			// User wants to use an emote
+			eventBus.publish('ntv.ui.emote.click', { emoteHid })
+
+			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.close_on_click')
+			if (closeOnClick) this.toggleShow(false)
+		}
+	}
+
 	handleOutsideModalClick(evt: MouseEvent) {
 		if (!this.containerEl) return
 		const containerEl = this.containerEl
 		const withinComposedPath = evt.composedPath().includes(containerEl)
 		if (!withinComposedPath) this.toggleShow(false)
+	}
+
+	startDragFavoriteEmote(event: MouseEvent, emoteBoxEl: HTMLElement, emoteEl: HTMLElement) {
+		const emoteHid = emoteEl?.getAttribute('data-emote-hid')
+		if (!emoteHid) return error('Unable to drag emote, emote hid attribute does not exist..')
+		if (!this.favoritesEmoteSetEl) return error('Unable to drag emote, favorites emote set does not exist..')
+		log('Starting emote drag mode..')
+
+		this.isDraggingEmote = true
+		this.favoritesEmoteSetEl.classList.add('ntv__emote-set--dragging-emote')
+
+		const favoriteEmotesSetBodyEl = this.favoritesEmoteSetEl.querySelector('.ntv__emote-set__emotes') as HTMLElement
+
+		// Create a drag handle for the emote which will be used to drag the emote around
+		const dragHandleEmoteEl = (this.dragHandleEmoteEl = emoteEl.cloneNode(true) as HTMLElement)
+		dragHandleEmoteEl.classList.add('ntv__emote--dragging')
+		document.body.appendChild(dragHandleEmoteEl)
+
+		// Move the emote drag handle to the mouse position
+		dragHandleEmoteEl.style.left = `${event.clientX}px`
+		dragHandleEmoteEl.style.top = `${event.clientY}px`
+
+		const mouseMoveCb: (evt: MouseEvent) => void = (evt: MouseEvent) => {
+			if (!this.isDraggingEmote) return window.removeEventListener('mousemove', mouseMoveCb)
+
+			// Move the emote drag handle to the mouse position
+			dragHandleEmoteEl.style.left = `${evt.clientX}px`
+			dragHandleEmoteEl.style.top = `${evt.clientY}px`
+
+			// When dragging emote over another emote, set new index to index of the hovered emote
+			const favoriteEmotes = Array.from(favoriteEmotesSetBodyEl.children)
+			const hoveredEmote = favoriteEmotes.find(el => {
+				const rect = el.getBoundingClientRect()
+				return (
+					evt.clientX > rect.left &&
+					evt.clientX < rect.right &&
+					evt.clientY > rect.top &&
+					evt.clientY < rect.bottom
+				)
+			}) as HTMLElement | undefined
+
+			if (hoveredEmote && hoveredEmote !== emoteBoxEl) {
+				const hoveredEmoteIndex = favoriteEmotes.indexOf(hoveredEmote)
+				const emoteIndex = favoriteEmotes.indexOf(emoteBoxEl)
+
+				this.dragEmoteNewIndex = hoveredEmoteIndex
+
+				if (hoveredEmoteIndex > emoteIndex) {
+					hoveredEmote.after(emoteBoxEl)
+				} else {
+					hoveredEmote.before(emoteBoxEl)
+				}
+			}
+		}
+		window.addEventListener('mousemove', mouseMoveCb)
+	}
+
+	stopDragFavoriteEmote(emoteBoxEl: HTMLElement, emoteHid: string) {
+		if (!this.favoritesEmoteSetEl)
+			return error('Unable to stop dragging emote, favorites emote set does not exist..')
+		log('Stopped emote drag mode')
+
+		this.favoritesEmoteSetEl.classList.remove('ntv__emote-set--dragging-emote')
+		emoteBoxEl?.classList.remove('ntv__emote--dragging')
+
+		this.isDraggingEmote = false
+		this.dragHandleEmoteEl?.remove()
+		this.dragHandleEmoteEl = null
+
+		// Used to prevent reordering on ntv.datastore.emotes.favorites.changed event
+		this.lastDraggedEmoteEl = emoteHid
+
+		// Update the order index of the emote and save it to the database
+		if (this.dragEmoteNewIndex !== null) {
+			this.session.emotesManager.updateFavoriteEmoteOrderIndex(emoteHid, this.dragEmoteNewIndex)
+			this.dragEmoteNewIndex = null
+		}
 	}
 
 	toggleShow(bool?: boolean) {

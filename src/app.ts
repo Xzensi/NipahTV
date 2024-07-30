@@ -12,12 +12,12 @@ import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import { log, info, error, RESTFromMain, debounce } from './utils'
 import { SettingsManager } from './Managers/SettingsManager'
 import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
-import { Database } from './Classes/Database'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
 import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
 import { UsersManager } from './Managers/UsersManager'
 import { KickBadgeProvider } from './Providers/KickBadgeProvider'
+import Database from './Database/Database'
 
 class NipahClient {
 	VERSION = '1.4.30'
@@ -50,28 +50,28 @@ class NipahClient {
 
 		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')
-			RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
+			NTV_RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
 			window.NipahTV = this
 		} else if (!__USERSCRIPT__) {
 			info('Running in extension mode..')
-			RESOURCE_ROOT = browser.runtime.getURL('/')
+			NTV_RESOURCE_ROOT = browser.runtime.getURL('/')
 		} else {
-			RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
+			NTV_RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
 		}
 
-		Object.freeze(RESOURCE_ROOT)
+		Object.freeze(NTV_RESOURCE_ROOT)
 
 		if (window.location.host === 'kick.com') {
-			PLATFORM = PLATFORM_ENUM.KICK
+			NTV_PLATFORM = PLATFORM_ENUM.KICK
 			info('Platform detected: Kick')
 		} else if (window.location.host === 'www.twitch.tv') {
-			PLATFORM = PLATFORM_ENUM.TWITCH
+			NTV_PLATFORM = PLATFORM_ENUM.TWITCH
 			info('Platform detected: Twitch')
 		} else {
 			return error('Unsupported platform', window.location.host)
 		}
 
-		Object.freeze(PLATFORM)
+		Object.freeze(NTV_PLATFORM)
 
 		this.attachPageNavigationListener()
 		this.setupDatabase().then(async () => {
@@ -104,7 +104,9 @@ class NipahClient {
 			database
 				.checkCompatibility()
 				.then(() => {
+					log('Database passed compatibility check.')
 					this.database = database
+
 					resolve(void 0)
 				})
 				.catch((err: Error) => {
@@ -149,9 +151,9 @@ class NipahClient {
 		const eventBus = new Publisher()
 		const usersManager = new UsersManager({ eventBus, settingsManager })
 
-		if (PLATFORM === PLATFORM_ENUM.KICK) {
+		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
 			this.networkInterface = new KickNetworkInterface({ ENV_VARS: this.ENV_VARS })
-		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
+		} else if (NTV_PLATFORM === PLATFORM_ENUM.TWITCH) {
 			// this.networkInterface = new TwitchNetworkInterface()
 			throw new Error('Twitch platform is not supported yet.')
 		} else {
@@ -188,17 +190,17 @@ class NipahClient {
 		Object.assign(session, {
 			emotesManager,
 			channelData,
-			// badgeProvider: PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
+			// badgeProvider: NTV_PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
 			badgeProvider: new KickBadgeProvider(rootContext, channelData)
 		})
 
 		session.badgeProvider.initialize()
 
 		let userInterface: KickUserInterface
-		if (PLATFORM === PLATFORM_ENUM.KICK) {
+		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface(rootContext, session)
 		} else {
-			return error('Platform has no user interface implemented..', PLATFORM)
+			return error('Platform has no user interface implemented..', NTV_PLATFORM)
 		}
 
 		session.userInterface = userInterface
@@ -235,7 +237,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: RESOURCE_ROOT + 'dist/css/kick.css',
+					url: NTV_RESOURCE_ROOT + 'dist/css/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
 						log('Loaded styles from local resource..')
@@ -245,7 +247,7 @@ class NipahClient {
 				})
 			} else {
 				let style
-				switch (PLATFORM) {
+				switch (NTV_PLATFORM) {
 					case PLATFORM_ENUM.KICK:
 						style = 'KICK_CSS'
 						break
@@ -337,8 +339,8 @@ class NipahClient {
 		globalThis['EventTarget'] = window['EventTarget']
 	}
 
-	PLATFORM = PLATFORM_ENUM.NULL
-	RESOURCE_ROOT = ''
+	NTV_PLATFORM = PLATFORM_ENUM.NULL
+	NTV_RESOURCE_ROOT = ''
 
 	const nipahClient = new NipahClient()
 	nipahClient.initialize()

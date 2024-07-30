@@ -1,5 +1,5 @@
-import { Database } from '../Classes/Database'
 import { error, info, log } from '../utils'
+import Database from '../Database/Database'
 import Dexie from 'dexie'
 
 const TARGET_FIREFOX = 'browser' in self
@@ -28,7 +28,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	if (TARGET_CHROME) {
 		// https://issues.chromium.org/issues/40753031
 		// https://issues.chromium.org/issues/40633657
-		handleMessage(request).then(res => {
+		handleMessage(request).then((res: any) => {
 			sendResponse(res)
 		})
 		return true
@@ -40,26 +40,39 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function handleMessage(request: any) {
 	log('Service worker received message:', request)
 
-	const { action, method, args } = request
+	const { action, stack, args } = request
 
 	if (action === 'database') {
-		if (typeof method !== 'string') {
-			error('Invalid database request, method must be a string.', request)
-			return Promise.resolve({ error: 'Invalid database request, method must be a string.' })
+		// Attempt to resolve the request callstack to a method on the database object.
+		let resolvedProp: any = database
+		let prevProp = resolvedProp
+		for (const prop of stack) {
+			if (resolvedProp['' + prop] === undefined) {
+				resolvedProp = null
+				break
+			}
+
+			prevProp = resolvedProp
+			resolvedProp = resolvedProp[prop]
 		}
 
-		if (typeof database[method as keyof Database] === 'function') {
+		if (resolvedProp === null) {
+			error(`Invalid database request, unprocessable callstack.`, request)
+			return Promise.resolve({ error: `Invalid database request, unprocessable callstack.` })
+		}
+
+		if (typeof resolvedProp === 'function') {
 			// if (!database.ready) {
 			// 	error('Database not ready.')
 			// 	return Promise.resolve({ error: 'Database not ready.' })
 			// }
 
-			const func = database[method as keyof Database] as () => Promise<any>
-			return func.apply(database, args).then((res: any) => {
+			return resolvedProp.apply(prevProp, args).then((res: any) => {
 				log('Database response:', res)
 				return { data: res }
 			})
 		} else {
+			const method = stack[stack.length - 1]
 			error(`Method "${method}" not found on database.`)
 			return Promise.resolve({ error: `Method "${method}" not found on database.` })
 		}

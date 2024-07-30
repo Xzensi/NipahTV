@@ -20,7 +20,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 			element.remove()
 		})
 
-		const basePath = RESOURCE_ROOT + 'assets/img/btn'
+		const basePath = NTV_RESOURCE_ROOT + 'assets/img/btn'
 		const filename = this.getFile()
 
 		this.element = parseHTML(
@@ -42,7 +42,7 @@ export class EmoteMenuButtonComponent extends AbstractComponent {
 		eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
 			if (!this.footerLogoBtnEl) return error('Footer logo button not found, unable to set logo src')
 			const filename = this.getFile()
-			this.footerLogoBtnEl.setAttribute('src', RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
+			this.footerLogoBtnEl.setAttribute('src', NTV_RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
 			this.footerLogoBtnEl.className = filename.toLowerCase()
 		})
 

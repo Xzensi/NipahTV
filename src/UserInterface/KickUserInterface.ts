@@ -228,30 +228,27 @@ export class KickUserInterface extends AbstractUserInterface {
 	async loadQuickEmotesHolder() {
 		const { settingsManager } = this.rootContext
 		const { eventBus } = this.session
-		const quickEmotesHolderEnabled = settingsManager.getSetting('shared.chat.quick_emote_holder.enabled')
+		const quickEmotesHolderEnabled = settingsManager.getSetting('shared.quick_emote_holder.enabled')
 		if (quickEmotesHolderEnabled) {
 			const placeholder = document.createElement('div')
 			document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
 			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init()
 		}
 
-		eventBus.subscribe(
-			'ntv.settings.change.shared.chat.quick_emote_holder.enabled',
-			({ value, prevValue }: any) => {
-				if (value) {
-					const placeholder = document.createElement('div')
-					document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
-					this.quickEmotesHolder = new QuickEmotesHolderComponent(
-						this.rootContext,
-						this.session,
-						placeholder
-					).init()
-				} else {
-					this.quickEmotesHolder?.destroy()
-					this.quickEmotesHolder = null
-				}
+		eventBus.subscribe('ntv.settings.change.shared.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
+			if (value) {
+				const placeholder = document.createElement('div')
+				document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
+				this.quickEmotesHolder = new QuickEmotesHolderComponent(
+					this.rootContext,
+					this.session,
+					placeholder
+				).init()
+			} else {
+				this.quickEmotesHolder?.destroy()
+				this.quickEmotesHolder = null
 			}
-		)
+		})
 
 		// Wait for native quick emotes holder to load and remove it
 		waitForElements(['#chatroom-footer .quick-emotes-holder'], 7_000, this.abortController.signal)
