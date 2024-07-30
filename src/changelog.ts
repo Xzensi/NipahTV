@@ -1,5 +1,14 @@
 export const CHANGELOG = [
 	{
+		version: '1.4.32',
+		date: '2024-07-30',
+		description: `
+                  Discovered a bug where the platform constant was not available in extension background workers, causing all emotes to be registered and loaded under the wrong platform ID. As a result all emote usages history was seemingly wiped, apologies for the inconvenience!
+
+                  Hotfix: Constant PLATFORM not available in extension background workers
+            `
+	},
+	{
 		version: '1.4.31',
 		date: '2024-07-30',
 		description: `

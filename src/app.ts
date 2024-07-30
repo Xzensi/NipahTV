@@ -20,7 +20,7 @@ import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 import Database from './Database/Database'
 
 class NipahClient {
-	VERSION = '1.4.31'
+	VERSION = '1.4.32'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
