@@ -107,6 +107,14 @@ export class EmotesManager {
 		return this.datastore.emoteSets
 	}
 
+	getFavoriteEmoteDocuments() {
+		return this.datastore.favoriteEmoteDocuments
+	}
+
+	getFavoriteEmoteDocument(emoteHid: string) {
+		return this.datastore.getFavoriteEmoteDocument(emoteHid)
+	}
+
 	getMenuEnabledEmoteSets() {
 		return this.datastore.emoteSets.filter(set => set.enabledInMenu)
 	}
@@ -140,6 +148,13 @@ export class EmotesManager {
 		return provider.getRenderableEmote(emote, classes)
 	}
 
+	getRenderableEmoteByEmote(emote: Emote, classes = '') {
+		const provider = this.providers.get(emote.provider)
+		if (!provider) return error('Provider not found for emote', emote)
+
+		return provider.getRenderableEmote(emote, classes)
+	}
+
 	getEmoteEmbeddable(emoteHid: string, spacingBefore = false) {
 		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
@@ -150,6 +165,22 @@ export class EmotesManager {
 		} else {
 			return provider.getEmbeddableEmote(emote)
 		}
+	}
+
+	addEmoteToFavorites(emoteHid: string) {
+		this.datastore.addEmoteToFavorites(emoteHid)
+	}
+
+	updateFavoriteEmoteOrderIndex(emoteHid: string, orderIndex: number) {
+		this.datastore.updateFavoriteEmoteOrderIndex(emoteHid, orderIndex)
+	}
+
+	removeEmoteFromFavorites(emoteHid: string) {
+		this.datastore.removeEmoteFromFavorites(emoteHid)
+	}
+
+	isEmoteFavorited(emoteHid: string) {
+		return this.datastore.isEmoteFavorited(emoteHid)
 	}
 
 	isEmoteMenuEnabled(emoteHid: string) {

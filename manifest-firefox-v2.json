@@ -28,7 +28,8 @@
 	"web_accessible_resources": ["page.js", "assets/img/*.png", "assets/btn/*.png"],
 	"browser_specific_settings": {
 		"gecko": {
-			"id": "@NipahTV.com"
+			"id": "@NipahTV.com",
+			"strict_min_version": "120.0"
 		}
 	}
 }

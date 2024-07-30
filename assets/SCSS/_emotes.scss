@@ -32,6 +32,17 @@
 	// &[size='4'] {
 	// 	width: $emote_size * 4;
 	// }
+
+	&--dragging {
+		transform: scale(0.9) translate(-50%, -50%);
+		outline: 1px solid rgb(141, 197, 250);
+		box-shadow: shadow_elevation(2);
+		pointer-events: none;
+		position: absolute;
+		user-select: none;
+		z-index: 999999;
+		opacity: 0.5;
+	}
 }
 
 .ntv__emote-box {
@@ -56,6 +67,10 @@
 			left: 50%;
 			top: 50%;
 		}
+	}
+
+	&--unavailable {
+		opacity: 0.38;
 	}
 }
 

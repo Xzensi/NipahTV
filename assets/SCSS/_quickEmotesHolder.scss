@@ -1,12 +1,11 @@
-@use '../../variables' as *;
+@use 'animations' as *;
+@use 'variables' as *;
 
-.ntv__client_quick_emotes_holder {
+.ntv__quick-emotes-holder {
 	max-height: $emote_size * 2;
 	font-size: $root_font_size;
 	align-items: center;
 	overflow: hidden;
-	flex-wrap: wrap;
-	display: flex;
 	width: 100%;
 
 	&[data-rows='1'] {
@@ -47,5 +46,33 @@
 
 	&[data-rows='10'] {
 		max-height: $emote_size * 10;
+	}
+
+	&--dragging-emote {
+		// Make the emotes shake and dance when dragging
+		.ntv__quick-emotes-holder__favorites .ntv__emote {
+			animation: ntv__shake 0.5s infinite;
+		}
+	}
+
+	&__favorites,
+	&__commonly-used {
+		display: inline;
+	}
+
+	&__spacer {
+		width: calc($emote_size / 1.2);
+		height: $emote_size * 0.618;
+		vertical-align: middle;
+		display: inline-block;
+		pointer-events: none;
+		text-align: center;
+		user-select: none;
+		font-size: 1.2em;
+		opacity: 0.5;
+	}
+
+	&__favorites:empty + &__spacer {
+		display: none;
 	}
 }

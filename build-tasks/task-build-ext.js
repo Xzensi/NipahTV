@@ -87,7 +87,7 @@ function updateDirectory(source, destination) {
 
 	esbuild
 		.build({
-			entryPoints: ['dist/chrome/src/app.ts'],
+			entryPoints: [outdir + 'src/app.ts'],
 			// entryPoints: ['src/**/*.ts'],
 			outfile: outfile,
 			// outdir: outdir,
@@ -163,7 +163,7 @@ function updateDirectory(source, destination) {
 
 	esbuild
 		.build({
-			entryPoints: ['dist/chrome/src/Background/serviceWorker.ts'],
+			entryPoints: [outdir + 'src/Background/serviceWorker.ts'],
 			outfile: outdir + 'service-worker.js',
 			bundle: true,
 			allowOverwrite: true,
@@ -183,7 +183,7 @@ function updateDirectory(source, destination) {
 
 	esbuild
 		.build({
-			entryPoints: ['dist/chrome/src/ContentScripts/page.ts'],
+			entryPoints: [outdir + 'src/ContentScripts/page.ts'],
 			outfile: outdir + 'page.js',
 			bundle: true,
 			allowOverwrite: true,

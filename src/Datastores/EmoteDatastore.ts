@@ -1,22 +1,27 @@
+import type { IFavoriteEmoteDocument } from '../Database/models/FavoriteEmotesModel'
+import type { IEmoteUsagesDocument } from '../Database/models/EmoteUsagesModel'
+import { log, info, error, getPlatformSlug } from '../utils'
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import { Publisher } from '../Classes/Publisher'
-import { SlidingTimestampWindow } from '../Classes/SlidingTimestampWindow'
-import { PLATFORM_ENUM, PROVIDER_ENUM } from '../constants'
-import { log, info, error, isEmpty } from '../utils'
+import { PROVIDER_ENUM } from '../constants'
 import Fuse from 'fuse.js'
 
 export class EmoteDatastore {
-	private emoteMap = new Map()
-	private emoteIdMap = new Map()
-	private emoteNameMap = new Map()
-	private emoteEmoteSetMap = new Map()
-	private emoteSetMap = new Map()
+	private emoteMap = new Map<string, Emote>()
+	private emoteIdMap = new Map<string, Emote>()
+	private emoteNameMap = new Map<string, Emote>()
+	private emoteEmoteSetMap = new Map<string, EmoteSet>()
+	private emoteSetMap = new Map<string, EmoteSet>()
+	private favoriteEmotesDocumentsMap = new Map<string, IFavoriteEmoteDocument>()
 
-	emoteSets: Array<any> = []
-	emoteUsage = new Map()
+	emoteSets: Array<EmoteSet> = []
+	emoteUsage = new Map<string, number>()
+	favoriteEmoteDocuments: Array<IFavoriteEmoteDocument> = []
 
 	// Map of pending emote usage changes to be synced to database
+	private hasPendingChanges = false
 	private pendingEmoteUsageChanges: { [key: string]: boolean } = {}
+	private pendingFavoriteEmoteChanges: { [key: string]: string } = {}
 
 	private fuse = new Fuse<Emote>([], {
 		includeScore: true,
@@ -40,9 +45,7 @@ export class EmoteDatastore {
 		// Periodically store the emote data to local storage
 		setInterval(() => {
 			this.storeDatabase()
-		}, 10 * 1000) // 5 * 60 * 1000
-
-		setInterval(() => this.storeDatabase(), 3 * 1000)
+		}, 3 * 1000)
 
 		eventBus.subscribe('ntv.session.destroy', () => {
 			this.emoteNameMap.clear()
@@ -55,31 +58,99 @@ export class EmoteDatastore {
 		info('Reading out emotes data from database..')
 		const { database, eventBus } = this
 
-		const usageRecords = await database.getEmoteUsageRecords(this.channelId)
-		if (usageRecords.length) {
-			for (const record of usageRecords) {
-				this.emoteUsage.set(record.emoteHid, record.count)
-			}
-		}
+		database.emoteUsages
+			.getRecords(this.channelId)
+			.then(usageRecords => {
+				if (usageRecords.length) {
+					for (const record of usageRecords) {
+						this.emoteUsage.set(record.emoteHid, record.count)
+					}
+				}
+			})
+			.then(() => eventBus.publish('ntv.datastore.emotes.usage.loaded'))
+			.catch(err => error('Failed to load emote usage data from database.', err.message))
 
-		eventBus.publish('ntv.datastore.emotes.usage.loaded')
+		database.favoriteEmotes
+			.getRecords(getPlatformSlug())
+			.then(favoriteEmotes => {
+				if (!favoriteEmotes.length) return
+
+				for (const favoriteEmote of favoriteEmotes) {
+					this.favoriteEmotesDocumentsMap.set(favoriteEmote.emoteHid, favoriteEmote)
+					this.favoriteEmoteDocuments.push(favoriteEmote)
+				}
+				this.favoriteEmoteDocuments.sort((a, b) => a.orderIndex - b.orderIndex)
+				log(`Loaded ${favoriteEmotes.length} favorite emotes from database`)
+			})
+			.then(() => eventBus.publish('ntv.datastore.emotes.favorites.loaded'))
+			.catch(err => error('Failed to load favorite emote data from database.', err.message))
 	}
 
 	storeDatabase() {
 		// info('Syncing emote data to database..')
 
-		if (isEmpty(this.pendingEmoteUsageChanges)) return
+		if (!this.hasPendingChanges) return
 
 		const { database } = this
-		const puts = []
+		const platformSlug = getPlatformSlug()
+
+		const emoteUsagePuts: IEmoteUsagesDocument[] = []
 
 		for (const emoteHid in this.pendingEmoteUsageChanges) {
-			const emoteUsages = this.emoteUsage.get(emoteHid)
-			puts.push({ channelId: this.channelId, emoteHid, count: emoteUsages })
+			const emoteUsages = this.emoteUsage.get(emoteHid) || 0
+			emoteUsagePuts.push({ platformId: platformSlug, channelId: this.channelId, emoteHid, count: emoteUsages })
+
+			// Remove the pending change individually instead of clearing the entire object
+			//  to prevent race conditions
+			delete this.pendingEmoteUsageChanges[emoteHid]
 		}
 
-		if (puts.length) database.bulkPutEmoteUsage(puts)
-		this.pendingEmoteUsageChanges = {}
+		const favoriteEmotePuts: IFavoriteEmoteDocument[] = []
+		const favoriteEmoteReorders: { platformId: string; emoteHid: string; orderIndex: number }[] = []
+		const favoriteEmoteDeletes: { platformId: string; emoteHid: string }[] = []
+
+		// log('Syncing favorite emote changes to database..', this.pendingFavoriteEmoteChanges)
+		for (const emoteHid in this.pendingFavoriteEmoteChanges) {
+			const action = this.pendingFavoriteEmoteChanges[emoteHid]
+
+			// Remove the pending change individually instead of clearing the entire object
+			//  to prevent race conditions
+			delete this.pendingFavoriteEmoteChanges[emoteHid]
+
+			// const isFavorited = this.favoriteEmotesMap.has(emoteHid)
+			if (action === 'add_favorite') {
+				const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
+				if (!favoriteEmote) {
+					error('Unable to add favorite emote to database, emote not found', emoteHid)
+					continue
+				}
+
+				favoriteEmotePuts.push(favoriteEmote)
+			} else if (action === 'reorder_favorite') {
+				const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
+				if (!favoriteEmote) {
+					error('Unable to reorder favorite emote to database, emote not found', emoteHid)
+					continue
+				}
+
+				favoriteEmoteReorders.push({
+					platformId: platformSlug,
+					emoteHid,
+					orderIndex: favoriteEmote.orderIndex
+				})
+			} else if (action === 'remove_favorite') {
+				favoriteEmoteDeletes.push({ platformId: platformSlug, emoteHid })
+			} else {
+				error('Unknown favorite emote database action', action)
+			}
+		}
+
+		if (emoteUsagePuts.length) database.emoteUsages.bulkPutRecords(emoteUsagePuts)
+		if (favoriteEmotePuts.length) database.favoriteEmotes.bulkPutRecords(favoriteEmotePuts)
+		if (favoriteEmoteReorders.length) database.favoriteEmotes.bulkOrderRecords(favoriteEmoteReorders)
+		if (favoriteEmoteDeletes.length) database.favoriteEmotes.bulkDeleteRecordsByHid(favoriteEmoteDeletes)
+
+		this.hasPendingChanges = false
 	}
 
 	registerEmoteSet(emoteSet: EmoteSet, providerOverrideOrder: number[]) {
@@ -91,7 +162,7 @@ export class EmoteDatastore {
 		this.emoteSets.push(emoteSet)
 
 		for (let i = emoteSet.emotes.length - 1; i >= 0; i--) {
-			const emote = emoteSet.emotes[i] as Emote
+			const emote = emoteSet.emotes[i]
 
 			if (
 				!emote.hid ||
@@ -125,32 +196,33 @@ export class EmoteDatastore {
 			 * Emojis always get overridden by higher priority providers
 			 */
 			const storedEmote = this.emoteNameMap.get(emote.name)
+			const storedEmoteSet = this.emoteEmoteSetMap.get(emote.hid)
 
-			if (storedEmote) {
+			if (storedEmote && storedEmoteSet) {
 				const isHigherProviderOrder =
 					providerOverrideOrder.indexOf(emoteSet.provider) >
 					providerOverrideOrder.indexOf(storedEmote.provider)
 
 				if (
-					(isHigherProviderOrder && storedEmote.isGlobalSet) ||
-					(isHigherProviderOrder && storedEmote.isEmoji) ||
-					(isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmote.isCurrentChannel) ||
+					(isHigherProviderOrder && storedEmoteSet.isGlobalSet) ||
+					(isHigherProviderOrder && storedEmoteSet.isEmoji) ||
+					(isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmoteSet.isCurrentChannel) ||
 					(isHigherProviderOrder &&
 						(emoteSet.isCurrentChannel || emoteSet.isOtherChannel) &&
-						storedEmote.isOtherChannel) ||
-					(!isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmote.isCurrentChannel) ||
-					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmote.isGlobalSet)
+						storedEmoteSet.isOtherChannel) ||
+					(!isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmoteSet.isCurrentChannel) ||
+					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet)
 				) {
 					log(
 						`Registering ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV '} ${
-							storedEmote.isGlobalSet ? 'global' : 'channel'
+							storedEmoteSet.isGlobalSet ? 'global' : 'channel'
 						} emote override for ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							emoteSet.isGlobalSet ? 'global' : 'channel'
-						} ${emote.name} emote.`
+						} ${emote.name} emote`
 					)
 
 					// Remove previously registered emote because it's being overridden
-					const storedEmoteSetEmotes = this.emoteEmoteSetMap.get(storedEmote.hid).emotes
+					const storedEmoteSetEmotes = storedEmoteSet.emotes
 					storedEmoteSetEmotes.splice(storedEmoteSetEmotes.indexOf(storedEmote), 1)
 					this.fuse.remove((indexedEmote: any) => indexedEmote.name === emote.name)
 
@@ -203,23 +275,102 @@ export class EmoteDatastore {
 		return this.emoteEmoteSetMap.get(emoteHid)
 	}
 
-	registerEmoteEngagement(emoteHid: string) {
-		if (!emoteHid) return error('Undefined required emoteHid argument')
+	getFavoriteEmoteDocument(emoteHid: string) {
+		return this.favoriteEmotesDocumentsMap.get(emoteHid)
+	}
 
+	isEmoteFavorited(emoteHid: string) {
+		return this.favoriteEmotesDocumentsMap.has(emoteHid)
+	}
+
+	addEmoteToFavorites(emoteHid: string) {
+		const emote = this.emoteMap.get(emoteHid)
+		if (!emote) return error('Unable to favorite emote, emote not found', emoteHid)
+
+		const favoriteEmote: IFavoriteEmoteDocument = {
+			platformId: getPlatformSlug(),
+			channelId: this.channelId,
+			emoteHid: emoteHid,
+			orderIndex: 0,
+			emote
+		}
+
+		this.favoriteEmotesDocumentsMap.set(emoteHid, favoriteEmote)
+		this.favoriteEmoteDocuments.unshift(favoriteEmote)
+
+		/** NOTE
+		 *  As result of this implementation, every time emotes get
+		 *   ordered as first (last because reversed list order)
+		 *   the highest order index will get bumped by 1. As result, the
+		 *   highest order index can potentially become a very high number.
+		 */
+		for (let i = 1; i < this.favoriteEmoteDocuments.length; i++) {
+			const emote = this.favoriteEmoteDocuments[i]
+
+			// Skip emotes that are added new or removed
+			if (this.pendingFavoriteEmoteChanges[emote.emoteHid]) continue
+
+			emote.orderIndex = i
+			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reorder_favorite'
+		}
+
+		this.pendingFavoriteEmoteChanges[emoteHid] = 'add_favorite'
+		this.hasPendingChanges = true
+		this.eventBus.publish('ntv.datastore.emotes.favorites.changed', { added: emoteHid })
+	}
+
+	updateFavoriteEmoteOrderIndex(emoteHid: string, orderIndex: number) {
+		const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
+		if (!favoriteEmote) return error('Unable to reorder favorite emote, emote not found', emoteHid)
+
+		orderIndex = this.favoriteEmoteDocuments.length - 1 - orderIndex
+
+		const oldIndex = this.favoriteEmoteDocuments.indexOf(favoriteEmote)
+		const newIndex = Math.max(0, Math.min(this.favoriteEmoteDocuments.length - 1, orderIndex))
+
+		this.favoriteEmoteDocuments.splice(oldIndex, 1)
+		this.favoriteEmoteDocuments.splice(newIndex, 0, favoriteEmote)
+
+		for (let i = Math.min(oldIndex, newIndex); i < this.favoriteEmoteDocuments.length; i++) {
+			const emote = this.favoriteEmoteDocuments[i]
+			emote.orderIndex = i
+
+			// Skip emotes that are added new or removed
+			if (this.pendingFavoriteEmoteChanges[emote.emoteHid]) continue
+
+			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reorder_favorite'
+		}
+
+		this.hasPendingChanges = true
+		this.eventBus.publish('ntv.datastore.emotes.favorites.changed', { reordered: emoteHid })
+	}
+
+	removeEmoteFromFavorites(emoteHid: string) {
+		const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
+		if (!favoriteEmote) return error('Unable to unfavorite emote, emote not found', emoteHid)
+
+		this.favoriteEmotesDocumentsMap.delete(emoteHid)
+		this.favoriteEmoteDocuments.splice(this.favoriteEmoteDocuments.indexOf(favoriteEmote), 1)
+		this.pendingFavoriteEmoteChanges[emoteHid] = 'remove_favorite'
+		this.hasPendingChanges = true
+		this.eventBus.publish('ntv.datastore.emotes.favorites.changed', { removed: emoteHid })
+	}
+
+	registerEmoteEngagement(emoteHid: string) {
 		if (!this.emoteUsage.has(emoteHid)) {
 			this.emoteUsage.set(emoteHid, 0)
 		}
 
+		this.emoteUsage.set(emoteHid, (this.emoteUsage.get(emoteHid) || 0) + 1)
 		this.pendingEmoteUsageChanges[emoteHid] = true
-		this.emoteUsage.set(emoteHid, this.emoteUsage.get(emoteHid) + 1)
+		this.hasPendingChanges = true
 		this.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
 	}
 
 	removeEmoteUsage(emoteHid: string) {
-		if (!emoteHid) return error('Undefined required emoteHid argument')
-
 		this.emoteUsage.delete(emoteHid)
 		this.pendingEmoteUsageChanges[emoteHid] = true
+		this.hasPendingChanges = true
 		this.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
 	}
 
@@ -296,13 +447,13 @@ export class EmoteDatastore {
 			// const isSubscribedA = this.emoteEmoteSetMap.get(aItem.id).is_subscribed
 			// const isSubscribedB = this.emoteEmoteSetMap.get(bItem.id).is_subscribed
 
-			const aEmoteSet = this.emoteEmoteSetMap.get(aItem.hid)
-			const bEmoteSet = this.emoteEmoteSetMap.get(bItem.hid)
+			const aEmoteSet = this.emoteEmoteSetMap.get(aItem.hid)!
+			const bEmoteSet = this.emoteEmoteSetMap.get(bItem.hid)!
 
 			if (biasSubscribedChannels) {
 				// Check if emote is part of a subscribed channel
-				const aIsSubscribedChannelEmote = aEmoteSet.is_subscribed
-				const bIsSubscribedChannelEmote = bEmoteSet.is_subscribed
+				const aIsSubscribedChannelEmote = aEmoteSet.isSubscribed
+				const bIsSubscribedChannelEmote = bEmoteSet.isSubscribed
 
 				// Add bias for emotes from subscribed channels
 				if (aIsSubscribedChannelEmote && !bIsSubscribedChannelEmote) {
@@ -314,8 +465,8 @@ export class EmoteDatastore {
 
 			if (biasCurrentChannel) {
 				// Check if emote is part of the current channel
-				const aIsCurrentChannel = aEmoteSet.is_current_channel
-				const bIsCurrentChannel = bEmoteSet.is_current_channel
+				const aIsCurrentChannel = aEmoteSet.isCurrentChannel
+				const bIsCurrentChannel = bEmoteSet.isCurrentChannel
 
 				// Add bias for emotes from the current channel
 				if (aIsCurrentChannel && !bIsCurrentChannel) {

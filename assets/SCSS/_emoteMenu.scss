@@ -1,6 +1,7 @@
-@use '../../variables' as *;
-@use '../../functions' as *;
-@use '../../mixins' as *;
+@use 'animations' as *;
+@use 'variables' as *;
+@use 'functions' as *;
+@use 'mixins' as *;
 
 .ntv__emote-menu {
 	outline: 0.1em solid var(--ntv-border-transparent-2);
@@ -87,8 +88,8 @@
 	}
 
 	&__sidebar {
-		background-color: var(--ntv-background-color-tint-1);
 		border-left: 1px solid var(--ntv-border-transparent-2);
+		background-color: var(--ntv-background-color-tint-1);
 		// background: hsla(0, 0%, 50%, 0.06);
 		justify-content: space-between;
 		flex: 0 0 $sidebar_width;
@@ -110,11 +111,28 @@
 					background-color: var(--ntv-background-highlight-2) !important;
 				}
 			}
+
+			svg {
+				height: 1.5em;
+				width: 1.5em;
+			}
+
+			.ntv__emote-menu__sidebar-btn {
+				border-bottom: solid 2px #94949417;
+				border-top: solid 2px #0f0f0f2a;
+			}
 		}
 
 		&__extra {
 			flex: 0 0 fit-content;
 			width: 100%;
+
+			svg {
+				@include user_select;
+				pointer-events: none;
+				height: 1.1em;
+				width: 1.1em;
+			}
 		}
 
 		&-btn {
@@ -135,9 +153,6 @@
 		}
 
 		img {
-			border-bottom: solid 2px #94949491;
-			border-top: solid 2px #0f0f0f91;
-			box-sizing: content-box;
 			pointer-events: none;
 			// padding: 0.5em 0.3em;
 			height: 1.618em;
@@ -146,11 +161,8 @@
 
 		svg {
 			vertical-align: middle;
-			@include user_select;
 			pointer-events: none;
 			margin: 0 auto;
-			height: 1.1em;
-			width: 1.1em;
 		}
 	}
 
@@ -179,7 +191,7 @@
 	&__panel {
 		&__emotes,
 		&__search {
-			width: $emote_size * $emote_row_size + 0.5em;
+			width: $emote_size * $emote_row_size + 0.6em + 0.25em;
 		}
 	}
 }
@@ -216,24 +228,10 @@
 		}
 	}
 
-	&--collapsed {
-		.ntv__emote-set__emotes {
-			padding-bottom: 0;
-			padding-top: 0;
-			max-height: 0;
-		}
-
-		.ntv__chevron {
-			svg {
-				transform: rotate(0deg);
-			}
-		}
-	}
-
 	&__emotes {
 		// transition: max-height 0.1s ease-in-out;
 		// max-height: 99999px;
-		padding: 0.5em 0.25em;
+		padding: 0.5em 0.6em 0.5em 0.25em;
 		overflow: hidden;
 		flex-wrap: wrap;
 		display: flex;
@@ -246,6 +244,41 @@
 
 	&__emote {
 		// background: hsla(0, 0%, 50%, 0.06);
+	}
+
+	&[data-id='favorites'] {
+		.ntv__emote-set__emotes:empty {
+			&:before {
+				content: 'Ctrl + click to add emotes to favorites. Hold click and drag to re-order.';
+				border: 2px dashed var(--ntv-border-transparent-2);
+				display: inline-block;
+				text-align: center;
+				font-size: 0.95em;
+				margin: 0.5em;
+				padding: 1em;
+			}
+		}
+	}
+
+	&--dragging-emote[data-id='favorites'] {
+		// Make the emotes shake and dance when dragging
+		.ntv__emote-set__emotes .ntv__emote-box {
+			animation: ntv__shake 0.5s infinite;
+		}
+	}
+
+	&--collapsed {
+		.ntv__emote-set__emotes {
+			padding-bottom: 0;
+			padding-top: 0;
+			max-height: 0;
+		}
+
+		.ntv__chevron {
+			svg {
+				transform: rotate(0deg);
+			}
+		}
 	}
 }
 

@@ -5,8 +5,8 @@ import type { IBadgeProvider } from '../Providers/BadgeProvider'
 import type { EmotesManager } from '../Managers/EmotesManager'
 import type { UsersManager } from '../Managers/UsersManager'
 import type { Publisher } from '../Classes/Publisher'
-import type { Database } from '../Classes/Database'
 import type { PLATFORM_ENUM } from '../constants'
+import type Database from '../Database/Database'
 import type { RESTFromMain } from '../utils'
 
 declare global {
@@ -28,8 +28,8 @@ declare global {
 	var GM_getResourceText: Function
 	var RESTFromMainService: RESTFromMain
 
-	var PLATFORM: ValueOf<typeof PLATFORM_ENUM>
-	var RESOURCE_ROOT: string
+	var NTV_PLATFORM: ValueOf<typeof PLATFORM_ENUM>
+	var NTV_RESOURCE_ROOT: string
 	var NTV_APP_VERSION: string
 
 	interface Window {

@@ -1,5 +1,20 @@
 export const CHANGELOG = [
 	{
+		version: '1.4.31',
+		date: '2024-07-30',
+		description: `
+                  Added a new feature to favorite emotes and sort them by drag & drop. The favorite emotes are platform-wide. Do note that other-channel emotes that are not available in current channel will, by default, be hidden.
+
+                  Feat: Implement platform-wide emote favorites with drag & drop sorting capabilities
+                  Feat: Add setting to not show non-cross-channel favorited emotes
+                  Fix: Incorrect implementation of emoteset registration ordering
+                  Fix: Emote menu styling issues
+                  Fix: Quick emote holder settings requiring page refresh to take effect
+                  Major refactor: Full rewrite of database structure
+                  Refactor: Rework quick emotes holder for better performance
+            `
+	},
+	{
 		version: '1.4.30',
 		date: '2024-07-18',
 		description: `
