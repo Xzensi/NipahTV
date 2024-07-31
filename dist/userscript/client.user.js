@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.32
+// @version 1.4.33
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -14264,6 +14264,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
           "shared.emote_menu.emote_providers.kick.show_other_channels"
         );
       }
+      const dataSetId = "" + dataSet.id;
       emoteSets.push({
         provider: this.id,
         orderIndex,
@@ -14272,11 +14273,11 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
         enabledInMenu: isMenuEnabled,
         isEmoji,
         isGlobalSet,
-        isCurrentChannel: dataSet.id === channelId,
-        isOtherChannel: dataSet.id !== channelId && !isGlobalSet && !isEmoji,
-        isSubscribed: dataSet.id === channelId ? me.isSubscribed || me.isBroadcaster : true,
+        isCurrentChannel: dataSetId === channelId,
+        isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
+        isSubscribed: dataSetId === channelId ? me.isSubscribed || me.isBroadcaster : true,
         icon: emoteSetIcon,
-        id: "" + dataSet.id
+        id: "" + dataSetId
       });
     }
     if (!emoteSets.length) {
@@ -14614,6 +14615,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.4.33",
+    date: "2024-07-31",
+    description: `
+                  Fix: Subscribers emotes showing as available even when not subscribed #114
+            `
+  },
   {
     version: "1.4.32",
     date: "2024-07-30",
@@ -16659,7 +16667,7 @@ var Database = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.4.32";
+  VERSION = "1.4.33";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -1,5 +1,12 @@
 export const CHANGELOG = [
 	{
+		version: '1.4.33',
+		date: '2024-07-31',
+		description: `
+                  Fix: Subscribers emotes showing as available even when not subscribed #114
+            `
+	},
+	{
 		version: '1.4.32',
 		date: '2024-07-30',
 		description: `
