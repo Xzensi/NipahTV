@@ -68,6 +68,8 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 				)
 			}
 
+			const dataSetId = '' + dataSet.id
+
 			emoteSets.push({
 				provider: this.id,
 				orderIndex: orderIndex,
@@ -76,11 +78,11 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 				enabledInMenu: isMenuEnabled,
 				isEmoji,
 				isGlobalSet,
-				isCurrentChannel: dataSet.id === channelId,
-				isOtherChannel: dataSet.id !== channelId && !isGlobalSet && !isEmoji,
-				isSubscribed: dataSet.id === channelId ? me.isSubscribed || me.isBroadcaster : true,
+				isCurrentChannel: dataSetId === channelId,
+				isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
+				isSubscribed: dataSetId === channelId ? me.isSubscribed || me.isBroadcaster : true,
 				icon: emoteSetIcon,
-				id: '' + dataSet.id
+				id: '' + dataSetId
 			} as EmoteSet)
 		}
 
