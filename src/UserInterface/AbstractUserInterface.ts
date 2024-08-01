@@ -64,7 +64,7 @@ export abstract class AbstractUserInterface {
 		// Render ntv-tooltip tooltips
 		document.addEventListener('mouseover', evt => {
 			const target = evt.target as HTMLElement
-			const tooltip = target.getAttribute('ntv-tooltip')
+			const tooltip = target?.getAttribute('ntv-tooltip')
 			if (!tooltip) return
 
 			const rect = target.getBoundingClientRect()

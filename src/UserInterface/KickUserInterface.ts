@@ -1133,6 +1133,18 @@ export class KickUserInterface extends AbstractUserInterface {
 						for (const node of mutation.addedNodes) {
 							if (node instanceof HTMLElement && node.classList.contains('pinned-message')) {
 								this.renderPinnedMessage(node as HTMLElement)
+
+								// Clicking on emotes in pinned message
+								node.addEventListener('click', evt => {
+									const target = evt.target as HTMLElement
+									if (
+										target.tagName === 'IMG' &&
+										target?.parentElement?.classList.contains('ntv__inline-emote-box')
+									) {
+										const emoteHid = target.getAttribute('data-emote-hid')
+										if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+									}
+								})
 							}
 						}
 					}
@@ -1144,6 +1156,18 @@ export class KickUserInterface extends AbstractUserInterface {
 			const pinnedMessage = chatroomTopEl.querySelector('.pinned-message')
 			if (pinnedMessage) {
 				this.renderPinnedMessage(pinnedMessage as HTMLElement)
+
+				// Clicking on emotes in pinned message
+				pinnedMessage.addEventListener('click', evt => {
+					const target = evt.target as HTMLElement
+					if (
+						target.tagName === 'IMG' &&
+						target?.parentElement?.classList.contains('ntv__inline-emote-box')
+					) {
+						const emoteHid = target.getAttribute('data-emote-hid')
+						if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+					}
+				})
 			}
 		})
 	}
