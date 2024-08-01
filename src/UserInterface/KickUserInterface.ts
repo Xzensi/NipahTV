@@ -339,7 +339,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
-		this.submitButtonPriorityEventTarget.addEventListener('click', 10, this.submitInput.bind(this))
+		this.submitButtonPriorityEventTarget.addEventListener('click', 10, () => this.submitInput(false))
 		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
 
 		const inputController = (this.inputController = new InputController(
