@@ -150,82 +150,25 @@
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	background-color: rgba(255, 255, 255, 0.04);
-	font-size: $root_font_size;
 	transition-duration: 0.2s;
 	border-color: #a8b1b855;
-	padding-right: 0.5rem;
-	padding-left: 0.5rem;
-	align-items: center;
 	border-radius: 4px;
 	position: relative;
 	border-width: 1px;
-	display: flex;
-	width: 100%;
 
 	&:hover {
 		border-color: var(--ntv-border-transparent-2);
 	}
-
-	&[data-char-count]:after {
-		content: attr(data-char-count) '/' attr(data-char-limit);
-		background: #00000096;
-		display: inline-block;
-		border-radius: 0.5em;
-		padding: 0.1em 0.5em;
-		position: absolute;
-		right: 0;
-		top: 0;
-	}
-
-	&--char-limit-close:after {
-		color: #ffae19;
-	}
-
-	&--char-limit-reached:after {
-		color: #ff1919;
-	}
 }
 
 #ntv__message-input {
-	white-space: pre-wrap !important;
 	outline: 2px solid transparent;
 	border-color: transparent;
-	vertical-align: middle;
-	word-break: break-word;
-	display: inline-block;
-	line-height: 1.618em;
-	font-size: 0.875rem;
-	position: relative;
 	border-width: 1px;
-	padding: 0.618em;
-	min-height: 3em;
-	flex-shrink: 1;
-	flex-grow: 0;
-	cursor: text;
-	width: 100%;
 
 	outline-width: 2px;
 	outline-offset: 2px;
 	outline-color: transparent;
-
-	&::before {
-		content: attr(placeholder);
-		pointer-events: none;
-		overflow: clip;
-		opacity: 0.5;
-		// content: '';
-
-		@include user_select;
-	}
-
-	&:not(:empty)::before,
-	&:focus::before {
-		content: none !important;
-	}
-
-	// &:empty:not(:focus)::before {
-	// 	content: attr(placeholder);
-	// }
 
 	&:focus-visible {
 		outline: 2px solid transparent;

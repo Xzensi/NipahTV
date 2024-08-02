@@ -1,5 +1,15 @@
 export const CHANGELOG = [
 	{
+		version: '1.4.35',
+		date: '2024-08-02',
+		description: `
+                  Fix: Emote menu getting shoved out of screen on small window sizes
+                  Fix: Emote tooltips are not centered on emotes #118
+                  Fix: Input field changes height when an emote gets rendered/inserted into it, whereas it should be fixed #110
+                  Fix: Message styling no longer applying
+            `
+	},
+	{
 		version: '1.4.34',
 		date: '2024-08-02',
 		description: `

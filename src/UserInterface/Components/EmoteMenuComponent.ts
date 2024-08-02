@@ -210,7 +210,7 @@ export class EmoteMenuComponent extends AbstractComponent {
 			document.body.appendChild(tooltipEl)
 
 			const rect = target.getBoundingClientRect()
-			tooltipEl.style.top = rect.top - rect.height / 2 + 'px'
+			tooltipEl.style.top = rect.top + rect.height / 2 + 'px'
 			tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
 
 			target.addEventListener(

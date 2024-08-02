@@ -4,11 +4,13 @@
 @use 'components';
 @use 'toasts';
 @use 'modals';
+@use 'messageInput';
 @use 'inputComponents';
+@use 'messages';
 @use 'emotes';
 @use 'emoteMenu';
 @use 'quickEmotesHolder';
 @use 'emojis';
-@use 'messages';
+@use 'tooltip';
 
 @use 'platforms/kick';
