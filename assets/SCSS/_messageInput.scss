@@ -1,0 +1,65 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.ntv__message-input__wrapper {
+	font-size: $root_font_size;
+	padding-right: 0.5rem;
+	padding-left: 0.5rem;
+	align-items: center;
+	display: flex;
+	width: 100%;
+
+	&[data-char-count]:after {
+		content: attr(data-char-count) '/' attr(data-char-limit);
+		background: #00000096;
+		display: inline-block;
+		border-radius: 0.5em;
+		padding: 0.1em 0.5em;
+		position: absolute;
+		right: 0;
+		top: 0;
+	}
+
+	&--char-limit-close:after {
+		color: #ffae19;
+	}
+
+	&--char-limit-reached:after {
+		color: #ff1919;
+	}
+}
+
+#ntv__message-input {
+	white-space: pre-wrap !important;
+	vertical-align: middle;
+	word-break: break-word;
+	display: inline-block;
+	font-size: 0.875rem;
+	line-height: 2.2em;
+	position: relative;
+	padding: 0.618em;
+	min-height: 3em;
+	flex-shrink: 1;
+	flex-grow: 0;
+	cursor: text;
+	width: 100%;
+
+	&::before {
+		content: attr(placeholder);
+		pointer-events: none;
+		overflow: clip;
+		opacity: 0.5;
+		// content: '';
+
+		@include user_select;
+	}
+
+	&:not(:empty)::before,
+	&:focus::before {
+		content: none !important;
+	}
+
+	// &:empty:not(:focus)::before {
+	// 	content: attr(placeholder);
+	// }
+}
