@@ -195,9 +195,20 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		// Chat theme change
+		// Chat messages spacing settings change
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.chat.appearance.chat_theme',
+			'ntv.settings.change.shared.chat.appearance.messages_spacing',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
+					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
+					if (value !== 'none') el.classList.add(`ntv__chat-message--${value}`)
+				})
+			}
+		)
+
+		// Chat messages style settings change
+		rootEventBus.subscribe(
+			'ntv.settings.change.shared.chat.appearance.messages_style',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
 					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--theme-${prevValue}`)
@@ -1412,13 +1423,15 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 		}
 
+		const chatMessagesStyle = settingsManager.getSetting('shared.chat.appearance.messages_style')
+		const chatMessagesSpacing = settingsManager.getSetting('shared.chat.appearance.messages_spacing')
+		if (chatMessagesStyle && chatMessagesStyle !== 'none')
+			messageNode.classList.add('ntv__chat-message--theme-' + chatMessagesStyle)
+		if (chatMessagesSpacing && chatMessagesSpacing !== 'none')
+			messageNode.classList.add('ntv__chat-message--' + chatMessagesSpacing)
+
 		// Adding this class removes the display: none from the chat message, causing a reflow
-		const chatTheme = settingsManager.getSetting('shared.chat.appearance.chat_theme')
-		if (chatTheme === 'rounded') {
-			messageNode.classList.add('ntv__chat-message', 'ntv__chat-message--theme-rounded')
-		} else {
-			messageNode.classList.add('ntv__chat-message')
-		}
+		messageNode.classList.add('ntv__chat-message')
 	}
 
 	renderPinnedMessage(node: HTMLElement) {

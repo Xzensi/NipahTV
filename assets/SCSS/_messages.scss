@@ -5,7 +5,7 @@
 	display: flex;
 }
 
-.ntv__chat-message {
+div.ntv__chat-message {
 	font-size: $root_font_size;
 	padding: 0.33em 0.9em;
 	margin: 0;
@@ -63,7 +63,18 @@
 
 	&--theme-rounded {
 		border-radius: 0.25em;
+	}
+
+	&--theme-rounded-2 {
+		border-radius: 1em;
+	}
+
+	&--little-spacing {
 		margin: 0.128em 0.2em;
+	}
+
+	&--large-spacing {
+		margin: 0.25em 0.2em;
 	}
 }
 

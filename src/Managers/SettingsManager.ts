@@ -17,11 +17,13 @@ export class SettingsManager {
                     - Highlight first user messages only for channels where you are a moderator
                     - Highlight Color
                     - Display lines with alternating background colors
-                    - Separators (dropdown)
-                    - Chat theme (dropdown)
                 (General)
                     - Use Ctrl+E to open the Emote Menu
                     - Use Ctrl+Spacebar for quick emote access
+				(Message style)
+					- Seperators (dropdown)
+					- Messages spacing (dropdown)
+					- Messages style (dropdown
 			= Badges
 				(Badges)
 					- Show the NipahTV badge for NTV users
@@ -150,7 +152,30 @@ export class SettingsManager {
 									id: 'shared.chat.appearance.alternating_background',
 									default: false,
 									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'General',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Use Ctrl+E to open the Emote Menu',
+									id: 'shared.chat.appearance.emote_menu_ctrl_e',
+									default: false,
+									type: 'checkbox'
 								},
+								{
+									label: 'Use Ctrl+Spacebar to open the Emote Menu',
+									id: 'shared.chat.appearance.emote_menu_ctrl_spacebar',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Message style',
+							children: [
 								{
 									label: 'Seperators',
 									id: 'shared.chat.appearance.seperators',
@@ -180,8 +205,28 @@ export class SettingsManager {
 									]
 								},
 								{
-									label: 'Chat theme',
-									id: 'shared.chat.appearance.chat_theme',
+									label: 'Messages spacing',
+									id: 'shared.chat.appearance.messages_spacing',
+									default: 'none',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'No spacing',
+											value: 'none'
+										},
+										{
+											label: 'Little spacing',
+											value: 'little-spacing'
+										},
+										{
+											label: 'Large spacing',
+											value: 'large-spacing'
+										}
+									]
+								},
+								{
+									label: 'Messages style',
+									id: 'shared.chat.appearance.messages_style',
 									default: 'none',
 									type: 'dropdown',
 									options: [
@@ -192,26 +237,12 @@ export class SettingsManager {
 										{
 											label: 'Rounded',
 											value: 'rounded'
+										},
+										{
+											label: 'Rounded 2',
+											value: 'rounded-2'
 										}
 									]
-								}
-							]
-						},
-						{
-							label: 'General',
-							description: 'These settings require a page refresh to take effect.',
-							children: [
-								{
-									label: 'Use Ctrl+E to open the Emote Menu',
-									id: 'shared.chat.appearance.emote_menu_ctrl_e',
-									default: false,
-									type: 'checkbox'
-								},
-								{
-									label: 'Use Ctrl+Spacebar to open the Emote Menu',
-									id: 'shared.chat.appearance.emote_menu_ctrl_spacebar',
-									default: true,
-									type: 'checkbox'
 								}
 							]
 						}
@@ -569,7 +600,8 @@ export class SettingsManager {
 		//! Temporary migration code
 		;[
 			['shared.chat.quick_emote_holder.rows', 'shared.quick_emote_holder.rows'],
-			['shared.chat.quick_emote_holder.enabled', 'shared.quick_emote_holder.enabled']
+			['shared.chat.quick_emote_holder.enabled', 'shared.quick_emote_holder.enabled'],
+			['shared.chat.appearance.chat_theme', 'shared.chat.appearance.messages_style']
 		].forEach(([oldKey, newKey]) => {
 			if (this.settingsMap.has(oldKey)) {
 				const val = this.settingsMap.get(oldKey)
