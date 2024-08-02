@@ -890,7 +890,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Show emote tooltip with emote name, remove when mouse leaves
-		const showTooltips = this.rootContext.settingsManager.getSetting('shared.chat.tooltips.images')
+		const showTooltipImage = this.rootContext.settingsManager.getSetting('shared.chat.tooltips.images')
 		chatMessagesContainerEl.addEventListener('mouseover', evt => {
 			const target = evt.target as HTMLElement
 			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
@@ -899,13 +899,15 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!emoteName) return
 
 			const tooltipEl = parseHTML(
-				`<div class="ntv__emote-tooltip__wrapper"><div class="ntv__emote-tooltip ${
-					showTooltips ? 'ntv__emote-tooltip--has-image' : ''
-				}">${
-					showTooltips ? target.outerHTML.replace('chat-emote', '') : ''
-				}<span>${emoteName}</span></div></div>`,
+				`<div class="ntv__emote-tooltip ntv__emote-tooltip--inline"><span>${emoteName}</span></div>`,
 				true
 			) as HTMLElement
+
+			if (showTooltipImage) {
+				const imageNode = target.cloneNode(true) as HTMLImageElement
+				imageNode.className = 'ntv__emote'
+				tooltipEl.prepend(imageNode)
+			}
 
 			target.after(tooltipEl)
 
