@@ -1,5 +1,15 @@
 export const CHANGELOG = [
 	{
+		version: '1.4.34',
+		date: '2024-08-02',
+		description: `
+                  Feat: Add new message spacing setting
+                  Feat: Add new message style setting
+                  Fix: Emotes don't register usage engagement events when sent by submit button #115
+                  Fix: Clicking on emotes in pinned messages won't insert them #107
+            `
+	},
+	{
 		version: '1.4.33',
 		date: '2024-07-31',
 		description: `

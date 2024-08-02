@@ -40,6 +40,10 @@
 			z-index: 1;
 		}
 
+		.chatroom-event-subgift__container {
+			background-color: transparent;
+		}
+
 		.bg-secondary-dark {
 			background-color: transparent;
 		}
@@ -48,7 +52,8 @@
 	&--very-translucent {
 		#chatroom-top,
 		.chatroom-footer,
-		.ntv__chat-message {
+		.ntv__chat-message,
+		.chatroom-event-subgift__container {
 			backdrop-filter: blur(5px);
 			background-color: rgba(0, 0, 10, 0.0618) !important;
 		}
@@ -64,7 +69,8 @@
 	&--semi-translucent {
 		#chatroom-top,
 		.chatroom-footer,
-		.ntv__chat-message {
+		.ntv__chat-message,
+		.chatroom-event-subgift__container {
 			backdrop-filter: blur(6px);
 			background-color: rgba(0, 0, 10, 0.2) !important;
 		}
@@ -78,7 +84,8 @@
 	&--dark-translucent {
 		#chatroom-top,
 		.chatroom-footer,
-		.ntv__chat-message {
+		.ntv__chat-message,
+		.chatroom-event-subgift__container {
 			backdrop-filter: blur(8px);
 			background-color: rgba(0, 0, 10, 0.45) !important;
 		}

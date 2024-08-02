@@ -195,9 +195,20 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		// Chat theme change
+		// Chat messages spacing settings change
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.chat.appearance.chat_theme',
+			'ntv.settings.change.shared.chat.appearance.messages_spacing',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
+					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
+					if (value !== 'none') el.classList.add(`ntv__chat-message--${value}`)
+				})
+			}
+		)
+
+		// Chat messages style settings change
+		rootEventBus.subscribe(
+			'ntv.settings.change.shared.chat.appearance.messages_style',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
 					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--theme-${prevValue}`)
@@ -339,7 +350,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		////////////////////////////////////////////////
 		//====// Proxy Element Event Listeners //====//
-		this.submitButtonPriorityEventTarget.addEventListener('click', 10, this.submitInput.bind(this))
+		this.submitButtonPriorityEventTarget.addEventListener('click', 10, () => this.submitInput(false))
 		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
 
 		const inputController = (this.inputController = new InputController(
@@ -1133,6 +1144,18 @@ export class KickUserInterface extends AbstractUserInterface {
 						for (const node of mutation.addedNodes) {
 							if (node instanceof HTMLElement && node.classList.contains('pinned-message')) {
 								this.renderPinnedMessage(node as HTMLElement)
+
+								// Clicking on emotes in pinned message
+								node.addEventListener('click', evt => {
+									const target = evt.target as HTMLElement
+									if (
+										target.tagName === 'IMG' &&
+										target?.parentElement?.classList.contains('ntv__inline-emote-box')
+									) {
+										const emoteHid = target.getAttribute('data-emote-hid')
+										if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+									}
+								})
 							}
 						}
 					}
@@ -1144,6 +1167,18 @@ export class KickUserInterface extends AbstractUserInterface {
 			const pinnedMessage = chatroomTopEl.querySelector('.pinned-message')
 			if (pinnedMessage) {
 				this.renderPinnedMessage(pinnedMessage as HTMLElement)
+
+				// Clicking on emotes in pinned message
+				pinnedMessage.addEventListener('click', evt => {
+					const target = evt.target as HTMLElement
+					if (
+						target.tagName === 'IMG' &&
+						target?.parentElement?.classList.contains('ntv__inline-emote-box')
+					) {
+						const emoteHid = target.getAttribute('data-emote-hid')
+						if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+					}
+				})
 			}
 		})
 	}
@@ -1388,13 +1423,15 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 		}
 
+		const chatMessagesStyle = settingsManager.getSetting('shared.chat.appearance.messages_style')
+		const chatMessagesSpacing = settingsManager.getSetting('shared.chat.appearance.messages_spacing')
+		if (chatMessagesStyle && chatMessagesStyle !== 'none')
+			messageNode.classList.add('ntv__chat-message--theme-' + chatMessagesStyle)
+		if (chatMessagesSpacing && chatMessagesSpacing !== 'none')
+			messageNode.classList.add('ntv__chat-message--' + chatMessagesSpacing)
+
 		// Adding this class removes the display: none from the chat message, causing a reflow
-		const chatTheme = settingsManager.getSetting('shared.chat.appearance.chat_theme')
-		if (chatTheme === 'rounded') {
-			messageNode.classList.add('ntv__chat-message', 'ntv__chat-message--theme-rounded')
-		} else {
-			messageNode.classList.add('ntv__chat-message')
-		}
+		messageNode.classList.add('ntv__chat-message')
 	}
 
 	renderPinnedMessage(node: HTMLElement) {

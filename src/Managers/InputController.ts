@@ -69,7 +69,7 @@ export class InputController {
 		eventBus.subscribe('ntv.ui.input_submitted', this.handleInputSubmit.bind(this))
 	}
 
-	handleInputSubmit({ suppressEngagementEvent }: any) {
+	handleInputSubmit({ suppressEngagementEvent }: { suppressEngagementEvent: boolean }) {
 		const { emotesManager } = this.session
 		const { contentEditableEditor, messageHistory } = this
 
