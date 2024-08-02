@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.33
+// @version 1.4.34
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-6a79a1c8.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-5e421918.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10974,7 +10974,7 @@ var AbstractUserInterface = class {
     });
     document.addEventListener("mouseover", (evt) => {
       const target = evt.target;
-      const tooltip = target.getAttribute("ntv-tooltip");
+      const tooltip = target?.getAttribute("ntv-tooltip");
       if (!tooltip) return;
       const rect = target.getBoundingClientRect();
       const left = rect.left + rect.width / 2;
@@ -13289,7 +13289,16 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.chat.appearance.chat_theme",
+      "ntv.settings.change.shared.chat.appearance.messages_spacing",
+      ({ value, prevValue }) => {
+        Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
+          if (prevValue !== "none") el.classList.remove(`ntv__chat-message--${prevValue}`);
+          if (value !== "none") el.classList.add(`ntv__chat-message--${value}`);
+        });
+      }
+    );
+    rootEventBus.subscribe(
+      "ntv.settings.change.shared.chat.appearance.messages_style",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
           if (prevValue !== "none") el.classList.remove(`ntv__chat-message--theme-${prevValue}`);
@@ -13397,7 +13406,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const moderatorChatIdentityBadgeIconEl = document.querySelector(".chat-input-wrapper .chat-input-icon");
     if (moderatorChatIdentityBadgeIconEl) textFieldEl.before(moderatorChatIdentityBadgeIconEl);
     document.getElementById("chatroom")?.classList.add("ntv__hide-chat-input");
-    this.submitButtonPriorityEventTarget.addEventListener("click", 10, this.submitInput.bind(this));
+    this.submitButtonPriorityEventTarget.addEventListener("click", 10, () => this.submitInput(false));
     submitButtonEl.addEventListener("click", (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event));
     const inputController = this.inputController = new InputController(
       this.rootContext,
@@ -13975,6 +13984,13 @@ var KickUserInterface = class extends AbstractUserInterface {
             for (const node of mutation.addedNodes) {
               if (node instanceof HTMLElement && node.classList.contains("pinned-message")) {
                 this.renderPinnedMessage(node);
+                node.addEventListener("click", (evt) => {
+                  const target = evt.target;
+                  if (target.tagName === "IMG" && target?.parentElement?.classList.contains("ntv__inline-emote-box")) {
+                    const emoteHid = target.getAttribute("data-emote-hid");
+                    if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid);
+                  }
+                });
               }
             }
           }
@@ -13984,6 +14000,13 @@ var KickUserInterface = class extends AbstractUserInterface {
       const pinnedMessage = chatroomTopEl.querySelector(".pinned-message");
       if (pinnedMessage) {
         this.renderPinnedMessage(pinnedMessage);
+        pinnedMessage.addEventListener("click", (evt) => {
+          const target = evt.target;
+          if (target.tagName === "IMG" && target?.parentElement?.classList.contains("ntv__inline-emote-box")) {
+            const emoteHid = target.getAttribute("data-emote-hid");
+            if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid);
+          }
+        });
       }
     });
   }
@@ -14130,12 +14153,13 @@ var KickUserInterface = class extends AbstractUserInterface {
         subtree: false
       });
     }
-    const chatTheme = settingsManager.getSetting("shared.chat.appearance.chat_theme");
-    if (chatTheme === "rounded") {
-      messageNode.classList.add("ntv__chat-message", "ntv__chat-message--theme-rounded");
-    } else {
-      messageNode.classList.add("ntv__chat-message");
-    }
+    const chatMessagesStyle = settingsManager.getSetting("shared.chat.appearance.messages_style");
+    const chatMessagesSpacing = settingsManager.getSetting("shared.chat.appearance.messages_spacing");
+    if (chatMessagesStyle && chatMessagesStyle !== "none")
+      messageNode.classList.add("ntv__chat-message--theme-" + chatMessagesStyle);
+    if (chatMessagesSpacing && chatMessagesSpacing !== "none")
+      messageNode.classList.add("ntv__chat-message--" + chatMessagesSpacing);
+    messageNode.classList.add("ntv__chat-message");
   }
   renderPinnedMessage(node) {
     this.renderChatMessage(node);
@@ -14615,6 +14639,16 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.4.34",
+    date: "2024-08-02",
+    description: `
+                  Feat: Add new message spacing setting
+                  Feat: Add new message style setting
+                  Fix: Emotes don't register usage engagement events when sent by submit button #115
+                  Fix: Clicking on emotes in pinned messages won't insert them #107
+            `
+  },
   {
     version: "1.4.33",
     date: "2024-07-31",
@@ -15373,11 +15407,13 @@ var SettingsManager = class {
                      - Highlight first user messages only for channels where you are a moderator
                      - Highlight Color
                      - Display lines with alternating background colors
-                     - Separators (dropdown)
-                     - Chat theme (dropdown)
                  (General)
                      - Use Ctrl+E to open the Emote Menu
                      - Use Ctrl+Spacebar for quick emote access
+  			(Message style)
+  				- Seperators (dropdown)
+  				- Messages spacing (dropdown)
+  				- Messages style (dropdown
   		= Badges
   			(Badges)
   				- Show the NipahTV badge for NTV users
@@ -15505,7 +15541,30 @@ var SettingsManager = class {
                   id: "shared.chat.appearance.alternating_background",
                   default: false,
                   type: "checkbox"
+                }
+              ]
+            },
+            {
+              label: "General",
+              description: "These settings require a page refresh to take effect.",
+              children: [
+                {
+                  label: "Use Ctrl+E to open the Emote Menu",
+                  id: "shared.chat.appearance.emote_menu_ctrl_e",
+                  default: false,
+                  type: "checkbox"
                 },
+                {
+                  label: "Use Ctrl+Spacebar to open the Emote Menu",
+                  id: "shared.chat.appearance.emote_menu_ctrl_spacebar",
+                  default: true,
+                  type: "checkbox"
+                }
+              ]
+            },
+            {
+              label: "Message style",
+              children: [
                 {
                   label: "Seperators",
                   id: "shared.chat.appearance.seperators",
@@ -15535,8 +15594,28 @@ var SettingsManager = class {
                   ]
                 },
                 {
-                  label: "Chat theme",
-                  id: "shared.chat.appearance.chat_theme",
+                  label: "Messages spacing",
+                  id: "shared.chat.appearance.messages_spacing",
+                  default: "none",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "No spacing",
+                      value: "none"
+                    },
+                    {
+                      label: "Little spacing",
+                      value: "little-spacing"
+                    },
+                    {
+                      label: "Large spacing",
+                      value: "large-spacing"
+                    }
+                  ]
+                },
+                {
+                  label: "Messages style",
+                  id: "shared.chat.appearance.messages_style",
                   default: "none",
                   type: "dropdown",
                   options: [
@@ -15547,26 +15626,12 @@ var SettingsManager = class {
                     {
                       label: "Rounded",
                       value: "rounded"
+                    },
+                    {
+                      label: "Rounded 2",
+                      value: "rounded-2"
                     }
                   ]
-                }
-              ]
-            },
-            {
-              label: "General",
-              description: "These settings require a page refresh to take effect.",
-              children: [
-                {
-                  label: "Use Ctrl+E to open the Emote Menu",
-                  id: "shared.chat.appearance.emote_menu_ctrl_e",
-                  default: false,
-                  type: "checkbox"
-                },
-                {
-                  label: "Use Ctrl+Spacebar to open the Emote Menu",
-                  id: "shared.chat.appearance.emote_menu_ctrl_spacebar",
-                  default: true,
-                  type: "checkbox"
                 }
               ]
             }
@@ -15915,7 +15980,8 @@ var SettingsManager = class {
     ;
     [
       ["shared.chat.quick_emote_holder.rows", "shared.quick_emote_holder.rows"],
-      ["shared.chat.quick_emote_holder.enabled", "shared.quick_emote_holder.enabled"]
+      ["shared.chat.quick_emote_holder.enabled", "shared.quick_emote_holder.enabled"],
+      ["shared.chat.appearance.chat_theme", "shared.chat.appearance.messages_style"]
     ].forEach(([oldKey, newKey]) => {
       if (this.settingsMap.has(oldKey)) {
         const val = this.settingsMap.get(oldKey);
@@ -16667,7 +16733,7 @@ var Database = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.4.33";
+  VERSION = "1.4.34";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
