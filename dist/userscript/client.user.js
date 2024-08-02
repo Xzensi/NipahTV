@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.34
+// @version 1.4.36
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-5e421918.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-9a077b56.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -8970,7 +8970,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       this.tooltipEl = tooltipEl;
       document.body.appendChild(tooltipEl);
       const rect = target.getBoundingClientRect();
-      tooltipEl.style.top = rect.top - rect.height / 2 + "px";
+      tooltipEl.style.top = rect.top + rect.height / 2 + "px";
       tooltipEl.style.left = rect.left + rect.width / 2 + "px";
       target.addEventListener(
         "mouseleave",
@@ -13312,7 +13312,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   async loadEmoteMenu() {
     if (!this.session.channelData.me.isLoggedIn) return;
     if (!this.elm.textField) return error("Text field not loaded for emote menu");
-    const container = this.elm.textField.parentElement.parentElement;
+    const container = this.elm.textField.parentElement;
     this.emoteMenu = new EmoteMenuComponent(this.rootContext, this.session, container).init();
     this.elm.textField.addEventListener("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
   }
@@ -13801,16 +13801,21 @@ var KickUserInterface = class extends AbstractUserInterface {
       },
       true
     );
-    const showTooltips = this.rootContext.settingsManager.getSetting("shared.chat.tooltips.images");
+    const showTooltipImage = this.rootContext.settingsManager.getSetting("shared.chat.tooltips.images");
     chatMessagesContainerEl.addEventListener("mouseover", (evt) => {
       const target = evt.target;
       if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box")) return;
       const emoteName = target.getAttribute("data-emote-name");
       if (!emoteName) return;
       const tooltipEl = parseHTML(
-        `<div class="ntv__emote-tooltip__wrapper"><div class="ntv__emote-tooltip ${showTooltips ? "ntv__emote-tooltip--has-image" : ""}">${showTooltips ? target.outerHTML.replace("chat-emote", "") : ""}<span>${emoteName}</span></div></div>`,
+        `<div class="ntv__emote-tooltip ntv__emote-tooltip--inline"><span>${emoteName}</span></div>`,
         true
       );
+      if (showTooltipImage) {
+        const imageNode = target.cloneNode(true);
+        imageNode.className = "ntv__emote";
+        tooltipEl.prepend(imageNode);
+      }
       target.after(tooltipEl);
       target.addEventListener(
         "mouseleave",
@@ -14639,6 +14644,16 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.4.35",
+    date: "2024-08-02",
+    description: `
+                  Fix: Emote menu getting shoved out of screen on small window sizes
+                  Fix: Emote tooltips are not centered on emotes #118
+                  Fix: Input field changes height when an emote gets rendered/inserted into it, whereas it should be fixed #110
+                  Fix: Message styling no longer applying
+            `
+  },
   {
     version: "1.4.34",
     date: "2024-08-02",
@@ -16733,7 +16748,7 @@ var Database = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.4.34";
+  VERSION = "1.4.36";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
