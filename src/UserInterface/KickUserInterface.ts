@@ -226,7 +226,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (!this.session.channelData.me.isLoggedIn) return
 		if (!this.elm.textField) return error('Text field not loaded for emote menu')
 
-		const container = this.elm.textField.parentElement!.parentElement!
+		const container = this.elm.textField.parentElement!
 		this.emoteMenu = new EmoteMenuComponent(this.rootContext, this.session, container).init()
 
 		this.elm.textField.addEventListener('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
