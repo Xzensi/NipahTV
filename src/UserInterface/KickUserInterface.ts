@@ -1276,13 +1276,13 @@ export class KickUserInterface extends AbstractUserInterface {
 			return error('Message has no content loaded yet..', messageNode)
 		}
 
-		let messageWrapperNode
+		let messageBodyNode: HTMLElement
 
 		// Test if message has a reply attached to it
 		if (messageNode.querySelector('[title*="Replying to"]')) {
-			messageWrapperNode = chatEntryNode.children[1] as HTMLElement
+			messageBodyNode = chatEntryNode.children[1] as HTMLElement
 		} else {
-			messageWrapperNode = chatEntryNode.children[0] as HTMLElement
+			messageBodyNode = chatEntryNode.children[0] as HTMLElement
 		}
 
 		const messageIdentityNode = chatEntryNode.querySelector('.chat-message-identity')
@@ -1297,7 +1297,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			// Add NTV badge to badges container
 			if (settingsManager.getSetting('shared.chat.badges.show_ntv_badge')) {
 				// Check if message has been signed by NTV
-				const lastElChild = messageWrapperNode.lastElementChild
+				const lastElChild = messageBodyNode.lastElementChild
 				if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
 					const badgesContainer = messageIdentityNode.getElementsByClassName('items-center')[0]
 					if (badgesContainer) {
@@ -1317,38 +1317,41 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}
 
-		const contentNodes = Array.from(messageWrapperNode.children)
-		const contentNodesLength = contentNodes.length
+		const messageBodyChildren = Array.from(messageBodyNode.children)
 
 		// We remove the useless wrapper node because we unpack it's contents to parent
 		// messageWrapperNode.remove()
 		// Temporary workaround: We hide the message wrapper node instead of removing it, because we observe descendants of the message wrapper node for deletion events
-		messageWrapperNode.style.display = 'none'
+		messageBodyNode.style.display = 'none'
 
-		if (contentNodes.length && contentNodes[0].classList.contains('text-gray-400')) {
-			contentNodes[0].classList.add('ntv__chat-message__timestamp')
+		if (messageBodyChildren.length && messageBodyChildren[0].classList.contains('text-gray-400')) {
+			messageBodyChildren[0].classList.add('ntv__chat-message__timestamp')
 		}
 
 		// Find index of first content node after username etc
-		let firstContentNodeIndex = 0
-		for (let i = 0; i < contentNodes.length; i++) {
-			if (contentNodes[i].textContent === ': ') {
-				firstContentNodeIndex = i + 1
+		let contentWrapperNodeIndex = 0
+		for (let i = 0; i < messageBodyChildren.length; i++) {
+			if (messageBodyChildren[i].textContent === ': ') {
+				contentWrapperNodeIndex = i + 1
 				break
 			}
 		}
 
 		// Append username etc nodes to chat entry node
-		for (let i = 0; i < firstContentNodeIndex; i++) {
-			chatEntryNode.appendChild(contentNodes[i])
+		for (let i = 0; i < contentWrapperNodeIndex; i++) {
+			chatEntryNode.appendChild(messageBodyChildren[i])
 		}
 
 		// Chat message after username is empty..
-		if (!contentNodes[firstContentNodeIndex]) return
+		if (!messageBodyChildren[contentWrapperNodeIndex]) return
+
+		// The nodes with actual text nodes and emote nodes
+		const messageContentNodes = messageBodyChildren[contentWrapperNodeIndex].children
+		log(messageContentNodes)
 
 		// Skip first two nodes, they are the username etc
-		for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
-			const contentNode = contentNodes[i]
+		for (let i = 0; i < messageContentNodes.length; i++) {
+			const contentNode = messageContentNodes[i]
 			const componentNode = contentNode.children[0] // Either text or emote component
 			if (!componentNode) {
 				// Component node does not exist for:
@@ -1415,11 +1418,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		// We remove all children of the message wrapper node but one, because we've unpacked them to the parent
 		//  and then attach an observer to the last child to listen for when the message is deleted,
 		//  so then we can handle the deletion of the message in our format.
-		for (let i = 1; i < messageWrapperNode.children.length; i++) messageWrapperNode.children[i].remove()
-		const firstChild = messageWrapperNode.children[0]
+		for (let i = 1; i < messageBodyNode.children.length; i++) messageBodyNode.children[i].remove()
+		const firstChild = messageBodyNode.children[0]
 		if (firstChild) {
 			// Observe class changes to detect when message is deleted
-			this.deletedChatEntryObserver?.observe(messageWrapperNode, {
+			this.deletedChatEntryObserver?.observe(messageBodyNode, {
 				childList: true,
 				subtree: false
 			})

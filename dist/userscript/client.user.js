@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.36
+// @version 1.4.37
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-9a077b56.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7796fca9.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -14057,11 +14057,11 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (!chatEntryNode) {
       return error("Message has no content loaded yet..", messageNode);
     }
-    let messageWrapperNode;
+    let messageBodyNode;
     if (messageNode.querySelector('[title*="Replying to"]')) {
-      messageWrapperNode = chatEntryNode.children[1];
+      messageBodyNode = chatEntryNode.children[1];
     } else {
-      messageWrapperNode = chatEntryNode.children[0];
+      messageBodyNode = chatEntryNode.children[0];
     }
     const messageIdentityNode = chatEntryNode.querySelector(".chat-message-identity");
     if (messageIdentityNode) {
@@ -14069,7 +14069,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       const usernameNode = messageIdentityNode.querySelector(".chat-entry-username");
       if (usernameNode) usernameNode.classList.add("ntv__chat-message__username");
       if (settingsManager.getSetting("shared.chat.badges.show_ntv_badge")) {
-        const lastElChild = messageWrapperNode.lastElementChild;
+        const lastElChild = messageBodyNode.lastElementChild;
         if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
           const badgesContainer = messageIdentityNode.getElementsByClassName("items-center")[0];
           if (badgesContainer) {
@@ -14084,25 +14084,26 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     }
-    const contentNodes = Array.from(messageWrapperNode.children);
-    const contentNodesLength = contentNodes.length;
-    messageWrapperNode.style.display = "none";
-    if (contentNodes.length && contentNodes[0].classList.contains("text-gray-400")) {
-      contentNodes[0].classList.add("ntv__chat-message__timestamp");
+    const messageBodyChildren = Array.from(messageBodyNode.children);
+    messageBodyNode.style.display = "none";
+    if (messageBodyChildren.length && messageBodyChildren[0].classList.contains("text-gray-400")) {
+      messageBodyChildren[0].classList.add("ntv__chat-message__timestamp");
     }
-    let firstContentNodeIndex = 0;
-    for (let i = 0; i < contentNodes.length; i++) {
-      if (contentNodes[i].textContent === ": ") {
-        firstContentNodeIndex = i + 1;
+    let contentWrapperNodeIndex = 0;
+    for (let i = 0; i < messageBodyChildren.length; i++) {
+      if (messageBodyChildren[i].textContent === ": ") {
+        contentWrapperNodeIndex = i + 1;
         break;
       }
     }
-    for (let i = 0; i < firstContentNodeIndex; i++) {
-      chatEntryNode.appendChild(contentNodes[i]);
+    for (let i = 0; i < contentWrapperNodeIndex; i++) {
+      chatEntryNode.appendChild(messageBodyChildren[i]);
     }
-    if (!contentNodes[firstContentNodeIndex]) return;
-    for (let i = firstContentNodeIndex; i < contentNodesLength; i++) {
-      const contentNode = contentNodes[i];
+    if (!messageBodyChildren[contentWrapperNodeIndex]) return;
+    const messageContentNodes = messageBodyChildren[contentWrapperNodeIndex].children;
+    log(messageContentNodes);
+    for (let i = 0; i < messageContentNodes.length; i++) {
+      const contentNode = messageContentNodes[i];
       const componentNode = contentNode.children[0];
       if (!componentNode) {
         continue;
@@ -14150,10 +14151,10 @@ var KickUserInterface = class extends AbstractUserInterface {
           else error("Unknown chat message component", componentNode);
       }
     }
-    for (let i = 1; i < messageWrapperNode.children.length; i++) messageWrapperNode.children[i].remove();
-    const firstChild = messageWrapperNode.children[0];
+    for (let i = 1; i < messageBodyNode.children.length; i++) messageBodyNode.children[i].remove();
+    const firstChild = messageBodyNode.children[0];
     if (firstChild) {
-      this.deletedChatEntryObserver?.observe(messageWrapperNode, {
+      this.deletedChatEntryObserver?.observe(messageBodyNode, {
         childList: true,
         subtree: false
       });
@@ -14645,7 +14646,17 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
-    version: "1.4.35",
+    version: "1.4.37",
+    date: "2024-08-20",
+    description: `
+                  Kick changed the message element structure, causing messages to break. This has been fixed now.
+
+                  Fix: Kick changes to element structure breaks messages
+                  Chore: Watered my cotton couch
+            `
+  },
+  {
+    version: "1.4.36",
     date: "2024-08-02",
     description: `
                   Fix: Emote menu getting shoved out of screen on small window sizes
@@ -16748,7 +16759,7 @@ var Database = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.4.36";
+  VERSION = "1.4.37";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
