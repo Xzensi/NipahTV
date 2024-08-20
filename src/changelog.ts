@@ -1,6 +1,16 @@
 export const CHANGELOG = [
 	{
-		version: '1.4.35',
+		version: '1.4.37',
+		date: '2024-08-20',
+		description: `
+                  Kick changed the message element structure, causing messages to break. This has been fixed now.
+
+                  Fix: Kick changes to element structure breaks messages
+                  Chore: Watered my cotton couch
+            `
+	},
+	{
+		version: '1.4.36',
 		date: '2024-08-02',
 		description: `
                   Fix: Emote menu getting shoved out of screen on small window sizes
