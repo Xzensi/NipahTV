@@ -1,5 +1,5 @@
 import { databaseExtended } from '../Database'
-import { log } from '../../utils'
+import { getPlatformSlug, log } from '../../utils'
 
 export const favoriteEmotesSchema = '&[platformId+channelId+emoteHid], platformId, channelId, emoteHid, orderIndex'
 
@@ -18,7 +18,8 @@ export default class FavoriteEmotesModel {
 		this.db = db
 	}
 
-	async getRecords(platformId: string, channelId?: string) {
+	async getRecords(channelId?: string) {
+		const platformId = getPlatformSlug()
 		const query = channelId ? { platformId, channelId } : { platformId }
 		return this.db.favoriteEmotes.where(query).toArray()
 	}
@@ -31,7 +32,7 @@ export default class FavoriteEmotesModel {
 		return this.db.favoriteEmotes.where({ platformId, emoteHid }).delete()
 	}
 
-	async bulkPutRecords(documents: any[]) {
+	async bulkPutRecords(documents: IFavoriteEmoteDocument[]) {
 		return this.db.favoriteEmotes.bulkPut(documents)
 	}
 
@@ -41,7 +42,7 @@ export default class FavoriteEmotesModel {
 		)
 	}
 
-	async bulkDeleteRecords(records: any[]) {
+	async bulkDeleteRecords(records: [TPlatformId, TChannelId, TEmoteHid][]) {
 		return this.db.favoriteEmotes.bulkDelete(records)
 	}
 

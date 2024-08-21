@@ -1347,7 +1347,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// The nodes with actual text nodes and emote nodes
 		const messageContentNodes = messageBodyChildren[contentWrapperNodeIndex].children
-		log(messageContentNodes)
 
 		// Skip first two nodes, they are the username etc
 		for (let i = 0; i < messageContentNodes.length; i++) {

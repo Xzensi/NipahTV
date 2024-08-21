@@ -43,7 +43,7 @@ export function getPlatformName() {
 	// }
 }
 
-export function getPlatformSlug() {
+export function getPlatformSlug(): TPlatformId {
 	return 'kick'
 
 	// switch (NTV_PLATFORM) {

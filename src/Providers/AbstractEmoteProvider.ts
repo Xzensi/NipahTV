@@ -1,11 +1,5 @@
-import { EmoteDatastore } from '../Datastores/EmoteDatastore'
 import { SettingsManager } from '../Managers/SettingsManager'
 import { PROVIDER_ENUM } from '../constants'
-
-export interface EmoteProviderDependencies {
-	settingsManager: SettingsManager
-	datastore: EmoteDatastore
-}
 
 export interface IAbstractEmoteProvider {
 	fetchEmotes(params: ChannelData): Promise<Array<EmoteSet> | void>
@@ -16,11 +10,9 @@ export interface IAbstractEmoteProvider {
 export abstract class AbstractEmoteProvider {
 	id = PROVIDER_ENUM.NULL
 	settingsManager: SettingsManager
-	datastore: EmoteDatastore
 
-	constructor({ settingsManager, datastore }: EmoteProviderDependencies) {
+	constructor(settingsManager: SettingsManager) {
 		this.settingsManager = settingsManager
-		this.datastore = datastore
 	}
 
 	abstract fetchEmotes(params: ChannelData): Promise<Array<EmoteSet> | void>

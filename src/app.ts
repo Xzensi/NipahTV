@@ -181,20 +181,15 @@ class NipahClient {
 		const channelData = networkInterface.channelData
 		if (!channelData) throw new Error('Channel data has not loaded yet.')
 
-		const emotesManager = (this.emotesManager = new EmotesManager(
-			{ database, eventBus, settingsManager },
-			channelData.channelId
-		))
+		session.channelData = channelData
+		// badgeProvider: NTV_PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, channelData) :
+		session.badgeProvider = new KickBadgeProvider(rootContext, channelData)
+		session.badgeProvider.initialize()
+
+		const emotesManager = (this.emotesManager = new EmotesManager(rootContext, session))
 		emotesManager.initialize()
 
-		Object.assign(session, {
-			emotesManager,
-			channelData,
-			// badgeProvider: NTV_PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
-			badgeProvider: new KickBadgeProvider(rootContext, channelData)
-		})
-
-		session.badgeProvider.initialize()
+		session.emotesManager = emotesManager
 
 		let userInterface: KickUserInterface
 		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {

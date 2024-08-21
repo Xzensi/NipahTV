@@ -30,7 +30,7 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 		const rows = this.rootContext.settingsManager.getSetting('shared.quick_emote_holder.rows') || 2
 		this.element = parseHTML(
-			`<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites"></div><div class="ntv__quick-emotes-holder__spacer">|||</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
+			`<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
 			true
 		) as HTMLElement
 
@@ -324,10 +324,10 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 
 		// Render the emotes
 		for (const [emoteHid] of emoteUsageCounts) {
-			const emotePartialEl = parseHTML(
-				emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')!
-			) as HTMLElement
-			this.commonlyUsedEl.appendChild(emotePartialEl)
+			const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')
+			if (!emoteRender) continue
+
+			this.commonlyUsedEl.appendChild(parseHTML(emoteRender))
 		}
 	}
 
@@ -350,7 +350,9 @@ export class QuickEmotesHolderComponent extends AbstractComponent {
 		const emoteIndex = emoteUsageCounts.findIndex(([hid]) => hid === emoteHid)
 
 		if (emoteIndex === -1) {
-			log('Emote not found in the emote usage counts:', emoteHid)
+			log(
+				'Skipped emote not found in the emote usage counts, probably stale emote that has been cleaned up from database.'
+			)
 			return
 		}
 

@@ -32,6 +32,12 @@ declare global {
 	var NTV_RESOURCE_ROOT: string
 	var NTV_APP_VERSION: string
 
+	type TPlatformId = 'kick' | 'twitch' | 'youtube'
+	type TChannelId = string
+	type TEmoteHid = string
+	type TChannelName = string
+	type TUserId = string
+
 	interface Window {
 		navigation: any
 		clipboardData: DataTransfer | null
@@ -58,9 +64,9 @@ declare global {
 	}
 
 	type ChannelData = {
-		channelId: string
-		channelName: string
-		userId: string
+		channelId: TChannelId
+		channelName: TChannelName
+		userId: TUserId
 		isVod?: boolean
 		chatroom: {
 			id: string | number
@@ -94,7 +100,7 @@ declare global {
 
 	type Emote = {
 		id: string
-		hid: string
+		hid: TEmoteHid
 		name: string
 		provider: number
 		subscribersOnly: boolean
