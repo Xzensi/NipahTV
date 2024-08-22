@@ -63,9 +63,9 @@ export class Logger {
 		this.error(...structuredClone(args))
 	}
 
-	logEvent(event: string, ...args: any[]) {
+	logEvent(typeLetter: string, event: string, ...args: any[]) {
 		console.log(
-			`%c${this.prefix}%cEVENT%c`,
+			`%c${this.prefix}%c${typeLetter}:EVENT%c`,
 			this.tagStyle + this.brandStyle,
 			this.tagStyle + this.eventStyle + this.extraMargin(-0.595),
 			'',

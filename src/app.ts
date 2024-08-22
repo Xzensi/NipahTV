@@ -19,6 +19,10 @@ import { UsersManager } from './Managers/UsersManager'
 import { KickBadgeProvider } from './Providers/KickBadgeProvider'
 import Database from './Database/Database'
 
+// Extensions
+import BotrixExtension from './Extensions/Botrix'
+import { InputCompletionStrategyRegistry } from './Classes/InputCompletionStrategyRegistry'
+
 class NipahClient {
 	VERSION = '1.4.37'
 
@@ -122,7 +126,7 @@ class NipahClient {
 
 		info('Setting up client environment..')
 
-		const eventBus = new Publisher()
+		const eventBus = new Publisher('root')
 		const settingsManager = new SettingsManager({ database, eventBus })
 		settingsManager.initialize()
 
@@ -137,7 +141,20 @@ class NipahClient {
 			settingsManager
 		}
 
+		this.loadExtensions()
 		this.createChannelSession()
+	}
+
+	async loadExtensions() {
+		// Dynamically load extensions according to enabled extensions
+		const rootContext = this.rootContext!
+		const { settingsManager } = rootContext
+
+		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared.extensions.botrix.enabled')
+		if (isBotrixExtensionEnabled) {
+			const botrixExtension = new BotrixExtension(rootContext, this.sessions)
+			botrixExtension.onEnable()
+		}
 	}
 
 	async createChannelSession() {
@@ -146,13 +163,13 @@ class NipahClient {
 		const rootContext = this.rootContext
 		if (!rootContext) throw new Error('Root context is not initialized.')
 
-		const { database, settingsManager } = rootContext
+		const { database, settingsManager, eventBus: rootEventBus } = rootContext
 
-		const eventBus = new Publisher()
+		const eventBus = new Publisher('session')
 		const usersManager = new UsersManager({ eventBus, settingsManager })
 
 		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
-			this.networkInterface = new KickNetworkInterface({ ENV_VARS: this.ENV_VARS })
+			this.networkInterface = new KickNetworkInterface()
 		} else if (NTV_PLATFORM === PLATFORM_ENUM.TWITCH) {
 			// this.networkInterface = new TwitchNetworkInterface()
 			throw new Error('Twitch platform is not supported yet.')
@@ -164,7 +181,8 @@ class NipahClient {
 		const session = {
 			eventBus,
 			networkInterface,
-			usersManager
+			usersManager,
+			inputCompletionStrategyRegistry: new InputCompletionStrategyRegistry()
 		} as Session
 
 		this.sessions.push(session)
@@ -216,6 +234,8 @@ class NipahClient {
 
 		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
 		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
+
+		rootEventBus.publish('ntv.session.create', session)
 
 		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 	}
@@ -299,6 +319,7 @@ class NipahClient {
 			)
 			prevSession.isDestroyed = true
 			prevSession.eventBus.publish('ntv.session.destroy')
+			this.rootContext?.eventBus.publish('ntv.session.destroy', prevSession)
 		} else {
 			log(`No session to clean up for ${oldLocation}..`)
 		}

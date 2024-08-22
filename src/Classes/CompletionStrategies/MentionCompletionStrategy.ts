@@ -29,7 +29,7 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 		this.session = session
 	}
 
-	static shouldUseStrategy(event: Event): boolean {
+	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
 		return (event instanceof KeyboardEvent && event.key === '@' && !word) || (word !== null && word.startsWith('@'))
 	}

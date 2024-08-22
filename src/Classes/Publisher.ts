@@ -5,6 +5,11 @@ export class Publisher {
 	private listeners = new Map()
 	private onceListeners = new Map()
 	private firedEvents = new Map()
+	private type: 'root' | 'session'
+
+	constructor(type: typeof Publisher.prototype.type) {
+		this.type = type
+	}
 
 	subscribe(event: string, callback: Function, triggerOnExistingEvent = false, once = false) {
 		assertArgument(event, 'string')
@@ -89,7 +94,7 @@ export class Publisher {
 		const dto = new DTO(topic, data)
 
 		this.firedEvents.set(dto.topic, dto)
-		logEvent(dto.topic)
+		logEvent(this.type[0].toUpperCase(), dto.topic)
 
 		if (this.onceListeners.has(dto.topic)) {
 			const listeners = this.onceListeners.get(dto.topic)

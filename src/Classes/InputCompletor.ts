@@ -1,12 +1,10 @@
+import { AbstractCompletionStrategy } from './CompletionStrategies/AbstractCompletionStrategy'
 import type { ContentEditableEditor } from './ContentEditableEditor'
 import type { PriorityEventTarget } from './PriorityEventTarget'
-import { CommandCompletionStrategy } from './CompletionStrategies/CommandCompletionStrategy'
-import { MentionCompletionStrategy } from './CompletionStrategies/MentionCompletionStrategy'
-import { EmoteCompletionStrategy } from './CompletionStrategies/EmoteCompletionStrategy'
 import { error, log } from '../utils'
 
 export class InputCompletor {
-	private currentActiveStrategy?: EmoteCompletionStrategy | MentionCompletionStrategy | CommandCompletionStrategy
+	private currentActiveStrategy?: AbstractCompletionStrategy
 
 	private rootContext: RootContext
 	private session: Session
@@ -52,32 +50,22 @@ export class InputCompletor {
 	private maybeSetStrategy(event: Event) {
 		if (this.currentActiveStrategy) return
 
-		if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
-			this.currentActiveStrategy = new CommandCompletionStrategy(
+		const wrappedStrategy = this.session.inputCompletionStrategyRegistry.findApplicableStrategy(
+			event,
+			this.contentEditableEditor
+		)
+
+		if (wrappedStrategy) {
+			const { constructor: strategyConstructor, dependencies: strategyDependencies } = wrappedStrategy
+
+			this.currentActiveStrategy = new strategyConstructor(
 				this.rootContext,
 				this.session,
 				{
 					contentEditableEditor: this.contentEditableEditor
 				},
-				this.containerEl
-			)
-		} else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
-			this.currentActiveStrategy = new MentionCompletionStrategy(
-				this.rootContext,
-				this.session,
-				{
-					contentEditableEditor: this.contentEditableEditor
-				},
-				this.containerEl
-			)
-		} else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
-			this.currentActiveStrategy = new EmoteCompletionStrategy(
-				this.rootContext,
-				this.session,
-				{
-					contentEditableEditor: this.contentEditableEditor
-				},
-				this.containerEl
+				this.containerEl,
+				strategyDependencies
 			)
 		}
 	}

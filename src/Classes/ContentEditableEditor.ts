@@ -184,7 +184,7 @@ export class ContentEditableEditor {
 
 			// Remove reserved Unicode range U+E0001 to U+E007F. These are used for internal tag characters.
 			for (let i = 0; i < messageParts.length; i++) {
-				messageParts[i] = messageParts[i].replace(/[󠀁-󠁿]/gu, '')
+				messageParts[i] = messageParts[i].replace(/[\u{E0001}-\u{E007F}]/gu, '')
 			}
 
 			const newNodes = []

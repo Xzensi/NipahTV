@@ -90,7 +90,7 @@ export class EmoteDatastore {
 	storeDatabase() {
 		if (!this.hasPendingChanges) return
 
-		info('Syncing emote data changes to database..')
+		// info('Syncing emote data changes to database..')
 
 		const { database } = this.rootContext
 		const platformSlug = getPlatformSlug()

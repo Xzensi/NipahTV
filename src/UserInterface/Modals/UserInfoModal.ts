@@ -1,4 +1,4 @@
-import type { UserChannelInfo, UserInfo } from '../../NetworkInterfaces/AbstractNetworkInterface'
+import type { UserChannelInfo, UserInfo } from '../../NetworkInterfaces/NetworkInterface'
 import type { Toaster } from '../../Classes/Toaster'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'

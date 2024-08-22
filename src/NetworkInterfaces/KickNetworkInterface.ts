@@ -1,11 +1,9 @@
 import { U_TAG_NTV_AFFIX } from '../constants'
 import { REST, assertArgDefined, error, info, log } from '../utils'
-import { AbstractNetworkInterface, UserMessage } from './AbstractNetworkInterface'
+import { INetworkInterface, UserMessage } from './NetworkInterface'
 
-export class KickNetworkInterface extends AbstractNetworkInterface {
-	constructor(deps: any) {
-		super(deps)
-	}
+export class KickNetworkInterface implements INetworkInterface {
+	channelData?: ChannelData
 
 	async connect() {
 		return Promise.resolve()
@@ -111,7 +109,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		this.channelData = channelData as ChannelData
 	}
 
-	async sendMessage(message: string) {
+	async sendMessage(message: string, noUtag = false) {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
 		// let randomSpamFilterBustingTag = ''
@@ -128,7 +126,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 
 		const chatroomId = this.channelData.chatroom.id
 		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
-			content: message + U_TAG_NTV_AFFIX,
+			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
 			type: 'message'
 		})
 	}
@@ -138,7 +136,8 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 		originalMessageId: string,
 		originalMessageContent: string,
 		originalSenderId: string,
-		originalSenderUsername: string
+		originalSenderUsername: string,
+		noUtag = false
 	) {
 		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
 
@@ -146,7 +145,7 @@ export class KickNetworkInterface extends AbstractNetworkInterface {
 
 		const chatroomId = this.channelData.chatroom.id
 		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
-			content: message + U_TAG_NTV_AFFIX,
+			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
 			type: 'reply',
 			metadata: {
 				original_message: {
