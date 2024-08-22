@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.4.37
+// @version 1.4.38
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7796fca9.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-ac5e21a7.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -6084,9 +6084,9 @@ var Logger = class {
   errorNow(...args) {
     this.error(...structuredClone(args));
   }
-  logEvent(event, ...args) {
+  logEvent(typeLetter, event, ...args) {
     console.log(
-      `%c${this.prefix}%cEVENT%c`,
+      `%c${this.prefix}%c${typeLetter}:EVENT%c`,
       this.tagStyle + this.brandStyle,
       this.tagStyle + this.eventStyle + this.extraMargin(-0.595),
       "",
@@ -6267,6 +6267,12 @@ var RESTFromMain = class {
     }
   }
 };
+function isEmpty(obj) {
+  for (var x in obj) {
+    return false;
+  }
+  return true;
+}
 function getCookie(name) {
   const c = document.cookie.split("; ").find((v) => v.startsWith(name))?.split(/=(.*)/s);
   return c && c[1] ? decodeURIComponent(c[1]) : null;
@@ -6540,6 +6546,10 @@ var Publisher = class {
   listeners = /* @__PURE__ */ new Map();
   onceListeners = /* @__PURE__ */ new Map();
   firedEvents = /* @__PURE__ */ new Map();
+  type;
+  constructor(type) {
+    this.type = type;
+  }
   subscribe(event, callback, triggerOnExistingEvent = false, once = false) {
     assertArgument(event, "string");
     assertArgument(callback, "function");
@@ -6606,7 +6616,7 @@ var Publisher = class {
     if (!topic) return error("Invalid event topic, discarding event..");
     const dto = new DTO(topic, data);
     this.firedEvents.set(dto.topic, dto);
-    logEvent(dto.topic);
+    logEvent(this.type[0].toUpperCase(), dto.topic);
     if (this.onceListeners.has(dto.topic)) {
       const listeners = this.onceListeners.get(dto.topic);
       for (let i = 0; i < listeners.length; i++) {
@@ -8003,17 +8013,17 @@ var EmoteDatastore = class {
     threshold: 0.35,
     keys: [["name"], ["parts"]]
   });
-  database;
-  eventBus;
+  rootContext;
+  session;
   channelId;
-  constructor({ database, eventBus }, channelId) {
-    this.database = database;
-    this.eventBus = eventBus;
-    this.channelId = channelId;
+  constructor(rootContext, session) {
+    this.rootContext = rootContext;
+    this.session = session;
+    this.channelId = session.channelData.channelId;
     setInterval(() => {
       this.storeDatabase();
     }, 3 * 1e3);
-    eventBus.subscribe("ntv.session.destroy", () => {
+    session.eventBus.subscribe("ntv.session.destroy", () => {
       this.emoteNameMap.clear();
       this.emoteUsage.clear();
       this.emoteMap.clear();
@@ -8021,7 +8031,8 @@ var EmoteDatastore = class {
   }
   async loadDatabase() {
     info("Reading out emotes data from database..");
-    const { database, eventBus } = this;
+    const { database } = this.rootContext;
+    const { eventBus } = this.session;
     database.emoteUsages.getRecords(this.channelId).then((usageRecords) => {
       if (usageRecords.length) {
         for (const record of usageRecords) {
@@ -8029,7 +8040,7 @@ var EmoteDatastore = class {
         }
       }
     }).then(() => eventBus.publish("ntv.datastore.emotes.usage.loaded")).catch((err) => error("Failed to load emote usage data from database.", err.message));
-    database.favoriteEmotes.getRecords(getPlatformSlug()).then((favoriteEmotes) => {
+    database.favoriteEmotes.getRecords().then((favoriteEmotes) => {
       if (!favoriteEmotes.length) return;
       for (const favoriteEmote of favoriteEmotes) {
         this.favoriteEmotesDocumentsMap.set(favoriteEmote.emoteHid, favoriteEmote);
@@ -8041,28 +8052,45 @@ var EmoteDatastore = class {
   }
   storeDatabase() {
     if (!this.hasPendingChanges) return;
-    const { database } = this;
+    const { database } = this.rootContext;
     const platformSlug = getPlatformSlug();
+    const pendingEmoteUsageChanges = structuredClone(this.pendingEmoteUsageChanges);
+    this.pendingEmoteUsageChanges = {};
+    const pendingFavoriteEmoteChanges = structuredClone(this.pendingFavoriteEmoteChanges);
+    this.pendingFavoriteEmoteChanges = {};
     const emoteUsagePuts = [];
-    for (const emoteHid in this.pendingEmoteUsageChanges) {
-      const emoteUsages = this.emoteUsage.get(emoteHid) || 0;
-      emoteUsagePuts.push({ platformId: platformSlug, channelId: this.channelId, emoteHid, count: emoteUsages });
-      delete this.pendingEmoteUsageChanges[emoteHid];
+    const emoteUsageDeletes = [];
+    if (!isEmpty(pendingEmoteUsageChanges))
+      info(`Syncing ${Object.keys(pendingEmoteUsageChanges).length} emote usage changes to database..`);
+    for (const emoteHid in pendingEmoteUsageChanges) {
+      const action = pendingEmoteUsageChanges[emoteHid];
+      if (action === "changed") {
+        const emoteUsages = this.emoteUsage.get(emoteHid) || 0;
+        emoteUsagePuts.push({
+          platformId: platformSlug,
+          channelId: this.channelId,
+          emoteHid,
+          count: emoteUsages
+        });
+      } else if (action === "removed") {
+        emoteUsageDeletes.push([platformSlug, this.channelId, emoteHid]);
+      }
     }
     const favoriteEmotePuts = [];
     const favoriteEmoteReorders = [];
     const favoriteEmoteDeletes = [];
-    for (const emoteHid in this.pendingFavoriteEmoteChanges) {
-      const action = this.pendingFavoriteEmoteChanges[emoteHid];
-      delete this.pendingFavoriteEmoteChanges[emoteHid];
-      if (action === "add_favorite") {
+    if (!isEmpty(pendingFavoriteEmoteChanges))
+      info(`Syncing ${Object.keys(pendingFavoriteEmoteChanges).length} favorite emote changes to database..`);
+    for (const emoteHid in pendingFavoriteEmoteChanges) {
+      const action = pendingFavoriteEmoteChanges[emoteHid];
+      if (action === "added") {
         const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid);
         if (!favoriteEmote) {
           error("Unable to add favorite emote to database, emote not found", emoteHid);
           continue;
         }
         favoriteEmotePuts.push(favoriteEmote);
-      } else if (action === "reorder_favorite") {
+      } else if (action === "reordered") {
         const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid);
         if (!favoriteEmote) {
           error("Unable to reorder favorite emote to database, emote not found", emoteHid);
@@ -8073,16 +8101,18 @@ var EmoteDatastore = class {
           emoteHid,
           orderIndex: favoriteEmote.orderIndex
         });
-      } else if (action === "remove_favorite") {
+      } else if (action === "removed") {
         favoriteEmoteDeletes.push({ platformId: platformSlug, emoteHid });
       } else {
         error("Unknown favorite emote database action", action);
       }
     }
     if (emoteUsagePuts.length) database.emoteUsages.bulkPutRecords(emoteUsagePuts);
+    if (emoteUsageDeletes.length) database.emoteUsages.bulkDeleteRecords(emoteUsageDeletes);
     if (favoriteEmotePuts.length) database.favoriteEmotes.bulkPutRecords(favoriteEmotePuts);
     if (favoriteEmoteReorders.length) database.favoriteEmotes.bulkOrderRecords(favoriteEmoteReorders);
     if (favoriteEmoteDeletes.length) database.favoriteEmotes.bulkDeleteRecordsByHid(favoriteEmoteDeletes);
+    log("Synced emote data changes to database");
     this.hasPendingChanges = false;
   }
   registerEmoteSet(emoteSet, providerOverrideOrder) {
@@ -8103,7 +8133,7 @@ var EmoteDatastore = class {
         const isHigherProviderOrder = providerOverrideOrder.indexOf(emoteSet.provider) > providerOverrideOrder.indexOf(storedEmote.provider);
         if (isHigherProviderOrder && storedEmoteSet.isGlobalSet || isHigherProviderOrder && storedEmoteSet.isEmoji || isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmoteSet.isCurrentChannel || isHigherProviderOrder && (emoteSet.isCurrentChannel || emoteSet.isOtherChannel) && storedEmoteSet.isOtherChannel || !isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmoteSet.isCurrentChannel || !isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet) {
           log(
-            `Registering ${storedEmote.provider === 1 /* KICK */ ? "Kick" : "7TV "} ${storedEmoteSet.isGlobalSet ? "global" : "channel"} emote override for ${emote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${emoteSet.isGlobalSet ? "global" : "channel"} ${emote.name} emote`
+            `Registered ${storedEmote.provider === 1 /* KICK */ ? "Kick" : "7TV "} ${storedEmoteSet.isGlobalSet ? "global" : "channel"} emote override for ${emote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${emoteSet.isGlobalSet ? "global" : "channel"} ${emote.name} emote`
           );
           const storedEmoteSetEmotes = storedEmoteSet.emotes;
           storedEmoteSetEmotes.splice(storedEmoteSetEmotes.indexOf(storedEmote), 1);
@@ -8114,7 +8144,7 @@ var EmoteDatastore = class {
           this.fuse.add(emote);
         } else {
           emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1);
-          log("Skipping overridden emote", emote.name);
+          log("Skipped overridden emote", emote.name);
         }
       } else {
         this.emoteMap.set(emote.hid, emote);
@@ -8123,7 +8153,7 @@ var EmoteDatastore = class {
         this.fuse.add(emote);
       }
     }
-    this.eventBus.publish("ntv.datastore.emotes.changed");
+    this.session.eventBus.publish("ntv.datastore.emotes.changed");
   }
   getEmote(emoteHid) {
     return this.emoteMap.get(emoteHid);
@@ -8168,11 +8198,11 @@ var EmoteDatastore = class {
       const emote2 = this.favoriteEmoteDocuments[i];
       if (this.pendingFavoriteEmoteChanges[emote2.emoteHid]) continue;
       emote2.orderIndex = i;
-      this.pendingFavoriteEmoteChanges[emote2.emoteHid] = "reorder_favorite";
+      this.pendingFavoriteEmoteChanges[emote2.emoteHid] = "reordered";
     }
-    this.pendingFavoriteEmoteChanges[emoteHid] = "add_favorite";
+    this.pendingFavoriteEmoteChanges[emoteHid] = "added";
     this.hasPendingChanges = true;
-    this.eventBus.publish("ntv.datastore.emotes.favorites.changed", { added: emoteHid });
+    this.session.eventBus.publish("ntv.datastore.emotes.favorites.changed", { added: emoteHid });
   }
   updateFavoriteEmoteOrderIndex(emoteHid, orderIndex) {
     const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid);
@@ -8186,34 +8216,34 @@ var EmoteDatastore = class {
       const emote = this.favoriteEmoteDocuments[i];
       emote.orderIndex = i;
       if (this.pendingFavoriteEmoteChanges[emote.emoteHid]) continue;
-      this.pendingFavoriteEmoteChanges[emote.emoteHid] = "reorder_favorite";
+      this.pendingFavoriteEmoteChanges[emote.emoteHid] = "reordered";
     }
     this.hasPendingChanges = true;
-    this.eventBus.publish("ntv.datastore.emotes.favorites.changed", { reordered: emoteHid });
+    this.session.eventBus.publish("ntv.datastore.emotes.favorites.changed", { reordered: emoteHid });
   }
   removeEmoteFromFavorites(emoteHid) {
     const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid);
     if (!favoriteEmote) return error("Unable to unfavorite emote, emote not found", emoteHid);
     this.favoriteEmotesDocumentsMap.delete(emoteHid);
     this.favoriteEmoteDocuments.splice(this.favoriteEmoteDocuments.indexOf(favoriteEmote), 1);
-    this.pendingFavoriteEmoteChanges[emoteHid] = "remove_favorite";
+    this.pendingFavoriteEmoteChanges[emoteHid] = "removed";
     this.hasPendingChanges = true;
-    this.eventBus.publish("ntv.datastore.emotes.favorites.changed", { removed: emoteHid });
+    this.session.eventBus.publish("ntv.datastore.emotes.favorites.changed", { removed: emoteHid });
   }
   registerEmoteEngagement(emoteHid) {
     if (!this.emoteUsage.has(emoteHid)) {
       this.emoteUsage.set(emoteHid, 0);
     }
     this.emoteUsage.set(emoteHid, (this.emoteUsage.get(emoteHid) || 0) + 1);
-    this.pendingEmoteUsageChanges[emoteHid] = true;
+    this.pendingEmoteUsageChanges[emoteHid] = "changed";
     this.hasPendingChanges = true;
-    this.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
+    this.session.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
   }
   removeEmoteUsage(emoteHid) {
     this.emoteUsage.delete(emoteHid);
-    this.pendingEmoteUsageChanges[emoteHid] = true;
+    this.pendingEmoteUsageChanges[emoteHid] = "removed";
     this.hasPendingChanges = true;
-    this.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
+    this.session.eventBus.publish("ntv.datastore.emotes.usage.changed", { emoteHid });
   }
   searchEmotesWithWeightedHistory(searchVal) {
     return this.fuse.search(searchVal).sort((a, b) => {
@@ -8279,23 +8309,34 @@ var EmoteDatastore = class {
 var EmotesManager = class {
   providers = /* @__PURE__ */ new Map();
   loaded = false;
-  eventBus;
-  settingsManager;
+  rootContext;
+  session;
   datastore;
-  constructor({
-    database,
-    eventBus,
-    settingsManager
-  }, channelId) {
-    this.eventBus = eventBus;
-    this.settingsManager = settingsManager;
-    this.datastore = new EmoteDatastore({ database, eventBus }, channelId);
+  constructor(rootContext, session) {
+    this.rootContext = rootContext;
+    this.session = session;
+    this.datastore = new EmoteDatastore(rootContext, session);
   }
   initialize() {
-    this.datastore.loadDatabase().catch((err) => error("Failed to load emote data from database.", err.message));
+    this.datastore.loadDatabase().then(() => {
+      this.session.eventBus.subscribe(
+        "ntv.providers.loaded",
+        () => {
+          const emoteUsage = this.datastore.emoteUsage;
+          for (const [emoteHid] of emoteUsage) {
+            const emote = this.datastore.getEmote(emoteHid);
+            if (!emote) {
+              log("Removing stale emote usage data of emote", emoteHid);
+              this.datastore.removeEmoteUsage(emoteHid);
+            }
+          }
+        },
+        true
+      );
+    }).catch((err) => error("Failed to load emote data from database.", err.message));
   }
   registerProvider(providerConstructor) {
-    const provider = new providerConstructor({ settingsManager: this.settingsManager, datastore: this.datastore });
+    const provider = new providerConstructor(this.rootContext.settingsManager);
     this.providers.set(provider.id, provider);
   }
   /**
@@ -8303,7 +8344,8 @@ var EmotesManager = class {
    * @param providerOverrideOrder The index of emote providers in the array determines their override order incase of emote conflicts.
    */
   async loadProviderEmotes(channelData, providerOverrideOrder) {
-    const { datastore, providers, eventBus } = this;
+    const { datastore, providers } = this;
+    const { eventBus } = this.session;
     const fetchEmoteProviderPromises = [];
     providers.forEach((provider) => {
       fetchEmoteProviderPromises.push(provider.fetchEmotes(channelData));
@@ -8424,7 +8466,7 @@ var EmotesManager = class {
     this.datastore.removeEmoteUsage(emoteHid);
   }
   searchEmotes(search2, limit = 0) {
-    const { settingsManager } = this;
+    const { settingsManager } = this.rootContext;
     const biasCurrentChannel = settingsManager.getSetting("shared.chat.behavior.search_bias_subscribed_channels");
     const biasSubscribedChannels = settingsManager.getSetting("shared.chat.behavior.search_bias_current_channels");
     const results = this.datastore.searchEmotes(search2, biasCurrentChannel, biasSubscribedChannels);
@@ -8482,7 +8524,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     for (const el of oldEls) el.remove();
     const rows = this.rootContext.settingsManager.getSetting("shared.quick_emote_holder.rows") || 2;
     this.element = parseHTML(
-      `<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites"></div><div class="ntv__quick-emotes-holder__spacer">|||</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
+      `<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
       true
     );
     this.favoritesEl = this.element.querySelector(".ntv__quick-emotes-holder__favorites");
@@ -8692,10 +8734,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     }
     while (this.commonlyUsedEl.firstChild) this.commonlyUsedEl.firstChild.remove();
     for (const [emoteHid] of emoteUsageCounts) {
-      const emotePartialEl = parseHTML(
-        emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote")
-      );
-      this.commonlyUsedEl.appendChild(emotePartialEl);
+      const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
+      if (!emoteRender) continue;
+      this.commonlyUsedEl.appendChild(parseHTML(emoteRender));
     }
   }
   /**
@@ -8712,7 +8753,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const emoteUsageCounts = [...emotesManager.getEmoteUsageCounts()].sort((a, b) => b[1] - a[1]);
     const emoteIndex = emoteUsageCounts.findIndex(([hid]) => hid === emoteHid);
     if (emoteIndex === -1) {
-      log("Emote not found in the emote usage counts:", emoteHid);
+      log(
+        "Skipped emote not found in the emote usage counts, probably stale emote that has been cleaned up from database."
+      );
       return;
     }
     if (!emoteEl) {
@@ -11292,7 +11335,7 @@ var ContentEditableEditor = class {
       const messageParts = clipboard.parsePastedMessage(evt);
       if (!messageParts.length) return;
       for (let i = 0; i < messageParts.length; i++) {
-        messageParts[i] = messageParts[i].replace(/[󠀁-󠁿]/gu, "");
+        messageParts[i] = messageParts[i].replace(/[\u{E0001}-\u{E007F}]/gu, "");
       }
       const newNodes = [];
       for (let i = 0; i < messageParts.length; i++) {
@@ -11971,998 +12014,6 @@ var ContentEditableEditor = class {
   }
 };
 
-// src/UserInterface/Components/NavigatableEntriesWindowComponent.ts
-var NavigatableEntriesWindowComponent = class extends AbstractComponent {
-  entries = [];
-  entriesMap = /* @__PURE__ */ new Map();
-  selectedIndex = 0;
-  container;
-  element;
-  listEl;
-  classes;
-  clickCallback;
-  eventTarget = new EventTarget();
-  constructor(container, classes = "") {
-    super();
-    this.container = container;
-    this.classes = classes;
-    this.clickCallback = this.clickHandler.bind(this);
-  }
-  render() {
-    this.element = parseHTML(
-      `<div class="ntv__nav-window ${this.classes}"><ul class="ntv__nav-window__list"></ul></div>`,
-      true
-    );
-    this.listEl = this.element.querySelector("ul");
-    this.container.appendChild(this.element);
-  }
-  attachEventHandlers() {
-    this.element.addEventListener("click", this.clickCallback);
-  }
-  addEventListener(type, listener) {
-    this.eventTarget.addEventListener(type, listener);
-  }
-  clickHandler(e) {
-    let targetEntry = e.target;
-    while (targetEntry.parentElement !== this.listEl && targetEntry.parentElement !== null) {
-      targetEntry = targetEntry.parentElement;
-    }
-    const entry = this.entriesMap.get(targetEntry);
-    if (entry) {
-      this.setSelectedIndex(this.entries.indexOf(entry));
-      this.eventTarget.dispatchEvent(new CustomEvent("entry-click", { detail: entry }));
-    }
-  }
-  containsNode(node) {
-    return this.element.contains(node);
-  }
-  getEntriesCount() {
-    return this.entries.length;
-  }
-  addEntry(data, element) {
-    this.entries.push(data);
-    this.entriesMap.set(element, data);
-    this.listEl.appendChild(element);
-  }
-  addEntries(entries) {
-    entries.forEach((entry) => {
-      const element = entry.element;
-      this.addEntry(entry, element);
-    });
-  }
-  setEntries(entries) {
-    this.entries = [];
-    this.entriesMap.clear();
-    this.listEl.innerHTML = "";
-    entries.forEach((el) => {
-      this.addEntry({}, el);
-    });
-  }
-  clearEntries() {
-    this.selectedIndex = 0;
-    this.entries = [];
-    this.entriesMap.clear();
-    this.listEl.innerHTML = "";
-  }
-  getSelectedEntry() {
-    return this.entries[this.selectedIndex];
-  }
-  setSelectedIndex(index) {
-    this.selectedIndex = index;
-    this.listEl.querySelectorAll("li.selected").forEach((el) => el.classList.remove("selected"));
-    const selectedEl = this.listEl.children[this.selectedIndex];
-    selectedEl.classList.add("selected");
-    this.scrollToSelected();
-  }
-  show() {
-    this.element.style.display = "block";
-  }
-  hide() {
-    this.element.style.display = "none";
-  }
-  // Scroll selected element into middle of the list which has max height set and is scrollable
-  scrollToSelected() {
-    const selectedEl = this.listEl.children[this.selectedIndex];
-    const listHeight = this.listEl.clientHeight;
-    const selectedHeight = selectedEl.clientHeight;
-    const win = selectedEl.ownerDocument.defaultView;
-    const offsetTop = selectedEl.getBoundingClientRect().top + win.scrollY;
-    const offsetParent = selectedEl.offsetParent;
-    const offsetParentTop = offsetParent ? offsetParent.getBoundingClientRect().top : 0;
-    const relativeTop = offsetTop - offsetParentTop;
-    const selectedCenter = relativeTop + selectedHeight / 2;
-    const middleOfList = listHeight / 2;
-    const scroll = selectedCenter - middleOfList + this.listEl.scrollTop;
-    this.listEl.scrollTop = scroll;
-  }
-  moveSelectorUp() {
-    this.listEl.children[this.selectedIndex].classList.remove("selected");
-    if (this.selectedIndex < this.entries.length - 1) {
-      this.selectedIndex++;
-    } else {
-      this.selectedIndex = 0;
-    }
-    this.listEl.children[this.selectedIndex].classList.add("selected");
-    this.scrollToSelected();
-  }
-  moveSelectorDown() {
-    this.listEl.children[this.selectedIndex].classList.remove("selected");
-    if (this.selectedIndex > 0) {
-      this.selectedIndex--;
-    } else {
-      this.selectedIndex = this.entries.length - 1;
-    }
-    this.listEl.children[this.selectedIndex].classList.add("selected");
-    this.scrollToSelected();
-  }
-  destroy() {
-    this.element.removeEventListener("click", this.clickCallback);
-    this.element.remove();
-    delete this.element;
-    delete this.listEl;
-  }
-};
-
-// src/Classes/CompletionStrategies/AbstractCompletionStrategy.ts
-var AbstractCompletionStrategy = class {
-  navWindow;
-  containerEl;
-  destroyed = false;
-  constructor(containerEl) {
-    this.containerEl = containerEl;
-  }
-  createModal() {
-    if (this.navWindow) return error("Tab completion window already exists");
-    const navWindow = new NavigatableEntriesWindowComponent(
-      this.containerEl,
-      "ntv__" + this.id + "-window"
-    );
-    this.navWindow = navWindow.init();
-  }
-  destroyModal() {
-    if (!this.navWindow) return error("Tab completion window does not exist yet");
-    this.navWindow.destroy();
-    delete this.navWindow;
-  }
-  isClickInsideNavWindow(node) {
-    return this.navWindow?.containsNode(node) || false;
-  }
-  isShowingNavWindow() {
-    return !!this.navWindow;
-  }
-  handleKeyDown(event) {
-  }
-  handleKeyUp(event) {
-  }
-  handleSubmitButton(event) {
-  }
-  destroy() {
-    if (this.navWindow) this.destroyModal();
-    delete this.navWindow;
-    this.destroyed = true;
-  }
-};
-
-// src/Classes/CompletionStrategies/CommandCompletionStrategy.ts
-var commandsMap = [
-  {
-    name: "timeout",
-    command: "timeout <username> <minutes> [reason]",
-    minAllowedRole: "moderator",
-    description: "Temporarily ban an user from chat.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
-      "<minutes>": (arg) => {
-        const m = parseInt(arg, 10);
-        return !Number.isNaN(m) && m > 0 && m < 10080 ? null : "Minutes must be a number between 1 and 10080 (7 days).";
-      }
-    }
-  },
-  {
-    name: "ban",
-    command: "ban <username> [reason]",
-    minAllowedRole: "moderator",
-    description: "Permanently ban an user from chat.",
-    argValidators: {
-      // Not doing a length check > 2 here because Kick doesn't do it..
-      "<username>": (arg) => !!arg ? null : "Username is required"
-    }
-  },
-  {
-    name: "user",
-    command: "user <username>",
-    // minAllowedRole: 'moderator',
-    description: "Display user information.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    },
-    execute: (deps, args) => {
-      log("User command executed with args:", args);
-      const { eventBus } = deps;
-      eventBus.publish("ntv.ui.show_modal.user_info", { username: args[0] });
-    }
-  },
-  {
-    name: "title",
-    command: "title <title>",
-    minAllowedRole: "moderator",
-    description: "Set the stream title.",
-    argValidators: {
-      "<title>": (arg) => !!arg ? null : "Title is required"
-    }
-  },
-  {
-    name: "poll",
-    command: "poll",
-    minAllowedRole: "moderator",
-    description: "Create a poll.",
-    execute: (deps, args) => {
-      const { eventBus } = deps;
-      eventBus.publish("ntv.ui.show_modal.poll");
-    }
-  },
-  {
-    name: "polldelete",
-    command: "polldelete",
-    minAllowedRole: "moderator",
-    description: "Delete the current poll."
-  },
-  // {
-  // 	name: 'category',
-  // 	command: 'category',
-  // 	minAllowedRole: 'broadcaster',
-  // 	description: 'Sets the stream category.'
-  // },
-  {
-    name: "slow",
-    command: "slow <on_off> [seconds]",
-    minAllowedRole: "moderator",
-    description: "Enable slow mode for chat.",
-    argValidators: {
-      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
-    }
-  },
-  {
-    name: "emoteonly",
-    command: "emoteonly <on_off>",
-    minAllowedRole: "moderator",
-    description: "Enable emote party mode for chat.",
-    argValidators: {
-      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
-    }
-  },
-  {
-    name: "followonly",
-    command: "followonly <on_off>",
-    minAllowedRole: "moderator",
-    description: "Enable followers only mode for chat.",
-    argValidators: {
-      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
-    }
-  },
-  {
-    name: "raid",
-    alias: "host",
-    command: "raid <username>",
-    minAllowedRole: "broadcaster",
-    description: "Raid someone's channel (alias for /host)",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "timer",
-    command: "timer <seconds/minutes/hours> [description]",
-    description: "Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.",
-    argValidators: {
-      "<seconds/minutes/hours>": (arg) => {
-        const time = arg.match(/^(\d+)(s|m|h)$/i);
-        if (!time) return "Invalid time format. Use e.g. 30s, 2m or 1h.";
-        const value = parseInt(time[1], 10);
-        if (time[2] === "s" && value > 0 && value <= 3600) return null;
-        if (time[2] === "m" && value > 0 && value <= 300) return null;
-        if (time[2] === "h" && value > 0 && value <= 20) return null;
-        return "Invalid time format. Use e.g. 30s, 2m or 1h.";
-      }
-    },
-    execute: (deps, args) => {
-      const { eventBus } = deps;
-      eventBus.publish("ntv.ui.timers.add", { duration: args[0], description: args[1] });
-      log("Timer command executed with args:", args);
-    }
-  },
-  {
-    name: "clear",
-    command: "clear",
-    minAllowedRole: "moderator",
-    description: "Clear the chat."
-  },
-  {
-    name: "subonly",
-    command: "subonly <on_off>",
-    minAllowedRole: "moderator",
-    description: "Enable subscribers only mode for chat.",
-    argValidators: {
-      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
-    }
-  },
-  {
-    name: "unban",
-    command: "unban <username>",
-    minAllowedRole: "moderator",
-    description: "Unban an user from chat.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "vip",
-    command: "vip <username>",
-    minAllowedRole: "broadcaster",
-    description: "Add an user to your VIP list.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "unvip",
-    command: "unvip <username>",
-    minAllowedRole: "broadcaster",
-    description: "Remove an user from your VIP list.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "mod",
-    command: "mod <username>",
-    minAllowedRole: "broadcaster",
-    description: "Add an user to your moderator list.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "unmod",
-    command: "unmod <username>",
-    minAllowedRole: "broadcaster",
-    description: "Remove an user from your moderator list.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "og",
-    command: "og <username>",
-    minAllowedRole: "broadcaster",
-    description: "Add an user to your OG list.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "unog",
-    command: "unog <username>",
-    minAllowedRole: "broadcaster",
-    description: "Remove an user from your OG list",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  },
-  {
-    name: "follow",
-    command: "follow <username>",
-    description: "Follow an user.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    },
-    execute: async (deps, args) => {
-      const { networkInterface, userInterface, channelData } = deps;
-      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
-        userInterface?.toastError("Failed to follow user. " + (err.message || ""));
-      });
-      if (!userInfo) return;
-      networkInterface.followUser(userInfo.slug).then(() => userInterface?.toastSuccess("Following user.")).catch((err) => userInterface?.toastError("Failed to follow user. " + (err.message || "")));
-    }
-  },
-  {
-    name: "unfollow",
-    command: "unfollow <username>",
-    description: "Unfollow an user.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    },
-    execute: async (deps, args) => {
-      const { networkInterface, userInterface, channelData } = deps;
-      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
-        userInterface?.toastError("Failed to follow user. " + (err.message || ""));
-      });
-      if (!userInfo) return;
-      networkInterface.unfollowUser(userInfo.slug).then(() => userInterface?.toastSuccess("User unfollowed.")).catch((err) => userInterface?.toastError("Failed to unfollow user. " + (err.message || "")));
-    }
-  },
-  {
-    name: "mute",
-    command: "mute <username>",
-    description: "Mute an user.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    },
-    execute: (deps, args) => {
-      const { usersManager, userInterface } = deps;
-      const user = usersManager.getUserByName(args[0]);
-      if (!user) userInterface?.toastError("User not found.");
-      else if (user.muted) userInterface?.toastError("User is already muted.");
-      else usersManager.muteUserById(user.id);
-    }
-  },
-  {
-    name: "unmute",
-    command: "unmute <username>",
-    description: "Unmute an user.",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    },
-    execute: (deps, args) => {
-      const { usersManager, userInterface } = deps;
-      const user = usersManager.getUserByName(args[0]);
-      if (!user) userInterface?.toastError("User not found.");
-      else if (!user.muted) userInterface?.toastError("User is not muted.");
-      else usersManager.unmuteUserById(user.id);
-    }
-  },
-  {
-    name: "host",
-    command: "host <username>",
-    minAllowedRole: "broadcaster",
-    description: "Host someone's channel",
-    argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
-    }
-  }
-];
-var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
-  contentEditableEditor;
-  rootContext;
-  session;
-  id = "commands";
-  constructor(rootContext, session, {
-    contentEditableEditor
-  }, containerEl) {
-    super(containerEl);
-    this.rootContext = rootContext;
-    this.session = session;
-    this.contentEditableEditor = contentEditableEditor;
-  }
-  static shouldUseStrategy(event, contentEditableEditor) {
-    const firstChar = contentEditableEditor.getFirstCharacter();
-    return firstChar === "/" || event instanceof KeyboardEvent && event.key === "/" && contentEditableEditor.isInputEmpty();
-  }
-  createModal() {
-    super.createModal();
-    this.navWindow.addEventListener("entry-click", (event) => {
-      this.renderInlineCompletion();
-    });
-  }
-  updateCompletionEntries(commandName, inputString) {
-    const availableCommands = this.getAvailableCommands();
-    let commandEntries;
-    if (inputString.indexOf(" ") !== -1) {
-      const foundEntry = availableCommands.find((commandEntry) => commandEntry.name.startsWith(commandName));
-      if (foundEntry) commandEntries = [foundEntry];
-    } else {
-      commandEntries = availableCommands.filter((commandEntry) => commandEntry.name.startsWith(commandName));
-    }
-    if (!this.navWindow) this.createModal();
-    else this.navWindow.clearEntries();
-    if (commandEntries && commandEntries.length) {
-      for (const commandEntry of commandEntries) {
-        const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true);
-        entryEl.childNodes[1].textContent = commandEntry.description;
-        if (commandEntries.length === 1) {
-          const commandParts = commandEntry.command.split(" ");
-          const command = commandParts[0];
-          const args = commandParts.slice(1);
-          const inputParts = inputString.split(" ");
-          const inputArgs = inputParts.slice(1);
-          const commandEl = document.createElement("span");
-          commandEl.textContent = "/" + command;
-          entryEl.childNodes[0].appendChild(commandEl);
-          for (let i = 0; i < args.length; i++) {
-            const argEl = document.createElement("span");
-            const arg = args[i];
-            const inputArg = inputArgs[i] || "";
-            const argValidator = commandEntry?.argValidators[arg];
-            if (argValidator) {
-              const argIsInvalid = argValidator(inputArg);
-              if (argIsInvalid) {
-                argEl.style.color = "red";
-              } else {
-                argEl.style.color = "green";
-              }
-            }
-            argEl.textContent = " " + arg;
-            entryEl.childNodes[0].appendChild(argEl);
-          }
-        } else {
-          const commandEl = document.createElement("span");
-          commandEl.textContent = "/" + commandEntry.command;
-          entryEl.childNodes[0].appendChild(commandEl);
-        }
-        this.navWindow.addEntry(commandEntry, entryEl);
-      }
-    } else {
-    }
-  }
-  renderInlineCompletion() {
-    if (!this.navWindow) return error("Tab completion window does not exist yet");
-    const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error("No selected entry to render completion");
-    const { name } = selectedEntry;
-    this.contentEditableEditor.clearInput();
-    this.contentEditableEditor.insertText("/" + name);
-  }
-  validateInputCommand(command) {
-    const inputParts = command.split(" ");
-    const inputCommandName = inputParts[0];
-    if (!inputCommandName) return "No command provided.";
-    const availableCommands = this.getAvailableCommands();
-    const commandEntry = availableCommands.find((commandEntry2) => commandEntry2.name === inputCommandName);
-    if (!commandEntry) return "Command not found.";
-    const commandParts = commandEntry.command.split(" ");
-    const args = commandParts.slice(1);
-    const argValidators = commandEntry.argValidators;
-    if (!argValidators) return null;
-    const inputArgs = inputParts.slice(1);
-    for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
-      const inputArg = inputArgs[i] || "";
-      const argValidator = argValidators[arg];
-      if (argValidator) {
-        const argIsInvalid = argValidator(inputArg);
-        if (argIsInvalid) return "Invalid argument: " + arg;
-      }
-    }
-    return null;
-  }
-  getAvailableCommands() {
-    const channelData = this.session.networkInterface.channelData;
-    const is_broadcaster = channelData?.me?.isBroadcaster || false;
-    const is_moderator = channelData?.me?.isModerator || false;
-    return commandsMap.filter((commandEntry) => {
-      if (commandEntry.minAllowedRole === "broadcaster") return is_broadcaster;
-      if (commandEntry.minAllowedRole === "moderator") return is_moderator || is_broadcaster;
-      return true;
-    });
-  }
-  getParsedInputCommand(inputString) {
-    const inputParts = inputString.split(" ").filter((v) => v !== "");
-    const inputCommandName = inputParts[0];
-    const availableCommands = this.getAvailableCommands();
-    const commandEntry = availableCommands.find(
-      (commandEntry2) => commandEntry2.name === inputCommandName
-    );
-    if (!commandEntry) return [error("Command not found.")];
-    const argCount = countStringOccurrences(commandEntry.command, "<");
-    if (inputParts.length - 1 > argCount) {
-      const start = inputParts.slice(1, argCount + 1);
-      const rest = inputParts.slice(argCount + 1).join(" ");
-      return [
-        {
-          name: commandEntry.name,
-          alias: commandEntry.alias,
-          args: start.concat(rest)
-        },
-        commandEntry
-      ];
-    }
-    return [
-      {
-        name: commandEntry.name,
-        alias: commandEntry.alias,
-        args: inputParts.slice(1, argCount + 1)
-      },
-      commandEntry
-    ];
-  }
-  moveSelectorUp() {
-    if (!this.navWindow) return error("No tab completion window to move selector up");
-    this.navWindow.moveSelectorUp();
-    this.renderInlineCompletion();
-  }
-  moveSelectorDown() {
-    if (!this.navWindow) return error("No tab completion window to move selector down");
-    this.navWindow.moveSelectorDown();
-    this.renderInlineCompletion();
-  }
-  attemptSubmit(event) {
-    const { contentEditableEditor } = this;
-    const firstNode = contentEditableEditor.getInputNode().firstChild;
-    if (!firstNode || !(firstNode instanceof Text)) {
-      this.destroy();
-      return;
-    }
-    const nodeData = firstNode.data;
-    const firstChar = nodeData[0];
-    if (firstChar !== "/") {
-      this.destroy();
-      return;
-    }
-    const isInvalid = this.validateInputCommand(nodeData.substring(1));
-    const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1));
-    event.stopPropagation();
-    if (isInvalid || !commandData) {
-      return;
-    }
-    const { networkInterface } = this.session;
-    if (commandEntry && typeof commandEntry.execute === "function") {
-      commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args);
-    } else {
-      networkInterface.sendCommand(commandData).then((res) => {
-        if (res.status?.error) {
-          this.session.userInterface?.toastError(res.status.message || "Command failed. No reason given.");
-        } else if (res.error) {
-          this.session.userInterface?.toastError(
-            typeof res.error === "string" ? res.error : res.message || "Command failed. No reason given."
-          );
-        }
-      }).catch((err) => {
-        this.session.userInterface?.toastError("Command failed. " + (err.message || ""));
-      });
-    }
-    contentEditableEditor.clearInput();
-    this.destroy();
-  }
-  handleKeyDown(event) {
-    const { contentEditableEditor } = this;
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      return this.moveSelectorUp();
-    } else if (event.key === "ArrowDown") {
-      event.preventDefault();
-      return this.moveSelectorDown();
-    }
-    const firstNode = contentEditableEditor.getInputNode().firstChild;
-    if (!firstNode && event.key === "/") {
-      this.updateCompletionEntries("", "/");
-    } else if (!firstNode || !(firstNode instanceof Text)) {
-      this.destroy();
-      return;
-    }
-    const nodeData = firstNode ? firstNode.data : "/";
-    const firstChar = nodeData[0];
-    if (firstChar !== "/") {
-      this.destroy();
-      return;
-    }
-    if (event.key === "Enter") {
-      event.preventDefault();
-      this.attemptSubmit(event);
-    }
-  }
-  handleKeyUp(event) {
-    const { contentEditableEditor } = this;
-    const firstNode = contentEditableEditor.getInputNode().firstChild;
-    if (!firstNode || !(firstNode instanceof Text)) {
-      this.destroy();
-      return;
-    }
-    const nodeData = firstNode.data;
-    const firstChar = nodeData[0];
-    if (firstChar !== "/") {
-      this.destroy();
-      return;
-    }
-    const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event);
-    if (keyIsLetterDigitPuncSpaceChar || event.key === "Backspace" || event.key === "Delete") {
-      let i = 1;
-      while (nodeData[i] && nodeData[i] !== " ") i++;
-      const commandName = nodeData.substring(1, i);
-      this.updateCompletionEntries(commandName, nodeData);
-    }
-  }
-  handleSubmitButton(event) {
-    this.attemptSubmit(event);
-  }
-};
-
-// src/Classes/CompletionStrategies/MentionCompletionStrategy.ts
-var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
-  contentEditableEditor;
-  rootContext;
-  session;
-  id = "mentions";
-  start = 0;
-  end = 0;
-  node = null;
-  word = null;
-  mentionEnd = 0;
-  constructor(rootContext, session, { contentEditableEditor }, containerEl) {
-    super(containerEl);
-    this.contentEditableEditor = contentEditableEditor;
-    this.rootContext = rootContext;
-    this.session = session;
-  }
-  static shouldUseStrategy(event) {
-    const word = Caret.getWordBeforeCaret().word;
-    return event instanceof KeyboardEvent && event.key === "@" && !word || word !== null && word.startsWith("@");
-  }
-  createModal() {
-    super.createModal();
-    this.navWindow.addEventListener("entry-click", (event) => {
-      Caret.moveCaretTo(this.node, this.mentionEnd);
-      this.contentEditableEditor.insertText(" ");
-      this.destroy();
-    });
-  }
-  updateCompletionEntries() {
-    if (!this.navWindow) return error("Tab completion window does not exist yet");
-    const { word, start, end, node } = Caret.getWordBeforeCaret();
-    if (!word) {
-      this.destroy();
-      return;
-    }
-    this.word = word;
-    this.start = start;
-    this.end = end;
-    this.node = node;
-    const searchResults = this.session.usersManager.searchUsers(word.substring(1, 20), 20);
-    const userNames = searchResults.map((result) => result.item.name);
-    const userIds = searchResults.map((result) => result.item.id);
-    if (userNames.length) {
-      for (let i = 0; i < userNames.length; i++) {
-        const userName = userNames[i];
-        const userId = userIds[i];
-        this.navWindow.addEntry(
-          { userId, userName },
-          parseHTML(`<li data-user-id="${userId}"><span>@${userName}</span></li>`, true)
-        );
-      }
-      this.navWindow.setSelectedIndex(0);
-      this.renderInlineCompletion();
-      if (!this.navWindow.getEntriesCount()) {
-        this.destroy();
-      }
-    } else {
-      this.destroy();
-    }
-  }
-  renderInlineCompletion() {
-    if (!this.navWindow) return error("Tab completion window does not exist yet");
-    if (!this.node) return error("Invalid node to render inline user mention");
-    const entry = this.navWindow.getSelectedEntry();
-    if (!entry) return error("No selected entry to render inline user mention");
-    const { userId, userName } = entry;
-    const userMention = `@${userName}`;
-    this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
-    Caret.moveCaretTo(this.node, this.mentionEnd);
-    this.contentEditableEditor.processInputContent();
-  }
-  moveSelectorUp() {
-    if (!this.navWindow) return error("No tab completion window to move selector up");
-    this.navWindow.moveSelectorUp();
-    this.restoreOriginalText();
-    this.renderInlineCompletion();
-  }
-  moveSelectorDown() {
-    if (!this.navWindow) return error("No tab completion window to move selector down");
-    this.navWindow.moveSelectorDown();
-    this.restoreOriginalText();
-    this.renderInlineCompletion();
-  }
-  restoreOriginalText() {
-    if (!this.node) return error("Invalid node to restore original text");
-    Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || "");
-    Caret.moveCaretTo(this.node, this.end);
-    this.contentEditableEditor.processInputContent();
-  }
-  handleKeyDown(event) {
-    if (this.navWindow) {
-      if (event.key === "Tab") {
-        event.preventDefault();
-        if (event.shiftKey) {
-          this.moveSelectorDown();
-        } else {
-          this.moveSelectorUp();
-        }
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        this.moveSelectorUp();
-      } else if (event.key === "ArrowDown") {
-        event.preventDefault();
-        this.moveSelectorDown();
-      } else if (event.key === "ArrowRight" || event.key === "Enter") {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        this.contentEditableEditor.insertText(" ");
-        this.destroy();
-      } else if (event.key === " ") {
-        this.destroy();
-      } else if (event.key === "ArrowLeft" || event.key === "Escape") {
-        this.destroy();
-      } else if (event.key === "Backspace") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        this.restoreOriginalText();
-        this.destroy();
-      } else if (event.key === "Shift") {
-      } else {
-        this.destroy();
-      }
-    } else if (event.key === "Tab") {
-      event.preventDefault();
-      this.createModal();
-      this.updateCompletionEntries();
-    }
-  }
-  destroy() {
-    super.destroy();
-    this.start = 0;
-    this.end = 0;
-    this.mentionEnd = 0;
-    this.node = null;
-    this.word = null;
-  }
-};
-
-// src/Classes/CompletionStrategies/EmoteCompletionStrategy.ts
-var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
-  rootContext;
-  session;
-  contentEditableEditor;
-  id = "emotes";
-  start = 0;
-  end = 0;
-  node = null;
-  word = null;
-  emoteComponent = null;
-  constructor(rootContext, session, { contentEditableEditor }, containerEl) {
-    super(containerEl);
-    this.rootContext = rootContext;
-    this.session = session;
-    this.contentEditableEditor = contentEditableEditor;
-  }
-  static shouldUseStrategy(event) {
-    const word = Caret.getWordBeforeCaret().word;
-    return event instanceof KeyboardEvent && event.key === "Tab" && word !== null;
-  }
-  createModal() {
-    super.createModal();
-    this.navWindow.addEventListener("entry-click", (event) => {
-      this.renderInlineCompletion();
-      this.destroy();
-    });
-  }
-  updateCompletionEntries() {
-    if (!this.navWindow) return error("Tab completion window does not exist yet");
-    const { word, start, end, node } = Caret.getWordBeforeCaret();
-    if (!word) {
-      this.destroy();
-      return;
-    }
-    const { emotesManager } = this.session;
-    this.word = word;
-    this.start = start;
-    this.end = end;
-    this.node = node;
-    const searchResults = emotesManager.searchEmotes(word.substring(0, 20), 20);
-    const emoteNames = searchResults.map((result) => result.item.name);
-    const emoteHids = searchResults.map((result) => emotesManager.getEmoteHidByName(result.item.name));
-    if (emoteNames.length) {
-      for (let i = 0; i < emoteNames.length; i++) {
-        const emoteName = emoteNames[i];
-        const emoteHid = emoteHids[i];
-        const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
-        this.navWindow.addEntry(
-          { emoteHid },
-          parseHTML(
-            `<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
-            true
-          )
-        );
-      }
-      this.navWindow.setSelectedIndex(0);
-      this.renderInlineCompletion();
-      if (!this.navWindow.getEntriesCount()) {
-        this.destroy();
-      }
-    } else {
-      this.destroy();
-    }
-  }
-  moveSelectorUp() {
-    if (!this.navWindow) return error("No tab completion window to move selector up");
-    this.navWindow.moveSelectorUp();
-    this.renderInlineCompletion();
-  }
-  moveSelectorDown() {
-    if (!this.navWindow) return error("No tab completion window to move selector down");
-    this.navWindow.moveSelectorDown();
-    this.renderInlineCompletion();
-  }
-  renderInlineCompletion() {
-    if (!this.navWindow) return error("Tab completion window does not exist yet");
-    const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error("No selected entry to render completion");
-    const { emoteHid } = selectedEntry;
-    if (!emoteHid) return error("No emote hid to render inline emote");
-    if (this.emoteComponent) {
-      this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
-    } else {
-      if (!this.node) return error("Invalid node to restore original text");
-      const range = document.createRange();
-      range.setStart(this.node, this.start);
-      range.setEnd(this.node, this.end);
-      range.deleteContents();
-      const selection = window.getSelection();
-      if (selection) {
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-      this.contentEditableEditor.normalize();
-      this.emoteComponent = this.contentEditableEditor.insertEmote(emoteHid);
-    }
-  }
-  restoreOriginalText() {
-    if (this.word) {
-      if (!this.emoteComponent) return error("Invalid embed node to restore original text");
-      this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
-    }
-  }
-  handleKeyDown(event) {
-    if (this.navWindow) {
-      if (event.key === "Tab") {
-        event.preventDefault();
-        if (event.shiftKey) {
-          this.moveSelectorDown();
-        } else {
-          this.moveSelectorUp();
-        }
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        this.moveSelectorUp();
-      } else if (event.key === "ArrowDown") {
-        event.preventDefault();
-        this.moveSelectorDown();
-      } else if (event.key === "ArrowRight" || event.key === "Enter") {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        this.destroy();
-      } else if (event.key === " ") {
-        event.preventDefault();
-        event.stopPropagation();
-        this.destroy();
-      } else if (event.key === "ArrowLeft" || event.key === "Escape") {
-        this.destroy();
-      } else if (event.key === "Backspace") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        this.restoreOriginalText();
-        this.destroy();
-      } else if (event.key === "Shift") {
-      } else {
-        this.destroy();
-      }
-    } else if (event.key === "Tab") {
-      event.preventDefault();
-      this.createModal();
-      this.updateCompletionEntries();
-    }
-  }
-  destroy() {
-    super.destroy();
-    this.start = 0;
-    this.end = 0;
-    this.node = null;
-    this.word = null;
-    this.emoteComponent = null;
-  }
-};
-
 // src/Classes/InputCompletor.ts
 var InputCompletor = class {
   currentActiveStrategy;
@@ -12996,32 +12047,20 @@ var InputCompletor = class {
   }
   maybeSetStrategy(event) {
     if (this.currentActiveStrategy) return;
-    if (CommandCompletionStrategy.shouldUseStrategy(event, this.contentEditableEditor)) {
-      this.currentActiveStrategy = new CommandCompletionStrategy(
+    const wrappedStrategy = this.session.inputCompletionStrategyRegistry.findApplicableStrategy(
+      event,
+      this.contentEditableEditor
+    );
+    if (wrappedStrategy) {
+      const { constructor: strategyConstructor, dependencies: strategyDependencies } = wrappedStrategy;
+      this.currentActiveStrategy = new strategyConstructor(
         this.rootContext,
         this.session,
         {
           contentEditableEditor: this.contentEditableEditor
         },
-        this.containerEl
-      );
-    } else if (MentionCompletionStrategy.shouldUseStrategy(event)) {
-      this.currentActiveStrategy = new MentionCompletionStrategy(
-        this.rootContext,
-        this.session,
-        {
-          contentEditableEditor: this.contentEditableEditor
-        },
-        this.containerEl
-      );
-    } else if (EmoteCompletionStrategy.shouldUseStrategy(event)) {
-      this.currentActiveStrategy = new EmoteCompletionStrategy(
-        this.rootContext,
-        this.session,
-        {
-          contentEditableEditor: this.contentEditableEditor
-        },
-        this.containerEl
+        this.containerEl,
+        strategyDependencies
       );
     }
   }
@@ -14101,7 +13140,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
     if (!messageBodyChildren[contentWrapperNodeIndex]) return;
     const messageContentNodes = messageBodyChildren[contentWrapperNodeIndex].children;
-    log(messageContentNodes);
     for (let i = 0; i < messageContentNodes.length; i++) {
       const contentNode = messageContentNodes[i];
       const componentNode = contentNode.children[0];
@@ -14233,10 +13271,8 @@ var KickUserInterface = class extends AbstractUserInterface {
 var AbstractEmoteProvider = class {
   id = 0 /* NULL */;
   settingsManager;
-  datastore;
-  constructor({ settingsManager, datastore }) {
+  constructor(settingsManager) {
     this.settingsManager = settingsManager;
-    this.datastore = datastore;
   }
 };
 
@@ -14244,8 +13280,8 @@ var AbstractEmoteProvider = class {
 var KickEmoteProvider = class extends AbstractEmoteProvider {
   id = 1 /* KICK */;
   status = "unloaded";
-  constructor(dependencies) {
-    super(dependencies);
+  constructor(settingsManager) {
+    super(settingsManager);
   }
   async fetchEmotes({ channelId, channelName, userId, me }) {
     if (!channelId) return error("Missing channel id for Kick provider") || [];
@@ -14343,8 +13379,8 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
 var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
   id = 2 /* SEVENTV */;
   status = "unloaded";
-  constructor(dependencies) {
-    super(dependencies);
+  constructor(settingsManager) {
+    super(settingsManager);
   }
   async fetchEmotes({ userId }) {
     info("Fetching emote data from SevenTV..");
@@ -14645,6 +13681,17 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.4.38",
+    date: "2024-08-22",
+    description: `
+                  Feat: Added support for extensions (NTV add-ons, not browser extensions)
+                  Fix: Stale emotes showing as "undefined" in quick emote holder
+                  Fix: Hovering emotes in quick emotes holder cause clipping
+                  Fix: Botrix commands not working due to unicode formatting tag codepoints bug in Botrix
+                  Chore: Add input completion strategy registry
+            `
+  },
   {
     version: "1.4.37",
     date: "2024-08-20",
@@ -15247,7 +14294,7 @@ var SettingsModal = class extends AbstractModal {
   }
   render() {
     super.render();
-    log("Rendering settings modal..");
+    log("Rendered settings modal..");
     const sharedSettings = this.settingsOpts.sharedSettings;
     const settingsMap = this.settingsOpts.settingsMap;
     const modalBodyEl = this.modalBodyEl;
@@ -16078,20 +15125,9 @@ var DatabaseProxyFactory = class {
   }
 };
 
-// src/NetworkInterfaces/AbstractNetworkInterface.ts
-var AbstractNetworkInterface = class {
-  ENV_VARS;
-  channelData;
-  constructor({ ENV_VARS }) {
-    this.ENV_VARS = ENV_VARS;
-  }
-};
-
 // src/NetworkInterfaces/KickNetworkInterface.ts
-var KickNetworkInterface = class extends AbstractNetworkInterface {
-  constructor(deps) {
-    super(deps);
-  }
+var KickNetworkInterface = class {
+  channelData;
   async connect() {
     return Promise.resolve();
   }
@@ -16180,21 +15216,21 @@ var KickNetworkInterface = class extends AbstractNetworkInterface {
     }
     this.channelData = channelData;
   }
-  async sendMessage(message) {
+  async sendMessage(message, noUtag = false) {
     if (!this.channelData) throw new Error("Channel data is not loaded yet.");
     message[message.length - 1] === " " || (message += " ");
     const chatroomId = this.channelData.chatroom.id;
     return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
-      content: message + U_TAG_NTV_AFFIX,
+      content: message + (noUtag ? "" : U_TAG_NTV_AFFIX),
       type: "message"
     });
   }
-  async sendReply(message, originalMessageId, originalMessageContent, originalSenderId, originalSenderUsername) {
+  async sendReply(message, originalMessageId, originalMessageContent, originalSenderId, originalSenderUsername, noUtag = false) {
     if (!this.channelData) throw new Error("Channel data is not loaded yet.");
     message[message.length - 1] === " " || (message += " ");
     const chatroomId = this.channelData.chatroom.id;
     return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
-      content: message + U_TAG_NTV_AFFIX,
+      content: message + (noUtag ? "" : U_TAG_NTV_AFFIX),
       type: "reply",
       metadata: {
         original_message: {
@@ -16595,7 +15631,8 @@ var FavoriteEmotesModel = class {
   constructor(db) {
     this.db = db;
   }
-  async getRecords(platformId, channelId) {
+  async getRecords(channelId) {
+    const platformId = getPlatformSlug();
     const query = channelId ? { platformId, channelId } : { platformId };
     return this.db.favoriteEmotes.where(query).toArray();
   }
@@ -16658,11 +15695,17 @@ var EmoteUsagesModel = class {
   async deleteRecord(platformId, channelId, emoteHid) {
     return this.db.emoteUsages.delete([platformId, channelId, emoteHid]);
   }
+  async deleteRecordByHid(platformId, emoteHid) {
+    return this.db.emoteUsages.where({ platformId, emoteHid }).delete();
+  }
   async bulkPutRecords(documents) {
     return this.db.emoteUsages.bulkPut(documents);
   }
   async bulkDeleteRecords(records) {
     return this.db.emoteUsages.bulkDelete(records);
+  }
+  async bulkDeleteRecordsByHid(records) {
+    return Promise.all(records.map((record) => this.deleteRecordByHid(record.platformId, record.emoteHid)));
   }
 };
 
@@ -16757,9 +15800,1182 @@ var Database = class {
   }
 };
 
+// src/Extensions/Extension.ts
+var Extension = class {
+  rootContext;
+  sessions = [];
+  constructor(rootContext, sessions) {
+    this.rootContext = rootContext;
+    this.sessions = sessions;
+  }
+};
+
+// src/UserInterface/Components/NavigatableEntriesWindowComponent.ts
+var NavigatableEntriesWindowComponent = class extends AbstractComponent {
+  entries = [];
+  entriesMap = /* @__PURE__ */ new Map();
+  selectedIndex = 0;
+  container;
+  element;
+  listEl;
+  classes;
+  clickCallback;
+  eventTarget = new EventTarget();
+  constructor(container, classes = "") {
+    super();
+    this.container = container;
+    this.classes = classes;
+    this.clickCallback = this.clickHandler.bind(this);
+  }
+  render() {
+    this.element = parseHTML(
+      `<div class="ntv__nav-window ${this.classes}"><ul class="ntv__nav-window__list"></ul></div>`,
+      true
+    );
+    this.listEl = this.element.querySelector("ul");
+    this.container.appendChild(this.element);
+  }
+  attachEventHandlers() {
+    this.element.addEventListener("click", this.clickCallback);
+  }
+  addEventListener(type, listener) {
+    this.eventTarget.addEventListener(type, listener);
+  }
+  clickHandler(e) {
+    let targetEntry = e.target;
+    while (targetEntry.parentElement !== this.listEl && targetEntry.parentElement !== null) {
+      targetEntry = targetEntry.parentElement;
+    }
+    const entry = this.entriesMap.get(targetEntry);
+    if (entry) {
+      this.setSelectedIndex(this.entries.indexOf(entry));
+      this.eventTarget.dispatchEvent(new CustomEvent("entry-click", { detail: entry }));
+    }
+  }
+  containsNode(node) {
+    return this.element.contains(node);
+  }
+  getEntriesCount() {
+    return this.entries.length;
+  }
+  addEntry(data, element) {
+    this.entries.push(data);
+    this.entriesMap.set(element, data);
+    this.listEl.appendChild(element);
+  }
+  addEntries(entries) {
+    entries.forEach((entry) => {
+      const element = entry.element;
+      this.addEntry(entry, element);
+    });
+  }
+  setEntries(entries) {
+    this.entries = [];
+    this.entriesMap.clear();
+    this.listEl.innerHTML = "";
+    entries.forEach((el) => {
+      this.addEntry({}, el);
+    });
+  }
+  clearEntries() {
+    this.selectedIndex = 0;
+    this.entries = [];
+    this.entriesMap.clear();
+    this.listEl.innerHTML = "";
+  }
+  getSelectedEntry() {
+    return this.entries[this.selectedIndex];
+  }
+  setSelectedIndex(index) {
+    this.selectedIndex = index;
+    this.listEl.querySelectorAll("li.selected").forEach((el) => el.classList.remove("selected"));
+    const selectedEl = this.listEl.children[this.selectedIndex];
+    selectedEl.classList.add("selected");
+    this.scrollToSelected();
+  }
+  show() {
+    this.element.style.display = "block";
+  }
+  hide() {
+    this.element.style.display = "none";
+  }
+  // Scroll selected element into middle of the list which has max height set and is scrollable
+  scrollToSelected() {
+    const selectedEl = this.listEl.children[this.selectedIndex];
+    const listHeight = this.listEl.clientHeight;
+    const selectedHeight = selectedEl.clientHeight;
+    const win = selectedEl.ownerDocument.defaultView;
+    const offsetTop = selectedEl.getBoundingClientRect().top + win.scrollY;
+    const offsetParent = selectedEl.offsetParent;
+    const offsetParentTop = offsetParent ? offsetParent.getBoundingClientRect().top : 0;
+    const relativeTop = offsetTop - offsetParentTop;
+    const selectedCenter = relativeTop + selectedHeight / 2;
+    const middleOfList = listHeight / 2;
+    const scroll = selectedCenter - middleOfList + this.listEl.scrollTop;
+    this.listEl.scrollTop = scroll;
+  }
+  moveSelectorUp() {
+    this.listEl.children[this.selectedIndex].classList.remove("selected");
+    if (this.selectedIndex < this.entries.length - 1) {
+      this.selectedIndex++;
+    } else {
+      this.selectedIndex = 0;
+    }
+    this.listEl.children[this.selectedIndex].classList.add("selected");
+    this.scrollToSelected();
+  }
+  moveSelectorDown() {
+    this.listEl.children[this.selectedIndex].classList.remove("selected");
+    if (this.selectedIndex > 0) {
+      this.selectedIndex--;
+    } else {
+      this.selectedIndex = this.entries.length - 1;
+    }
+    this.listEl.children[this.selectedIndex].classList.add("selected");
+    this.scrollToSelected();
+  }
+  destroy() {
+    this.element.removeEventListener("click", this.clickCallback);
+    this.element.remove();
+    delete this.element;
+    delete this.listEl;
+  }
+};
+
+// src/Classes/CompletionStrategies/AbstractCompletionStrategy.ts
+var AbstractCompletionStrategy = class {
+  navWindow;
+  containerEl;
+  destroyed = false;
+  constructor(containerEl) {
+    this.containerEl = containerEl;
+  }
+  handleKeyDown(event) {
+  }
+  handleKeyUp(event) {
+  }
+  handleSubmitButton(event) {
+  }
+  static shouldUseStrategy(event, contentEditableEditor) {
+    throw new Error("Method not implemented.");
+  }
+  createModal() {
+    if (this.navWindow) return error("Tab completion window already exists");
+    const navWindow = new NavigatableEntriesWindowComponent(
+      this.containerEl,
+      "ntv__" + this.id + "-window"
+    );
+    this.navWindow = navWindow.init();
+  }
+  destroyModal() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+    this.navWindow.destroy();
+    delete this.navWindow;
+  }
+  isClickInsideNavWindow(node) {
+    return this.navWindow?.containsNode(node) || false;
+  }
+  isShowingNavWindow() {
+    return !!this.navWindow;
+  }
+  destroy() {
+    if (this.navWindow) this.destroyModal();
+    delete this.navWindow;
+    this.destroyed = true;
+  }
+};
+
+// src/Extensions/Botrix/BotrixCompletionStrategy.ts
+var BotrixCompletionStrategy = class extends AbstractCompletionStrategy {
+  contentEditableEditor;
+  rootContext;
+  session;
+  id = "botrix";
+  constructor(rootContext, session, {
+    contentEditableEditor
+  }, containerEl, { botrixSessionManager }) {
+    super(containerEl);
+    this.rootContext = rootContext;
+    this.session = session;
+    this.contentEditableEditor = contentEditableEditor;
+  }
+  static shouldUseStrategy(event, contentEditableEditor) {
+    const firstChar = contentEditableEditor.getFirstCharacter();
+    return firstChar === "!" || event instanceof KeyboardEvent && event.key === "!" && contentEditableEditor.isInputEmpty();
+  }
+  createModal() {
+    super.createModal();
+    this.navWindow.addEventListener("entry-click", (event) => {
+      this.renderInlineCompletion();
+    });
+  }
+  updateCompletionEntries() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+  }
+  renderInlineCompletion() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+    const selectedEntry = this.navWindow.getSelectedEntry();
+    if (!selectedEntry) return error("No selected entry to render completion");
+    const { name } = selectedEntry;
+    this.contentEditableEditor.clearInput();
+    this.contentEditableEditor.insertText("!" + name);
+  }
+  moveSelectorUp() {
+    if (!this.navWindow) return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow) return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.renderInlineCompletion();
+  }
+  handleKeyDown(event) {
+    const { contentEditableEditor } = this;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const messageContent = contentEditableEditor.getMessageContent();
+      const firstNode = contentEditableEditor.getInputNode().firstChild;
+      if (!firstNode || !(firstNode instanceof Text)) {
+        this.destroy();
+        return;
+      }
+      const nodeData = firstNode.data;
+      const firstChar = nodeData[0];
+      if (firstChar !== "!") {
+        this.destroy();
+        return;
+      }
+      event.stopPropagation();
+      const { networkInterface } = this.session;
+      networkInterface.sendMessage(messageContent, true).then((res) => {
+        if (res.status?.error) {
+          this.session.userInterface?.toastError(
+            res.status.message || "Failed to send message. No reason given."
+          );
+        } else if (res.error) {
+          this.session.userInterface?.toastError(
+            typeof res.error === "string" ? res.error : res.message || "Failed to send message. No reason given."
+          );
+        }
+      }).catch((err) => {
+        this.session.userInterface?.toastError(
+          "Failed to send message. " + (err.message || "Reason unknown.")
+        );
+      });
+      contentEditableEditor.clearInput();
+      this.destroy();
+    }
+  }
+  handleKeyUp(event) {
+  }
+  destroy() {
+    super.destroy();
+  }
+};
+
+// src/Extensions/Botrix/index.ts
+var BotrixNetworkInterface = class {
+  static async fetchUserShopItems(userSlug, platformId) {
+    return REST.get(`https://botrix.live/api/public/shop/items?u=${userSlug}&platform=${platformId}`);
+  }
+};
+var BotrixSessionManager = class {
+  constructor(session) {
+    this.session = session;
+  }
+  userShopItems = [];
+  async getUserShopItems() {
+    if (!this.userShopItems.length) {
+      const userSlug = this.session.channelData.channelName;
+      const platformId = getPlatformSlug();
+      const userShopItems = await BotrixNetworkInterface.fetchUserShopItems(userSlug, platformId);
+      log("User shop items:", userShopItems);
+    }
+  }
+};
+var BotrixExtension = class extends Extension {
+  name = "Botrix";
+  version = "1.0.0";
+  description = "Botrix extension for the botrix completion strategy";
+  sessionCreateCb;
+  constructor(rootContext, sessions) {
+    super(rootContext, sessions);
+    this.sessionCreateCb = this.onSessionCreate.bind(this);
+  }
+  onEnable() {
+    info("Enabling extension:", this.name, this.version);
+    const { eventBus: rootEventBus, settingsManager } = this.rootContext;
+    this.sessions.forEach(this.registerSessionCompletionStrategy.bind(this));
+    rootEventBus.subscribe("ntv.session.create", this.sessionCreateCb);
+  }
+  onDisable() {
+    info("Disabling extension:", this.name, this.version);
+    const { eventBus: rootEventBus } = this.rootContext;
+    rootEventBus.unsubscribe("ntv.session.create", this.sessionCreateCb);
+    this.sessions.forEach((session) => {
+      session.inputCompletionStrategyRegistry.unregisterStrategy(BotrixCompletionStrategy);
+    });
+  }
+  onSessionCreate(session) {
+    this.registerSessionCompletionStrategy(session);
+  }
+  registerSessionCompletionStrategy(session) {
+    session.inputCompletionStrategyRegistry.registerStrategy({
+      constructor: BotrixCompletionStrategy,
+      dependencies: { botrixSessionManager: new BotrixSessionManager(session) }
+    });
+  }
+};
+
+// src/Classes/CompletionStrategies/CommandCompletionStrategy.ts
+var commandsMap = [
+  {
+    name: "timeout",
+    command: "timeout <username> <minutes> [reason]",
+    minAllowedRole: "moderator",
+    description: "Temporarily ban an user from chat.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
+      "<minutes>": (arg) => {
+        const m = parseInt(arg, 10);
+        return !Number.isNaN(m) && m > 0 && m < 10080 ? null : "Minutes must be a number between 1 and 10080 (7 days).";
+      }
+    }
+  },
+  {
+    name: "ban",
+    command: "ban <username> [reason]",
+    minAllowedRole: "moderator",
+    description: "Permanently ban an user from chat.",
+    argValidators: {
+      // Not doing a length check > 2 here because Kick doesn't do it..
+      "<username>": (arg) => !!arg ? null : "Username is required"
+    }
+  },
+  {
+    name: "user",
+    command: "user <username>",
+    // minAllowedRole: 'moderator',
+    description: "Display user information.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      log("User command executed with args:", args);
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.show_modal.user_info", { username: args[0] });
+    }
+  },
+  {
+    name: "title",
+    command: "title <title>",
+    minAllowedRole: "moderator",
+    description: "Set the stream title.",
+    argValidators: {
+      "<title>": (arg) => !!arg ? null : "Title is required"
+    }
+  },
+  {
+    name: "poll",
+    command: "poll",
+    minAllowedRole: "moderator",
+    description: "Create a poll.",
+    execute: (deps, args) => {
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.show_modal.poll");
+    }
+  },
+  {
+    name: "polldelete",
+    command: "polldelete",
+    minAllowedRole: "moderator",
+    description: "Delete the current poll."
+  },
+  // {
+  // 	name: 'category',
+  // 	command: 'category',
+  // 	minAllowedRole: 'broadcaster',
+  // 	description: 'Sets the stream category.'
+  // },
+  {
+    name: "slow",
+    command: "slow <on_off> [seconds]",
+    minAllowedRole: "moderator",
+    description: "Enable slow mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "emoteonly",
+    command: "emoteonly <on_off>",
+    minAllowedRole: "moderator",
+    description: "Enable emote party mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "followonly",
+    command: "followonly <on_off>",
+    minAllowedRole: "moderator",
+    description: "Enable followers only mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "raid",
+    alias: "host",
+    command: "raid <username>",
+    minAllowedRole: "broadcaster",
+    description: "Raid someone's channel (alias for /host)",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "timer",
+    command: "timer <seconds/minutes/hours> [description]",
+    description: "Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.",
+    argValidators: {
+      "<seconds/minutes/hours>": (arg) => {
+        const time = arg.match(/^(\d+)(s|m|h)$/i);
+        if (!time) return "Invalid time format. Use e.g. 30s, 2m or 1h.";
+        const value = parseInt(time[1], 10);
+        if (time[2] === "s" && value > 0 && value <= 3600) return null;
+        if (time[2] === "m" && value > 0 && value <= 300) return null;
+        if (time[2] === "h" && value > 0 && value <= 20) return null;
+        return "Invalid time format. Use e.g. 30s, 2m or 1h.";
+      }
+    },
+    execute: (deps, args) => {
+      const { eventBus } = deps;
+      eventBus.publish("ntv.ui.timers.add", { duration: args[0], description: args[1] });
+      log("Timer command executed with args:", args);
+    }
+  },
+  {
+    name: "clear",
+    command: "clear",
+    minAllowedRole: "moderator",
+    description: "Clear the chat."
+  },
+  {
+    name: "subonly",
+    command: "subonly <on_off>",
+    minAllowedRole: "moderator",
+    description: "Enable subscribers only mode for chat.",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    }
+  },
+  {
+    name: "unban",
+    command: "unban <username>",
+    minAllowedRole: "moderator",
+    description: "Unban an user from chat.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "vip",
+    command: "vip <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your VIP list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unvip",
+    command: "unvip <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your VIP list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "mod",
+    command: "mod <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your moderator list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unmod",
+    command: "unmod <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your moderator list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "og",
+    command: "og <username>",
+    minAllowedRole: "broadcaster",
+    description: "Add an user to your OG list.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "unog",
+    command: "unog <username>",
+    minAllowedRole: "broadcaster",
+    description: "Remove an user from your OG list",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  },
+  {
+    name: "follow",
+    command: "follow <username>",
+    description: "Follow an user.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: async (deps, args) => {
+      const { networkInterface, userInterface, channelData } = deps;
+      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
+        userInterface?.toastError("Failed to follow user. " + (err.message || ""));
+      });
+      if (!userInfo) return;
+      networkInterface.followUser(userInfo.slug).then(() => userInterface?.toastSuccess("Following user.")).catch((err) => userInterface?.toastError("Failed to follow user. " + (err.message || "")));
+    }
+  },
+  {
+    name: "unfollow",
+    command: "unfollow <username>",
+    description: "Unfollow an user.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: async (deps, args) => {
+      const { networkInterface, userInterface, channelData } = deps;
+      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
+        userInterface?.toastError("Failed to follow user. " + (err.message || ""));
+      });
+      if (!userInfo) return;
+      networkInterface.unfollowUser(userInfo.slug).then(() => userInterface?.toastSuccess("User unfollowed.")).catch((err) => userInterface?.toastError("Failed to unfollow user. " + (err.message || "")));
+    }
+  },
+  {
+    name: "mute",
+    command: "mute <username>",
+    description: "Mute an user.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      const { usersManager, userInterface } = deps;
+      const user = usersManager.getUserByName(args[0]);
+      if (!user) userInterface?.toastError("User not found.");
+      else if (user.muted) userInterface?.toastError("User is already muted.");
+      else usersManager.muteUserById(user.id);
+    }
+  },
+  {
+    name: "unmute",
+    command: "unmute <username>",
+    description: "Unmute an user.",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    },
+    execute: (deps, args) => {
+      const { usersManager, userInterface } = deps;
+      const user = usersManager.getUserByName(args[0]);
+      if (!user) userInterface?.toastError("User not found.");
+      else if (!user.muted) userInterface?.toastError("User is not muted.");
+      else usersManager.unmuteUserById(user.id);
+    }
+  },
+  {
+    name: "host",
+    command: "host <username>",
+    minAllowedRole: "broadcaster",
+    description: "Host someone's channel",
+    argValidators: {
+      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+    }
+  }
+];
+var CommandCompletionStrategy = class extends AbstractCompletionStrategy {
+  contentEditableEditor;
+  rootContext;
+  session;
+  id = "commands";
+  constructor(rootContext, session, {
+    contentEditableEditor
+  }, containerEl) {
+    super(containerEl);
+    this.rootContext = rootContext;
+    this.session = session;
+    this.contentEditableEditor = contentEditableEditor;
+  }
+  static shouldUseStrategy(event, contentEditableEditor) {
+    const firstChar = contentEditableEditor.getFirstCharacter();
+    return firstChar === "/" || event instanceof KeyboardEvent && event.key === "/" && contentEditableEditor.isInputEmpty();
+  }
+  createModal() {
+    super.createModal();
+    this.navWindow.addEventListener("entry-click", (event) => {
+      this.renderInlineCompletion();
+    });
+  }
+  updateCompletionEntries(commandName, inputString) {
+    const availableCommands = this.getAvailableCommands();
+    let commandEntries;
+    if (inputString.indexOf(" ") !== -1) {
+      const foundEntry = availableCommands.find((commandEntry) => commandEntry.name.startsWith(commandName));
+      if (foundEntry) commandEntries = [foundEntry];
+    } else {
+      commandEntries = availableCommands.filter((commandEntry) => commandEntry.name.startsWith(commandName));
+    }
+    if (!this.navWindow) this.createModal();
+    else this.navWindow.clearEntries();
+    if (commandEntries && commandEntries.length) {
+      for (const commandEntry of commandEntries) {
+        const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true);
+        entryEl.childNodes[1].textContent = commandEntry.description;
+        if (commandEntries.length === 1) {
+          const commandParts = commandEntry.command.split(" ");
+          const command = commandParts[0];
+          const args = commandParts.slice(1);
+          const inputParts = inputString.split(" ");
+          const inputArgs = inputParts.slice(1);
+          const commandEl = document.createElement("span");
+          commandEl.textContent = "/" + command;
+          entryEl.childNodes[0].appendChild(commandEl);
+          for (let i = 0; i < args.length; i++) {
+            const argEl = document.createElement("span");
+            const arg = args[i];
+            const inputArg = inputArgs[i] || "";
+            const argValidator = commandEntry?.argValidators[arg];
+            if (argValidator) {
+              const argIsInvalid = argValidator(inputArg);
+              if (argIsInvalid) {
+                argEl.style.color = "red";
+              } else {
+                argEl.style.color = "green";
+              }
+            }
+            argEl.textContent = " " + arg;
+            entryEl.childNodes[0].appendChild(argEl);
+          }
+        } else {
+          const commandEl = document.createElement("span");
+          commandEl.textContent = "/" + commandEntry.command;
+          entryEl.childNodes[0].appendChild(commandEl);
+        }
+        this.navWindow.addEntry(commandEntry, entryEl);
+      }
+    } else {
+    }
+  }
+  renderInlineCompletion() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+    const selectedEntry = this.navWindow.getSelectedEntry();
+    if (!selectedEntry) return error("No selected entry to render completion");
+    const { name } = selectedEntry;
+    this.contentEditableEditor.clearInput();
+    this.contentEditableEditor.insertText("/" + name);
+  }
+  validateInputCommand(command) {
+    const inputParts = command.split(" ");
+    const inputCommandName = inputParts[0];
+    if (!inputCommandName) return "No command provided.";
+    const availableCommands = this.getAvailableCommands();
+    const commandEntry = availableCommands.find((commandEntry2) => commandEntry2.name === inputCommandName);
+    if (!commandEntry) return "Command not found.";
+    const commandParts = commandEntry.command.split(" ");
+    const args = commandParts.slice(1);
+    const argValidators = commandEntry.argValidators;
+    if (!argValidators) return null;
+    const inputArgs = inputParts.slice(1);
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      const inputArg = inputArgs[i] || "";
+      const argValidator = argValidators[arg];
+      if (argValidator) {
+        const argIsInvalid = argValidator(inputArg);
+        if (argIsInvalid) return "Invalid argument: " + arg;
+      }
+    }
+    return null;
+  }
+  getAvailableCommands() {
+    const channelData = this.session.networkInterface.channelData;
+    const is_broadcaster = channelData?.me?.isBroadcaster || false;
+    const is_moderator = channelData?.me?.isModerator || false;
+    return commandsMap.filter((commandEntry) => {
+      if (commandEntry.minAllowedRole === "broadcaster") return is_broadcaster;
+      if (commandEntry.minAllowedRole === "moderator") return is_moderator || is_broadcaster;
+      return true;
+    });
+  }
+  getParsedInputCommand(inputString) {
+    const inputParts = inputString.split(" ").filter((v) => v !== "");
+    const inputCommandName = inputParts[0];
+    const availableCommands = this.getAvailableCommands();
+    const commandEntry = availableCommands.find(
+      (commandEntry2) => commandEntry2.name === inputCommandName
+    );
+    if (!commandEntry) return [error("Command not found.")];
+    const argCount = countStringOccurrences(commandEntry.command, "<");
+    if (inputParts.length - 1 > argCount) {
+      const start = inputParts.slice(1, argCount + 1);
+      const rest = inputParts.slice(argCount + 1).join(" ");
+      return [
+        {
+          name: commandEntry.name,
+          alias: commandEntry.alias,
+          args: start.concat(rest)
+        },
+        commandEntry
+      ];
+    }
+    return [
+      {
+        name: commandEntry.name,
+        alias: commandEntry.alias,
+        args: inputParts.slice(1, argCount + 1)
+      },
+      commandEntry
+    ];
+  }
+  moveSelectorUp() {
+    if (!this.navWindow) return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow) return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.renderInlineCompletion();
+  }
+  attemptSubmit(event) {
+    const { contentEditableEditor } = this;
+    const firstNode = contentEditableEditor.getInputNode().firstChild;
+    if (!firstNode || !(firstNode instanceof Text)) {
+      this.destroy();
+      return;
+    }
+    const nodeData = firstNode.data;
+    const firstChar = nodeData[0];
+    if (firstChar !== "/") {
+      this.destroy();
+      return;
+    }
+    const isInvalid = this.validateInputCommand(nodeData.substring(1));
+    const [commandData, commandEntry] = this.getParsedInputCommand(nodeData.substring(1));
+    event.stopPropagation();
+    if (isInvalid || !commandData) {
+      return;
+    }
+    const { networkInterface } = this.session;
+    if (commandEntry && typeof commandEntry.execute === "function") {
+      commandEntry.execute({ ...this.rootContext, ...this.session }, commandData.args);
+    } else {
+      networkInterface.sendCommand(commandData).then((res) => {
+        if (res.status?.error) {
+          this.session.userInterface?.toastError(res.status.message || "Command failed. No reason given.");
+        } else if (res.error) {
+          this.session.userInterface?.toastError(
+            typeof res.error === "string" ? res.error : res.message || "Command failed. No reason given."
+          );
+        }
+      }).catch((err) => {
+        this.session.userInterface?.toastError("Command failed. " + (err.message || ""));
+      });
+    }
+    contentEditableEditor.clearInput();
+    this.destroy();
+  }
+  handleKeyDown(event) {
+    const { contentEditableEditor } = this;
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      return this.moveSelectorUp();
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      return this.moveSelectorDown();
+    }
+    const firstNode = contentEditableEditor.getInputNode().firstChild;
+    if (!firstNode && event.key === "/") {
+      this.updateCompletionEntries("", "/");
+    } else if (!firstNode || !(firstNode instanceof Text)) {
+      this.destroy();
+      return;
+    }
+    const nodeData = firstNode ? firstNode.data : "/";
+    const firstChar = nodeData[0];
+    if (firstChar !== "/") {
+      this.destroy();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      this.attemptSubmit(event);
+    }
+  }
+  handleKeyUp(event) {
+    const { contentEditableEditor } = this;
+    const firstNode = contentEditableEditor.getInputNode().firstChild;
+    if (!firstNode || !(firstNode instanceof Text)) {
+      this.destroy();
+      return;
+    }
+    const nodeData = firstNode.data;
+    const firstChar = nodeData[0];
+    if (firstChar !== "/") {
+      this.destroy();
+      return;
+    }
+    const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event);
+    if (keyIsLetterDigitPuncSpaceChar || event.key === "Backspace" || event.key === "Delete") {
+      let i = 1;
+      while (nodeData[i] && nodeData[i] !== " ") i++;
+      const commandName = nodeData.substring(1, i);
+      this.updateCompletionEntries(commandName, nodeData);
+    }
+  }
+  handleSubmitButton(event) {
+    this.attemptSubmit(event);
+  }
+};
+
+// src/Classes/CompletionStrategies/EmoteCompletionStrategy.ts
+var EmoteCompletionStrategy = class extends AbstractCompletionStrategy {
+  rootContext;
+  session;
+  contentEditableEditor;
+  id = "emotes";
+  start = 0;
+  end = 0;
+  node = null;
+  word = null;
+  emoteComponent = null;
+  constructor(rootContext, session, { contentEditableEditor }, containerEl) {
+    super(containerEl);
+    this.rootContext = rootContext;
+    this.session = session;
+    this.contentEditableEditor = contentEditableEditor;
+  }
+  static shouldUseStrategy(event, contentEditableEditor) {
+    const word = Caret.getWordBeforeCaret().word;
+    return event instanceof KeyboardEvent && event.key === "Tab" && word !== null;
+  }
+  createModal() {
+    super.createModal();
+    this.navWindow.addEventListener("entry-click", (event) => {
+      this.renderInlineCompletion();
+      this.destroy();
+    });
+  }
+  updateCompletionEntries() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+    const { word, start, end, node } = Caret.getWordBeforeCaret();
+    if (!word) {
+      this.destroy();
+      return;
+    }
+    const { emotesManager } = this.session;
+    this.word = word;
+    this.start = start;
+    this.end = end;
+    this.node = node;
+    const searchResults = emotesManager.searchEmotes(word.substring(0, 20), 20);
+    const emoteNames = searchResults.map((result) => result.item.name);
+    const emoteHids = searchResults.map((result) => emotesManager.getEmoteHidByName(result.item.name));
+    if (emoteNames.length) {
+      for (let i = 0; i < emoteNames.length; i++) {
+        const emoteName = emoteNames[i];
+        const emoteHid = emoteHids[i];
+        const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
+        this.navWindow.addEntry(
+          { emoteHid },
+          parseHTML(
+            `<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
+            true
+          )
+        );
+      }
+      this.navWindow.setSelectedIndex(0);
+      this.renderInlineCompletion();
+      if (!this.navWindow.getEntriesCount()) {
+        this.destroy();
+      }
+    } else {
+      this.destroy();
+    }
+  }
+  moveSelectorUp() {
+    if (!this.navWindow) return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow) return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.renderInlineCompletion();
+  }
+  renderInlineCompletion() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+    const selectedEntry = this.navWindow.getSelectedEntry();
+    if (!selectedEntry) return error("No selected entry to render completion");
+    const { emoteHid } = selectedEntry;
+    if (!emoteHid) return error("No emote hid to render inline emote");
+    if (this.emoteComponent) {
+      this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
+    } else {
+      if (!this.node) return error("Invalid node to restore original text");
+      const range = document.createRange();
+      range.setStart(this.node, this.start);
+      range.setEnd(this.node, this.end);
+      range.deleteContents();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      this.contentEditableEditor.normalize();
+      this.emoteComponent = this.contentEditableEditor.insertEmote(emoteHid);
+    }
+  }
+  restoreOriginalText() {
+    if (this.word) {
+      if (!this.emoteComponent) return error("Invalid embed node to restore original text");
+      this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
+    }
+  }
+  handleKeyDown(event) {
+    if (this.navWindow) {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          this.moveSelectorDown();
+        } else {
+          this.moveSelectorUp();
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        this.moveSelectorUp();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        this.moveSelectorDown();
+      } else if (event.key === "ArrowRight" || event.key === "Enter") {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        this.destroy();
+      } else if (event.key === " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.destroy();
+      } else if (event.key === "ArrowLeft" || event.key === "Escape") {
+        this.destroy();
+      } else if (event.key === "Backspace") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.restoreOriginalText();
+        this.destroy();
+      } else if (event.key === "Shift") {
+      } else {
+        this.destroy();
+      }
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      this.createModal();
+      this.updateCompletionEntries();
+    }
+  }
+  destroy() {
+    super.destroy();
+    this.start = 0;
+    this.end = 0;
+    this.node = null;
+    this.word = null;
+    this.emoteComponent = null;
+  }
+};
+
+// src/Classes/CompletionStrategies/MentionCompletionStrategy.ts
+var MentionCompletionStrategy = class extends AbstractCompletionStrategy {
+  contentEditableEditor;
+  rootContext;
+  session;
+  id = "mentions";
+  start = 0;
+  end = 0;
+  node = null;
+  word = null;
+  mentionEnd = 0;
+  constructor(rootContext, session, { contentEditableEditor }, containerEl) {
+    super(containerEl);
+    this.contentEditableEditor = contentEditableEditor;
+    this.rootContext = rootContext;
+    this.session = session;
+  }
+  static shouldUseStrategy(event, contentEditableEditor) {
+    const word = Caret.getWordBeforeCaret().word;
+    return event instanceof KeyboardEvent && event.key === "@" && !word || word !== null && word.startsWith("@");
+  }
+  createModal() {
+    super.createModal();
+    this.navWindow.addEventListener("entry-click", (event) => {
+      Caret.moveCaretTo(this.node, this.mentionEnd);
+      this.contentEditableEditor.insertText(" ");
+      this.destroy();
+    });
+  }
+  updateCompletionEntries() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+    const { word, start, end, node } = Caret.getWordBeforeCaret();
+    if (!word) {
+      this.destroy();
+      return;
+    }
+    this.word = word;
+    this.start = start;
+    this.end = end;
+    this.node = node;
+    const searchResults = this.session.usersManager.searchUsers(word.substring(1, 20), 20);
+    const userNames = searchResults.map((result) => result.item.name);
+    const userIds = searchResults.map((result) => result.item.id);
+    if (userNames.length) {
+      for (let i = 0; i < userNames.length; i++) {
+        const userName = userNames[i];
+        const userId = userIds[i];
+        this.navWindow.addEntry(
+          { userId, userName },
+          parseHTML(`<li data-user-id="${userId}"><span>@${userName}</span></li>`, true)
+        );
+      }
+      this.navWindow.setSelectedIndex(0);
+      this.renderInlineCompletion();
+      if (!this.navWindow.getEntriesCount()) {
+        this.destroy();
+      }
+    } else {
+      this.destroy();
+    }
+  }
+  renderInlineCompletion() {
+    if (!this.navWindow) return error("Tab completion window does not exist yet");
+    if (!this.node) return error("Invalid node to render inline user mention");
+    const entry = this.navWindow.getSelectedEntry();
+    if (!entry) return error("No selected entry to render inline user mention");
+    const { userId, userName } = entry;
+    const userMention = `@${userName}`;
+    this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
+    Caret.moveCaretTo(this.node, this.mentionEnd);
+    this.contentEditableEditor.processInputContent();
+  }
+  moveSelectorUp() {
+    if (!this.navWindow) return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.restoreOriginalText();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow) return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.restoreOriginalText();
+    this.renderInlineCompletion();
+  }
+  restoreOriginalText() {
+    if (!this.node) return error("Invalid node to restore original text");
+    Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || "");
+    Caret.moveCaretTo(this.node, this.end);
+    this.contentEditableEditor.processInputContent();
+  }
+  handleKeyDown(event) {
+    if (this.navWindow) {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          this.moveSelectorDown();
+        } else {
+          this.moveSelectorUp();
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        this.moveSelectorUp();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        this.moveSelectorDown();
+      } else if (event.key === "ArrowRight" || event.key === "Enter") {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        this.contentEditableEditor.insertText(" ");
+        this.destroy();
+      } else if (event.key === " ") {
+        this.destroy();
+      } else if (event.key === "ArrowLeft" || event.key === "Escape") {
+        this.destroy();
+      } else if (event.key === "Backspace") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.restoreOriginalText();
+        this.destroy();
+      } else if (event.key === "Shift") {
+      } else {
+        this.destroy();
+      }
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      this.createModal();
+      this.updateCompletionEntries();
+    }
+  }
+  destroy() {
+    super.destroy();
+    this.start = 0;
+    this.end = 0;
+    this.mentionEnd = 0;
+    this.node = null;
+    this.word = null;
+  }
+};
+
+// src/Classes/InputCompletionStrategyRegistry.ts
+var InputCompletionStrategyRegistry = class {
+  strategies = [
+    {
+      constructor: EmoteCompletionStrategy
+    },
+    {
+      constructor: MentionCompletionStrategy
+    },
+    {
+      constructor: CommandCompletionStrategy
+    }
+  ];
+  registerStrategy(wrappedStrategy) {
+    if (!this.strategies.find((x) => x.constructor === wrappedStrategy.constructor))
+      this.strategies.push(wrappedStrategy);
+  }
+  unregisterStrategy(strategyConstructor) {
+    this.strategies = this.strategies.filter((x) => x.constructor != strategyConstructor);
+  }
+  findApplicableStrategy(event, editor) {
+    return this.strategies.find((x) => x.constructor.shouldUseStrategy(event, editor));
+  }
+};
+
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.4.37";
+  VERSION = "1.4.38";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -16825,7 +17041,7 @@ var NipahClient = class {
     const { database } = this;
     if (!database) throw new Error("Database is not initialized.");
     info("Setting up client environment..");
-    const eventBus = new Publisher();
+    const eventBus = new Publisher("root");
     const settingsManager = new SettingsManager({ database, eventBus });
     settingsManager.initialize();
     this.settingsManagerPromise = settingsManager.loadSettings().catch((err) => {
@@ -16836,17 +17052,27 @@ var NipahClient = class {
       database,
       settingsManager
     };
+    this.loadExtensions();
     this.createChannelSession();
+  }
+  async loadExtensions() {
+    const rootContext = this.rootContext;
+    const { settingsManager } = rootContext;
+    const isBotrixExtensionEnabled = true;
+    if (isBotrixExtensionEnabled) {
+      const botrixExtension = new BotrixExtension(rootContext, this.sessions);
+      botrixExtension.onEnable();
+    }
   }
   async createChannelSession() {
     log(`Creating new session for ${window.location.href}...`);
     const rootContext = this.rootContext;
     if (!rootContext) throw new Error("Root context is not initialized.");
-    const { database, settingsManager } = rootContext;
-    const eventBus = new Publisher();
+    const { database, settingsManager, eventBus: rootEventBus } = rootContext;
+    const eventBus = new Publisher("session");
     const usersManager = new UsersManager({ eventBus, settingsManager });
     if (NTV_PLATFORM === 1 /* KICK */) {
-      this.networkInterface = new KickNetworkInterface({ ENV_VARS: this.ENV_VARS });
+      this.networkInterface = new KickNetworkInterface();
     } else if (NTV_PLATFORM === 2 /* TWITCH */) {
       throw new Error("Twitch platform is not supported yet.");
     } else {
@@ -16856,7 +17082,8 @@ var NipahClient = class {
     const session = {
       eventBus,
       networkInterface,
-      usersManager
+      usersManager,
+      inputCompletionStrategyRegistry: new InputCompletionStrategyRegistry()
     };
     this.sessions.push(session);
     if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName);
@@ -16868,18 +17095,12 @@ var NipahClient = class {
     ]);
     const channelData = networkInterface.channelData;
     if (!channelData) throw new Error("Channel data has not loaded yet.");
-    const emotesManager = this.emotesManager = new EmotesManager(
-      { database, eventBus, settingsManager },
-      channelData.channelId
-    );
-    emotesManager.initialize();
-    Object.assign(session, {
-      emotesManager,
-      channelData,
-      // badgeProvider: NTV_PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, session) :
-      badgeProvider: new KickBadgeProvider(rootContext, channelData)
-    });
+    session.channelData = channelData;
+    session.badgeProvider = new KickBadgeProvider(rootContext, channelData);
     session.badgeProvider.initialize();
+    const emotesManager = this.emotesManager = new EmotesManager(rootContext, session);
+    emotesManager.initialize();
+    session.emotesManager = emotesManager;
     let userInterface;
     if (NTV_PLATFORM === 1 /* KICK */) {
       userInterface = new KickUserInterface(rootContext, session);
@@ -16899,6 +17120,7 @@ var NipahClient = class {
     emotesManager.registerProvider(SevenTVEmoteProvider);
     const providerOverrideOrder = [2 /* SEVENTV */, 1 /* KICK */];
     emotesManager.loadProviderEmotes(channelData, providerOverrideOrder);
+    rootEventBus.publish("ntv.session.create", session);
     if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName);
   }
   loadStyles() {
@@ -16962,6 +17184,7 @@ var NipahClient = class {
       );
       prevSession.isDestroyed = true;
       prevSession.eventBus.publish("ntv.session.destroy");
+      this.rootContext?.eventBus.publish("ntv.session.destroy", prevSession);
     } else {
       log(`No session to clean up for ${oldLocation}..`);
     }
