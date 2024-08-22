@@ -1,5 +1,16 @@
 export const CHANGELOG = [
 	{
+		version: '1.4.38',
+		date: '2024-08-22',
+		description: `
+                  Feat: Added support for extensions (NTV add-ons, not browser extensions)
+                  Fix: Stale emotes showing as "undefined" in quick emote holder
+                  Fix: Hovering emotes in quick emotes holder cause clipping
+                  Fix: Botrix commands not working due to unicode formatting tag codepoints bug in Botrix
+                  Chore: Add input completion strategy registry
+            `
+	},
+	{
 		version: '1.4.37',
 		date: '2024-08-20',
 		description: `

@@ -1,4 +1,5 @@
 import { NavigatableEntriesWindowComponent } from '../../UserInterface/Components/NavigatableEntriesWindowComponent'
+import type { ContentEditableEditor } from '../ContentEditableEditor'
 import { error } from '../../utils'
 
 export abstract class AbstractCompletionStrategy {
@@ -10,6 +11,18 @@ export abstract class AbstractCompletionStrategy {
 
 	constructor(containerEl: HTMLElement) {
 		this.containerEl = containerEl
+	}
+
+	handleKeyDown(event: KeyboardEvent) {}
+	handleKeyUp(event: KeyboardEvent) {}
+	handleSubmitButton(event: MouseEvent) {}
+
+	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
+		/**
+		 * Typescript sadly does not support static members in interfaces yet,
+		 *   so we deal with it this way.
+		 */
+		throw new Error('Method not implemented.')
 	}
 
 	createModal() {
@@ -35,10 +48,6 @@ export abstract class AbstractCompletionStrategy {
 	isShowingNavWindow() {
 		return !!this.navWindow
 	}
-
-	handleKeyDown(event: KeyboardEvent) {}
-	handleKeyUp(event: KeyboardEvent) {}
-	handleSubmitButton(event: MouseEvent) {}
 
 	destroy() {
 		if (this.navWindow) this.destroyModal()

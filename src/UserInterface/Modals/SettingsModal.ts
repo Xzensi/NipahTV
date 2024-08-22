@@ -34,7 +34,7 @@ export class SettingsModal extends AbstractModal {
 	render() {
 		super.render()
 
-		log('Rendering settings modal..')
+		log('Rendered settings modal..')
 
 		const sharedSettings = this.settingsOpts.sharedSettings
 		const settingsMap = this.settingsOpts.settingsMap

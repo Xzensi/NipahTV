@@ -1,11 +1,7 @@
+import { INetworkInterface } from './NetworkInterface'
 import { REST, info } from '../utils'
-import { AbstractNetworkInterface } from './AbstractNetworkInterface'
 
-export class TwitchNetworkInterface extends AbstractNetworkInterface {
-	constructor(deps: any) {
-		super(deps)
-	}
-
+export class TwitchNetworkInterface implements INetworkInterface {
 	async connect() {
 		return Promise.resolve()
 	}

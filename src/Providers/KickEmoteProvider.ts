@@ -1,5 +1,5 @@
-import { AbstractEmoteProvider, IAbstractEmoteProvider, EmoteProviderDependencies } from './AbstractEmoteProvider'
-import { SettingsManager } from '../Managers/SettingsManager'
+import { AbstractEmoteProvider, IAbstractEmoteProvider } from './AbstractEmoteProvider'
+import type { SettingsManager } from '../Managers/SettingsManager'
 import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
@@ -7,8 +7,8 @@ export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstrac
 	id = PROVIDER_ENUM.KICK
 	status = 'unloaded'
 
-	constructor(dependencies: EmoteProviderDependencies) {
-		super(dependencies)
+	constructor(settingsManager: SettingsManager) {
+		super(settingsManager)
 	}
 
 	async fetchEmotes({ channelId, channelName, userId, me }: ChannelData) {

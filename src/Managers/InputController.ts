@@ -1,10 +1,5 @@
-import type { AbstractNetworkInterface } from '../NetworkInterfaces/AbstractNetworkInterface'
 import type { PriorityEventTarget } from '../Classes/PriorityEventTarget'
-import type { SettingsManager } from './SettingsManager'
 import type { Clipboard2 } from '../Classes/Clipboard'
-import type { Publisher } from '../Classes/Publisher'
-import type { EmotesManager } from './EmotesManager'
-import type { UsersManager } from './UsersManager'
 
 import { ContentEditableEditor } from '../Classes/ContentEditableEditor'
 import { MessagesHistory } from '../Classes/MessagesHistory'

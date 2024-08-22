@@ -1,8 +1,6 @@
 import type { IFavoriteEmoteDocument } from '../Database/models/FavoriteEmotesModel'
 import type { IEmoteUsagesDocument } from '../Database/models/EmoteUsagesModel'
-import { log, info, error, getPlatformSlug } from '../utils'
-import { DatabaseProxy } from '../Classes/DatabaseProxy'
-import { Publisher } from '../Classes/Publisher'
+import { log, info, error, getPlatformSlug, isEmpty } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 import Fuse from 'fuse.js'
 
@@ -20,7 +18,7 @@ export class EmoteDatastore {
 
 	// Map of pending emote usage changes to be synced to database
 	private hasPendingChanges = false
-	private pendingEmoteUsageChanges: { [key: string]: boolean } = {}
+	private pendingEmoteUsageChanges: { [key: string]: string } = {}
 	private pendingFavoriteEmoteChanges: { [key: string]: string } = {}
 
 	private fuse = new Fuse<Emote>([], {
@@ -33,21 +31,23 @@ export class EmoteDatastore {
 		keys: [['name'], ['parts']]
 	})
 
-	private database: DatabaseProxy
-	private eventBus: Publisher
+	private rootContext: RootContext
+	private session: Session
 	private channelId: string
 
-	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }, channelId: string) {
-		this.database = database
-		this.eventBus = eventBus
-		this.channelId = channelId
+	constructor(rootContext: RootContext, session: Session) {
+		this.rootContext = rootContext
+		this.session = session
+
+		// session.channelData.channelId is not yet loaded here
+		this.channelId = session.channelData.channelId
 
 		// Periodically store the emote data to local storage
 		setInterval(() => {
 			this.storeDatabase()
 		}, 3 * 1000)
 
-		eventBus.subscribe('ntv.session.destroy', () => {
+		session.eventBus.subscribe('ntv.session.destroy', () => {
 			this.emoteNameMap.clear()
 			this.emoteUsage.clear()
 			this.emoteMap.clear()
@@ -56,7 +56,8 @@ export class EmoteDatastore {
 
 	async loadDatabase() {
 		info('Reading out emotes data from database..')
-		const { database, eventBus } = this
+		const { database } = this.rootContext
+		const { eventBus } = this.session
 
 		database.emoteUsages
 			.getRecords(this.channelId)
@@ -71,7 +72,7 @@ export class EmoteDatastore {
 			.catch(err => error('Failed to load emote usage data from database.', err.message))
 
 		database.favoriteEmotes
-			.getRecords(getPlatformSlug())
+			.getRecords()
 			.then(favoriteEmotes => {
 				if (!favoriteEmotes.length) return
 
@@ -87,38 +88,53 @@ export class EmoteDatastore {
 	}
 
 	storeDatabase() {
-		// info('Syncing emote data to database..')
-
 		if (!this.hasPendingChanges) return
 
-		const { database } = this
+		// info('Syncing emote data changes to database..')
+
+		const { database } = this.rootContext
 		const platformSlug = getPlatformSlug()
 
+		// Clone the pending changes to prevent changes during the sync
+		const pendingEmoteUsageChanges = structuredClone(this.pendingEmoteUsageChanges)
+		this.pendingEmoteUsageChanges = {}
+		const pendingFavoriteEmoteChanges = structuredClone(this.pendingFavoriteEmoteChanges)
+		this.pendingFavoriteEmoteChanges = {}
+
 		const emoteUsagePuts: IEmoteUsagesDocument[] = []
+		const emoteUsageDeletes: [TPlatformId, TChannelId, TEmoteHid][] = []
 
-		for (const emoteHid in this.pendingEmoteUsageChanges) {
-			const emoteUsages = this.emoteUsage.get(emoteHid) || 0
-			emoteUsagePuts.push({ platformId: platformSlug, channelId: this.channelId, emoteHid, count: emoteUsages })
+		if (!isEmpty(pendingEmoteUsageChanges))
+			info(`Syncing ${Object.keys(pendingEmoteUsageChanges).length} emote usage changes to database..`)
 
-			// Remove the pending change individually instead of clearing the entire object
-			//  to prevent race conditions
-			delete this.pendingEmoteUsageChanges[emoteHid]
+		for (const emoteHid in pendingEmoteUsageChanges) {
+			const action = pendingEmoteUsageChanges[emoteHid]
+
+			if (action === 'changed') {
+				const emoteUsages = this.emoteUsage.get(emoteHid) || 0
+				emoteUsagePuts.push({
+					platformId: platformSlug,
+					channelId: this.channelId,
+					emoteHid,
+					count: emoteUsages
+				})
+			} else if (action === 'removed') {
+				emoteUsageDeletes.push([platformSlug, this.channelId, emoteHid])
+			}
 		}
 
 		const favoriteEmotePuts: IFavoriteEmoteDocument[] = []
 		const favoriteEmoteReorders: { platformId: string; emoteHid: string; orderIndex: number }[] = []
 		const favoriteEmoteDeletes: { platformId: string; emoteHid: string }[] = []
 
-		// log('Syncing favorite emote changes to database..', this.pendingFavoriteEmoteChanges)
-		for (const emoteHid in this.pendingFavoriteEmoteChanges) {
-			const action = this.pendingFavoriteEmoteChanges[emoteHid]
+		if (!isEmpty(pendingFavoriteEmoteChanges))
+			info(`Syncing ${Object.keys(pendingFavoriteEmoteChanges).length} favorite emote changes to database..`)
 
-			// Remove the pending change individually instead of clearing the entire object
-			//  to prevent race conditions
-			delete this.pendingFavoriteEmoteChanges[emoteHid]
+		for (const emoteHid in pendingFavoriteEmoteChanges) {
+			const action = pendingFavoriteEmoteChanges[emoteHid]
 
 			// const isFavorited = this.favoriteEmotesMap.has(emoteHid)
-			if (action === 'add_favorite') {
+			if (action === 'added') {
 				const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
 				if (!favoriteEmote) {
 					error('Unable to add favorite emote to database, emote not found', emoteHid)
@@ -126,7 +142,7 @@ export class EmoteDatastore {
 				}
 
 				favoriteEmotePuts.push(favoriteEmote)
-			} else if (action === 'reorder_favorite') {
+			} else if (action === 'reordered') {
 				const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
 				if (!favoriteEmote) {
 					error('Unable to reorder favorite emote to database, emote not found', emoteHid)
@@ -138,7 +154,7 @@ export class EmoteDatastore {
 					emoteHid,
 					orderIndex: favoriteEmote.orderIndex
 				})
-			} else if (action === 'remove_favorite') {
+			} else if (action === 'removed') {
 				favoriteEmoteDeletes.push({ platformId: platformSlug, emoteHid })
 			} else {
 				error('Unknown favorite emote database action', action)
@@ -146,9 +162,12 @@ export class EmoteDatastore {
 		}
 
 		if (emoteUsagePuts.length) database.emoteUsages.bulkPutRecords(emoteUsagePuts)
+		if (emoteUsageDeletes.length) database.emoteUsages.bulkDeleteRecords(emoteUsageDeletes)
 		if (favoriteEmotePuts.length) database.favoriteEmotes.bulkPutRecords(favoriteEmotePuts)
 		if (favoriteEmoteReorders.length) database.favoriteEmotes.bulkOrderRecords(favoriteEmoteReorders)
 		if (favoriteEmoteDeletes.length) database.favoriteEmotes.bulkDeleteRecordsByHid(favoriteEmoteDeletes)
+
+		log('Synced emote data changes to database')
 
 		this.hasPendingChanges = false
 	}
@@ -214,7 +233,7 @@ export class EmoteDatastore {
 					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet)
 				) {
 					log(
-						`Registering ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV '} ${
+						`Registered ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV '} ${
 							storedEmoteSet.isGlobalSet ? 'global' : 'channel'
 						} emote override for ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							emoteSet.isGlobalSet ? 'global' : 'channel'
@@ -234,7 +253,7 @@ export class EmoteDatastore {
 				} else {
 					// Remove the emote from the emote set because we already have a higher priority emote
 					emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1)
-					log('Skipping overridden emote', emote.name)
+					log('Skipped overridden emote', emote.name)
 				}
 			} else {
 				this.emoteMap.set(emote.hid, emote)
@@ -244,7 +263,7 @@ export class EmoteDatastore {
 			}
 		}
 
-		this.eventBus.publish('ntv.datastore.emotes.changed')
+		this.session.eventBus.publish('ntv.datastore.emotes.changed')
 	}
 
 	getEmote(emoteHid: string) {
@@ -311,12 +330,12 @@ export class EmoteDatastore {
 			if (this.pendingFavoriteEmoteChanges[emote.emoteHid]) continue
 
 			emote.orderIndex = i
-			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reorder_favorite'
+			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reordered'
 		}
 
-		this.pendingFavoriteEmoteChanges[emoteHid] = 'add_favorite'
+		this.pendingFavoriteEmoteChanges[emoteHid] = 'added'
 		this.hasPendingChanges = true
-		this.eventBus.publish('ntv.datastore.emotes.favorites.changed', { added: emoteHid })
+		this.session.eventBus.publish('ntv.datastore.emotes.favorites.changed', { added: emoteHid })
 	}
 
 	updateFavoriteEmoteOrderIndex(emoteHid: string, orderIndex: number) {
@@ -338,11 +357,11 @@ export class EmoteDatastore {
 			// Skip emotes that are added new or removed
 			if (this.pendingFavoriteEmoteChanges[emote.emoteHid]) continue
 
-			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reorder_favorite'
+			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reordered'
 		}
 
 		this.hasPendingChanges = true
-		this.eventBus.publish('ntv.datastore.emotes.favorites.changed', { reordered: emoteHid })
+		this.session.eventBus.publish('ntv.datastore.emotes.favorites.changed', { reordered: emoteHid })
 	}
 
 	removeEmoteFromFavorites(emoteHid: string) {
@@ -351,9 +370,9 @@ export class EmoteDatastore {
 
 		this.favoriteEmotesDocumentsMap.delete(emoteHid)
 		this.favoriteEmoteDocuments.splice(this.favoriteEmoteDocuments.indexOf(favoriteEmote), 1)
-		this.pendingFavoriteEmoteChanges[emoteHid] = 'remove_favorite'
+		this.pendingFavoriteEmoteChanges[emoteHid] = 'removed'
 		this.hasPendingChanges = true
-		this.eventBus.publish('ntv.datastore.emotes.favorites.changed', { removed: emoteHid })
+		this.session.eventBus.publish('ntv.datastore.emotes.favorites.changed', { removed: emoteHid })
 	}
 
 	registerEmoteEngagement(emoteHid: string) {
@@ -362,16 +381,16 @@ export class EmoteDatastore {
 		}
 
 		this.emoteUsage.set(emoteHid, (this.emoteUsage.get(emoteHid) || 0) + 1)
-		this.pendingEmoteUsageChanges[emoteHid] = true
+		this.pendingEmoteUsageChanges[emoteHid] = 'changed'
 		this.hasPendingChanges = true
-		this.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
+		this.session.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
 	}
 
 	removeEmoteUsage(emoteHid: string) {
 		this.emoteUsage.delete(emoteHid)
-		this.pendingEmoteUsageChanges[emoteHid] = true
+		this.pendingEmoteUsageChanges[emoteHid] = 'removed'
 		this.hasPendingChanges = true
-		this.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
+		this.session.eventBus.publish('ntv.datastore.emotes.usage.changed', { emoteHid })
 	}
 
 	searchEmotesWithWeightedHistory(searchVal: string) {

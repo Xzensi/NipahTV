@@ -40,38 +40,33 @@ export type UserMessage = {
 	}
 }
 
-export abstract class AbstractNetworkInterface {
-	ENV_VARS: any
+export interface INetworkInterface {
 	channelData?: ChannelData
 
-	constructor({ ENV_VARS }: { ENV_VARS: any }) {
-		this.ENV_VARS = ENV_VARS
-	}
-
-	abstract connect(): Promise<any>
-	abstract disconnect(): Promise<any>
-	abstract loadChannelData(): Promise<any>
-	abstract sendMessage(message: string): Promise<any>
-	abstract sendReply(
+	connect(): Promise<any>
+	disconnect(): Promise<any>
+	loadChannelData(): Promise<any>
+	sendMessage(message: string): Promise<any>
+	sendReply(
 		message: string,
 		originalMessageId: string,
 		originalMessageContent: string,
 		originalSenderId: string,
 		originalSenderUsername: string
 	): Promise<any>
-	abstract sendCommand(command: { name: string; args: string[] }): Promise<any>
-	abstract createPoll(
+	sendCommand(command: { name: string; args: string[] }): Promise<any>
+	createPoll(
 		channelName: string,
 		question: string,
 		options: string[],
 		duration: number,
 		displayDuration: number
 	): Promise<any>
-	abstract followUser(username: string): Promise<any>
-	abstract unfollowUser(username: string): Promise<any>
-	abstract getUserInfo(slug: string): Promise<UserInfo>
-	abstract getUserChannelInfo(channelName: string, username: string): Promise<UserChannelInfo>
-	abstract getUserMessages(
+	followUser(username: string): Promise<any>
+	unfollowUser(username: string): Promise<any>
+	getUserInfo(slug: string): Promise<UserInfo>
+	getUserChannelInfo(channelName: string, username: string): Promise<UserChannelInfo>
+	getUserMessages(
 		channelId: string,
 		userId: string,
 		cursor: number

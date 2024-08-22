@@ -1,37 +1,52 @@
-import { AbstractEmoteProvider, EmoteProviderDependencies } from '../Providers/AbstractEmoteProvider'
+import { AbstractEmoteProvider } from '../Providers/AbstractEmoteProvider'
 import { EmoteDatastore } from '../Datastores/EmoteDatastore'
 import { log, info, error, splitEmoteName } from '../utils'
-import { Publisher } from '../Classes/Publisher'
-import { SettingsManager } from './SettingsManager'
-import { DatabaseProxy } from '../Classes/DatabaseProxy'
+import type { SettingsManager } from './SettingsManager'
 
 export class EmotesManager {
 	private providers: Map<number, AbstractEmoteProvider> = new Map()
 	loaded = false
 
-	private eventBus: Publisher
-	private settingsManager: SettingsManager
+	private rootContext: RootContext
+	private session: Session
 	private datastore: EmoteDatastore
 
-	constructor(
-		{
-			database,
-			eventBus,
-			settingsManager
-		}: { database: DatabaseProxy; eventBus: Publisher; settingsManager: SettingsManager },
-		channelId: string
-	) {
-		this.eventBus = eventBus
-		this.settingsManager = settingsManager
-		this.datastore = new EmoteDatastore({ database, eventBus }, channelId)
+	constructor(rootContext: RootContext, session: Session) {
+		this.rootContext = rootContext
+		this.session = session
+		this.datastore = new EmoteDatastore(rootContext, session)
 	}
 
 	initialize() {
-		this.datastore.loadDatabase().catch(err => error('Failed to load emote data from database.', err.message))
+		this.datastore
+			.loadDatabase()
+			.then(() => {
+				this.session.eventBus.subscribe(
+					'ntv.providers.loaded',
+					() => {
+						/**
+						 * Cleanup database of stale data
+						 */
+
+						// Remove emote useage data of emotes that are no longer in any emote set
+						const emoteUsage = this.datastore.emoteUsage
+
+						for (const [emoteHid] of emoteUsage) {
+							const emote = this.datastore.getEmote(emoteHid)
+							if (!emote) {
+								log('Removing stale emote usage data of emote', emoteHid)
+								this.datastore.removeEmoteUsage(emoteHid)
+							}
+						}
+					},
+					true
+				)
+			})
+			.catch(err => error('Failed to load emote data from database.', err.message))
 	}
 
-	registerProvider(providerConstructor: new (dependencies: EmoteProviderDependencies) => AbstractEmoteProvider) {
-		const provider = new providerConstructor({ settingsManager: this.settingsManager, datastore: this.datastore })
+	registerProvider(providerConstructor: new (settingsManager: SettingsManager) => AbstractEmoteProvider) {
+		const provider = new providerConstructor(this.rootContext.settingsManager)
 		this.providers.set(provider.id, provider)
 	}
 
@@ -40,7 +55,8 @@ export class EmotesManager {
 	 * @param providerOverrideOrder The index of emote providers in the array determines their override order incase of emote conflicts.
 	 */
 	async loadProviderEmotes(channelData: ChannelData, providerOverrideOrder: number[]) {
-		const { datastore, providers, eventBus } = this
+		const { datastore, providers } = this
+		const { eventBus } = this.session
 
 		const fetchEmoteProviderPromises: Array<Promise<void | EmoteSet[]>> = []
 		providers.forEach(provider => {
@@ -198,7 +214,7 @@ export class EmotesManager {
 	}
 
 	searchEmotes(search: string, limit = 0) {
-		const { settingsManager } = this
+		const { settingsManager } = this.rootContext
 		const biasCurrentChannel = settingsManager.getSetting('shared.chat.behavior.search_bias_subscribed_channels')
 		const biasSubscribedChannels = settingsManager.getSetting('shared.chat.behavior.search_bias_current_channels')
 

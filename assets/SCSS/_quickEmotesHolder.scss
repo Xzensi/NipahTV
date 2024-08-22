@@ -5,8 +5,17 @@
 	max-height: $emote_size * 2;
 	font-size: $root_font_size;
 	align-items: center;
-	overflow: hidden;
 	width: 100%;
+
+	// To accomodate for ntv__emote:hover -> scale: 110% with overflow: hidden
+	$hoverScalePadding: 0.18em;
+	overflow: hidden;
+	padding: $hoverScalePadding;
+	box-sizing: content-box;
+
+	> div {
+		box-sizing: border-box;
+	}
 
 	&[data-rows='1'] {
 		max-height: $emote_size * 1;
@@ -61,15 +70,16 @@
 	}
 
 	&__spacer {
-		width: calc($emote_size / 1.2);
+		// width: calc($emote_size / 1.2);
 		height: $emote_size * 0.618;
 		vertical-align: middle;
 		display: inline-block;
 		pointer-events: none;
 		text-align: center;
 		user-select: none;
+		padding: 0 0.209em;
 		font-size: 1.2em;
-		opacity: 0.5;
+		opacity: 0.36;
 	}
 
 	&__favorites:empty + &__spacer {

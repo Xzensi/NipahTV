@@ -29,7 +29,7 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 		this.contentEditableEditor = contentEditableEditor
 	}
 
-	static shouldUseStrategy(event: Event): boolean {
+	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
 		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null
 	}

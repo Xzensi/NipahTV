@@ -29,11 +29,19 @@ export default class EmoteUsagesModel {
 		return this.db.emoteUsages.delete([platformId, channelId, emoteHid])
 	}
 
-	async bulkPutRecords(documents: any[]) {
+	async deleteRecordByHid(platformId: string, emoteHid: string) {
+		return this.db.emoteUsages.where({ platformId, emoteHid }).delete()
+	}
+
+	async bulkPutRecords(documents: IEmoteUsagesDocument[]) {
 		return this.db.emoteUsages.bulkPut(documents)
 	}
 
-	async bulkDeleteRecords(records: any[]) {
+	async bulkDeleteRecords(records: [TPlatformId, TChannelId, TEmoteHid][]) {
 		return this.db.emoteUsages.bulkDelete(records)
+	}
+
+	async bulkDeleteRecordsByHid(records: { platformId: string; emoteHid: string }[]) {
+		return Promise.all(records.map(record => this.deleteRecordByHid(record.platformId, record.emoteHid)))
 	}
 }
