@@ -1,4 +1,4 @@
-import { AbstractCompletionStrategy } from './CompletionStrategies/AbstractCompletionStrategy'
+import { AbstractCompletionStrategy } from '../Strategies/InputCompletionStrategies/AbstractCompletionStrategy'
 import type { ContentEditableEditor } from './ContentEditableEditor'
 import type { PriorityEventTarget } from './PriorityEventTarget'
 import { error, log } from '../utils'
@@ -34,7 +34,6 @@ export class InputCompletor {
 	attachEventHandlers() {
 		this.contentEditableEditor.addEventListener('keydown', 8, this.handleKeyDown.bind(this))
 		this.contentEditableEditor.addEventListener('keyup', 10, this.handleKeyUp.bind(this))
-		this.submitButtonPriorityEventTarget.addEventListener('click', 9, this.handleSubmitButton.bind(this))
 	}
 
 	isShowingModal() {
@@ -50,7 +49,7 @@ export class InputCompletor {
 	private maybeSetStrategy(event: Event) {
 		if (this.currentActiveStrategy) return
 
-		const wrappedStrategy = this.session.inputCompletionStrategyRegistry.findApplicableStrategy(
+		const wrappedStrategy = this.session.inputCompletionStrategyRegister.findApplicableStrategy(
 			event,
 			this.contentEditableEditor
 		)
@@ -92,18 +91,6 @@ export class InputCompletor {
 			}
 
 			this.currentActiveStrategy.handleKeyUp(event)
-
-			if (this.currentActiveStrategy.destroyed) {
-				delete this.currentActiveStrategy
-			}
-		}
-	}
-
-	private handleSubmitButton(event: MouseEvent) {
-		this.maybeSetStrategy(event)
-
-		if (this.currentActiveStrategy) {
-			this.currentActiveStrategy.handleSubmitButton(event)
 
 			if (this.currentActiveStrategy.destroyed) {
 				delete this.currentActiveStrategy

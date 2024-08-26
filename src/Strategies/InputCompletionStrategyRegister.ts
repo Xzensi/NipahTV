@@ -1,28 +1,28 @@
-import type { AbstractCompletionStrategy } from './CompletionStrategies/AbstractCompletionStrategy'
-import { CommandCompletionStrategy } from './CompletionStrategies/CommandCompletionStrategy'
-import { EmoteCompletionStrategy } from './CompletionStrategies/EmoteCompletionStrategy'
-import { MentionCompletionStrategy } from './CompletionStrategies/MentionCompletionStrategy'
-import type { ContentEditableEditor } from './ContentEditableEditor'
+import type { AbstractCompletionStrategy } from './InputCompletionStrategies/AbstractCompletionStrategy'
+import { CommandCompletionStrategy } from './InputCompletionStrategies/CommandCompletionStrategy'
+import { EmoteCompletionStrategy } from './InputCompletionStrategies/EmoteCompletionStrategy'
+import { MentionCompletionStrategy } from './InputCompletionStrategies/MentionCompletionStrategy'
+import type { ContentEditableEditor } from '../Classes/ContentEditableEditor'
 
 interface CompletionStrategyStatic {
 	shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean
 }
 
-type WrappedStrategy = {
+interface WrappedStrategy {
 	constructor: (new (...args: any[]) => AbstractCompletionStrategy) & CompletionStrategyStatic
 	dependencies?: {}
 }
 
-export class InputCompletionStrategyRegistry {
+export class InputCompletionStrategyRegister {
 	private strategies: WrappedStrategy[] = [
 		{
-			constructor: EmoteCompletionStrategy
+			constructor: CommandCompletionStrategy
 		},
 		{
 			constructor: MentionCompletionStrategy
 		},
 		{
-			constructor: CommandCompletionStrategy
+			constructor: EmoteCompletionStrategy
 		}
 	]
 

@@ -57,7 +57,7 @@ export default class BotrixExtension extends Extension {
 		rootEventBus.unsubscribe('ntv.session.create', this.sessionCreateCb)
 
 		this.sessions.forEach(session => {
-			session.inputCompletionStrategyRegistry.unregisterStrategy(BotrixCompletionStrategy)
+			session.inputCompletionStrategyRegister.unregisterStrategy(BotrixCompletionStrategy)
 		})
 	}
 
@@ -66,7 +66,7 @@ export default class BotrixExtension extends Extension {
 	}
 
 	registerSessionCompletionStrategy(session: Session) {
-		session.inputCompletionStrategyRegistry.registerStrategy({
+		session.inputCompletionStrategyRegister.registerStrategy({
 			constructor: BotrixCompletionStrategy,
 			dependencies: { botrixSessionManager: new BotrixSessionManager(session) }
 		})

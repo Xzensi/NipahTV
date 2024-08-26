@@ -1,5 +1,5 @@
 import type { UsersManager } from '../../Managers/UsersManager'
-import type { ContentEditableEditor } from '../ContentEditableEditor'
+import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
 import { Caret } from '../../UserInterface/Caret'
 import { error, log, parseHTML } from '../../utils'
 import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'

@@ -1,4 +1,4 @@
-import type { INetworkInterface } from '../NetworkInterfaces/NetworkInterface'
+import type { NetworkInterface } from '../NetworkInterfaces/NetworkInterface'
 import type { InputController } from './InputController'
 import type { EmotesManager } from './EmotesManager'
 
@@ -11,7 +11,7 @@ export class ChatManager {
 		emotesManager,
 		inputController
 	}: {
-		networkInterface: INetworkInterface
+		networkInterface: NetworkInterface
 		emotesManager: EmotesManager
 		inputController: InputController
 	}) {

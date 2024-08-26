@@ -1,5 +1,5 @@
 import { NavigatableEntriesWindowComponent } from '../../UserInterface/Components/NavigatableEntriesWindowComponent'
-import type { ContentEditableEditor } from '../ContentEditableEditor'
+import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
 import { error } from '../../utils'
 
 export abstract class AbstractCompletionStrategy {
@@ -15,7 +15,6 @@ export abstract class AbstractCompletionStrategy {
 
 	handleKeyDown(event: KeyboardEvent) {}
 	handleKeyUp(event: KeyboardEvent) {}
-	handleSubmitButton(event: MouseEvent) {}
 
 	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		/**

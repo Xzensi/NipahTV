@@ -91,12 +91,12 @@ export abstract class AbstractUserInterface {
 	}
 
 	toastSuccess(message: string) {
-		this.toaster.addToast(message, 4_000, 'success')
+		this.toaster.addToast(message.replaceAll('<', '&lt;'), 6_000, 'success')
 	}
 
 	toastError(message: string) {
 		error(message)
-		this.toaster.addToast(message, 4_000, 'error')
+		this.toaster.addToast(message.replaceAll('<', '&lt;'), 6_000, 'error')
 	}
 
 	renderEmotesInString(textContent: string) {
@@ -260,8 +260,7 @@ export abstract class AbstractUserInterface {
 
 	// Submits input to chat
 	submitInput(suppressEngagementEvent?: boolean, dontClearInput?: boolean) {
-		const { networkInterface } = this.session
-		const { eventBus } = this.session
+		const { eventBus, inputExecutionStrategyRegister } = this.session
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
@@ -275,60 +274,72 @@ export abstract class AbstractUserInterface {
 
 		if (this.replyMessageData) {
 			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData
-			networkInterface
-				.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
-				.then(res => {
-					if (res.status.error) {
-						if (res.status.message)
-							this.toastError('Failed to send reply message because: ' + res.status.message)
-						else this.toaster.addToast('Failed to send reply message.', 4_000, 'error')
-						error('Failed to send reply message:', res.status)
+
+			inputExecutionStrategyRegister
+				.routeInput({
+					input: replyContent,
+					isReply: true,
+					replyRefs: {
+						messageId: chatEntryId,
+						messageContent: chatEntryContentString,
+						senderId: chatEntryUserId,
+						senderUsername: chatEntryUsername
 					}
 				})
+				.then(successMessage => {
+					if (successMessage) {
+						if (typeof successMessage !== 'string')
+							throw new Error('Success message returned by input execution strategy is not a string.')
+						this.toastSuccess(successMessage)
+					}
+
+					eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
+
+					dontClearInput || contentEditableEditor.clearInput()
+				})
 				.catch(err => {
-					this.toaster.addToast('Failed to send reply message.', 4_000, 'error')
-					error('Failed to send reply message:', err)
+					if (err && err.message) this.toastError(err.message)
+					else this.toastError('Failed to reply to message. Reason unknown.')
 				})
 
 			this.destroyReplyMessageContext()
 		} else {
-			networkInterface
-				.sendMessage(replyContent)
-				.then(res => {
-					if (res?.status.error) {
-						if (res.status.message) this.toastError('Failed to send message because: ' + res.status.message)
-						else this.toaster.addToast('Failed to send message.', 4_000, 'error')
-						error('Failed to send message:', res.status)
+			inputExecutionStrategyRegister
+				.routeInput({
+					input: replyContent,
+					isReply: false
+				})
+				.then(successMessage => {
+					if (successMessage) {
+						if (typeof successMessage !== 'string')
+							throw new Error('Success message returned by input execution strategy is not a string.')
+						this.toastSuccess(successMessage)
 					}
+
+					eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
+
+					dontClearInput || contentEditableEditor.clearInput()
 				})
 				.catch(err => {
-					this.toaster.addToast('Failed to send emote to chat.', 4_000, 'error')
-					error('Failed to send emote to chat:', err)
+					if (err && err.message) this.toastError(err.message)
+					else this.toastError('Failed to send message. Reason unknown.')
 				})
 		}
-
-		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-
-		dontClearInput || contentEditableEditor.clearInput()
 	}
 
 	sendEmoteToChat(emoteHid: string) {
-		const { networkInterface } = this.session
-		const { emotesManager } = this.session
+		const { emotesManager, inputExecutionStrategyRegister } = this.session
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
 		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
 
-		networkInterface
-			.sendMessage(emoteEmbedding)
-			.then(res => {
-				if (res?.status.error) {
-					if (res.status.message) this.toastError('Failed to send emote because: ' + res.status.message)
-					else this.toaster.addToast('Failed to send emote to chat.', 4_000, 'error')
-					error('Failed to send emote to chat:', res.status)
-				}
+		inputExecutionStrategyRegister
+			.routeInput({
+				input: emoteEmbedding,
+				isReply: false
 			})
 			.catch(err => {
-				this.toastError('Failed to send emote to chat.')
+				if (err) this.toastError('Failed to send emote because: ' + err)
+				else this.toastError('Failed to send emote to chat. Reason unknown.')
 			})
 	}
 

@@ -1,5 +1,5 @@
 import { BotrixSessionManager } from '.'
-import { AbstractCompletionStrategy } from '../../Classes/CompletionStrategies/AbstractCompletionStrategy'
+import { AbstractCompletionStrategy } from '../../Strategies/InputCompletionStrategies/AbstractCompletionStrategy'
 import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
 import { error, log } from '../../utils'
 
@@ -95,27 +95,27 @@ export class BotrixCompletionStrategy extends AbstractCompletionStrategy {
 
 			// TODO make it possible to reply to messages as well as sending messages
 
-			const { networkInterface } = this.session
-			networkInterface
-				.sendMessage(messageContent, true)
-				.then(res => {
-					if (res.status?.error) {
-						this.session.userInterface?.toastError(
-							res.status.message || 'Failed to send message. No reason given.'
-						)
-					} else if (res.error) {
-						this.session.userInterface?.toastError(
-							typeof res.error === 'string'
-								? res.error
-								: res.message || 'Failed to send message. No reason given.'
-						)
-					}
-				})
-				.catch(err => {
-					this.session.userInterface?.toastError(
-						'Failed to send message. ' + (err.message || 'Reason unknown.')
-					)
-				})
+			// const { networkInterface } = this.session
+			// networkInterface
+			// 	.sendMessage(messageContent, true)
+			// 	.then(res => {
+			// 		if (res.status?.error) {
+			// 			this.session.userInterface?.toastError(
+			// 				res.status.message || 'Failed to send message. No reason given.'
+			// 			)
+			// 		} else if (res.error) {
+			// 			this.session.userInterface?.toastError(
+			// 				typeof res.error === 'string'
+			// 					? res.error
+			// 					: res.message || 'Failed to send message. No reason given.'
+			// 			)
+			// 		}
+			// 	})
+			// 	.catch(err => {
+			// 		this.session.userInterface?.toastError(
+			// 			'Failed to send message. ' + (err.message || 'Reason unknown.')
+			// 		)
+			// 	})
 
 			contentEditableEditor.clearInput()
 			this.destroy()

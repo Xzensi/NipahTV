@@ -21,7 +21,10 @@ import Database from './Database/Database'
 
 // Extensions
 import BotrixExtension from './Extensions/Botrix'
-import { InputCompletionStrategyRegistry } from './Classes/InputCompletionStrategyRegistry'
+import { InputCompletionStrategyRegister } from './Strategies/InputCompletionStrategyRegister'
+import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
+import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
+import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
 
 class NipahClient {
 	VERSION = '1.4.38'
@@ -182,7 +185,8 @@ class NipahClient {
 			eventBus,
 			networkInterface,
 			usersManager,
-			inputCompletionStrategyRegistry: new InputCompletionStrategyRegistry()
+			inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
+			inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
 		} as Session
 
 		this.sessions.push(session)
@@ -208,6 +212,9 @@ class NipahClient {
 		emotesManager.initialize()
 
 		session.emotesManager = emotesManager
+
+		session.inputExecutionStrategyRegister.registerStrategy(new DefaultExecutionStrategy(rootContext, session))
+		session.inputExecutionStrategyRegister.registerStrategy(new CommandExecutionStrategy(rootContext, session))
 
 		let userInterface: KickUserInterface
 		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {

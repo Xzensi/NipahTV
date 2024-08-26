@@ -147,11 +147,13 @@ export class REST {
 					if (xhr.responseText) resolve(JSON.parse(xhr.responseText))
 					else resolve(void 0)
 				} else {
-					reject('Request failed with status code ' + xhr.status)
+					if (xhr.responseText) reject(JSON.parse(xhr.responseText))
+					else reject('Request failed with status code ' + xhr.status)
 				}
 			}
 			xhr.onerror = function () {
-				reject('Request failed')
+				if (xhr.responseText) reject(JSON.parse(xhr.responseText))
+				else reject()
 			}
 			xhr.onabort = function () {
 				reject('Request aborted')
@@ -186,7 +188,8 @@ export class RESTFromMain {
 					if (xhr.text) resolve(JSON.parse(xhr.text))
 					else resolve(void 0)
 				} else {
-					reject('Request failed with status code ' + xhr.status)
+					if (xhr.responseText) reject(JSON.parse(xhr.responseText))
+					else reject('Request failed with status code ' + xhr.status)
 				}
 			})
 		}
@@ -249,6 +252,10 @@ export class RESTFromMain {
 			return REST.fetch(url, options)
 		}
 	}
+}
+
+export function isStringNumber(value: string) {
+	return !isNaN(Number(value))
 }
 
 export function isEmpty(obj: object) {

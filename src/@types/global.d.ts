@@ -8,7 +8,8 @@ import type { Publisher } from '../Classes/Publisher'
 import type { PLATFORM_ENUM } from '../constants'
 import type Database from '../Database/Database'
 import type { RESTFromMain } from '../utils'
-import { InputCompletionStrategyRegistry } from '../Classes/InputCompletionStrategyRegistry'
+import { InputCompletionStrategyRegister } from '../Strategies/InputCompletionStrategyRegister'
+import InputExecutionStrategyRegister from '../Strategies/InputExecutionStrategyRegister'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -61,7 +62,8 @@ declare global {
 		userInterface?: AbstractUserInterface
 		emotesManager: EmotesManager
 		badgeProvider: IBadgeProvider
-		inputCompletionStrategyRegistry: InputCompletionStrategyRegistry
+		inputCompletionStrategyRegister: InputCompletionStrategyRegister
+		inputExecutionStrategyRegister: InputExecutionStrategyRegister
 		isDestroyed?: boolean
 	}
 

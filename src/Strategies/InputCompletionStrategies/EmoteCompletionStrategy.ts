@@ -1,5 +1,5 @@
 import type { EmotesManager } from '../../Managers/EmotesManager'
-import type { ContentEditableEditor } from '../ContentEditableEditor'
+import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
 import { Caret } from '../../UserInterface/Caret'
 import { error, parseHTML } from '../../utils'
 import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
@@ -31,7 +31,7 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 
 	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null
+		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null && !word.startsWith('@')
 	}
 
 	createModal() {
