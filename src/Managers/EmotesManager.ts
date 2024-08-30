@@ -99,6 +99,10 @@ export default class EmotesManager {
 		return this.datastore.getEmote('' + emoteHid)
 	}
 
+	getAllEmotes() {
+		return this.datastore.getAllEmotes()
+	}
+
 	getEmoteHidByName(emoteName: string) {
 		return this.datastore.getEmoteHidByName(emoteName)
 	}

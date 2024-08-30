@@ -33,11 +33,11 @@ export default class InputCompletionStrategyRegister {
 		}
 	}
 
-	findApplicableFullLineStrategy(event: KeyboardEvent, editor: ContentEditableEditor) {
+	findApplicableFullLineStrategy(event: KeyboardEvent | MouseEvent, editor: ContentEditableEditor) {
 		return this.fullLineStrategies.find(x => x.shouldUseStrategy(event, editor))
 	}
 
-	findApplicableInlineStrategy(event: KeyboardEvent, editor: ContentEditableEditor) {
+	findApplicableInlineStrategy(event: KeyboardEvent | MouseEvent, editor: ContentEditableEditor) {
 		return this.inlineStrategies.find(x => x.shouldUseStrategy(event, editor))
 	}
 }

@@ -277,6 +277,7 @@ export function getCookie(name: string) {
 	return c && c[1] ? decodeURIComponent(c[1]) : null
 }
 
+// TODO these 2 functions are named wrong way around.. Also maybe use BMP codepoints instead.
 export function eventKeyIsLetterDigitPuncSpaceChar(event: KeyboardEvent) {
 	if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) return true
 	return false

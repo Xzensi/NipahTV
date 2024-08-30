@@ -2,6 +2,7 @@ import type AbstractInputCompletionStrategy from '../Strategies/InputCompletionS
 import InputCompletionStrategyRegister from '../Strategies/InputCompletionStrategyRegister'
 import NavigatableListWindowManager from './NavigatableListWindowManager'
 import { ContentEditableEditor } from '../Classes/ContentEditableEditor'
+import { log } from '../utils'
 
 export default class InputCompletionStrategyManager {
 	readonly navListWindowManager: NavigatableListWindowManager
@@ -33,9 +34,22 @@ export default class InputCompletionStrategyManager {
 	}
 
 	handleClickEvent(event: MouseEvent) {
-		let clickIsInInput = false
-		if (this.fullLineStrategy || this.inlineStrategy) {
-			clickIsInInput = this.contentEditableEditor.isClickEventInInput(event)
+		let clickIsInInput = this.contentEditableEditor.isClickEventInInput(event)
+
+		if (clickIsInInput) {
+			if (!this.fullLineStrategy)
+				this.fullLineStrategy =
+					this.inputCompletionStrategyRegister.findApplicableFullLineStrategy(
+						event,
+						this.contentEditableEditor
+					) || null
+
+			if (!this.fullLineStrategy && !this.inlineStrategy)
+				this.inlineStrategy =
+					this.inputCompletionStrategyRegister.findApplicableInlineStrategy(
+						event,
+						this.contentEditableEditor
+					) || null
 		}
 
 		if (this.fullLineStrategy) {
@@ -176,6 +190,27 @@ export default class InputCompletionStrategyManager {
 			const stopUsingInlineStrategy = this.inlineStrategy.handleKeyUpEvent(event)
 			if (stopUsingInlineStrategy) {
 				this.resetInlineStrategy()
+			}
+		}
+
+		if (
+			!this.inlineStrategy &&
+			(event.key === 'ArrowLeft' ||
+				event.key === 'ArrowRight' ||
+				event.key === 'ArrowUp' ||
+				event.key === 'ArrowDown' ||
+				event.key === ':')
+		) {
+			this.inlineStrategy =
+				this.inputCompletionStrategyRegister.findApplicableInlineStrategy(event, this.contentEditableEditor) ||
+				null
+
+			if (this.inlineStrategy) {
+				const stopUsingInlineStrategy = this.inlineStrategy.handleKeyUpEvent(event)
+
+				if (stopUsingInlineStrategy) {
+					this.resetInlineStrategy()
+				}
 			}
 		}
 	}

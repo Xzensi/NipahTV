@@ -3,6 +3,54 @@ import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import Publisher from '../Classes/Publisher'
 import { error, log } from '../utils'
 
+interface settingBase {
+	label: string
+	id: string
+}
+
+interface checkboxSetting extends settingBase {
+	type: 'checkbox'
+	default: boolean
+}
+
+interface numberSetting extends settingBase {
+	type: 'number'
+	default: number
+	min: number
+	max: number
+}
+
+interface colorSetting extends settingBase {
+	type: 'color'
+	default: string
+}
+
+interface dropdownSetting extends settingBase {
+	type: 'dropdown'
+	default: string
+	options: { label: string; value: string }[]
+}
+
+type setting = checkboxSetting | numberSetting | colorSetting | dropdownSetting
+
+interface settingsSubCategory {
+	label: string
+	description?: string
+	children: setting[]
+}
+
+interface settingsCategory {
+	label: string
+	description?: string
+	children: settingsSubCategory[]
+}
+
+interface settingsGroup {
+	label: string
+	description?: string
+	children: settingsCategory[]
+}
+
 export default class SettingsManager {
 	/*
     - Shared global settings
@@ -58,9 +106,10 @@ export default class SettingsManager {
             = Input
                 (Recent Messages)
                     - Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages
-                (Tab completion)
-                    - Display a tooltip when using tab-completion
-                    - Enable automatic in-place tab-completion suggestions in text input while typing
+                (Input completion)
+                    - Enable <TAB> key emote completion suggestions
+					- Enable <COLON (:)> key emote completion suggestions
+					- Enable < @ > key username mention completion suggestions
 			= Quick Emote Holder
                 (Appearance)
                     - Show quick emote holder
@@ -71,7 +120,7 @@ export default class SettingsManager {
                     - Send emotes to chat immediately on click
 	*/
 
-	private sharedSettings = [
+	private sharedSettings: settingsGroup[] = [
 		{
 			label: 'NipahTV',
 			children: [
@@ -477,33 +526,39 @@ export default class SettingsManager {
 							]
 						},
 						{
-							label: 'Tab completion',
+							label: 'Input completion',
+							description: 'These settings require a page refresh to take effect.',
 							children: [
-								{
-									label: 'Display a tooltip when using tab-completion',
-									id: 'shared.chat.input.tab_completion.tooltip',
-									default: true,
-									type: 'checkbox'
-								},
-								// This would be same as above anyway
 								// {
-								// 	label: 'Enable in-place tab-completion in text input (not yet implemented)',
-								// 	id: 'shared.chat.input.tab_completion.multiple_entries',
+								// 	label: 'Display a tooltip when using tab-completion',
+								// 	id: 'shared.chat.input.completion.tooltip',
 								// 	default: true,
 								// 	type: 'checkbox'
 								// },
 								{
-									label: 'Enable automatic in-place tab-completion suggestions in text input while typing (not yet implemented)',
-									id: 'shared.chat.input.tab_completion.multiple_entries',
-									default: false,
+									label: 'Enable <b>&lt;/></b> key command completion suggestions',
+									id: 'shared.chat.input.completion.commands.enabled',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable <b>&lt;TAB></b> key emote completion suggestions',
+									id: 'shared.chat.input.completion.emotes.enabled',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable <b>&lt;COLON (:)></b> key emote completion suggestions',
+									id: 'shared.chat.input.completion.colon_emotes.enabled',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable <b>&lt;@></b> key username mention completion suggestions',
+									id: 'shared.chat.input.completion.mentions.enabled',
+									default: true,
 									type: 'checkbox'
 								}
-								// {
-								// 	label: 'Allow tab-completion of emotes without typing a colon. (:) (not yet implemented)',
-								// 	id: 'shared.chat.input.tab_completion.no_colon',
-								// 	default: false,
-								// 	type: 'checkbox'
-								// },
 							]
 						}
 					]
@@ -598,16 +653,20 @@ export default class SettingsManager {
 		}
 
 		//! Temporary migration code
-		;[
-			['shared.chat.quick_emote_holder.rows', 'shared.quick_emote_holder.rows'],
-			['shared.chat.quick_emote_holder.enabled', 'shared.quick_emote_holder.enabled'],
-			['shared.chat.appearance.chat_theme', 'shared.chat.appearance.messages_style']
-		].forEach(([oldKey, newKey]) => {
-			if (this.settingsMap.has(oldKey)) {
-				const val = this.settingsMap.get(oldKey)
-				this.setSetting(newKey, val)
-				database.settings.deleteRecord(oldKey)
+		;[['shared.chat.input.tab_completion.tooltip', 'shared.chat.input.completion.tooltip']].forEach(
+			([oldKey, newKey]) => {
+				if (this.settingsMap.has(oldKey)) {
+					const val = this.settingsMap.get(oldKey)
+					this.setSetting(newKey, val)
+					database.settings.deleteRecord(oldKey)
+				}
 			}
+		)
+
+		// ! Temporary delete old settings records
+		;['shared.chat.input.tab_completion.multiple_entries'].forEach(key => {
+			if (!this.settingsMap.has(key)) return
+			database.settings.deleteRecord(key)
 		})
 
 		this.isLoaded = true

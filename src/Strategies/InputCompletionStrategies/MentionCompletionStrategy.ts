@@ -23,7 +23,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 		super(rootContext, session, contentEditableEditor, navListWindowManager)
 	}
 
-	shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
+	shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
 		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null && word[0] === '@'
 	}
@@ -43,6 +43,8 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 	}
 
 	updateCompletionEntries() {
+		// TODO rewrite this to update livetime while typing instead of only on tab
+
 		const { word, start, end, node } = Caret.getWordBeforeCaret()
 		if (!word) return true
 

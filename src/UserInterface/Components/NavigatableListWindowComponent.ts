@@ -82,7 +82,7 @@ export default class NavigatableListWindowComponent extends AbstractComponent {
 	setEntries(entries: HTMLElement[]) {
 		this.entries = []
 		this.entriesMap.clear()
-		this.listEl.innerHTML = ''
+		while (this.listEl.firstChild) this.listEl.firstChild.remove()
 		entries.forEach(el => {
 			this.addEntry({}, el)
 		})
@@ -92,7 +92,7 @@ export default class NavigatableListWindowComponent extends AbstractComponent {
 		this.selectedIndex = 0
 		this.entries = []
 		this.entriesMap.clear()
-		this.listEl.innerHTML = ''
+		while (this.listEl.firstChild) this.listEl.firstChild.remove()
 	}
 
 	getSelectedEntry() {

@@ -146,7 +146,7 @@ export class ContentEditableEditor {
 	}
 
 	isClickEventInInput(event: MouseEvent) {
-		return this.inputNode.contains(event.target as Node)
+		return event.target === this.inputNode || this.inputNode.contains(event.target as Node)
 	}
 
 	addEventListener(

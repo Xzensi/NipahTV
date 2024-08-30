@@ -21,7 +21,7 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 		super(rootContext, session, contentEditableEditor, navListWindowManager)
 	}
 
-	shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
+	shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean {
 		const firstChar = contentEditableEditor.getFirstCharacter()
 		return (
 			firstChar === '/' ||
@@ -58,16 +58,20 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 
 	updateCompletionEntries(commandName: string, inputString: string) {
 		this.clearNavWindow()
+		this.maybeCreateNavWindow()
+		const navWindow = this.navWindow!
 
 		const relevantCommands = this.getRelevantCommands(commandName, inputString.indexOf(' ') !== -1)
-		if (!relevantCommands.length) return
+		if (!relevantCommands.length) {
+			navWindow.addEntry(
+				{ name: 'none', description: 'Command not found' },
+				parseHTML(`<li class="not_found_entry"><div>Command not found</div></li>`, true) as HTMLElement
+			)
+			return
+		}
 
 		// Don't kill it here because strategy is still valid, just no completions
 		// if (!relevantCommands.length) return
-
-		this.maybeCreateNavWindow()
-
-		const navWindow = this.navWindow!
 
 		for (const relevantCommand of relevantCommands) {
 			const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true) as HTMLElement
@@ -118,6 +122,7 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 			}
 
 			navWindow.addEntry(relevantCommand, entryEl)
+			navWindow.setSelectedIndex(0)
 		}
 	}
 
@@ -128,8 +133,7 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 		if (!selectedEntry) return error('No selected entry to render completion')
 
 		const { name } = selectedEntry as { name: string }
-		this.contentEditableEditor.clearInput()
-		this.contentEditableEditor.insertText('/' + name)
+		this.contentEditableEditor.setInputContent('/' + name)
 	}
 
 	getAvailableCommands() {
@@ -163,23 +167,36 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 	handleKeyDownEvent(event: KeyboardEvent) {
 		const { contentEditableEditor } = this
 
-		if (event.key === 'ArrowUp') {
-			if (!this.navWindow) return false
-			if (this.navWindow.getEntriesCount() <= 1) return false // Necessary to prevent blocking chat history navigation
-
-			event.preventDefault()
-			this.moveSelectorUp()
-			return false
-		} else if (event.key === 'ArrowDown') {
-			if (!this.navWindow) return false
-			if (this.navWindow.getEntriesCount() <= 1) return false // Necessary to prevent blocking chat history navigation
-
-			event.preventDefault()
-			this.moveSelectorDown()
-			return false
-		}
-
 		switch (event.key) {
+			case 'ArrowUp':
+				if (!this.navWindow) return false
+				if (this.navWindow.getEntriesCount() <= 1) return false // Necessary to prevent blocking chat history navigation
+
+				event.preventDefault()
+				this.moveSelectorUp()
+				return false
+
+			case 'ArrowDown':
+				if (!this.navWindow) return false
+				if (this.navWindow.getEntriesCount() <= 1) return false // Necessary to prevent blocking chat history navigation
+
+				event.preventDefault()
+				this.moveSelectorDown()
+				return false
+
+			case 'Tab':
+				if (!this.navWindow) return false
+
+				// Traverse tab completion suggestions up/down depending on whether shift is held with tab
+				if (event.shiftKey) {
+					this.moveSelectorDown()
+				} else {
+					this.moveSelectorUp()
+				}
+
+				event.preventDefault()
+				return false
+
 			case 'Backspace':
 			case 'Delete':
 			case 'Shift':
@@ -222,6 +239,15 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 		// }
 
 		// this.handleEventInKeyUp = false
+
+		switch (event.key) {
+			case 'ArrowUp':
+			case 'ArrowDown':
+			case 'Tab':
+			case 'Shift':
+			case 'Control':
+				return false
+		}
 
 		const inputContent = contentEditableEditor.getMessageContent()
 		const commandName = inputContent.substring(1).split(' ')[0]

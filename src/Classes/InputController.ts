@@ -8,6 +8,7 @@ import MessagesHistory from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
 import type Clipboard2 from './Clipboard'
 import { log } from '../utils'
+import ColonEmoteCompletionStrategy from '../Strategies/InputCompletionStrategies/ColonEmoteCompletionStrategy'
 
 export default class InputController {
 	private rootContext: RootContext
@@ -51,30 +52,49 @@ export default class InputController {
 
 		session.inputCompletionStrategyManager = this.inputCompletionStrategyManager
 
-		inputCompletionStrategyRegister.registerStrategy(
-			new CommandCompletionStrategy(
-				rootContext,
-				session,
-				this.contentEditableEditor,
-				this.inputCompletionStrategyManager.navListWindowManager
+		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.commands.enabled')) {
+			inputCompletionStrategyRegister.registerStrategy(
+				new CommandCompletionStrategy(
+					rootContext,
+					session,
+					this.contentEditableEditor,
+					this.inputCompletionStrategyManager.navListWindowManager
+				)
 			)
-		)
-		inputCompletionStrategyRegister.registerStrategy(
-			new MentionCompletionStrategy(
-				rootContext,
-				session,
-				this.contentEditableEditor,
-				this.inputCompletionStrategyManager.navListWindowManager
+		}
+
+		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.mentions.enabled')) {
+			inputCompletionStrategyRegister.registerStrategy(
+				new MentionCompletionStrategy(
+					rootContext,
+					session,
+					this.contentEditableEditor,
+					this.inputCompletionStrategyManager.navListWindowManager
+				)
 			)
-		)
-		inputCompletionStrategyRegister.registerStrategy(
-			new EmoteCompletionStrategy(
-				rootContext,
-				session,
-				this.contentEditableEditor,
-				this.inputCompletionStrategyManager.navListWindowManager
+		}
+
+		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.emotes.enabled')) {
+			inputCompletionStrategyRegister.registerStrategy(
+				new EmoteCompletionStrategy(
+					rootContext,
+					session,
+					this.contentEditableEditor,
+					this.inputCompletionStrategyManager.navListWindowManager
+				)
 			)
-		)
+		}
+
+		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.colon_emotes.enabled')) {
+			inputCompletionStrategyRegister.registerStrategy(
+				new ColonEmoteCompletionStrategy(
+					rootContext,
+					session,
+					this.contentEditableEditor,
+					this.inputCompletionStrategyManager.navListWindowManager
+				)
+			)
+		}
 	}
 
 	initialize() {

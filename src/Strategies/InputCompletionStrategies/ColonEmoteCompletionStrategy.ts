@@ -2,10 +2,10 @@ import NavigatableListWindowManager from '../../Managers/NavigatableListWindowMa
 import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
 import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
 import { Caret } from '../../UserInterface/Caret'
-import { error, log, parseHTML } from '../../utils'
+import { error, eventKeyIsLetterDigitPuncChar, log, parseHTML } from '../../utils'
 
-export default class EmoteCompletionStrategy extends AbstractInputCompletionStrategy {
-	protected id = 'emotes'
+export default class ColonEmoteCompletionStrategy extends AbstractInputCompletionStrategy {
+	protected id = 'colon_emotes'
 	readonly isFullLineStrategy = false
 
 	private start = 0
@@ -25,14 +25,8 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 
 	shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		const codepoint = word ? word.codePointAt(0) || 0 : 0
-		return (
-			event instanceof KeyboardEvent &&
-			event.key === 'Tab' &&
-			word !== null &&
-			// BMP codepoints for latin special characters
-			!(codepoint >= 0x0021 && codepoint <= 0x002f)
-		)
+		// return (event.key === ':' && word === null) || (word !== null && word[0] === ':')
+		return word !== null && word[0] === ':'
 	}
 
 	maybeCreateNavWindow() {
@@ -45,28 +39,67 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 	}
 
 	getRelevantEmotes(searchString: string) {
-		return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20)
+		if (searchString.length) {
+			return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20)
+		} else {
+			return []
+			// return this.session.emotesManager
+			// 	.getAllEmotes()
+			// 	.slice(0, 100)
+			// 	.sort(() => 0.5 - Math.random())
+			// 	.slice(0, 20)
+			// 	.map(emote => ({ item: emote }))
+		}
 	}
 
-	updateCompletionEntries() {
-		const { word, start, end, startOffset, node } = Caret.getWordBeforeCaret()
-		if (!word) return true
+	updateCompletionEntries(
+		{ word, start, end, node }: ReturnType<typeof Caret.getWordBeforeCaret>,
+		event?: KeyboardEvent
+	) {
+		const { contentEditableEditor } = this
+		const isInputEmpty = contentEditableEditor.isInputEmpty()
+		const eventKey = event?.key
 
-		this.word = word
-		this.start = start
-		this.end = end
-		this.node = node
-
-		// TODO we have startOffset, maybe check for BMP codepoint and insert event.key?
-
-		const relevantEmotes = this.getRelevantEmotes(word)
-		if (!relevantEmotes.length) return true
+		let searchString = ''
+		if (!isInputEmpty) {
+			if (word) {
+				searchString = word.slice(1)
+				this.word = word
+				this.start = start
+				this.end = end
+				this.node = node
+			} else if (event?.key === ':') {
+				searchString = ''
+			} else {
+				return true
+			}
+		}
 
 		this.clearNavWindow()
 		this.maybeCreateNavWindow()
+		const navWindow = this.navWindow!
+
+		const relevantEmotes = this.getRelevantEmotes(searchString)
+		if (!relevantEmotes.length) {
+			if (!isInputEmpty && eventKey !== ':' && !(word && word[0] === ':')) {
+				navWindow.addEntry(
+					{ name: 'none', description: 'Emote not found' },
+					parseHTML(`<li class="not_found_entry"><div>Emote not found</div></li>`, true) as HTMLElement
+				)
+			} else {
+				// Nothing inputted yet
+				navWindow.addEntry(
+					{ name: 'none', description: 'Type an emote name to see suggestions' },
+					parseHTML(
+						`<li class="not_found_entry"><div>Type an emote name to see suggestions</div></li>`,
+						true
+					) as HTMLElement
+				)
+			}
+			return false
+		}
 
 		const { emotesManager } = this.session
-		const navWindow = this.navWindow!
 
 		// log('Search results:', searchResults)
 		const emoteNames = relevantEmotes.map(result => result.item.name)
@@ -86,8 +119,26 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 			)
 		}
 
+		// If completion is closed with a colon and there is a perfect match, select it
+		if (event?.key === ':') {
+			const perfectEmoteMatch = relevantEmotes.find(emote => emote.item.name === searchString)
+
+			if (perfectEmoteMatch) {
+				const perfectEmoteMatchIndex = relevantEmotes.indexOf(perfectEmoteMatch)
+
+				if (perfectEmoteMatchIndex !== -1) {
+					navWindow.setSelectedIndex(perfectEmoteMatchIndex)
+
+					event.preventDefault()
+					event.stopPropagation()
+					this.renderInlineCompletion()
+
+					return true
+				}
+			}
+		}
+
 		navWindow.setSelectedIndex(0)
-		this.renderInlineCompletion()
 	}
 
 	moveSelectorUp() {
@@ -103,7 +154,7 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 	}
 
 	renderInlineCompletion() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
+		if (!this.navWindow) return error('No tab completion window to render inline completion')
 
 		const selectedEntry = this.navWindow.getSelectedEntry()
 		if (!selectedEntry) return error('No selected entry to render completion')
@@ -141,11 +192,17 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 	}
 
 	handleKeyDownEvent(event: KeyboardEvent) {
-		// TODO decouple it from navWindow here, so it works without navWindow as well. NavWindow should be optional.
+		log('ColonEmoteCompletionStrategy.handleKeyDownEvent', event.key)
+
 		if (this.navWindow) {
 			switch (event.key) {
 				case 'Tab':
 					event.preventDefault()
+
+					if (this.navWindow.getEntriesCount() === 1) {
+						this.renderInlineCompletion()
+						return true
+					}
 
 					// Traverse tab completion suggestions up/down depending on whether shift is held with tab
 					if (event.shiftKey) {
@@ -164,40 +221,77 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 					event.preventDefault()
 					this.moveSelectorDown()
 					return false
+
+				case 'ArrowLeft':
+				case 'ArrowRight':
+					return false
+
+				case 'Enter':
+					event.preventDefault()
+					event.stopPropagation()
+					this.renderInlineCompletion()
+					return true
 			}
 		}
 
 		switch (event.key) {
-			case 'Enter':
 			case ' ':
-				event.preventDefault()
-				event.stopPropagation()
-
 				return true
 
 			case 'Backspace':
-				event.preventDefault()
-				event.stopImmediatePropagation()
-				this.restoreOriginalText()
-				return true
-
-			case 'ArrowRight':
-			case 'ArrowLeft':
-				return true
-
-			case 'Shift':
+			case 'Delete':
 				return false
 
 			case 'Escape':
 				this.restoreOriginalText()
 				return true
+
+			case 'Control':
+			case 'Shift':
+				return false
 		}
 
-		event.preventDefault()
-		return this.updateCompletionEntries()
+		const wordBeforeCaretResult = Caret.getWordBeforeCaret()
+		const { word, start, startOffset, node } = wordBeforeCaretResult
+
+		// If caret is at start or before word
+		if (word && startOffset <= start) return true
+
+		return this.updateCompletionEntries(wordBeforeCaretResult, event)
+	}
+
+	handleKeyUpEvent(event: KeyboardEvent): boolean | void {
+		switch (event.key) {
+			case 'Tab':
+			case 'ArrowUp':
+			case 'ArrowDown':
+			case 'Control':
+				return false
+		}
+
+		const wordBeforeCaretResult = Caret.getWordBeforeCaret()
+		const { word, start, startOffset } = wordBeforeCaretResult
+
+		if (
+			!word ||
+			word[0] !== ':' ||
+			// If caret is at start of word
+			startOffset <= start
+		)
+			return true
+
+		return this.updateCompletionEntries(wordBeforeCaretResult)
 	}
 
 	handleClickEvent(event: MouseEvent, clickIsInInput: boolean) {
+		if (clickIsInInput) {
+			const wordBeforeCaretResult = Caret.getWordBeforeCaret()
+			const { word } = wordBeforeCaretResult
+			if (!word || word[0] !== ':') return true
+
+			return this.updateCompletionEntries(wordBeforeCaretResult)
+		}
+
 		if (!this.isClickInsideNavWindow(event.target as Node)) {
 			return true
 		}

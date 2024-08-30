@@ -18,7 +18,7 @@ export default abstract class AbstractInputCompletionStrategy {
 		protected navListWindowManager: NavigatableListWindowManager
 	) {}
 
-	abstract shouldUseStrategy(event: KeyboardEvent, contentEditableEditor: ContentEditableEditor): boolean
+	abstract shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean
 
 	clearNavWindow() {
 		if (!this.navWindow) return

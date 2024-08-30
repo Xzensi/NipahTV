@@ -354,7 +354,7 @@ export default class UserInfoModal extends AbstractModal {
 		const { timeoutPageEl } = this
 		if (!timeoutPageEl) return
 
-		timeoutPageEl.innerHTML = ''
+		while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove()
 
 		if (this.timeoutSliderComponent) {
 			delete this.timeoutSliderComponent
@@ -415,7 +415,7 @@ export default class UserInfoModal extends AbstractModal {
 
 			this.modActionButtonBanEl!.setAttribute('active', '')
 
-			timeoutPageEl.innerHTML = ''
+			while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove()
 			timeoutPageEl.removeAttribute('disabled')
 			delete this.timeoutSliderComponent
 
@@ -632,7 +632,7 @@ export default class UserInfoModal extends AbstractModal {
 
 		if (modLogsPageEl.querySelector('.ntv__user-info-modal__mod-logs-page__messages[loading]')) return
 
-		modLogsPageEl.innerHTML = ''
+		while (modLogsPageEl.firstChild) modLogsPageEl.firstChild.remove()
 		this.messagesHistoryCursor = 0
 
 		const messagesHistoryEl = (this.messagesHistoryEl = parseHTML(
@@ -917,7 +917,7 @@ export default class UserInfoModal extends AbstractModal {
 				</div>
 			`)
 		} else {
-			statusPageEl.innerHTML = ''
+			while (statusPageEl.firstChild) statusPageEl.firstChild.remove()
 		}
 	}
 }

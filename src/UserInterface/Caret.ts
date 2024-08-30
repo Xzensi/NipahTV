@@ -141,13 +141,15 @@ export class Caret {
 
 	static getWordBeforeCaret() {
 		const selection = window.getSelection()
-		if (!selection || !selection.rangeCount)
+		if (!selection || !selection.rangeCount) {
 			return {
 				word: null,
 				start: 0,
 				end: 0,
+				startOffset: 0,
 				node: null
 			}
+		}
 
 		const range = selection.getRangeAt(0)
 
@@ -164,6 +166,7 @@ export class Caret {
 						word,
 						start: startOffset,
 						end: text.length,
+						startOffset: text.length,
 						node: textNode
 					}
 				}
@@ -173,6 +176,7 @@ export class Caret {
 				word: null,
 				start: 0,
 				end: 0,
+				startOffset: 0,
 				node: textNode
 			}
 		}
@@ -189,20 +193,31 @@ export class Caret {
 		while (end < text.length && text[end] !== ' ') end++
 
 		const word = text.slice(start, end)
-		if (word === '')
+		if (word === '') {
 			return {
 				word: null,
 				start: 0,
 				end: 0,
+				startOffset: 0,
 				node: null
 			}
+		}
 
 		return {
 			word,
 			start,
 			end,
+			startOffset: offset,
 			node: range.startContainer
 		}
+	}
+
+	static getCaretStartOffset() {
+		const selection = window.getSelection()
+		if (!selection || !selection.rangeCount) return 0
+
+		const range = selection.getRangeAt(0)
+		return range.startOffset
 	}
 
 	static insertNodeAtCaret(range: Range, node: Node) {

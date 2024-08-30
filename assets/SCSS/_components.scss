@@ -288,7 +288,8 @@
 		}
 	}
 
-	&__emotes-window {
+	&__emotes-window,
+	&__colon_emotes-window {
 		.ntv__nav-window__list {
 			li {
 				img {
@@ -305,6 +306,12 @@
 					white-space: nowrap;
 					overflow: hidden;
 				}
+
+				&.not_found_entry {
+					div {
+						padding: 0.618em 1em;
+					}
+				}
 			}
 		}
 	}
@@ -314,6 +321,12 @@
 			li {
 				.subscript {
 					opacity: 0.5;
+				}
+
+				&.not_found_entry {
+					div {
+						padding: 0.618em 1em;
+					}
 				}
 			}
 		}
