@@ -1,30 +1,33 @@
 // Classes
-import { Publisher } from './Classes/Publisher'
-import { EmotesManager } from './Managers/EmotesManager'
 import { KickUserInterface } from './UserInterface/KickUserInterface'
+import EmotesManager from './Managers/EmotesManager'
+import Publisher from './Classes/Publisher'
 
 // Providers
-import { KickEmoteProvider } from './Providers/KickEmoteProvider'
-import { SevenTVEmoteProvider } from './Providers/SevenTVEmoteProvider'
+import SevenTVEmoteProvider from './Providers/SevenTVEmoteProvider'
+import KickEmoteProvider from './Providers/KickEmoteProvider'
 
 // Utils
-import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error, RESTFromMain, debounce } from './utils'
-import { SettingsManager } from './Managers/SettingsManager'
-import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
+import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
+import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
-import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
-import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
-import { UsersManager } from './Managers/UsersManager'
-import { KickBadgeProvider } from './Providers/KickBadgeProvider'
+import AbstractUserInterface from './UserInterface/AbstractUserInterface'
+import { log, info, error, RESTFromMain, debounce } from './utils'
+import KickBadgeProvider from './Providers/KickBadgeProvider'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
+import SettingsManager from './Managers/SettingsManager'
+import UsersManager from './Managers/UsersManager'
 import Database from './Database/Database'
 
 // Extensions
+import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
+import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
+import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
+import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
 import BotrixExtension from './Extensions/Botrix'
-import { InputCompletionStrategyRegistry } from './Classes/InputCompletionStrategyRegistry'
 
 class NipahClient {
-	VERSION = '1.4.38'
+	VERSION = '1.5.0'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -182,7 +185,8 @@ class NipahClient {
 			eventBus,
 			networkInterface,
 			usersManager,
-			inputCompletionStrategyRegistry: new InputCompletionStrategyRegistry()
+			inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
+			inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
 		} as Session
 
 		this.sessions.push(session)
@@ -208,6 +212,9 @@ class NipahClient {
 		emotesManager.initialize()
 
 		session.emotesManager = emotesManager
+
+		session.inputExecutionStrategyRegister.registerStrategy(new DefaultExecutionStrategy(rootContext, session))
+		session.inputExecutionStrategyRegister.registerStrategy(new CommandExecutionStrategy(rootContext, session))
 
 		let userInterface: KickUserInterface
 		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {

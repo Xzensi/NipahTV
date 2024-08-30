@@ -1,7 +1,7 @@
 import { logEvent, error, assertArgument, assertArray } from '../utils'
 import { DTO } from './DTO'
 
-export class Publisher {
+export default class Publisher {
 	private listeners = new Map()
 	private onceListeners = new Map()
 	private firedEvents = new Map()

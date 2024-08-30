@@ -28,7 +28,7 @@ function flattenNestedElement(node: Node) {
 	return result
 }
 
-export class Clipboard2 {
+export default class Clipboard2 {
 	private domParser = new DOMParser()
 
 	handleCopyEvent(event: ClipboardEvent) {

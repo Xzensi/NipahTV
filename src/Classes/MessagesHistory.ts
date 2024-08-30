@@ -1,4 +1,4 @@
-export class MessagesHistory {
+export default class MessagesHistory {
 	private messages: string[]
 	private cursorIndex: number
 	private maxMessages: number

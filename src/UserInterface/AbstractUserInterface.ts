@@ -1,20 +1,20 @@
 import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
-import { ReplyMessageComponent } from './Components/ReplyMessageComponent'
-import type { KickEmoteProvider } from '../Providers/KickEmoteProvider'
+import ReplyMessageComponent from './Components/ReplyMessageComponent'
 import { PriorityEventTarget } from '../Classes/PriorityEventTarget'
-import type { InputController } from '../Managers/InputController'
-import { MessagesHistory } from '../Classes/MessagesHistory'
-import { TimerComponent } from './Components/TimerComponent'
-import { parse as twemojiParse } from '@twemoji/parser'
-import { UserInfoModal } from './Modals/UserInfoModal'
-import { Clipboard2 } from '../Classes/Clipboard'
-import { PollModal } from './Modals/PollModal'
-import { Toaster } from '../Classes/Toaster'
+import type KickEmoteProvider from '../Providers/KickEmoteProvider'
+import type InputController from '../Classes/InputController'
 import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../constants'
+import TimerComponent from './Components/TimerComponent'
+import MessagesHistory from '../Classes/MessagesHistory'
+import { parse as twemojiParse } from '@twemoji/parser'
+import UserInfoModal from './Modals/UserInfoModal'
+import PollModal from './Modals/PollModal'
+import { Toaster } from '../Classes/Toaster'
+import Clipboard2 from '../Classes/Clipboard'
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
-export abstract class AbstractUserInterface {
+export default abstract class AbstractUserInterface {
 	protected rootContext: RootContext
 	protected session: Session
 
@@ -47,6 +47,10 @@ export abstract class AbstractUserInterface {
 	constructor(rootContext: RootContext, session: Session) {
 		this.rootContext = rootContext
 		this.session = session
+	}
+
+	getInputController() {
+		return this.inputController
 	}
 
 	loadInterface() {
@@ -91,12 +95,12 @@ export abstract class AbstractUserInterface {
 	}
 
 	toastSuccess(message: string) {
-		this.toaster.addToast(message, 4_000, 'success')
+		this.toaster.addToast(message.replaceAll('<', '&lt;'), 6_000, 'success')
 	}
 
 	toastError(message: string) {
 		error(message)
-		this.toaster.addToast(message, 4_000, 'error')
+		this.toaster.addToast(message.replaceAll('<', '&lt;'), 6_000, 'error')
 	}
 
 	renderEmotesInString(textContent: string) {
@@ -260,8 +264,7 @@ export abstract class AbstractUserInterface {
 
 	// Submits input to chat
 	submitInput(suppressEngagementEvent?: boolean, dontClearInput?: boolean) {
-		const { networkInterface } = this.session
-		const { eventBus } = this.session
+		const { eventBus, inputExecutionStrategyRegister } = this.session
 		const contentEditableEditor = this.inputController?.contentEditableEditor
 		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
 
@@ -270,65 +273,87 @@ export abstract class AbstractUserInterface {
 			return this.toastError('Message is too long to send.')
 		}
 
-		const replyContent = contentEditableEditor.getMessageContent()
-		if (!replyContent.length) return log('No message content to send.')
+		const messageContent = contentEditableEditor.getMessageContent()
+		if (!messageContent.length) return log('No message content to send.')
+
+		eventBus.publish('ntv.ui.submit_input', { suppressEngagementEvent })
 
 		if (this.replyMessageData) {
 			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData
-			networkInterface
-				.sendReply(replyContent, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
-				.then(res => {
-					if (res.status.error) {
-						if (res.status.message)
-							this.toastError('Failed to send reply message because: ' + res.status.message)
-						else this.toaster.addToast('Failed to send reply message.', 4_000, 'error')
-						error('Failed to send reply message:', res.status)
+
+			inputExecutionStrategyRegister
+				.routeInput(
+					contentEditableEditor,
+					{
+						input: messageContent,
+						isReply: true,
+						replyRefs: {
+							messageId: chatEntryId,
+							messageContent: chatEntryContentString,
+							senderId: chatEntryUserId,
+							senderUsername: chatEntryUsername
+						}
+					},
+					dontClearInput
+				)
+				.then(successMessage => {
+					if (successMessage) {
+						if (typeof successMessage !== 'string')
+							throw new Error('Success message returned by input execution strategy is not a string.')
+						this.toastSuccess(successMessage)
 					}
+
+					eventBus.publish('ntv.ui.submitted_input', { suppressEngagementEvent })
 				})
 				.catch(err => {
-					this.toaster.addToast('Failed to send reply message.', 4_000, 'error')
-					error('Failed to send reply message:', err)
+					if (err && err.message) this.toastError(err.message)
+					else this.toastError('Failed to reply to message. Reason unknown.')
 				})
 
 			this.destroyReplyMessageContext()
 		} else {
-			networkInterface
-				.sendMessage(replyContent)
-				.then(res => {
-					if (res?.status.error) {
-						if (res.status.message) this.toastError('Failed to send message because: ' + res.status.message)
-						else this.toaster.addToast('Failed to send message.', 4_000, 'error')
-						error('Failed to send message:', res.status)
+			inputExecutionStrategyRegister
+				.routeInput(
+					contentEditableEditor,
+					{
+						input: messageContent,
+						isReply: false
+					},
+					dontClearInput
+				)
+				.then(successMessage => {
+					if (successMessage) {
+						if (typeof successMessage !== 'string')
+							throw new Error('Success message returned by input execution strategy is not a string.')
+						this.toastSuccess(successMessage)
 					}
+
+					eventBus.publish('ntv.ui.submitted_input', { suppressEngagementEvent })
 				})
 				.catch(err => {
-					this.toaster.addToast('Failed to send emote to chat.', 4_000, 'error')
-					error('Failed to send emote to chat:', err)
+					if (err && err.message) this.toastError(err.message)
+					else this.toastError('Failed to send message. Reason unknown.')
 				})
 		}
-
-		eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-
-		dontClearInput || contentEditableEditor.clearInput()
 	}
 
 	sendEmoteToChat(emoteHid: string) {
-		const { networkInterface } = this.session
-		const { emotesManager } = this.session
+		const { emotesManager, inputExecutionStrategyRegister } = this.session
+
+		const contentEditableEditor = this.inputController?.contentEditableEditor
+		if (!contentEditableEditor) return error('Unable to send emote to chat, input controller is not loaded yet.')
+
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
 		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
 
-		networkInterface
-			.sendMessage(emoteEmbedding)
-			.then(res => {
-				if (res?.status.error) {
-					if (res.status.message) this.toastError('Failed to send emote because: ' + res.status.message)
-					else this.toaster.addToast('Failed to send emote to chat.', 4_000, 'error')
-					error('Failed to send emote to chat:', res.status)
-				}
+		inputExecutionStrategyRegister
+			.routeInput(contentEditableEditor, {
+				input: emoteEmbedding,
+				isReply: false
 			})
 			.catch(err => {
-				this.toastError('Failed to send emote to chat.')
+				if (err) this.toastError('Failed to send emote because: ' + err)
+				else this.toastError('Failed to send emote to chat. Reason unknown.')
 			})
 	}
 

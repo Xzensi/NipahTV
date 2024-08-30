@@ -1,7 +1,7 @@
-import { INetworkInterface } from './NetworkInterface'
+import { NetworkInterface } from './NetworkInterface'
 import { REST, info } from '../utils'
 
-export class TwitchNetworkInterface implements INetworkInterface {
+export default class TwitchNetworkInterface implements NetworkInterface {
 	async connect() {
 		return Promise.resolve()
 	}
@@ -28,7 +28,7 @@ export class TwitchNetworkInterface implements INetworkInterface {
 		throw new Error('Method not implemented.')
 	}
 
-	async sendCommand(command: { name: string; args: string[] }) {
+	async executeCommand(commandName: string, channelName: string, args: string[]) {
 		throw new Error('Method not implemented.')
 	}
 

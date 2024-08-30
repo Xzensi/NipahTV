@@ -1,14 +1,16 @@
-import type { KickNetworkInterface } from '../NetworkInterfaces/KickNetworkInterface'
-import type { AbstractUserInterface } from '../UserInterface/AbstractUserInterface'
-import type { SettingsManager } from '../Managers/SettingsManager'
+import type InputCompletionStrategyRegister from '../Strategies/InputCompletionStrategyRegister'
+import type InputExecutionStrategyRegister from '../Strategies/InputExecutionStrategyRegister'
+import type InputCompletionStrategyManager from '../Managers/InputCompletionStrategyManager'
+import type KickNetworkInterface from '../NetworkInterfaces/KickNetworkInterface'
+import type AbstractUserInterface from '../UserInterface/AbstractUserInterface'
 import type { IBadgeProvider } from '../Providers/BadgeProvider'
-import type { EmotesManager } from '../Managers/EmotesManager'
-import type { UsersManager } from '../Managers/UsersManager'
-import type { Publisher } from '../Classes/Publisher'
+import type EmotesManager from '../Managers/EmotesManager'
+import type SettingsManager from '../Managers/SettingsManager'
+import type UsersManager from '../Managers/UsersManager'
+import type Publisher from '../Classes/Publisher'
 import type { PLATFORM_ENUM } from '../constants'
 import type Database from '../Database/Database'
 import type { RESTFromMain } from '../utils'
-import { InputCompletionStrategyRegistry } from '../Classes/InputCompletionStrategyRegistry'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -61,7 +63,9 @@ declare global {
 		userInterface?: AbstractUserInterface
 		emotesManager: EmotesManager
 		badgeProvider: IBadgeProvider
-		inputCompletionStrategyRegistry: InputCompletionStrategyRegistry
+		inputCompletionStrategyManager?: InputCompletionStrategyManager
+		inputCompletionStrategyRegister: InputCompletionStrategyRegister
+		inputExecutionStrategyRegister: InputExecutionStrategyRegister
 		isDestroyed?: boolean
 	}
 

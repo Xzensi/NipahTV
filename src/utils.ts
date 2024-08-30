@@ -147,11 +147,13 @@ export class REST {
 					if (xhr.responseText) resolve(JSON.parse(xhr.responseText))
 					else resolve(void 0)
 				} else {
-					reject('Request failed with status code ' + xhr.status)
+					if (xhr.responseText) reject(JSON.parse(xhr.responseText))
+					else reject('Request failed with status code ' + xhr.status)
 				}
 			}
 			xhr.onerror = function () {
-				reject('Request failed')
+				if (xhr.responseText) reject(JSON.parse(xhr.responseText))
+				else reject()
 			}
 			xhr.onabort = function () {
 				reject('Request aborted')
@@ -186,7 +188,8 @@ export class RESTFromMain {
 					if (xhr.text) resolve(JSON.parse(xhr.text))
 					else resolve(void 0)
 				} else {
-					reject('Request failed with status code ' + xhr.status)
+					if (xhr.responseText) reject(JSON.parse(xhr.responseText))
+					else reject('Request failed with status code ' + xhr.status)
 				}
 			})
 		}
@@ -251,6 +254,10 @@ export class RESTFromMain {
 	}
 }
 
+export function isStringNumber(value: string) {
+	return !isNaN(Number(value))
+}
+
 export function isEmpty(obj: object) {
 	for (var x in obj) {
 		return false
@@ -270,6 +277,7 @@ export function getCookie(name: string) {
 	return c && c[1] ? decodeURIComponent(c[1]) : null
 }
 
+// TODO these 2 functions are named wrong way around.. Also maybe use BMP codepoints instead.
 export function eventKeyIsLetterDigitPuncSpaceChar(event: KeyboardEvent) {
 	if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) return true
 	return false
@@ -278,6 +286,23 @@ export function eventKeyIsLetterDigitPuncSpaceChar(event: KeyboardEvent) {
 export function eventKeyIsLetterDigitPuncChar(event: KeyboardEvent) {
 	if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.altKey && !event.metaKey) return true
 	return false
+}
+
+export function isCodepointBMP(x: string, index: number = 0) {
+	const codepoint = x.codePointAt(index) || 0
+
+	// BMP - Basic Latin
+	return (
+		(codepoint > 0x0020 && codepoint < 0x007f) ||
+		// BMP - Latin-1 Supplement
+		(codepoint > 0x00a1 && codepoint <= 0x00ff) ||
+		// BMP - Latin Extended-A
+		(codepoint >= 0x0100 && codepoint <= 0x017f) ||
+		// BMP - Latin Extended-B
+		(codepoint >= 0x0180 && codepoint <= 0x024f) ||
+		// BMP - IPA Extensions
+		(codepoint >= 0x0250 && codepoint <= 0x02af)
+	)
 }
 
 export function debounce(fn: Function, delay: number) {

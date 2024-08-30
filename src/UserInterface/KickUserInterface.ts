@@ -8,12 +8,12 @@ import {
 	parseHTML,
 	findNodeWithTextContent
 } from '../utils'
-import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
-import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
-import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
-import { AbstractUserInterface } from './AbstractUserInterface'
-import { InputController } from '../Managers/InputController'
-import type { UserInfoModal } from './Modals/UserInfoModal'
+import QuickEmotesHolderComponent from './Components/QuickEmotesHolderComponent'
+import EmoteMenuButtonComponent from './Components/EmoteMenuButtonComponent'
+import EmoteMenuComponent from './Components/EmoteMenuComponent'
+import AbstractUserInterface from './AbstractUserInterface'
+import InputController from '../Classes/InputController'
+import type UserInfoModal from './Modals/UserInfoModal'
 import type { Badge } from '../Providers/BadgeProvider'
 import { Caret } from './Caret'
 import { U_TAG_NTV_AFFIX } from '../constants'
@@ -119,6 +119,8 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.observeChatMessages()
 				this.observeChatEntriesForDeletionEvents()
 				this.loadScrollingBehaviour()
+
+				// TODO refactor this, it depends on the chat messages container and inputController but load timing might be off
 				this.loadReplyBehaviour()
 			})
 			.catch(() => {})
@@ -363,7 +365,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			textFieldEl
 		))
 		inputController.initialize()
-		inputController.loadTabCompletionBehaviour()
+		inputController.loadInputCompletionBehaviour()
 		inputController.loadChatHistoryBehaviour()
 
 		// User is already timedout or banned, disable chat input and show reason
@@ -458,7 +460,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				evt.altKey ||
 				evt.metaKey ||
 				ignoredKeys[evt.key] ||
-				inputController.isShowingTabCompletorModal() ||
+				inputController.isShowingInputCompletorNavListWindow() ||
 				document.activeElement?.tagName === 'INPUT' ||
 				document.activeElement?.getAttribute('contenteditable') ||
 				(<HTMLElement>evt.target)?.hasAttribute('capture-focus') ||

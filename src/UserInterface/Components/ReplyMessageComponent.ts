@@ -1,7 +1,7 @@
 import { cleanupHTML, log, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
-export class ReplyMessageComponent extends AbstractComponent {
+export default class ReplyMessageComponent extends AbstractComponent {
 	private element: HTMLElement
 	private containerEl: HTMLElement
 

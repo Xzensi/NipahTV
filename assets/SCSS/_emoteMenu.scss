@@ -249,7 +249,7 @@
 	&[data-id='favorites'] {
 		.ntv__emote-set__emotes:empty {
 			&:before {
-				content: 'Ctrl + click to add emotes to favorites. Hold click and drag to re-order.';
+				content: 'Ctrl + click to add emotes to favorites. Hold click for 1 second, then drag to re-order.';
 				border: 2px dashed var(--ntv-border-transparent-2);
 				display: inline-block;
 				text-align: center;

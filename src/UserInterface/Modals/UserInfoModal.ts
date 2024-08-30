@@ -4,7 +4,7 @@ import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderCom
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
 
-export class UserInfoModal extends AbstractModal {
+export default class UserInfoModal extends AbstractModal {
 	private rootContext: RootContext
 	private session: Session
 
@@ -354,7 +354,7 @@ export class UserInfoModal extends AbstractModal {
 		const { timeoutPageEl } = this
 		if (!timeoutPageEl) return
 
-		timeoutPageEl.innerHTML = ''
+		while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove()
 
 		if (this.timeoutSliderComponent) {
 			delete this.timeoutSliderComponent
@@ -394,10 +394,11 @@ export class UserInfoModal extends AbstractModal {
 			timeoutPageEl.setAttribute('disabled', '')
 
 			try {
-				await this.session.networkInterface.sendCommand({
-					name: 'timeout',
-					args: [this.username, duration, reason]
-				})
+				await this.session.networkInterface.executeCommand('timeout', this.session.channelData.channelName, [
+					this.username,
+					duration,
+					reason
+				])
 				await this.updateUserInfo()
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -414,7 +415,7 @@ export class UserInfoModal extends AbstractModal {
 
 			this.modActionButtonBanEl!.setAttribute('active', '')
 
-			timeoutPageEl.innerHTML = ''
+			while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove()
 			timeoutPageEl.removeAttribute('disabled')
 			delete this.timeoutSliderComponent
 
@@ -441,7 +442,9 @@ export class UserInfoModal extends AbstractModal {
 			log(`Attempting to remove VIP status from user: ${userInfo.username}..`)
 
 			try {
-				await networkInterface.sendCommand({ name: 'unvip', args: [userInfo.username] })
+				await this.session.networkInterface.executeCommand('unvip', this.session.channelData.channelName, [
+					userInfo.username
+				])
 				log('Successfully removed VIP status from user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -466,7 +469,9 @@ export class UserInfoModal extends AbstractModal {
 			log(`Attempting to give VIP status to user: ${userInfo.username}..`)
 
 			try {
-				await networkInterface.sendCommand({ name: 'vip', args: [userInfo.username] })
+				await this.session.networkInterface.executeCommand('vip', this.session.channelData.channelName, [
+					userInfo.username
+				])
 				log('Successfully gave VIP status to user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -506,7 +511,9 @@ export class UserInfoModal extends AbstractModal {
 			log(`Attempting to remove mod status from user: ${userInfo.username}..`)
 
 			try {
-				await networkInterface.sendCommand({ name: 'unmod', args: [userInfo.username] })
+				await this.session.networkInterface.executeCommand('unmod', this.session.channelData.channelName, [
+					userInfo.username
+				])
 				log('Successfully removed mod status from user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -531,7 +538,9 @@ export class UserInfoModal extends AbstractModal {
 			log(`Attempting to give mod status to user: ${userInfo.username}..`)
 
 			try {
-				await networkInterface.sendCommand({ name: 'mod', args: [userInfo.username] })
+				await this.session.networkInterface.executeCommand('mod', this.session.channelData.channelName, [
+					userInfo.username
+				])
 				log('Successfully gave mod status to user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -567,7 +576,9 @@ export class UserInfoModal extends AbstractModal {
 			log(`Attempting to unban user: ${userInfo.username}..`)
 
 			try {
-				await networkInterface.sendCommand({ name: 'unban', args: [userInfo.username] })
+				await this.session.networkInterface.executeCommand('unban', this.session.channelData.channelName, [
+					userInfo.username
+				])
 				log('Successfully unbanned user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -588,7 +599,9 @@ export class UserInfoModal extends AbstractModal {
 			log(`Attempting to ban user: ${userInfo.username}..`)
 
 			try {
-				await networkInterface.sendCommand({ name: 'ban', args: [userInfo.username] })
+				await this.session.networkInterface.executeCommand('ban', this.session.channelData.channelName, [
+					userInfo.username
+				])
 				log('Successfully banned user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -619,7 +632,7 @@ export class UserInfoModal extends AbstractModal {
 
 		if (modLogsPageEl.querySelector('.ntv__user-info-modal__mod-logs-page__messages[loading]')) return
 
-		modLogsPageEl.innerHTML = ''
+		while (modLogsPageEl.firstChild) modLogsPageEl.firstChild.remove()
 		this.messagesHistoryCursor = 0
 
 		const messagesHistoryEl = (this.messagesHistoryEl = parseHTML(
@@ -904,7 +917,7 @@ export class UserInfoModal extends AbstractModal {
 				</div>
 			`)
 		} else {
-			statusPageEl.innerHTML = ''
+			while (statusPageEl.firstChild) statusPageEl.firstChild.remove()
 		}
 	}
 }

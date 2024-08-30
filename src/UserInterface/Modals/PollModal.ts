@@ -3,7 +3,7 @@ import { Toaster } from '../../Classes/Toaster'
 import { cleanupHTML, log, parseHTML } from '../../utils'
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
 
-export class PollModal extends AbstractModal {
+export default class PollModal extends AbstractModal {
 	private rootContext: RootContext
 	private session: Session
 	private toaster: Toaster

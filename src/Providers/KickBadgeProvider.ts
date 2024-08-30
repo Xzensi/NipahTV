@@ -1,7 +1,7 @@
 import { REST, error, log } from '../utils'
 import { Badge, IBadgeProvider } from './BadgeProvider'
 
-export class KickBadgeProvider implements IBadgeProvider {
+export default class KickBadgeProvider implements IBadgeProvider {
 	rootContext: RootContext
 	channelData: ChannelData
 	subscriberBadges: any[] = []

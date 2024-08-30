@@ -40,7 +40,7 @@ export type UserMessage = {
 	}
 }
 
-export interface INetworkInterface {
+export interface NetworkInterface {
 	channelData?: ChannelData
 
 	connect(): Promise<any>
@@ -54,7 +54,7 @@ export interface INetworkInterface {
 		originalSenderId: string,
 		originalSenderUsername: string
 	): Promise<any>
-	sendCommand(command: { name: string; args: string[] }): Promise<any>
+	executeCommand(commandName: string, channelName: string, args: string[]): Promise<string | void>
 	createPoll(
 		channelName: string,
 		question: string,

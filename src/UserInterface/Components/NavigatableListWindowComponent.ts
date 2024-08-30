@@ -6,7 +6,7 @@ import { AbstractComponent } from './AbstractComponent'
  *   can contain list entries like emotes or usernames for mentiones
  *   in chat. This component is navigatable with the arrow keys.
  */
-export class NavigatableEntriesWindowComponent extends AbstractComponent {
+export default class NavigatableListWindowComponent extends AbstractComponent {
 	private entries: { [key: string]: unknown }[] = []
 	private entriesMap: Map<HTMLElement, { [key: string]: unknown }> = new Map()
 	private selectedIndex = 0
@@ -24,14 +24,16 @@ export class NavigatableEntriesWindowComponent extends AbstractComponent {
 		this.classes = classes
 
 		this.clickCallback = this.clickHandler.bind(this)
-	}
 
-	render() {
 		this.element = parseHTML(
 			`<div class="ntv__nav-window ${this.classes}"><ul class="ntv__nav-window__list"></ul></div>`,
 			true
 		) as HTMLElement
+
 		this.listEl = this.element.querySelector('ul') as HTMLElement
+	}
+
+	render() {
 		this.container.appendChild(this.element)
 	}
 
@@ -80,7 +82,7 @@ export class NavigatableEntriesWindowComponent extends AbstractComponent {
 	setEntries(entries: HTMLElement[]) {
 		this.entries = []
 		this.entriesMap.clear()
-		this.listEl.innerHTML = ''
+		while (this.listEl.firstChild) this.listEl.firstChild.remove()
 		entries.forEach(el => {
 			this.addEntry({}, el)
 		})
@@ -90,7 +92,7 @@ export class NavigatableEntriesWindowComponent extends AbstractComponent {
 		this.selectedIndex = 0
 		this.entries = []
 		this.entriesMap.clear()
-		this.listEl.innerHTML = ''
+		while (this.listEl.firstChild) this.listEl.firstChild.remove()
 	}
 
 	getSelectedEntry() {

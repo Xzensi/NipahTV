@@ -1,11 +1,9 @@
-import { EmotesManager } from '../Managers/EmotesManager'
 import { log, error, assertArgDefined, CHAR_ZWSP, debounce, eventKeyIsLetterDigitPuncSpaceChar } from '../utils'
-import { MessagesHistory } from './MessagesHistory'
-import { Caret } from '../UserInterface/Caret'
 import { PriorityEventTarget } from './PriorityEventTarget'
-import { Clipboard2 } from './Clipboard'
-import { Publisher } from './Publisher'
+import MessagesHistory from './MessagesHistory'
+import { Caret } from '../UserInterface/Caret'
 import { U_TAG_NTV_AFFIX } from '../constants'
+import Clipboard2 from './Clipboard'
 
 /**
  * Inserts a space character before the component if there is no space character before it.
@@ -128,7 +126,7 @@ export class ContentEditableEditor {
 	}
 
 	clearInput() {
-		this.inputNode.innerHTML = ''
+		while (this.inputNode.firstChild) this.inputNode.removeChild(this.inputNode.firstChild)
 		this.hasUnprocessedContentChanges = true
 		this.processInputContent()
 	}
@@ -145,6 +143,10 @@ export class ContentEditableEditor {
 
 	isEnabled() {
 		return this.isInputEnabled
+	}
+
+	isClickEventInInput(event: MouseEvent) {
+		return event.target === this.inputNode || this.inputNode.contains(event.target as Node)
 	}
 
 	addEventListener(
@@ -260,6 +262,10 @@ export class ContentEditableEditor {
 				}
 				break
 
+			case 'Tab':
+				event.preventDefault()
+				break
+
 			case ' ': // Space character key
 				this.handleSpaceKey(event)
 				break
@@ -303,11 +309,16 @@ export class ContentEditableEditor {
 			this.normalizeComponents()
 		}
 
+		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
+
 		if (this.hasUnprocessedContentChanges) {
-			this.processInputContentDebounce()
+			if (isNotEmpty) {
+				this.processInputContentDebounce()
+			} else {
+				this.processInputContent()
+			}
 		}
 
-		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
 		if (this.inputEmpty === !isNotEmpty) return
 		this.inputEmpty = !this.inputEmpty
 		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
@@ -554,6 +565,8 @@ export class ContentEditableEditor {
 		this.characterCount = this.messageContent.length
 		this.hasUnprocessedContentChanges = false
 		eventBus.publish('ntv.input_controller.character_count', { value: this.characterCount })
+
+		if (!inputNode.childNodes.length) eventBus.publish('ntv.input_controller.empty_input')
 	}
 
 	deleteBackwards(evt: KeyboardEvent) {
@@ -884,8 +897,6 @@ export class ContentEditableEditor {
 	}
 
 	private insertNodes(nodes: Node[]) {
-		log('Inserting nodes', nodes)
-
 		const selection = document.getSelection()
 		if (!selection) return
 

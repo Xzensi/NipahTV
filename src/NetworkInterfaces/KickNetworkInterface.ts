@@ -1,8 +1,67 @@
-import { U_TAG_NTV_AFFIX } from '../constants'
+import type { NetworkInterface, UserMessage } from './NetworkInterface'
 import { REST, assertArgDefined, error, info, log } from '../utils'
-import { INetworkInterface, UserMessage } from './NetworkInterface'
+import { U_TAG_NTV_AFFIX } from '../constants'
+import { KICK_COMMANDS } from '../Commands/KickCommands'
 
-export class KickNetworkInterface implements INetworkInterface {
+function tryParseErrorMessage(res: { [key: string]: any }) {
+	// Server sometimes returns only {message: '...'}
+	if (!res.error && !res.errors && !res.status && res.message) {
+		return res.message
+	}
+
+	// Sometimes error structure is like this:
+	// {"message":"The given data was invalid.","errors":{"banned_username":["This field is required [banned username]."],"duration":["This field is required when permanent is  [duration]."]}}
+	// Return it as a pretty formatted string
+	if (res.errors) {
+		let formattedMessage = res.message ? `${res.message}\n` : ''
+		for (const [field, messages] of Object.entries(res.errors)) {
+			if (Array.isArray(messages)) {
+				formattedMessage += `- ${[field]}: ${messages
+					.join('\n')
+					// Kick likes to add the field name to the message, so we remove it
+					.replaceAll(`[${field.replaceAll('_', ' ')}]`, '')
+					// Collapse spaces
+					.replace(/\s+/g, ' ')
+					// Sometime Kick adds random extraneous spaces before dots.
+					.replace(/\s\./g, '.')}\n`
+			} else {
+				formattedMessage += `- ${[field]}: ${messages}\n`
+			}
+		}
+		return formattedMessage.trim()
+	}
+
+	// Sometimes response format is like:
+	// {"status":{"code":404,"message":"Poll not found","error":true},"data":null}
+	if (res.status && res.status.error) {
+		return res.status.message
+	}
+
+	// Sometimes its like:
+	// {"command":"host","parameter":"channel_name","success":false,"error":"chatroom_commands_host_error_not_meeting_host_conditions"}
+	if (typeof res.error === 'string') {
+		return res.error
+	}
+}
+
+function handleApiError(res: any, defaultMessage: string): never {
+	let messageString = defaultMessage
+
+	if (res instanceof Error) {
+		messageString += ' Server gave as reason:\n\n' + res.message
+	} else {
+		const errorMessage = tryParseErrorMessage(res)
+		if (errorMessage) {
+			messageString += ' Server gave as reason:\n\n' + errorMessage
+		} else {
+			messageString += ' No error message provided.'
+		}
+	}
+
+	throw new Error(messageString)
+}
+
+export default class KickNetworkInterface implements NetworkInterface {
 	channelData?: ChannelData
 
 	async connect() {
@@ -129,6 +188,14 @@ export class KickNetworkInterface implements INetworkInterface {
 			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
 			type: 'message'
 		})
+			.then(res => {
+				const parsedError = tryParseErrorMessage(res)
+				if (parsedError) throw new Error(parsedError)
+				// No need to return anything
+			})
+			.catch(err => {
+				handleApiError(err, 'Failed to send message.')
+			})
 	}
 
 	async sendReply(
@@ -158,96 +225,53 @@ export class KickNetworkInterface implements INetworkInterface {
 				}
 			}
 		})
+			.then(res => {
+				const parsedError = tryParseErrorMessage(res)
+				if (parsedError) throw new Error(parsedError)
+				// No need to return anything
+			})
+			.catch(err => {
+				handleApiError(err, 'Failed to reply to message.')
+			})
 	}
 
-	async sendCommand(command: { name: string; alias?: string; args: string[] }) {
-		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
+	private async apiCall(
+		method: 'post' | 'put' | 'delete',
+		url: string,
+		data: any,
+		errorMessage: string,
+		successMessage?: string
+	) {
+		try {
+			const res = await RESTFromMainService[method](url, data)
+			const parsedError = tryParseErrorMessage(res)
+			if (parsedError) throw new Error(parsedError)
+		} catch (res) {
+			handleApiError(res, errorMessage)
+		}
 
-		const { channelData } = this
-		const { channelName } = channelData
-		const commandName = command.alias || command.name
-		const args = command.args
+		return successMessage
+	}
 
-		if (commandName === 'ban') {
-			const data = {
-				banned_username: args[0],
-				permanent: true
-			} as any
-			if (args[1]) data.reason = args.slice(1).join(' ')
+	async executeCommand(commandName: string, channelName: string, args: string[]) {
+		let command = KICK_COMMANDS.find(command => command.name === commandName || command.alias === commandName)
+		if (command?.alias) command = KICK_COMMANDS.find(n => n.name === command!.alias)
 
-			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/bans`, data)
-		} else if (commandName === 'unban') {
-			return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${channelName}/bans/` + args[0])
-		} else if (commandName === 'clear') {
-			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
-				command: 'clear'
-			})
-		} else if (commandName === 'emoteonly') {
-			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
-				emotes_mode: args[0] === 'on'
-			})
-		} else if (commandName === 'followonly') {
-			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
-				followers_mode: args[0] === 'on'
-			})
-		} else if (commandName === 'host') {
-			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
-				command: 'host',
-				parameter: args[0]
-			})
-		} else if (commandName === 'mod') {
-			return RESTFromMainService.post(
-				`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`,
-				{
-					username: args[0]
-				}
-			)
-		} else if (commandName === 'og') {
-			return RESTFromMainService.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`, {
-				username: args[0]
-			})
-		} else if (commandName === 'slow') {
-			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
-				slow_mode: args[0] === 'on'
-			})
-		} else if (commandName === 'subonly') {
-			return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelName}/chatroom`, {
-				subscribers_mode: args[0] === 'on'
-			})
-		} else if (commandName === 'timeout') {
-			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/bans`, {
-				banned_username: args[0],
-				duration: args[1],
-				reason: args.slice(2).join(' '),
-				permanent: false
-			})
-		} else if (commandName === 'title') {
-			return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/chat-commands`, {
-				command: 'title',
-				parameter: args.join(' ')
-			})
-		} else if (commandName === 'unog') {
-			return RESTFromMainService.delete(
-				`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs/` + args[0]
-			)
-		} else if (commandName === 'unmod') {
-			return RESTFromMainService.delete(
-				`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators/` + args[0]
-			)
-		} else if (commandName === 'unvip') {
-			return RESTFromMainService.delete(
-				`https://kick.com/api/internal/v1/channels/${channelName}/community/vips/` + args[0]
-			)
-		} else if (commandName === 'vip') {
-			return RESTFromMainService.post(`https://kick.com/api/internal/v1/channels/${channelName}/community/vips`, {
-				username: args[0]
-			})
-		} else if (commandName === 'polldelete') {
-			return this.deletePoll(channelName)
-		} else if (commandName === 'follow') {
-			return this.followUser(args[0])
-		} else if (commandName === 'unfollow') {
-			return this.unfollowUser(args[0])
+		if (command) {
+			if (command.api && command.api.protocol === 'http') {
+				const { method, uri, data, errorMessage, successMessage } = command.api
+				return await this.apiCall(
+					method,
+					uri(channelName, args),
+					data ? data(args) : null,
+					errorMessage,
+					successMessage
+				)
+			} else {
+				throw new Error(`Command "${commandName}" is not supported yet.`)
+			}
+		} else {
+			throw new Error(`Unknown command: ${commandName}`)
 		}
 	}
 

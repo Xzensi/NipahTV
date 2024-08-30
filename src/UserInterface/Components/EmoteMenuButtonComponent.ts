@@ -1,7 +1,7 @@
 import { AbstractComponent } from './AbstractComponent'
 import { error, cleanupHTML, parseHTML, log } from '../../utils'
 
-export class EmoteMenuButtonComponent extends AbstractComponent {
+export default class EmoteMenuButtonComponent extends AbstractComponent {
 	private rootContext: RootContext
 	private session: Session
 	private element?: HTMLElement
