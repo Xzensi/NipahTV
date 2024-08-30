@@ -1,14 +1,12 @@
-import type { EmotesManager } from '../../Managers/EmotesManager'
+import NavigatableListWindowManager from '../../Managers/NavigatableListWindowManager'
 import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
+import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
 import { Caret } from '../../UserInterface/Caret'
-import { error, parseHTML } from '../../utils'
-import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
+import { error, log, parseHTML } from '../../utils'
 
-export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
-	private rootContext: RootContext
-	private session: Session
-	private contentEditableEditor: ContentEditableEditor
+export default class EmoteCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'emotes'
+	readonly isFullLineStrategy = false
 
 	private start = 0
 	private end = 0
@@ -17,78 +15,77 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 	private emoteComponent: HTMLElement | null = null
 
 	constructor(
-		rootContext: RootContext,
-		session: Session,
-		{ contentEditableEditor }: { contentEditableEditor: ContentEditableEditor },
-		containerEl: HTMLElement
+		protected rootContext: RootContext,
+		protected session: Session,
+		protected contentEditableEditor: ContentEditableEditor,
+		protected navListWindowManager: NavigatableListWindowManager
 	) {
-		super(containerEl)
-
-		this.rootContext = rootContext
-		this.session = session
-		this.contentEditableEditor = contentEditableEditor
+		super(rootContext, session, contentEditableEditor, navListWindowManager)
 	}
 
-	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
+	shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null && !word.startsWith('@')
+		const codepoint = word ? word.codePointAt(0) || 0 : 0
+		return (
+			event instanceof KeyboardEvent &&
+			event.key === 'Tab' &&
+			word !== null &&
+			// BMP codepoints for latin special characters
+			!(codepoint >= 0x0021 && codepoint <= 0x002f)
+		)
 	}
 
-	createModal() {
-		super.createModal()
+	maybeCreateNavWindow() {
+		if (this.navWindow) return
 
-		this.navWindow!.addEventListener('entry-click', (event: Event) => {
+		this.navWindow = this.navListWindowManager.createNavWindow(this.id)
+		this.navWindow.addEventListener('entry-click', (event: Event) => {
 			this.renderInlineCompletion()
-			this.destroy()
 		})
 	}
 
+	getRelevantEmotes(searchString: string) {
+		return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20)
+	}
+
 	updateCompletionEntries() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
-
 		const { word, start, end, node } = Caret.getWordBeforeCaret()
-		if (!word) {
-			this.destroy()
-			return
-		}
-
-		const { emotesManager } = this.session
+		if (!word) return true
 
 		this.word = word
 		this.start = start
 		this.end = end
 		this.node = node
 
-		const searchResults = emotesManager.searchEmotes(word.substring(0, 20), 20)
+		const relevantEmotes = this.getRelevantEmotes(word)
+		if (!relevantEmotes.length) return true // TODO set to false when its implemented to live search while typing
+
+		this.clearNavWindow()
+		this.maybeCreateNavWindow()
+
+		const { emotesManager } = this.session
+		const navWindow = this.navWindow!
+
 		// log('Search results:', searchResults)
+		const emoteNames = relevantEmotes.map(result => result.item.name)
+		const emoteHids = relevantEmotes.map(result => emotesManager.getEmoteHidByName(result.item.name))
 
-		const emoteNames = searchResults.map((result: any) => result.item.name)
-		const emoteHids = searchResults.map((result: any) => emotesManager.getEmoteHidByName(result.item.name))
-
-		if (emoteNames.length) {
-			for (let i = 0; i < emoteNames.length; i++) {
-				const emoteName = emoteNames[i]
-				const emoteHid = emoteHids[i]
-				const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid!, 'ntv__emote')
-
-				this.navWindow.addEntry(
-					{ emoteHid },
-					parseHTML(
-						`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
-						true
-					) as HTMLElement
-				)
-			}
-
-			this.navWindow.setSelectedIndex(0)
-			this.renderInlineCompletion()
-
-			if (!this.navWindow.getEntriesCount()) {
-				this.destroy()
-			}
-		} else {
-			this.destroy()
+		// Render emote completion entries
+		for (let i = 0; i < emoteNames.length; i++) {
+			const emoteName = emoteNames[i]
+			const emoteHid = emoteHids[i]
+			const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid!, 'ntv__emote')
+			navWindow.addEntry(
+				{ emoteHid },
+				parseHTML(
+					`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
+					true
+				) as HTMLElement
+			)
 		}
+
+		navWindow.setSelectedIndex(0)
+		this.renderInlineCompletion()
 	}
 
 	moveSelectorUp() {
@@ -141,59 +138,68 @@ export class EmoteCompletionStrategy extends AbstractCompletionStrategy {
 		}
 	}
 
-	handleKeyDown(event: KeyboardEvent) {
+	handleKeyDownEvent(event: KeyboardEvent) {
+		// TODO decouple it from navWindow here, so it works without navWindow as well. NavWindow should be optional.
 		if (this.navWindow) {
-			if (event.key === 'Tab') {
-				event.preventDefault()
-
-				// Traverse tab completion suggestions up/down depending on whether shift is held with tab
-				if (event.shiftKey) {
-					this.moveSelectorDown()
-				} else {
-					this.moveSelectorUp()
-				}
-			} else if (event.key === 'ArrowUp') {
-				event.preventDefault()
-
-				this.moveSelectorUp()
-			} else if (event.key === 'ArrowDown') {
-				event.preventDefault()
-
-				this.moveSelectorDown()
-			} else if (event.key === 'ArrowRight' || event.key === 'Enter') {
-				if (event.key === 'Enter') {
+			switch (event.key) {
+				case 'Tab':
 					event.preventDefault()
-					event.stopPropagation()
-				}
 
-				this.destroy()
-			} else if (event.key === ' ') {
+					// Traverse tab completion suggestions up/down depending on whether shift is held with tab
+					if (event.shiftKey) {
+						this.moveSelectorDown()
+					} else {
+						this.moveSelectorUp()
+					}
+					return false
+
+				case 'ArrowUp':
+					event.preventDefault()
+					this.moveSelectorUp()
+					return false
+
+				case 'ArrowDown':
+					event.preventDefault()
+					this.moveSelectorDown()
+					return false
+			}
+		}
+
+		switch (event.key) {
+			case 'Enter':
+			case ' ':
 				event.preventDefault()
 				event.stopPropagation()
 
-				this.destroy()
-			} else if (event.key === 'ArrowLeft' || event.key === 'Escape') {
-				this.destroy()
-			} else if (event.key === 'Backspace') {
+				return true
+
+			case 'Backspace':
 				event.preventDefault()
 				event.stopImmediatePropagation()
-
 				this.restoreOriginalText()
-				this.destroy()
-			} else if (event.key === 'Shift') {
-				// Ignore shift key press
-			} else {
-				this.destroy()
-			}
-		} else if (event.key === 'Tab') {
-			event.preventDefault()
-			this.createModal()
-			this.updateCompletionEntries()
+				return true
+
+			case 'ArrowRight':
+			case 'ArrowLeft':
+			case 'Escape':
+				return true
+
+			case 'Shift':
+				return false
+		}
+
+		event.preventDefault()
+		return this.updateCompletionEntries()
+	}
+
+	handleClickEvent(event: MouseEvent, clickIsInInput: boolean) {
+		if (!this.isClickInsideNavWindow(event.target as Node)) {
+			return true
 		}
 	}
 
-	destroy() {
-		super.destroy()
+	reset() {
+		super.reset()
 
 		this.start = 0
 		this.end = 0

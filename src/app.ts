@@ -21,7 +21,7 @@ import Database from './Database/Database'
 
 // Extensions
 import BotrixExtension from './Extensions/Botrix'
-import { InputCompletionStrategyRegister } from './Strategies/InputCompletionStrategyRegister'
+import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
 import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
 import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
 import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'

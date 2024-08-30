@@ -1,14 +1,12 @@
-import type { UsersManager } from '../../Managers/UsersManager'
+import NavigatableListWindowManager from '../../Managers/NavigatableListWindowManager'
 import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
-import { Caret } from '../../UserInterface/Caret'
+import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
 import { error, log, parseHTML } from '../../utils'
-import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
+import { Caret } from '../../UserInterface/Caret'
 
-export class MentionCompletionStrategy extends AbstractCompletionStrategy {
-	private contentEditableEditor: ContentEditableEditor
-	private rootContext: RootContext
-	private session: Session
+export default class MentionCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'mentions'
+	readonly isFullLineStrategy = false
 
 	private start = 0
 	private end = 0
@@ -17,74 +15,68 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 	private mentionEnd = 0
 
 	constructor(
-		rootContext: RootContext,
-		session: Session,
-		{ contentEditableEditor }: { contentEditableEditor: ContentEditableEditor },
-		containerEl: HTMLElement
+		protected rootContext: RootContext,
+		protected session: Session,
+		protected contentEditableEditor: ContentEditableEditor,
+		protected navListWindowManager: NavigatableListWindowManager
 	) {
-		super(containerEl)
-
-		this.contentEditableEditor = contentEditableEditor
-		this.rootContext = rootContext
-		this.session = session
+		super(rootContext, session, contentEditableEditor, navListWindowManager)
 	}
 
-	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
+	shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		return (event instanceof KeyboardEvent && event.key === '@' && !word) || (word !== null && word.startsWith('@'))
+		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null && word[0] === '@'
 	}
 
-	createModal() {
-		super.createModal()
+	maybeCreateNavWindow() {
+		if (this.navWindow) return
 
-		this.navWindow!.addEventListener('entry-click', (event: Event) => {
+		this.navWindow = this.navListWindowManager.createNavWindow(this.id)
+		this.navWindow.addEventListener('entry-click', (event: Event) => {
 			Caret.moveCaretTo(this.node!, this.mentionEnd)
 			this.contentEditableEditor.insertText(' ')
-			this.destroy()
 		})
 	}
 
-	updateCompletionEntries() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
+	getRelevantUsers(searchString: string) {
+		return this.session.usersManager.searchUsers(searchString.substring(1, 20), 20)
+	}
 
+	updateCompletionEntries() {
 		const { word, start, end, node } = Caret.getWordBeforeCaret()
-		if (!word) {
-			this.destroy()
-			return
-		}
+		if (!word) return true
 
 		this.word = word
 		this.start = start
 		this.end = end
 		this.node = node
 
-		const searchResults = this.session.usersManager.searchUsers(word.substring(1, 20), 20)
-		const userNames = searchResults.map((result: any) => result.item.name)
-		const userIds = searchResults.map((result: any) => result.item.id)
+		const relevantUsers = this.getRelevantUsers(word)
+		if (!relevantUsers.length) return true // TODO set to false when its implemented to live search while typing
 
-		if (userNames.length) {
-			for (let i = 0; i < userNames.length; i++) {
-				const userName = userNames[i]
-				const userId = userIds[i]
+		const userNames = relevantUsers.map(result => result.item.name)
+		const userIds = relevantUsers.map(result => result.item.id)
 
-				this.navWindow.addEntry(
-					{ userId, userName },
-					parseHTML(`<li data-user-id="${userId}"><span>@${userName}</span></li>`, true) as HTMLElement
-				)
-			}
+		this.clearNavWindow()
+		this.maybeCreateNavWindow()
 
-			this.navWindow.setSelectedIndex(0)
-			this.renderInlineCompletion()
+		const navWindow = this.navWindow!
 
-			if (!this.navWindow.getEntriesCount()) {
-				this.destroy()
-			}
-		} else {
-			this.destroy()
+		// Render mention completion entries
+		for (let i = 0; i < userNames.length; i++) {
+			const userName = userNames[i]
+			const userId = userIds[i]
+			navWindow.addEntry(
+				{ userId, userName },
+				parseHTML(`<li data-user-id="${userId}"><span>@${userName}</span></li>`, true) as HTMLElement
+			)
 		}
+
+		navWindow.setSelectedIndex(0)
+		this.renderContentEditorInlineCompletion()
 	}
 
-	renderInlineCompletion() {
+	renderContentEditorInlineCompletion() {
 		if (!this.navWindow) return error('Tab completion window does not exist yet')
 		if (!this.node) return error('Invalid node to render inline user mention')
 
@@ -102,14 +94,14 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 		if (!this.navWindow) return error('No tab completion window to move selector up')
 		this.navWindow.moveSelectorUp()
 		this.restoreOriginalText()
-		this.renderInlineCompletion()
+		this.renderContentEditorInlineCompletion()
 	}
 
 	moveSelectorDown() {
 		if (!this.navWindow) return error('No tab completion window to move selector down')
 		this.navWindow.moveSelectorDown()
 		this.restoreOriginalText()
-		this.renderInlineCompletion()
+		this.renderContentEditorInlineCompletion()
 	}
 
 	restoreOriginalText() {
@@ -120,63 +112,73 @@ export class MentionCompletionStrategy extends AbstractCompletionStrategy {
 		this.contentEditableEditor.processInputContent()
 	}
 
-	handleKeyDown(event: KeyboardEvent) {
+	handleKeyDownEvent(event: KeyboardEvent) {
 		if (this.navWindow) {
-			if (event.key === 'Tab') {
-				event.preventDefault()
-
-				// Traverse tab completion suggestions up/down depending on whether shift is held with tab
-				if (event.shiftKey) {
-					this.moveSelectorDown()
-				} else {
-					this.moveSelectorUp()
-				}
-			} else if (event.key === 'ArrowUp') {
-				event.preventDefault()
-
-				this.moveSelectorUp()
-			} else if (event.key === 'ArrowDown') {
-				event.preventDefault()
-
-				this.moveSelectorDown()
-			} else if (event.key === 'ArrowRight' || event.key === 'Enter') {
-				if (event.key === 'Enter') {
+			switch (event.key) {
+				case 'Tab':
 					event.preventDefault()
-					event.stopPropagation()
-				}
+					// Traverse tab completion suggestions up/down depending on whether shift is held with tab
+					if (event.shiftKey) {
+						this.moveSelectorDown()
+					} else {
+						this.moveSelectorUp()
+					}
+					return false
 
+				case 'ArrowUp':
+					event.preventDefault()
+					this.moveSelectorUp()
+					return false
+
+				case 'ArrowDown':
+					event.preventDefault()
+					this.moveSelectorDown()
+					return false
+			}
+		}
+
+		switch (event.key) {
+			case 'Enter':
+				event.preventDefault()
+				event.stopPropagation()
+			// Continue to ArrowRight case
+
+			case 'ArrowRight':
 				this.contentEditableEditor.insertText(' ')
+				return true
 
-				this.destroy()
-			} else if (event.key === ' ') {
-				this.destroy()
-			} else if (event.key === 'ArrowLeft' || event.key === 'Escape') {
-				this.destroy()
-			} else if (event.key === 'Backspace') {
+			case ' ':
+			case 'Arrowleft':
+			case 'Escape':
+				return true
+
+			case 'Backspace':
 				event.preventDefault()
 				event.stopImmediatePropagation()
-
 				this.restoreOriginalText()
-				this.destroy()
-			} else if (event.key === 'Shift') {
-				// Ignore shift key press
-			} else {
-				this.destroy()
-			}
-		} else if (event.key === 'Tab') {
-			event.preventDefault()
-			this.createModal()
-			this.updateCompletionEntries()
+				return true
+
+			case 'Shift':
+				return false
+		}
+
+		event.preventDefault()
+		return this.updateCompletionEntries()
+	}
+
+	handleClickEvent(event: MouseEvent, clickIsInInput: boolean) {
+		if (!this.isClickInsideNavWindow(event.target as Node)) {
+			return true
 		}
 	}
 
-	destroy() {
-		super.destroy()
+	reset() {
+		super.reset()
 
 		this.start = 0
 		this.end = 0
-		this.mentionEnd = 0
 		this.node = null
 		this.word = null
+		this.mentionEnd = 0
 	}
 }

@@ -1,41 +1,43 @@
-import type { AbstractCompletionStrategy } from './InputCompletionStrategies/AbstractCompletionStrategy'
-import { CommandCompletionStrategy } from './InputCompletionStrategies/CommandCompletionStrategy'
-import { EmoteCompletionStrategy } from './InputCompletionStrategies/EmoteCompletionStrategy'
-import { MentionCompletionStrategy } from './InputCompletionStrategies/MentionCompletionStrategy'
+import type AbstractInputCompletionStrategy from './InputCompletionStrategies/AbstractInputCompletionStrategy'
 import type { ContentEditableEditor } from '../Classes/ContentEditableEditor'
 
-interface CompletionStrategyStatic {
-	shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean
-}
+export default class InputCompletionStrategyRegister {
+	private fullLineStrategies: AbstractInputCompletionStrategy[] = []
+	private inlineStrategies: AbstractInputCompletionStrategy[] = []
 
-interface WrappedStrategy {
-	constructor: (new (...args: any[]) => AbstractCompletionStrategy) & CompletionStrategyStatic
-	dependencies?: {}
-}
+	registerStrategy(strategy: AbstractInputCompletionStrategy) {
+		if (strategy.isFullLineStrategy) {
+			if (this.fullLineStrategies.find(x => x.constructor === strategy.constructor))
+				throw new Error('Full line strategy already registered')
 
-export class InputCompletionStrategyRegister {
-	private strategies: WrappedStrategy[] = [
-		{
-			constructor: CommandCompletionStrategy
-		},
-		{
-			constructor: MentionCompletionStrategy
-		},
-		{
-			constructor: EmoteCompletionStrategy
+			this.fullLineStrategies.push(strategy)
+		} else {
+			if (this.inlineStrategies.find(x => x.constructor === strategy.constructor))
+				throw new Error('Inline strategy already registered')
+
+			this.inlineStrategies.push(strategy)
 		}
-	]
-
-	registerStrategy(wrappedStrategy: WrappedStrategy) {
-		if (!this.strategies.find(x => x.constructor === wrappedStrategy.constructor))
-			this.strategies.push(wrappedStrategy)
 	}
 
-	unregisterStrategy(strategyConstructor: WrappedStrategy['constructor']) {
-		this.strategies = this.strategies.filter(x => x.constructor != strategyConstructor)
+	unregisterStrategy(strategy: AbstractInputCompletionStrategy) {
+		if (strategy.isFullLineStrategy) {
+			const index = this.fullLineStrategies.findIndex(x => x.constructor === strategy.constructor)
+			if (index === -1) throw new Error('Full line strategy not registered')
+
+			this.fullLineStrategies.splice(index, 1)
+		} else {
+			const index = this.inlineStrategies.findIndex(x => x.constructor === strategy.constructor)
+			if (index === -1) throw new Error('Inline strategy not registered')
+
+			this.inlineStrategies.splice(index, 1)
+		}
 	}
 
-	findApplicableStrategy(event: Event, editor: ContentEditableEditor): WrappedStrategy | undefined {
-		return this.strategies.find(x => x.constructor.shouldUseStrategy(event, editor))
+	findApplicableFullLineStrategy(event: KeyboardEvent, editor: ContentEditableEditor) {
+		return this.fullLineStrategies.find(x => x.shouldUseStrategy(event, editor))
+	}
+
+	findApplicableInlineStrategy(event: KeyboardEvent, editor: ContentEditableEditor) {
+		return this.inlineStrategies.find(x => x.shouldUseStrategy(event, editor))
 	}
 }

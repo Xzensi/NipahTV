@@ -1,29 +1,27 @@
 import { countStringOccurrences, error, eventKeyIsLetterDigitPuncSpaceChar, log, parseHTML } from '../../utils'
-import { AbstractCompletionStrategy } from './AbstractCompletionStrategy'
+import NavigatableListWindowManager from '../../Managers/NavigatableListWindowManager'
 import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
+import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
 import { KICK_COMMANDS } from '../../Commands/KickCommands'
 import { CommandEntry } from '../../Commands/Commands'
 
-export class CommandCompletionStrategy extends AbstractCompletionStrategy {
-	private contentEditableEditor: ContentEditableEditor
+export default class CommandCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'commands'
+	readonly isFullLineStrategy = true
+	allowInlineStrategyDelegation = true
+
+	// private handleEventInKeyUp = false
 
 	constructor(
-		private rootContext: RootContext,
-		private session: Session,
-		{
-			contentEditableEditor
-		}: {
-			contentEditableEditor: ContentEditableEditor
-		},
-		containerEl: HTMLElement
+		protected rootContext: RootContext,
+		protected session: Session,
+		protected contentEditableEditor: ContentEditableEditor,
+		protected navListWindowManager: NavigatableListWindowManager
 	) {
-		super(containerEl)
-
-		this.contentEditableEditor = contentEditableEditor
+		super(rootContext, session, contentEditableEditor, navListWindowManager)
 	}
 
-	static shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
+	shouldUseStrategy(event: Event, contentEditableEditor: ContentEditableEditor): boolean {
 		const firstChar = contentEditableEditor.getFirstCharacter()
 		return (
 			firstChar === '/' ||
@@ -31,81 +29,95 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		)
 	}
 
-	createModal() {
-		super.createModal()
+	maybeCreateNavWindow() {
+		if (this.navWindow) return
 
-		this.navWindow!.addEventListener('entry-click', (event: Event) => {
+		this.navWindow = this.navListWindowManager.createNavWindow(this.id)
+		this.navWindow.addEventListener('entry-click', (event: Event) => {
 			this.renderInlineCompletion()
 		})
 	}
 
-	updateCompletionEntries(commandName: string, inputString: string) {
+	getRelevantCommands(commandName: string, hasSpace: boolean) {
 		const availableCommands = this.getAvailableCommands()
-		let commandEntries: CommandEntry[] | undefined
 
-		if (inputString.indexOf(' ') !== -1) {
+		if (hasSpace) {
 			const foundEntry = availableCommands.find(commandEntry => commandEntry.name === commandName)
-			if (foundEntry) commandEntries = [foundEntry]
+			if (foundEntry) return [foundEntry]
+			return []
 		} else {
-			commandEntries = availableCommands.filter(commandEntry => commandEntry.name.startsWith(commandName))
+			if (!commandName) return availableCommands
+			return availableCommands.filter(commandEntry => commandEntry.name.startsWith(commandName))
 		}
+	}
 
-		if (!this.navWindow) this.createModal()
-		else this.navWindow.clearEntries()
+	getAliasedCommand(commandsList: CommandEntry[], commandName: string) {
+		const commandEntry = commandsList.find(n => n.name === commandName)
+		return commandEntry
+	}
 
-		if (commandEntries && commandEntries.length) {
-			for (const commandEntry of commandEntries) {
-				const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true) as HTMLElement
-				entryEl.childNodes[1].textContent = commandEntry.description
+	updateCompletionEntries(commandName: string, inputString: string) {
+		this.clearNavWindow()
 
-				// Highlight color red the command arguments where the argument is invalid
-				if (commandEntries.length === 1) {
-					let commandEntryOrAlias: CommandEntry | undefined = commandEntry
-					if (commandEntry.alias) {
-						commandEntryOrAlias = availableCommands.find(n => n.name === commandEntry.alias)
-					}
+		const relevantCommands = this.getRelevantCommands(commandName, inputString.indexOf(' ') !== -1)
+		if (!relevantCommands.length) return
 
-					if (commandEntryOrAlias) {
-						const command = commandEntry.name
-						const args = commandEntryOrAlias.params?.split(' ') || []
+		// Don't kill it here because strategy is still valid, just no completions
+		// if (!relevantCommands.length) return
 
-						const inputParts = inputString.split(' ')
-						const inputArgs = inputParts.slice(1)
+		this.maybeCreateNavWindow()
 
-						const commandEl = document.createElement('span')
-						commandEl.textContent = '/' + command
-						entryEl.childNodes[0].appendChild(commandEl)
+		const navWindow = this.navWindow!
 
-						for (let i = 0; i < args.length; i++) {
-							const argEl = document.createElement('span')
+		for (const relevantCommand of relevantCommands) {
+			const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true) as HTMLElement
+			entryEl.childNodes[1].textContent = relevantCommand.description
 
-							const arg = args[i]
-							const inputArg = inputArgs[i] || ''
-
-							const argValidator = commandEntryOrAlias?.argValidators?.[arg]
-							if (argValidator) {
-								const argIsInvalid = argValidator(inputArg)
-								if (argIsInvalid) {
-									argEl.style.color = 'red'
-								} else {
-									argEl.style.color = 'green'
-								}
-							}
-
-							argEl.textContent = ' ' + arg
-							entryEl.childNodes[0].appendChild(argEl)
-						}
-					}
-				} else {
-					const commandEl = document.createElement('span')
-					commandEl.textContent = '/' + commandEntry.name + ' ' + commandEntry.params
-					entryEl.childNodes[0].appendChild(commandEl)
+			// Highlight color red the command arguments where the argument is invalid
+			if (relevantCommands.length === 1) {
+				let commandEntryOrAlias: CommandEntry | undefined = relevantCommand
+				if (relevantCommand.alias) {
+					commandEntryOrAlias = this.getAliasedCommand(relevantCommands, relevantCommand.alias)
 				}
 
-				this.navWindow!.addEntry(commandEntry, entryEl)
+				if (commandEntryOrAlias) {
+					const command = relevantCommand.name
+					const args = commandEntryOrAlias.params?.split(' ') || []
+
+					const inputParts = inputString.split(' ')
+					const inputArgs = inputParts.slice(1)
+
+					const commandEl = document.createElement('span')
+					commandEl.textContent = '/' + command
+					entryEl.childNodes[0].appendChild(commandEl)
+
+					for (let i = 0; i < args.length; i++) {
+						const argEl = document.createElement('span')
+
+						const arg = args[i]
+						const inputArg = inputArgs[i] || ''
+
+						const argValidator = commandEntryOrAlias?.argValidators?.[arg]
+						if (argValidator) {
+							const argIsInvalid = argValidator(inputArg)
+							if (argIsInvalid) {
+								argEl.style.color = 'red'
+							} else {
+								argEl.style.color = 'green'
+							}
+						}
+
+						argEl.textContent = ' ' + arg
+						entryEl.childNodes[0].appendChild(argEl)
+					}
+				}
+			} else {
+				const commandEl = document.createElement('span')
+				commandEl.textContent = '/' + relevantCommand.name + ' ' + relevantCommand.params
+				entryEl.childNodes[0].appendChild(commandEl)
 			}
-		} else {
-			// this.destroy()
+
+			navWindow.addEntry(relevantCommand, entryEl)
 		}
 	}
 
@@ -144,15 +156,33 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		this.renderInlineCompletion()
 	}
 
-	handleKeyDown(event: KeyboardEvent) {
+	handleBlockingKeyDownEvent(event: KeyboardEvent) {
+		log('CommandCompletionStrategy.handleBlockingKeyDownEvent', event.key)
+	}
+
+	handleKeyDownEvent(event: KeyboardEvent) {
 		const { contentEditableEditor } = this
 
 		if (event.key === 'ArrowUp') {
+			if (!this.navWindow) return false
+
 			event.preventDefault()
-			return this.moveSelectorUp()
+			this.moveSelectorUp()
+			return false
 		} else if (event.key === 'ArrowDown') {
+			if (!this.navWindow) return false
+
 			event.preventDefault()
-			return this.moveSelectorDown()
+			this.moveSelectorDown()
+			return false
+		}
+
+		switch (event.key) {
+			case 'Backspace':
+			case 'Delete':
+			case 'Shift':
+			case 'Control':
+				return false
 		}
 
 		// const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event)
@@ -161,52 +191,52 @@ export class CommandCompletionStrategy extends AbstractCompletionStrategy {
 		// 	contentEditableEditor.handleKeydown(event)
 		// }
 
-		const firstNode = contentEditableEditor.getInputNode().firstChild
+		let inputContent = contentEditableEditor.getMessageContent()
+		// const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event)
 
-		if (!firstNode && event.key === '/') {
-			this.updateCompletionEntries('', '/')
-		} else if (!firstNode || !(firstNode instanceof Text)) {
-			this.destroy()
-			return
-		}
+		// const selection = document.getSelection()
+		// const hasSelection = selection?.type === 'Range'
 
-		const nodeData = firstNode ? firstNode.data : '/'
-		const firstChar = nodeData[0]
-
-		if (firstChar !== '/') {
-			this.destroy()
-			return
-		}
-
-		// if (event.key === 'Enter') {
-		// 	event.preventDefault()
-		// 	this.attemptSubmit(event)
+		// if (keyIsLetterDigitPuncSpaceChar && !event.ctrlKey && !hasSelection) {
+		// 	inputContent += event.key
+		// } else if (event.key === 'Space' && !hasSelection) {
+		// 	inputContent += ' '
+		// } else {
+		// 	this.handleEventInKeyUp = true
+		// 	return // Update completions in handleKeyUpEvent instead
 		// }
+
+		if (inputContent[0] !== '/' && !(!inputContent && event.key === '/')) return true
+
+		const commandName = inputContent.substring(1).split(' ')[0]
+		return this.updateCompletionEntries(commandName, inputContent)
 	}
 
-	handleKeyUp(event: KeyboardEvent) {
+	handleKeyUpEvent(event: KeyboardEvent) {
 		const { contentEditableEditor } = this
 
-		const firstNode = contentEditableEditor.getInputNode().firstChild
-		if (!firstNode || !(firstNode instanceof Text)) {
-			this.destroy()
-			return
-		}
+		// if (!this.handleEventInKeyUp) {
+		// 	return // Already handled in handleKeyDownEvent
+		// }
 
-		const nodeData = firstNode.data
-		const firstChar = nodeData[0]
-		if (firstChar !== '/') {
-			this.destroy()
-			return
-		}
+		// this.handleEventInKeyUp = false
 
-		const keyIsLetterDigitPuncSpaceChar = eventKeyIsLetterDigitPuncSpaceChar(event)
-		if (keyIsLetterDigitPuncSpaceChar || event.key === 'Backspace' || event.key === 'Delete') {
-			let i = 1
-			while (nodeData[i] && nodeData[i] !== ' ') i++
+		const inputContent = contentEditableEditor.getMessageContent()
+		const commandName = inputContent.substring(1).split(' ')[0]
 
-			const commandName = nodeData.substring(1, i)
-			this.updateCompletionEntries(commandName, nodeData)
+		if (inputContent[0] !== '/') return true
+
+		return this.updateCompletionEntries(commandName, inputContent)
+	}
+
+	handleClickEvent(event: MouseEvent, clickIsInInput: boolean) {
+		if (!clickIsInInput && !this.isClickInsideNavWindow(event.target as Node)) {
+			return true
 		}
+	}
+
+	reset() {
+		super.reset()
+		// this.handleEventInKeyUp = false
 	}
 }

@@ -2,15 +2,15 @@ import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import { ReplyMessageComponent } from './Components/ReplyMessageComponent'
 import type { KickEmoteProvider } from '../Providers/KickEmoteProvider'
 import { PriorityEventTarget } from '../Classes/PriorityEventTarget'
-import type { InputController } from '../Managers/InputController'
+import type { InputController } from '../Classes/InputController'
+import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../constants'
 import { MessagesHistory } from '../Classes/MessagesHistory'
 import { TimerComponent } from './Components/TimerComponent'
 import { parse as twemojiParse } from '@twemoji/parser'
 import { UserInfoModal } from './Modals/UserInfoModal'
-import { Clipboard2 } from '../Classes/Clipboard'
 import { PollModal } from './Modals/PollModal'
 import { Toaster } from '../Classes/Toaster'
-import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../constants'
+import Clipboard2 from '../Classes/Clipboard'
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
@@ -47,6 +47,10 @@ export abstract class AbstractUserInterface {
 	constructor(rootContext: RootContext, session: Session) {
 		this.rootContext = rootContext
 		this.session = session
+	}
+
+	getInputController() {
+		return this.inputController
 	}
 
 	loadInterface() {

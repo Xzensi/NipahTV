@@ -1,17 +1,18 @@
-import type { PriorityEventTarget } from '../Classes/PriorityEventTarget'
-import type { Clipboard2 } from '../Classes/Clipboard'
-
-import { ContentEditableEditor } from '../Classes/ContentEditableEditor'
-import { MessagesHistory } from '../Classes/MessagesHistory'
-import { InputCompletor } from '../Classes/InputCompletor'
+import CommandCompletionStrategy from '../Strategies/InputCompletionStrategies/CommandCompletionStrategy'
+import MentionCompletionStrategy from '../Strategies/InputCompletionStrategies/MentionCompletionStrategy'
+import EmoteCompletionStrategy from '../Strategies/InputCompletionStrategies/EmoteCompletionStrategy'
+import InputCompletionStrategyManager from '../Managers/InputCompletionStrategyManager'
+import type { PriorityEventTarget } from './PriorityEventTarget'
+import { ContentEditableEditor } from './ContentEditableEditor'
+import { MessagesHistory } from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
-import { error, log } from '../utils'
+import type Clipboard2 from './Clipboard'
 
 export class InputController {
 	private rootContext: RootContext
 	private session: Session
 	private messageHistory: MessagesHistory
-	private tabCompletor: InputCompletor
+	private inputCompletionStrategyManager: InputCompletionStrategyManager
 
 	contentEditableEditor: ContentEditableEditor
 
@@ -37,20 +38,46 @@ export class InputController {
 			{ messageHistory: this.messageHistory, clipboard },
 			textFieldEl
 		)
-		this.tabCompletor = new InputCompletor(
-			rootContext,
-			session,
-			{
-				contentEditableEditor: this.contentEditableEditor,
-				submitButtonPriorityEventTarget
-			},
+
+		const { inputCompletionStrategyRegister } = session
+
+		this.inputCompletionStrategyManager = new InputCompletionStrategyManager(
+			inputCompletionStrategyRegister,
+			this.contentEditableEditor,
 			textFieldEl.parentElement as HTMLElement
+		)
+
+		session.inputCompletionStrategyManager = this.inputCompletionStrategyManager
+
+		inputCompletionStrategyRegister.registerStrategy(
+			new CommandCompletionStrategy(
+				rootContext,
+				session,
+				this.contentEditableEditor,
+				this.inputCompletionStrategyManager.navListWindowManager
+			)
+		)
+		inputCompletionStrategyRegister.registerStrategy(
+			new MentionCompletionStrategy(
+				rootContext,
+				session,
+				this.contentEditableEditor,
+				this.inputCompletionStrategyManager.navListWindowManager
+			)
+		)
+		inputCompletionStrategyRegister.registerStrategy(
+			new EmoteCompletionStrategy(
+				rootContext,
+				session,
+				this.contentEditableEditor,
+				this.inputCompletionStrategyManager.navListWindowManager
+			)
 		)
 	}
 
 	initialize() {
-		const { eventBus } = this.session
 		const { contentEditableEditor } = this
+		const { eventBus } = this.session
 
 		contentEditableEditor.attachEventListeners()
 
@@ -64,25 +91,6 @@ export class InputController {
 		eventBus.subscribe('ntv.ui.input_submitted', this.handleInputSubmit.bind(this))
 	}
 
-	handleInputSubmit({ suppressEngagementEvent }: { suppressEngagementEvent: boolean }) {
-		const { emotesManager } = this.session
-		const { contentEditableEditor, messageHistory } = this
-
-		if (!suppressEngagementEvent) {
-			const emotesInMessage = contentEditableEditor.getEmotesInMessage()
-			for (const emoteHid of emotesInMessage) {
-				emotesManager.registerEmoteEngagement(emoteHid as string)
-			}
-		}
-
-		if (!contentEditableEditor.isInputEmpty()) messageHistory.addMessage(contentEditableEditor.getInputHTML())
-		messageHistory.resetCursor()
-	}
-
-	isShowingTabCompletorModal() {
-		return this.tabCompletor.isShowingModal()
-	}
-
 	addEventListener(
 		type: string,
 		priority: number,
@@ -92,13 +100,23 @@ export class InputController {
 		this.contentEditableEditor.addEventListener(type, priority, listener, options)
 	}
 
-	loadTabCompletionBehaviour() {
-		this.tabCompletor.attachEventHandlers()
-
-		// Hide tab completion modal when clicking outside of it
-		document.addEventListener('click', (e: MouseEvent) => {
-			this.tabCompletor.maybeCloseWindowClick(e.target as Node)
-		})
+	loadInputCompletionBehaviour() {
+		// Input completion strategy manager event handlers
+		// this.contentEditableEditor.addEventListener(
+		// 	'keydown',
+		// 	8,
+		// 	this.inputCompletionStrategyManager.handleBlockingKeyDownEvent.bind(this.inputCompletionStrategyManager)
+		// )
+		this.contentEditableEditor.addEventListener(
+			'keydown',
+			8,
+			this.inputCompletionStrategyManager.handleKeyDownEvent.bind(this.inputCompletionStrategyManager)
+		)
+		this.contentEditableEditor.addEventListener(
+			'keyup',
+			10,
+			this.inputCompletionStrategyManager.handleKeyUpEvent.bind(this.inputCompletionStrategyManager)
+		)
 	}
 
 	loadChatHistoryBehaviour() {
@@ -107,7 +125,7 @@ export class InputController {
 		if (!settingsManager.getSetting('shared.chat.input.history.enabled')) return
 
 		contentEditableEditor.addEventListener('keydown', 4, event => {
-			if (this.tabCompletor.isShowingModal()) return
+			if (this.inputCompletionStrategyManager.hasNavListWindows()) return
 
 			const textFieldEl = contentEditableEditor.getInputNode()
 
@@ -147,6 +165,25 @@ export class InputController {
 				}
 			}
 		})
+	}
+
+	handleInputSubmit({ suppressEngagementEvent }: { suppressEngagementEvent: boolean }) {
+		const { emotesManager } = this.session
+		const { contentEditableEditor, messageHistory } = this
+
+		if (!suppressEngagementEvent) {
+			const emotesInMessage = contentEditableEditor.getEmotesInMessage()
+			for (const emoteHid of emotesInMessage) {
+				emotesManager.registerEmoteEngagement(emoteHid as string)
+			}
+		}
+
+		if (!contentEditableEditor.isInputEmpty()) messageHistory.addMessage(contentEditableEditor.getInputHTML())
+		messageHistory.resetCursor()
+	}
+
+	isShowingInputCompletorNavListWindow() {
+		return this.inputCompletionStrategyManager.hasNavListWindows()
 	}
 
 	destroy() {

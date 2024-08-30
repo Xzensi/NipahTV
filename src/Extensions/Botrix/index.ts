@@ -1,6 +1,7 @@
-import { getPlatformSlug, info, log, REST } from '../../utils'
+import { error, getPlatformSlug, info, log, REST } from '../../utils'
 import { Extension } from '../Extension'
-import { BotrixCompletionStrategy } from './BotrixCompletionStrategy'
+import BotrixExecutionStrategy from './BotrixExecutionStrategy'
+import { BotrixInputCompletionStrategy } from './BotrixInputCompletionStrategy'
 
 class BotrixNetworkInterface {
 	static async fetchUserShopItems(userSlug: string, platformId: TPlatformId) {
@@ -53,22 +54,40 @@ export default class BotrixExtension extends Extension {
 		info('Disabling extension:', this.name, this.version)
 
 		const { eventBus: rootEventBus } = this.rootContext
-
 		rootEventBus.unsubscribe('ntv.session.create', this.sessionCreateCb)
 
-		this.sessions.forEach(session => {
-			session.inputCompletionStrategyRegister.unregisterStrategy(BotrixCompletionStrategy)
-		})
+		// this.sessions.forEach(session => {
+		// 	session.inputCompletionStrategyRegister.unregisterStrategy(BotrixInputCompletionStrategy)
+		// })
 	}
 
 	onSessionCreate(session: Session) {
-		this.registerSessionCompletionStrategy(session)
+		// this.registerSessionCompletionStrategy(session)
+		this.registerSessionExecutionStrategy(session)
+	}
+
+	registerSessionExecutionStrategy(session: Session) {
+		const { rootContext } = this
+		session.inputExecutionStrategyRegister.registerStrategy(new BotrixExecutionStrategy(rootContext, session))
 	}
 
 	registerSessionCompletionStrategy(session: Session) {
-		session.inputCompletionStrategyRegister.registerStrategy({
-			constructor: BotrixCompletionStrategy,
-			dependencies: { botrixSessionManager: new BotrixSessionManager(session) }
-		})
+		const inputController = session.userInterface?.getInputController()
+		if (!inputController)
+			return error(`No input controller found for extension ${this.name} with session:`, session)
+
+		const inputCompletionStrategyManager = session.inputCompletionStrategyManager
+		if (!inputCompletionStrategyManager)
+			return error(`No input completion strategy manager found for extension ${this.name} with session:`, session)
+
+		session.inputCompletionStrategyRegister.registerStrategy(
+			new BotrixInputCompletionStrategy(
+				this.rootContext,
+				session,
+				inputController.contentEditableEditor,
+				inputCompletionStrategyManager.navListWindowManager,
+				{ botrixSessionManager: new BotrixSessionManager(session) }
+			)
+		)
 	}
 }

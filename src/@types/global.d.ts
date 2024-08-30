@@ -1,3 +1,6 @@
+import type InputCompletionStrategyRegister from '../Strategies/InputCompletionStrategyRegister'
+import type InputExecutionStrategyRegister from '../Strategies/InputExecutionStrategyRegister'
+import type InputCompletionStrategyManager from '../Managers/InputCompletionStrategyManager'
 import type { KickNetworkInterface } from '../NetworkInterfaces/KickNetworkInterface'
 import type { AbstractUserInterface } from '../UserInterface/AbstractUserInterface'
 import type { SettingsManager } from '../Managers/SettingsManager'
@@ -8,8 +11,6 @@ import type { Publisher } from '../Classes/Publisher'
 import type { PLATFORM_ENUM } from '../constants'
 import type Database from '../Database/Database'
 import type { RESTFromMain } from '../utils'
-import { InputCompletionStrategyRegister } from '../Strategies/InputCompletionStrategyRegister'
-import InputExecutionStrategyRegister from '../Strategies/InputExecutionStrategyRegister'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -62,6 +63,7 @@ declare global {
 		userInterface?: AbstractUserInterface
 		emotesManager: EmotesManager
 		badgeProvider: IBadgeProvider
+		inputCompletionStrategyManager?: InputCompletionStrategyManager
 		inputCompletionStrategyRegister: InputCompletionStrategyRegister
 		inputExecutionStrategyRegister: InputExecutionStrategyRegister
 		isDestroyed?: boolean

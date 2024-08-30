@@ -1,11 +1,10 @@
-import { EmotesManager } from '../Managers/EmotesManager'
 import { log, error, assertArgDefined, CHAR_ZWSP, debounce, eventKeyIsLetterDigitPuncSpaceChar } from '../utils'
+import { PriorityEventTarget } from './PriorityEventTarget'
 import { MessagesHistory } from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
-import { PriorityEventTarget } from './PriorityEventTarget'
-import { Clipboard2 } from './Clipboard'
-import { Publisher } from './Publisher'
 import { U_TAG_NTV_AFFIX } from '../constants'
+import { Publisher } from './Publisher'
+import Clipboard2 from './Clipboard'
 
 /**
  * Inserts a space character before the component if there is no space character before it.
@@ -147,6 +146,10 @@ export class ContentEditableEditor {
 		return this.isInputEnabled
 	}
 
+	isClickEventInInput(event: MouseEvent) {
+		return this.inputNode.contains(event.target as Node)
+	}
+
 	addEventListener(
 		type: string,
 		priority: number,
@@ -258,6 +261,10 @@ export class ContentEditableEditor {
 						dontClearInput: event.ctrlKey
 					})
 				}
+				break
+
+			case 'Tab':
+				event.preventDefault()
 				break
 
 			case ' ': // Space character key
