@@ -38,9 +38,28 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 		})
 	}
 
-	getRelevantCommands(commandName: string, hasSpace: boolean) {
-		const availableCommands = this.getAvailableCommands()
+	getAvailableCommands() {
+		const channelData = this.session.networkInterface.channelData
+		const is_broadcaster = channelData?.me?.isBroadcaster || false
+		const is_moderator = channelData?.me?.isModerator || false
 
+		// Filter based on the role
+		let res = KICK_COMMANDS.filter(commandEntry => {
+			if (commandEntry.minAllowedRole === 'broadcaster') return is_broadcaster
+			if (commandEntry.minAllowedRole === 'moderator') return is_moderator || is_broadcaster
+			return true
+		})
+
+		// Filter a second time to remove disallowed alias commands
+		return res.filter(commandEntry => {
+			if (!commandEntry.alias) return true
+			const aliasCommandEntry = res.find(n => n.name === commandEntry.alias)
+			if (!aliasCommandEntry) return false
+			return true
+		})
+	}
+
+	getRelevantCommands(availableCommands: CommandEntry[], commandName: string, hasSpace: boolean) {
 		if (hasSpace) {
 			const foundEntry = availableCommands.find(commandEntry => commandEntry.name === commandName)
 			if (foundEntry) return [foundEntry]
@@ -59,9 +78,15 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 	updateCompletionEntries(commandName: string, inputString: string) {
 		this.clearNavWindow()
 		this.maybeCreateNavWindow()
-		const navWindow = this.navWindow!
 
-		const relevantCommands = this.getRelevantCommands(commandName, inputString.indexOf(' ') !== -1)
+		const navWindow = this.navWindow!
+		const availableCommands = this.getAvailableCommands()
+		const relevantCommands = this.getRelevantCommands(
+			availableCommands,
+			commandName,
+			inputString.indexOf(' ') !== -1
+		)
+
 		if (!relevantCommands.length) {
 			navWindow.addEntry(
 				{ name: 'none', description: 'Command not found' },
@@ -77,47 +102,58 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 			const entryEl = parseHTML(`<li><div></div><span class="subscript"></span></li>`, true) as HTMLElement
 			entryEl.childNodes[1].textContent = relevantCommand.description
 
+			let aliasedCommandEntry: CommandEntry | undefined
+			if (relevantCommand.alias) {
+				aliasedCommandEntry = availableCommands.find(n => n.name === relevantCommand.alias)
+				if (!aliasedCommandEntry) continue
+			}
+
 			// Highlight color red the command arguments where the argument is invalid
 			if (relevantCommands.length === 1) {
-				let commandEntryOrAlias: CommandEntry | undefined = relevantCommand
-				if (relevantCommand.alias) {
-					commandEntryOrAlias = this.getAliasedCommand(relevantCommands, relevantCommand.alias)
+				let args: string[] | undefined
+
+				if (aliasedCommandEntry) {
+					args = aliasedCommandEntry.params?.split(' ') || []
+				} else {
+					args = relevantCommand.params?.split(' ') || []
 				}
 
-				if (commandEntryOrAlias) {
-					const command = relevantCommand.name
-					const args = commandEntryOrAlias.params?.split(' ') || []
+				const commandName = relevantCommand.name
+				const commandOrAliasEntry = aliasedCommandEntry || relevantCommand
 
-					const inputParts = inputString.split(' ')
-					const inputArgs = inputParts.slice(1)
+				const inputParts = inputString.split(' ')
+				const inputArgs = inputParts.slice(1)
 
-					const commandEl = document.createElement('span')
-					commandEl.textContent = '/' + command
-					entryEl.childNodes[0].appendChild(commandEl)
+				const commandEl = document.createElement('span')
+				commandEl.textContent = '/' + commandName
+				entryEl.childNodes[0].appendChild(commandEl)
 
-					for (let i = 0; i < args.length; i++) {
-						const argEl = document.createElement('span')
+				for (let i = 0; i < args.length; i++) {
+					const argEl = document.createElement('span')
 
-						const arg = args[i]
-						const inputArg = inputArgs[i] || ''
+					const arg = args[i]
+					const inputArg = inputArgs[i] || ''
 
-						const argValidator = commandEntryOrAlias?.argValidators?.[arg]
-						if (argValidator) {
-							const argIsInvalid = argValidator(inputArg)
-							if (argIsInvalid) {
-								argEl.style.color = 'red'
-							} else {
-								argEl.style.color = 'green'
-							}
+					const argValidator = commandOrAliasEntry?.argValidators?.[arg]
+					if (argValidator) {
+						const argIsInvalid = argValidator(inputArg)
+						if (argIsInvalid) {
+							argEl.style.color = 'red'
+						} else {
+							argEl.style.color = 'green'
 						}
-
-						argEl.textContent = ' ' + arg
-						entryEl.childNodes[0].appendChild(argEl)
 					}
+
+					argEl.textContent = ' ' + arg
+					entryEl.childNodes[0].appendChild(argEl)
 				}
 			} else {
 				const commandEl = document.createElement('span')
-				commandEl.textContent = '/' + relevantCommand.name + ' ' + relevantCommand.params
+				if (aliasedCommandEntry) {
+					commandEl.textContent = '/' + relevantCommand.name + ' ' + (aliasedCommandEntry.params || '')
+				} else {
+					commandEl.textContent = '/' + relevantCommand.name + ' ' + (relevantCommand.params || '')
+				}
 				entryEl.childNodes[0].appendChild(commandEl)
 			}
 
@@ -134,18 +170,6 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 
 		const { name } = selectedEntry as { name: string }
 		this.contentEditableEditor.setInputContent('/' + name)
-	}
-
-	getAvailableCommands() {
-		const channelData = this.session.networkInterface.channelData
-		const is_broadcaster = channelData?.me?.isBroadcaster || false
-		const is_moderator = channelData?.me?.isModerator || false
-
-		return KICK_COMMANDS.filter(commandEntry => {
-			if (commandEntry.minAllowedRole === 'broadcaster') return is_broadcaster
-			if (commandEntry.minAllowedRole === 'moderator') return is_moderator || is_broadcaster
-			return true
-		})
 	}
 
 	moveSelectorUp() {

@@ -186,6 +186,7 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 				return true
 
 			case 'Shift':
+			case 'Control':
 				return false
 
 			case 'Escape':
