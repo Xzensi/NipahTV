@@ -287,6 +287,23 @@ export function eventKeyIsLetterDigitPuncChar(event: KeyboardEvent) {
 	return false
 }
 
+export function isCodepointBMP(x: string, index: number = 0) {
+	const codepoint = x.codePointAt(index) || 0
+
+	// BMP - Basic Latin
+	return (
+		(codepoint > 0x0020 && codepoint < 0x007f) ||
+		// BMP - Latin-1 Supplement
+		(codepoint > 0x00a1 && codepoint <= 0x00ff) ||
+		// BMP - Latin Extended-A
+		(codepoint >= 0x0100 && codepoint <= 0x017f) ||
+		// BMP - Latin Extended-B
+		(codepoint >= 0x0180 && codepoint <= 0x024f) ||
+		// BMP - IPA Extensions
+		(codepoint >= 0x0250 && codepoint <= 0x02af)
+	)
+}
+
 export function debounce(fn: Function, delay: number) {
 	let timeout: NodeJS.Timeout
 	return function (...args: any) {
