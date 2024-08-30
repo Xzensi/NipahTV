@@ -7,6 +7,7 @@ import { ContentEditableEditor } from './ContentEditableEditor'
 import MessagesHistory from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
 import type Clipboard2 from './Clipboard'
+import { log } from '../utils'
 
 export default class InputController {
 	private rootContext: RootContext
@@ -89,7 +90,7 @@ export default class InputController {
 			}
 		})
 
-		eventBus.subscribe('ntv.ui.input_submitted', this.handleInputSubmit.bind(this))
+		eventBus.subscribe('ntv.ui.submit_input', this.handleInputSubmit.bind(this))
 	}
 
 	addEventListener(

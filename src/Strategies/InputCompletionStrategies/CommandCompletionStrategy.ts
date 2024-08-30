@@ -165,12 +165,14 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 
 		if (event.key === 'ArrowUp') {
 			if (!this.navWindow) return false
+			if (this.navWindow.getEntriesCount() <= 1) return false // Necessary to prevent blocking chat history navigation
 
 			event.preventDefault()
 			this.moveSelectorUp()
 			return false
 		} else if (event.key === 'ArrowDown') {
 			if (!this.navWindow) return false
+			if (this.navWindow.getEntriesCount() <= 1) return false // Necessary to prevent blocking chat history navigation
 
 			event.preventDefault()
 			this.moveSelectorDown()

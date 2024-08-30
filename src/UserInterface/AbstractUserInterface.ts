@@ -273,8 +273,10 @@ export default abstract class AbstractUserInterface {
 			return this.toastError('Message is too long to send.')
 		}
 
-		const replyContent = contentEditableEditor.getMessageContent()
-		if (!replyContent.length) return log('No message content to send.')
+		const messageContent = contentEditableEditor.getMessageContent()
+		if (!messageContent.length) return log('No message content to send.')
+
+		eventBus.publish('ntv.ui.submit_input', { suppressEngagementEvent })
 
 		if (this.replyMessageData) {
 			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData
@@ -283,7 +285,7 @@ export default abstract class AbstractUserInterface {
 				.routeInput(
 					contentEditableEditor,
 					{
-						input: replyContent,
+						input: messageContent,
 						isReply: true,
 						replyRefs: {
 							messageId: chatEntryId,
@@ -301,7 +303,7 @@ export default abstract class AbstractUserInterface {
 						this.toastSuccess(successMessage)
 					}
 
-					eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
+					eventBus.publish('ntv.ui.submitted_input', { suppressEngagementEvent })
 				})
 				.catch(err => {
 					if (err && err.message) this.toastError(err.message)
@@ -314,7 +316,7 @@ export default abstract class AbstractUserInterface {
 				.routeInput(
 					contentEditableEditor,
 					{
-						input: replyContent,
+						input: messageContent,
 						isReply: false
 					},
 					dontClearInput
@@ -326,7 +328,7 @@ export default abstract class AbstractUserInterface {
 						this.toastSuccess(successMessage)
 					}
 
-					eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
+					eventBus.publish('ntv.ui.submitted_input', { suppressEngagementEvent })
 				})
 				.catch(err => {
 					if (err && err.message) this.toastError(err.message)
