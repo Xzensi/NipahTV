@@ -280,16 +280,20 @@ export default abstract class AbstractUserInterface {
 			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData
 
 			inputExecutionStrategyRegister
-				.routeInput({
-					input: replyContent,
-					isReply: true,
-					replyRefs: {
-						messageId: chatEntryId,
-						messageContent: chatEntryContentString,
-						senderId: chatEntryUserId,
-						senderUsername: chatEntryUsername
-					}
-				})
+				.routeInput(
+					contentEditableEditor,
+					{
+						input: replyContent,
+						isReply: true,
+						replyRefs: {
+							messageId: chatEntryId,
+							messageContent: chatEntryContentString,
+							senderId: chatEntryUserId,
+							senderUsername: chatEntryUsername
+						}
+					},
+					dontClearInput
+				)
 				.then(successMessage => {
 					if (successMessage) {
 						if (typeof successMessage !== 'string')
@@ -298,8 +302,6 @@ export default abstract class AbstractUserInterface {
 					}
 
 					eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-
-					dontClearInput || contentEditableEditor.clearInput()
 				})
 				.catch(err => {
 					if (err && err.message) this.toastError(err.message)
@@ -309,10 +311,14 @@ export default abstract class AbstractUserInterface {
 			this.destroyReplyMessageContext()
 		} else {
 			inputExecutionStrategyRegister
-				.routeInput({
-					input: replyContent,
-					isReply: false
-				})
+				.routeInput(
+					contentEditableEditor,
+					{
+						input: replyContent,
+						isReply: false
+					},
+					dontClearInput
+				)
 				.then(successMessage => {
 					if (successMessage) {
 						if (typeof successMessage !== 'string')
@@ -321,8 +327,6 @@ export default abstract class AbstractUserInterface {
 					}
 
 					eventBus.publish('ntv.ui.input_submitted', { suppressEngagementEvent })
-
-					dontClearInput || contentEditableEditor.clearInput()
 				})
 				.catch(err => {
 					if (err && err.message) this.toastError(err.message)
@@ -333,11 +337,15 @@ export default abstract class AbstractUserInterface {
 
 	sendEmoteToChat(emoteHid: string) {
 		const { emotesManager, inputExecutionStrategyRegister } = this.session
+
+		const contentEditableEditor = this.inputController?.contentEditableEditor
+		if (!contentEditableEditor) return error('Unable to send emote to chat, input controller is not loaded yet.')
+
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
 		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
 
 		inputExecutionStrategyRegister
-			.routeInput({
+			.routeInput(contentEditableEditor, {
 				input: emoteEmbedding,
 				isReply: false
 			})

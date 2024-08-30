@@ -126,7 +126,7 @@ export class ContentEditableEditor {
 	}
 
 	clearInput() {
-		this.inputNode.innerHTML = ''
+		while (this.inputNode.firstChild) this.inputNode.removeChild(this.inputNode.firstChild)
 		this.hasUnprocessedContentChanges = true
 		this.processInputContent()
 	}
@@ -309,11 +309,16 @@ export class ContentEditableEditor {
 			this.normalizeComponents()
 		}
 
+		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
+
 		if (this.hasUnprocessedContentChanges) {
-			this.processInputContentDebounce()
+			if (isNotEmpty) {
+				this.processInputContentDebounce()
+			} else {
+				this.processInputContent()
+			}
 		}
 
-		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
 		if (this.inputEmpty === !isNotEmpty) return
 		this.inputEmpty = !this.inputEmpty
 		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
@@ -560,6 +565,8 @@ export class ContentEditableEditor {
 		this.characterCount = this.messageContent.length
 		this.hasUnprocessedContentChanges = false
 		eventBus.publish('ntv.input_controller.character_count', { value: this.characterCount })
+
+		if (!inputNode.childNodes.length) eventBus.publish('ntv.input_controller.empty_input')
 	}
 
 	deleteBackwards(evt: KeyboardEvent) {

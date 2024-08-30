@@ -1,4 +1,5 @@
 import { InputIntentDTO, InputExecutionStrategy } from '../InputExecutionStrategy'
+import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
 import { log, error, countStringOccurrences } from '../../utils'
 import { KICK_COMMANDS } from '../../Commands/KickCommands'
 
@@ -9,7 +10,11 @@ export default class CommandExecutionStrategy implements InputExecutionStrategy 
 		return inputIntentDTO.input[0] === '/'
 	}
 
-	async route(inputIntentDTO: InputIntentDTO): Promise<string | void> {
+	async route(
+		contentEditableEditor: ContentEditableEditor,
+		inputIntentDTO: InputIntentDTO,
+		dontClearInput?: boolean
+	): Promise<string | void> {
 		const inputString = inputIntentDTO.input
 
 		// TODO implement it as settings option whether to validate and block invalid commands, might be useful for custom commands
@@ -24,14 +29,16 @@ export default class CommandExecutionStrategy implements InputExecutionStrategy 
 
 		const { networkInterface } = this.session
 		if (commandEntry && typeof commandEntry.execute === 'function') {
-			return commandEntry.execute({ ...this.rootContext, ...this.session }, commandData!.args)
+			return commandEntry.execute({ ...this.rootContext, ...this.session }, commandData!.args).then(() => {
+				dontClearInput || contentEditableEditor.clearInput()
+			})
 		} else {
 			log('Executing command', commandData)
-			return networkInterface.executeCommand(
-				commandData!.name,
-				this.session.channelData.channelName,
-				commandData!.args
-			)
+			return networkInterface
+				.executeCommand(commandData!.name, this.session.channelData.channelName, commandData!.args)
+				.then(() => {
+					dontClearInput || contentEditableEditor.clearInput()
+				})
 		}
 	}
 

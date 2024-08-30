@@ -1,4 +1,5 @@
 import { InputExecutionStrategy, InputIntentDTO } from '../../Strategies/InputExecutionStrategy'
+import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
 
 export default class BotrixExecutionStrategy implements InputExecutionStrategy {
 	constructor(private rootContext: RootContext, private session: Session) {}
@@ -7,8 +8,14 @@ export default class BotrixExecutionStrategy implements InputExecutionStrategy {
 		return inputIntentDTO.input[0] === '!'
 	}
 
-	async route(inputIntentDTO: InputIntentDTO): Promise<void | string> {
+	async route(
+		contentEditableEditor: ContentEditableEditor,
+		inputIntentDTO: InputIntentDTO,
+		dontClearInput?: boolean
+	): Promise<void | string> {
 		const { networkInterface } = this.session
+
+		dontClearInput || contentEditableEditor.clearInput()
 
 		if (inputIntentDTO.isReply) {
 			if (!inputIntentDTO.replyRefs) throw new Error('ReplyRefs are required for reply messages.')

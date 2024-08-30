@@ -1,4 +1,5 @@
-import { InputIntentDTO, InputExecutionStrategy as InputExecutionStrategy } from './InputExecutionStrategy'
+import type { InputIntentDTO, InputExecutionStrategy } from './InputExecutionStrategy'
+import type { ContentEditableEditor } from '../Classes/ContentEditableEditor'
 
 export default class InputExecutionStrategyRegister {
 	private strategies: InputExecutionStrategy[] = []
@@ -19,7 +20,11 @@ export default class InputExecutionStrategyRegister {
 		return this.strategies.find(x => x.shouldUseStrategy(inputIntentDTO)) || this.strategies[0]
 	}
 
-	async routeInput(inputIntentDTO: InputIntentDTO): Promise<string | void> {
-		return await this.findApplicableStrategy(inputIntentDTO).route(inputIntentDTO)
+	async routeInput(
+		contentEditableEditor: ContentEditableEditor,
+		inputIntentDTO: InputIntentDTO,
+		dontClearInput?: boolean
+	): Promise<string | void> {
+		return this.findApplicableStrategy(inputIntentDTO).route(contentEditableEditor, inputIntentDTO, dontClearInput)
 	}
 }

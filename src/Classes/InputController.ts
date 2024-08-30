@@ -42,6 +42,7 @@ export default class InputController {
 		const { inputCompletionStrategyRegister } = session
 
 		this.inputCompletionStrategyManager = new InputCompletionStrategyManager(
+			session,
 			inputCompletionStrategyRegister,
 			this.contentEditableEditor,
 			textFieldEl.parentElement as HTMLElement

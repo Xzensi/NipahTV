@@ -17,6 +17,7 @@ export default class InputCompletionStrategyManager {
 	private clickEventHandler: (event: MouseEvent) => void
 
 	constructor(
+		session: Session,
 		private inputCompletionStrategyRegister: InputCompletionStrategyRegister,
 		private contentEditableEditor: ContentEditableEditor,
 		navWindowManagerContainerEl: HTMLElement
@@ -25,6 +26,10 @@ export default class InputCompletionStrategyManager {
 
 		this.clickEventHandler = this.handleClickEvent.bind(this)
 		document.addEventListener('click', this.clickEventHandler)
+
+		session.eventBus.subscribe('ntv.input_controller.empty_input', () => {
+			this.resetStrategies()
+		})
 	}
 
 	handleClickEvent(event: MouseEvent) {

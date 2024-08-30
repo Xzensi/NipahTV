@@ -1,3 +1,5 @@
+import type { ContentEditableEditor } from '../Classes/ContentEditableEditor'
+
 interface InputIntentDTOBase {
 	readonly input: string
 	readonly isReply: boolean
@@ -21,5 +23,9 @@ export type InputIntentDTO = InputIntentDTOWithReply | InputIntentDTONoReply
 
 export interface InputExecutionStrategy {
 	shouldUseStrategy(inputIntentDTO: InputIntentDTO): boolean
-	route(inputIntentDTO: InputIntentDTO): Promise<string | void>
+	route(
+		contentEditableEditor: ContentEditableEditor,
+		inputIntentDTO: InputIntentDTO,
+		dontClearInput?: boolean
+	): Promise<string | void>
 }
