@@ -4,7 +4,7 @@ import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderCom
 import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../../utils'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
 
-export class UserInfoModal extends AbstractModal {
+export default class UserInfoModal extends AbstractModal {
 	private rootContext: RootContext
 	private session: Session
 

@@ -1,20 +1,20 @@
 import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
-import { ReplyMessageComponent } from './Components/ReplyMessageComponent'
-import type { KickEmoteProvider } from '../Providers/KickEmoteProvider'
+import ReplyMessageComponent from './Components/ReplyMessageComponent'
 import { PriorityEventTarget } from '../Classes/PriorityEventTarget'
-import type { InputController } from '../Classes/InputController'
+import type KickEmoteProvider from '../Providers/KickEmoteProvider'
+import type InputController from '../Classes/InputController'
 import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../constants'
-import { MessagesHistory } from '../Classes/MessagesHistory'
-import { TimerComponent } from './Components/TimerComponent'
+import TimerComponent from './Components/TimerComponent'
+import MessagesHistory from '../Classes/MessagesHistory'
 import { parse as twemojiParse } from '@twemoji/parser'
-import { UserInfoModal } from './Modals/UserInfoModal'
-import { PollModal } from './Modals/PollModal'
+import UserInfoModal from './Modals/UserInfoModal'
+import PollModal from './Modals/PollModal'
 import { Toaster } from '../Classes/Toaster'
 import Clipboard2 from '../Classes/Clipboard'
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
-export abstract class AbstractUserInterface {
+export default abstract class AbstractUserInterface {
 	protected rootContext: RootContext
 	protected session: Session
 

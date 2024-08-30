@@ -1,9 +1,9 @@
 import { AbstractEmoteProvider, IAbstractEmoteProvider } from './AbstractEmoteProvider'
-import type { SettingsManager } from '../Managers/SettingsManager'
+import type SettingsManager from '../Managers/SettingsManager'
 import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
-export class KickEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
+export default class KickEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.KICK
 	status = 'unloaded'
 

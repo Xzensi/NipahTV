@@ -1,7 +1,7 @@
 import { cleanupHTML, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
-export class TimerComponent extends AbstractComponent {
+export default class TimerComponent extends AbstractComponent {
 	private remainingTime: number
 	private paused = false
 	private interval?: NodeJS.Timeout

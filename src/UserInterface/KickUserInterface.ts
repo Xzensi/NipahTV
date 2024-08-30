@@ -8,12 +8,12 @@ import {
 	parseHTML,
 	findNodeWithTextContent
 } from '../utils'
-import { QuickEmotesHolderComponent } from './Components/QuickEmotesHolderComponent'
-import { EmoteMenuButtonComponent } from './Components/EmoteMenuButtonComponent'
-import { EmoteMenuComponent } from './Components/EmoteMenuComponent'
-import { AbstractUserInterface } from './AbstractUserInterface'
-import { InputController } from '../Classes/InputController'
-import type { UserInfoModal } from './Modals/UserInfoModal'
+import QuickEmotesHolderComponent from './Components/QuickEmotesHolderComponent'
+import EmoteMenuButtonComponent from './Components/EmoteMenuButtonComponent'
+import EmoteMenuComponent from './Components/EmoteMenuComponent'
+import AbstractUserInterface from './AbstractUserInterface'
+import InputController from '../Classes/InputController'
+import type UserInfoModal from './Modals/UserInfoModal'
 import type { Badge } from '../Providers/BadgeProvider'
 import { Caret } from './Caret'
 import { U_TAG_NTV_AFFIX } from '../constants'

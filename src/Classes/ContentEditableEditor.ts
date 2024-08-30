@@ -1,9 +1,8 @@
 import { log, error, assertArgDefined, CHAR_ZWSP, debounce, eventKeyIsLetterDigitPuncSpaceChar } from '../utils'
 import { PriorityEventTarget } from './PriorityEventTarget'
-import { MessagesHistory } from './MessagesHistory'
+import MessagesHistory from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
 import { U_TAG_NTV_AFFIX } from '../constants'
-import { Publisher } from './Publisher'
 import Clipboard2 from './Clipboard'
 
 /**

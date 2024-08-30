@@ -1,9 +1,9 @@
 import { AbstractEmoteProvider } from '../Providers/AbstractEmoteProvider'
 import { EmoteDatastore } from '../Datastores/EmoteDatastore'
 import { log, info, error, splitEmoteName } from '../utils'
-import type { SettingsManager } from './SettingsManager'
+import type SettingsManager from './SettingsManager'
 
-export class EmotesManager {
+export default class EmotesManager {
 	private providers: Map<number, AbstractEmoteProvider> = new Map()
 	loaded = false
 

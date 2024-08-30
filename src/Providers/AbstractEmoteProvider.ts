@@ -1,4 +1,4 @@
-import { SettingsManager } from '../Managers/SettingsManager'
+import SettingsManager from '../Managers/SettingsManager'
 import { PROVIDER_ENUM } from '../constants'
 
 export interface IAbstractEmoteProvider {

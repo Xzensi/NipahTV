@@ -1,30 +1,30 @@
 // Classes
-import { Publisher } from './Classes/Publisher'
-import { EmotesManager } from './Managers/EmotesManager'
 import { KickUserInterface } from './UserInterface/KickUserInterface'
+import EmotesManager from './Managers/EmotesManager'
+import Publisher from './Classes/Publisher'
 
 // Providers
-import { KickEmoteProvider } from './Providers/KickEmoteProvider'
-import { SevenTVEmoteProvider } from './Providers/SevenTVEmoteProvider'
+import SevenTVEmoteProvider from './Providers/SevenTVEmoteProvider'
+import KickEmoteProvider from './Providers/KickEmoteProvider'
 
 // Utils
-import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import { log, info, error, RESTFromMain, debounce } from './utils'
-import { SettingsManager } from './Managers/SettingsManager'
-import { AbstractUserInterface } from './UserInterface/AbstractUserInterface'
+import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
+import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
-import { KickNetworkInterface } from './NetworkInterfaces/KickNetworkInterface'
-import { TwitchNetworkInterface } from './NetworkInterfaces/TwitchNetworkInterface'
-import { UsersManager } from './Managers/UsersManager'
-import { KickBadgeProvider } from './Providers/KickBadgeProvider'
+import AbstractUserInterface from './UserInterface/AbstractUserInterface'
+import { log, info, error, RESTFromMain, debounce } from './utils'
+import KickBadgeProvider from './Providers/KickBadgeProvider'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
+import SettingsManager from './Managers/SettingsManager'
+import UsersManager from './Managers/UsersManager'
 import Database from './Database/Database'
 
 // Extensions
-import BotrixExtension from './Extensions/Botrix'
+import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
+import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
 import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
 import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
-import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
-import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
+import BotrixExtension from './Extensions/Botrix'
 
 class NipahClient {
 	VERSION = '1.4.38'

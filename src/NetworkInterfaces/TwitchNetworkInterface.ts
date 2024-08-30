@@ -1,7 +1,7 @@
 import { NetworkInterface } from './NetworkInterface'
 import { REST, info } from '../utils'
 
-export class TwitchNetworkInterface implements NetworkInterface {
+export default class TwitchNetworkInterface implements NetworkInterface {
 	async connect() {
 		return Promise.resolve()
 	}

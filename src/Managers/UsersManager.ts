@@ -1,8 +1,8 @@
-import { UsersDatastore } from '../Datastores/UsersDatastore'
-import { SettingsManager } from './SettingsManager'
-import { Publisher } from '../Classes/Publisher'
+import UsersDatastore from '../Datastores/UsersDatastore'
+import SettingsManager from './SettingsManager'
+import Publisher from '../Classes/Publisher'
 
-export class UsersManager {
+export default class UsersManager {
 	private datastore: UsersDatastore
 
 	constructor({ eventBus, settingsManager }: { eventBus: Publisher; settingsManager: SettingsManager }) {

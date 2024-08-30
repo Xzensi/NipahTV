@@ -61,7 +61,7 @@ function handleApiError(res: any, defaultMessage: string): never {
 	throw new Error(messageString)
 }
 
-export class KickNetworkInterface implements NetworkInterface {
+export default class KickNetworkInterface implements NetworkInterface {
 	channelData?: ChannelData
 
 	async connect() {

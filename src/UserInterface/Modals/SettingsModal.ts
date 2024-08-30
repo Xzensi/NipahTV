@@ -1,13 +1,13 @@
-import type { Publisher } from '../../Classes/Publisher'
 import { CheckboxComponent } from '../Components/CheckboxComponent'
 import { DropdownComponent } from '../Components/DropdownComponent'
+import { log, error, parseHTML, cleanupHTML } from '../../utils'
 import { NumberComponent } from '../Components/NumberComponent'
 import { ColorComponent } from '../Components/ColorComponent'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
-import { log, error, parseHTML, cleanupHTML } from '../../utils'
+import type Publisher from '../../Classes/Publisher'
 import { CHANGELOG } from '../../changelog'
 
-export class SettingsModal extends AbstractModal {
+export default class SettingsModal extends AbstractModal {
 	eventBus: Publisher
 	settingsOpts: any
 

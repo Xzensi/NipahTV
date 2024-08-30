@@ -1,9 +1,9 @@
 import { AbstractEmoteProvider, IAbstractEmoteProvider } from './AbstractEmoteProvider'
-import type { SettingsManager } from '../Managers/SettingsManager'
+import type SettingsManager from '../Managers/SettingsManager'
 import { log, info, error, REST, md5 } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 
-export class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
+export default class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.SEVENTV
 	status = 'unloaded'
 

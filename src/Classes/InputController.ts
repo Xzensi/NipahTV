@@ -4,11 +4,11 @@ import EmoteCompletionStrategy from '../Strategies/InputCompletionStrategies/Emo
 import InputCompletionStrategyManager from '../Managers/InputCompletionStrategyManager'
 import type { PriorityEventTarget } from './PriorityEventTarget'
 import { ContentEditableEditor } from './ContentEditableEditor'
-import { MessagesHistory } from './MessagesHistory'
+import MessagesHistory from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
 import type Clipboard2 from './Clipboard'
 
-export class InputController {
+export default class InputController {
 	private rootContext: RootContext
 	private session: Session
 	private messageHistory: MessagesHistory

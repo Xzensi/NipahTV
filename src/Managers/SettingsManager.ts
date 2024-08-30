@@ -1,9 +1,9 @@
+import SettingsModal from '../UserInterface/Modals/SettingsModal'
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
-import { Publisher } from '../Classes/Publisher'
-import { SettingsModal } from '../UserInterface/Modals/SettingsModal'
+import Publisher from '../Classes/Publisher'
 import { error, log } from '../utils'
 
-export class SettingsManager {
+export default class SettingsManager {
 	/*
     - Shared global settings
 		= Appearance

@@ -1,4 +1,4 @@
-import { Publisher } from '../Classes/Publisher'
+import Publisher from '../Classes/Publisher'
 import { error, log } from '../utils'
 import Fuse from 'fuse.js'
 
@@ -8,7 +8,7 @@ export type User = {
 	muted?: boolean
 }
 
-export class UsersDatastore {
+export default class UsersDatastore {
 	private eventBus: Publisher
 
 	private usersLowerCaseNameMap: Map<string, User> = new Map()

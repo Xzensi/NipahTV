@@ -1,7 +1,7 @@
 import { log, info, error, assertArgDefined, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
-export class QuickEmotesHolderComponent extends AbstractComponent {
+export default class QuickEmotesHolderComponent extends AbstractComponent {
 	private rootContext: RootContext
 	private session: Session
 
