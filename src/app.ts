@@ -27,7 +27,7 @@ import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyR
 import BotrixExtension from './Extensions/Botrix'
 
 class NipahClient {
-	VERSION = '1.4.38'
+	VERSION = '1.5.0'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',

@@ -897,8 +897,6 @@ export class ContentEditableEditor {
 	}
 
 	private insertNodes(nodes: Node[]) {
-		log('Inserting nodes', nodes)
-
 		const selection = document.getSelection()
 		if (!selection) return
 

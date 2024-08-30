@@ -1,4 +1,35 @@
-export const CHANGELOG = [
+export const CHANGELOG: {
+	version: string
+	date: string
+	description: string
+}[] = [
+	{
+		version: '1.5.0',
+		date: '2024-08-30',
+		description: `
+                  Following a major overhaul of the input completion strategy, it's now possible to trigger emote and mention completions during commands, with support for other command types coming soon. With input submission execution now decoupled from the input completer strategy, implementing support for third-party bot commands like Botrix is now possible, and command input is much more reliable. Previously, there were some edge cases, such as adding a '/' in front of pre-written or copied commands, which resulted in them being sent as regular messages.
+
+                  A new input completer strategy has been added to support colon emotes, allowing you to start emote completions with, for example, ":peepo". You can now also disable all input completion strategies in the settings under Chat > Input > Input completion. Do note, that colon emotes (e.g. ":peepoGaze:") are not yet supported with copy-pasting, but this will be added in a future update. Please do let me know if you value this feature, so I can prioritize it accordingly.
+
+                  It's a fairly significant update, so I might have missed some bugs. Please do report any issues you encounter.
+
+                  Feat: Added input submission execution strategy system
+                  Feat: Added support for colon emote completion suggestions
+                  Feat: Added settings options for all input completion strategies
+                  Feat: Kick command execution now confirms success before clearing input
+                  Fix: Pressing <ESCAPE> completed emote completion instead of canceling it
+                  Fix: Command messages being excluded from chat history
+                  Fix: Command completion blocking chat history navigation
+                  Fix: Sticky command UI completion after execution
+                  Fix: <CONTROL> key closing the emote completion
+                  Major refactor: Complete rewrite of input completion strategy system
+                  Refactor: Isolated command execution logic
+                  Refactor: Isolated Kick network interface API call signatures
+                  Refactor: Isolated Kick command definitions
+                  Chore: Change favorites instruction label
+                  Chore: Cleaned up changelog
+            `
+	},
 	{
 		version: '1.4.38',
 		date: '2024-08-22',
