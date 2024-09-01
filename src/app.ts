@@ -25,9 +25,12 @@ import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/Comm
 import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
 import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
 import BotrixExtension from './Extensions/Botrix'
+import { EventService } from './EventServices/EventService'
+import KickEventService from './EventServices/KickEventService'
+import TwitchEventService from './EventServices/TwitchEventService'
 
 class NipahClient {
-	VERSION = '1.5.0'
+	VERSION = '1.5.1'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -37,10 +40,8 @@ class NipahClient {
 		RELEASE_BRANCH: 'master'
 	}
 
-	userInterface: AbstractUserInterface | null = null
 	stylesLoaded = !__USERSCRIPT__
 	eventBus: Publisher | null = null
-	networkInterface: KickNetworkInterface | null = null
 	emotesManager: EmotesManager | null = null
 	rootContext: RootContext | null = null
 	settingsManagerPromise: Promise<void> | null = null
@@ -137,11 +138,21 @@ class NipahClient {
 			throw new Error(`Couldn't load settings because: ${err}`)
 		})
 
+		let eventService: EventService
+		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
+			eventService = new KickEventService()
+		} else if (NTV_PLATFORM === PLATFORM_ENUM.TWITCH) {
+			eventService = new TwitchEventService()
+		} else {
+			throw new Error('Unsupported platform')
+		}
+
 		//* The shared context for all sessions
 		this.rootContext = {
 			eventBus,
 			database,
-			settingsManager
+			settingsManager,
+			eventService
 		}
 
 		this.loadExtensions()
@@ -171,23 +182,22 @@ class NipahClient {
 		const eventBus = new Publisher('session')
 		const usersManager = new UsersManager({ eventBus, settingsManager })
 
-		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
-			this.networkInterface = new KickNetworkInterface()
-		} else if (NTV_PLATFORM === PLATFORM_ENUM.TWITCH) {
-			// this.networkInterface = new TwitchNetworkInterface()
-			throw new Error('Twitch platform is not supported yet.')
-		} else {
-			throw new Error('Unsupported platform')
-		}
-		const networkInterface = this.networkInterface
-
 		const session = {
 			eventBus,
-			networkInterface,
 			usersManager,
 			inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
 			inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
 		} as Session
+
+		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
+			session.networkInterface = new KickNetworkInterface(session)
+		} else if (NTV_PLATFORM === PLATFORM_ENUM.TWITCH) {
+			// session.networkInterface = new TwitchNetworkInterface()
+			throw new Error('Twitch platform is not supported yet.')
+		} else {
+			throw new Error('Unsupported platform')
+		}
+		const networkInterface = session.networkInterface
 
 		this.sessions.push(session)
 
@@ -195,15 +205,20 @@ class NipahClient {
 
 		await Promise.allSettled([
 			this.settingsManagerPromise,
+			networkInterface.loadMeData().catch(err => {
+				throw new Error(`Couldn't load me data because: ${err}`)
+			}),
 			networkInterface.loadChannelData().catch(err => {
 				throw new Error(`Couldn't load channel data because: ${err}`)
 			})
 		])
 
-		const channelData = networkInterface.channelData
-		if (!channelData) throw new Error('Channel data has not loaded yet.')
+		if (!session.meData) throw new Error('Failed to load me user data.')
+		if (!session.channelData) throw new Error('Failed to load channel data.')
+		const channelData = session.channelData
 
-		session.channelData = channelData
+		this.attachEventServiceListeners(rootContext, session)
+
 		// badgeProvider: NTV_PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, channelData) :
 		session.badgeProvider = new KickBadgeProvider(rootContext, channelData)
 		session.badgeProvider.initialize()
@@ -245,6 +260,72 @@ class NipahClient {
 		rootEventBus.publish('ntv.session.create', session)
 
 		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
+	}
+
+	attachEventServiceListeners(rootContext: RootContext, session: Session) {
+		const { eventBus, channelData, meData } = session
+
+		rootContext.eventService.subToChatroomEvents(channelData)
+
+		rootContext.eventService.addEventListener(channelData, 'chatroom_updated', chatroomData => {
+			const oldChatroomData = channelData.chatroom
+
+			if (oldChatroomData.emotesMode?.enabled !== chatroomData.emotesMode?.enabled) {
+				eventBus.publish('ntv.channel.chatroom.emotes_mode.updated', chatroomData.emotesMode)
+			} else if (oldChatroomData.subscribersMode?.enabled !== chatroomData.subscribersMode?.enabled) {
+				eventBus.publish('ntv.channel.chatroom.subscribers_mode.updated', chatroomData.subscribersMode)
+			} else if (
+				oldChatroomData.followersMode?.enabled !== chatroomData.followersMode?.enabled ||
+				oldChatroomData.followersMode?.min_duration !== chatroomData.followersMode?.min_duration
+			) {
+				eventBus.publish('ntv.channel.chatroom.followers_mode.updated', chatroomData.followersMode)
+			} else if (
+				oldChatroomData.slowMode?.enabled !== chatroomData.slowMode?.enabled ||
+				oldChatroomData.slowMode?.messageInterval !== chatroomData.slowMode?.messageInterval
+			) {
+				eventBus.publish('ntv.channel.chatroom.slow_mode.updated', chatroomData.slowMode)
+			}
+
+			channelData.chatroom = chatroomData
+			eventBus.publish('ntv.channel.chatroom.updated', chatroomData)
+		})
+
+		let unbanTimeoutHandle: NodeJS.Timeout | null = null
+		rootContext.eventService.addEventListener(channelData, 'user_banned', data => {
+			eventBus.publish('ntv.channel.chatroom.user.banned', data)
+
+			if (data.user.id === meData.userId) {
+				log('You have been banned from the channel..')
+
+				session.channelData.me.isBanned = {
+					bannedAt: new Date().toISOString(),
+					expiresAt: data.expiresAt,
+					permanent: data.permanent,
+					reason: '' // Reason is not provided by Kick here
+				}
+				eventBus.publish('ntv.channel.chatroom.me.banned', data)
+
+				if (unbanTimeoutHandle) clearTimeout(unbanTimeoutHandle)
+				if (!data.permanent) {
+					unbanTimeoutHandle = setTimeout(() => {
+						delete session.channelData.me.isBanned
+						eventBus.publish('ntv.channel.chatroom.me.unbanned')
+					}, data.duration * 60 * 1000)
+				}
+			}
+		})
+
+		rootContext.eventService.addEventListener(channelData, 'user_unbanned', data => {
+			eventBus.publish('ntv.channel.chatroom.user.unbanned', data)
+
+			if (data.user.id === meData.userId) {
+				if (unbanTimeoutHandle) clearTimeout(unbanTimeoutHandle)
+				log('You have been unbanned from the channel..')
+
+				delete session.channelData.me.isBanned
+				eventBus.publish('ntv.channel.chatroom.me.unbanned')
+			}
+		})
 	}
 
 	loadStyles() {
@@ -314,6 +395,11 @@ class NipahClient {
 		} else {
 			setInterval(navigateFn, 200)
 		}
+
+		window.addEventListener('beforeunload', () => {
+			info('User is navigating away from the page, cleaning up sessions before leaving..')
+			this.rootContext?.eventService.disconnectAll()
+		})
 	}
 
 	cleanupSession(oldLocation: string) {

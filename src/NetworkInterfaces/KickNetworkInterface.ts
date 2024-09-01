@@ -4,9 +4,10 @@ import { U_TAG_NTV_AFFIX } from '../constants'
 import { KICK_COMMANDS } from '../Commands/KickCommands'
 
 function tryParseErrorMessage(res: { [key: string]: any }) {
-	// Server sometimes returns only {message: '...'}
-	if (!res.error && !res.errors && !res.status && res.message) {
-		return res.message
+	// Sometimes response format is like:
+	// {"status":{"code":404,"message":"Poll not found","error":true},"data":null}
+	if (res.status && res.status.error && res.status.message) {
+		return res.status.message
 	}
 
 	// Sometimes error structure is like this:
@@ -31,16 +32,15 @@ function tryParseErrorMessage(res: { [key: string]: any }) {
 		return formattedMessage.trim()
 	}
 
-	// Sometimes response format is like:
-	// {"status":{"code":404,"message":"Poll not found","error":true},"data":null}
-	if (res.status && res.status.error) {
-		return res.status.message
-	}
-
 	// Sometimes its like:
 	// {"command":"host","parameter":"channel_name","success":false,"error":"chatroom_commands_host_error_not_meeting_host_conditions"}
 	if (typeof res.error === 'string') {
 		return res.error
+	}
+
+	// Server sometimes returns only {message: '...'}
+	if (!res.error && !res.errors && !res.status && res.message) {
+		return res.message
 	}
 }
 
@@ -62,7 +62,7 @@ function handleApiError(res: any, defaultMessage: string): never {
 }
 
 export default class KickNetworkInterface implements NetworkInterface {
-	channelData?: ChannelData
+	constructor(private session: Session) {}
 
 	async connect() {
 		return Promise.resolve()
@@ -72,9 +72,26 @@ export default class KickNetworkInterface implements NetworkInterface {
 		return Promise.resolve()
 	}
 
+	async loadMeData() {
+		const responseMeData = await RESTFromMainService.get('https://kick.com/api/v1/user').catch(() => {})
+		if (!responseMeData) {
+			throw new Error('Failed to fetch me user data')
+		}
+		if (!responseMeData.id) {
+			throw new Error('Invalid me user data, missing property "id"')
+		}
+
+		this.session.meData = {
+			channelId: '' + responseMeData.streamer_channel.id,
+			userId: '' + responseMeData.streamer_channel.user_id,
+			slug: responseMeData.streamer_channel.slug,
+			username: responseMeData.username
+		}
+	}
+
 	async loadChannelData() {
 		const pathArr = window.location.pathname.substring(1).split('/')
-		const channelData = {}
+		const channelData = {} as ChannelData
 
 		if (pathArr[0] === 'video') {
 			info('VOD video detected..')
@@ -136,9 +153,22 @@ export default class KickNetworkInterface implements NetworkInterface {
 				userId: '' + responseChannelData.user_id,
 				channelId: '' + responseChannelData.id,
 				channelName: channelName,
-				chatroom: {
+				chatroom: <ChatroomData>{
 					id: '' + responseChannelData.chatroom.id,
-					messageInterval: responseChannelData.chatroom.message_interval || 0
+					emotesMode: {
+						enabled: !!responseChannelData.chatroom.emotes_mode
+					},
+					subscribersMode: {
+						enabled: !!responseChannelData.chatroom.subscribers_mode
+					},
+					followersMode: {
+						enabled: !!responseChannelData.chatroom.followers_mode,
+						min_duration: responseChannelData.chatroom.following_min_duration || 0
+					},
+					slowMode: {
+						enabled: !!responseChannelData.chatroom.slow_mode,
+						messageInterval: responseChannelData.chatroom.message_interval || 6
+					}
 				},
 				me: { isLoggedIn: false }
 			})
@@ -155,21 +185,30 @@ export default class KickNetworkInterface implements NetworkInterface {
 					isLoggedIn: true,
 					isSubscribed: !!responseChannelMeData.subscription,
 					isFollowing: !!responseChannelMeData.is_following,
+					followingSince: responseChannelMeData.following_since,
 					isSuperAdmin: !!responseChannelMeData.is_super_admin,
 					isBroadcaster: !!responseChannelMeData.is_broadcaster,
-					isModerator: !!responseChannelMeData.is_moderator,
-					isBanned: !!responseChannelMeData.banned
+					isModerator: !!responseChannelMeData.is_moderator
 				}
 			})
+
+			if (responseChannelMeData.banned) {
+				channelData.me.isBanned = {
+					bannedAt: responseChannelMeData.banned.created_at,
+					expiresAt: responseChannelMeData.banned.expires_at,
+					permanent: responseChannelMeData.banned.permanent,
+					reason: responseChannelMeData.banned.reason
+				}
+			}
 		} else {
 			info('User is not logged in.')
 		}
 
-		this.channelData = channelData as ChannelData
+		this.session.channelData = channelData as ChannelData
 	}
 
 	async sendMessage(message: string, noUtag = false) {
-		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
+		if (!this.session.channelData) throw new Error('Channel data is not loaded yet.')
 
 		// let randomSpamFilterBustingTag = ''
 		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0)) +
@@ -181,9 +220,9 @@ export default class KickNetworkInterface implements NetworkInterface {
 
 		// log(`Random spam filter busting tag: "${randomSpamFilterBustingTag}"`)
 
-		message[message.length - 1] === ' ' || (message += ' ')
+		if (!noUtag) message[message.length - 1] === ' ' || (message += ' ')
 
-		const chatroomId = this.channelData.chatroom.id
+		const chatroomId = this.session.channelData.chatroom.id
 		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
 			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
 			type: 'message'
@@ -206,11 +245,11 @@ export default class KickNetworkInterface implements NetworkInterface {
 		originalSenderUsername: string,
 		noUtag = false
 	) {
-		if (!this.channelData) throw new Error('Channel data is not loaded yet.')
+		if (!this.session.channelData) throw new Error('Channel data is not loaded yet.')
 
-		message[message.length - 1] === ' ' || (message += ' ')
+		if (!noUtag) message[message.length - 1] === ' ' || (message += ' ')
 
-		const chatroomId = this.channelData.chatroom.id
+		const chatroomId = this.session.channelData.chatroom.id
 		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
 			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
 			type: 'reply',

@@ -76,7 +76,7 @@ export default class CommandExecutionStrategy implements InputExecutionStrategy 
 	}
 
 	getAvailableCommands() {
-		const channelData = this.session.networkInterface.channelData
+		const channelData = this.session.channelData
 		const is_broadcaster = channelData?.me?.isBroadcaster || false
 		const is_moderator = channelData?.me?.isModerator || false
 

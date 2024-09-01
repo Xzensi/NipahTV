@@ -3,12 +3,13 @@ import type InputExecutionStrategyRegister from '../Strategies/InputExecutionStr
 import type InputCompletionStrategyManager from '../Managers/InputCompletionStrategyManager'
 import type KickNetworkInterface from '../NetworkInterfaces/KickNetworkInterface'
 import type AbstractUserInterface from '../UserInterface/AbstractUserInterface'
+import type { EventService } from '../EventServices/EventService'
 import type { IBadgeProvider } from '../Providers/BadgeProvider'
-import type EmotesManager from '../Managers/EmotesManager'
 import type SettingsManager from '../Managers/SettingsManager'
+import type EmotesManager from '../Managers/EmotesManager'
 import type UsersManager from '../Managers/UsersManager'
-import type Publisher from '../Classes/Publisher'
 import type { PLATFORM_ENUM } from '../constants'
+import type Publisher from '../Classes/Publisher'
 import type Database from '../Database/Database'
 import type { RESTFromMain } from '../utils'
 
@@ -49,15 +50,17 @@ declare global {
 		NipahTV?: any
 	}
 
-	type RootContext = {
+	interface RootContext {
 		eventBus: Publisher
 		database: Database
 		settingsManager: SettingsManager
+		eventService: EventService
 	}
 
-	type Session = {
+	interface Session {
 		eventBus: Publisher
 		networkInterface: KickNetworkInterface
+		meData: MeData
 		channelData: ChannelData
 		usersManager: UsersManager
 		userInterface?: AbstractUserInterface
@@ -69,27 +72,57 @@ declare global {
 		isDestroyed?: boolean
 	}
 
-	type ChannelData = {
+	interface MeData {
+		channelId: string
+		userId: string
+		slug: string
+		username: string
+	}
+
+	interface ChannelData {
 		channelId: TChannelId
 		channelName: TChannelName
 		userId: TUserId
 		isVod?: boolean
-		chatroom: {
-			id: string | number
-			messageInterval: number
-		}
+		chatroom: ChatroomData
 		me: {
 			isLoggedIn: boolean
 			isSubscribed?: boolean
 			isFollowing?: boolean
+			followingSince?: string
 			isSuperAdmin?: boolean
 			isBroadcaster?: boolean
 			isModerator?: boolean
-			isBanned?: boolean
+			isBanned?: {
+				bannedAt: string
+				expiresAt: string
+				permanent: boolean
+				reason: string
+			}
 		}
 	}
 
-	type EmoteSet = {
+	interface ChatroomData {
+		id: string
+
+		emotesMode?: {
+			enabled: boolean
+		}
+		subscribersMode?: {
+			enabled: boolean
+		}
+		followersMode?: {
+			enabled: boolean
+			// Minimum following duration before being able to chat
+			min_duration: number
+		}
+		slowMode?: {
+			enabled: boolean
+			messageInterval: number
+		}
+	}
+
+	interface EmoteSet {
 		provider: number
 		orderIndex: number
 		name: string
@@ -104,7 +137,7 @@ declare global {
 		id: string
 	}
 
-	type Emote = {
+	interface Emote {
 		id: string
 		hid: TEmoteHid
 		name: string
