@@ -30,7 +30,7 @@ import KickEventService from './EventServices/KickEventService'
 import TwitchEventService from './EventServices/TwitchEventService'
 
 class NipahClient {
-	VERSION = '1.5.0'
+	VERSION = '1.5.1'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',

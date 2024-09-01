@@ -4,6 +4,24 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.1',
+		date: '2024-09-01',
+		description: `
+                  Notable changes:
+                  - Fixed an overdue issue of emotes not sending in emote only mode chat.
+                  - Changed the input status so that streamers and mods can always see the chat mode status without having to second guess it. It'll remain the same for regular users as ("Send message..").
+                  - Ban/unban events are now handled much more reliably and consistently.
+                  - Only downside currently is that the follow button hasn't been implemented yet, so a page refresh is necessary after following a new channel. This will be fixed in a later update, it's low priority for now.
+
+                  Fix: Emotes not sending in emote only mode chat
+                  Fix: Errors not showing for commands due to incorrect error handling
+                  Feat: Privileged users can now always see chat status in input (emoteonly/followonly/subonly)
+                  Feat: Added pusher event handling service to handle ban/unban events and subonly/followonly/slowmode/emotesonly mode events
+                  Feat: Added followers minimum channel following duration handling
+                  Refactor: Reworked how ban/unban events are handled
+            `
+	},
+	{
 		version: '1.5.0',
 		date: '2024-08-30',
 		description: `
