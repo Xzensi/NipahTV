@@ -188,7 +188,7 @@ export class RESTFromMain {
 					if (xhr.text) resolve(JSON.parse(xhr.text))
 					else resolve(void 0)
 				} else {
-					if (xhr.responseText) reject(JSON.parse(xhr.responseText))
+					if (xhr.text) reject(JSON.parse(xhr.text))
 					else reject('Request failed with status code ' + xhr.status)
 				}
 			})

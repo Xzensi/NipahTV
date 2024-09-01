@@ -133,11 +133,13 @@ export class ContentEditableEditor {
 
 	enableInput() {
 		this.inputNode.setAttribute('contenteditable', 'true')
+		this.inputNode.parentElement?.classList.remove('ntv__message-input__wrapper--locked')
 		this.isInputEnabled = true
 	}
 
 	disableInput() {
 		this.inputNode.setAttribute('contenteditable', 'false')
+		this.inputNode.parentElement?.classList.add('ntv__message-input__wrapper--locked')
 		this.isInputEnabled = false
 	}
 

@@ -27,6 +27,23 @@
 	&--char-limit-reached:after {
 		color: #ff1919;
 	}
+
+	&--locked {
+		&::before {
+			transition-property: background-color;
+			transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+			transition-duration: 0.15s;
+			background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="white" d="M832 464h-68V240c0-70.7-57.3-128-128-128H388c-70.7 0-128 57.3-128 128v224h-68c-17.7 0-32 14.3-32 32v384c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V496c0-17.7-14.3-32-32-32M540 701v53c0 4.4-3.6 8-8 8h-40c-4.4 0-8-3.6-8-8v-53a48.01 48.01 0 1 1 56 0m152-237H332V240c0-30.9 25.1-56 56-56h248c30.9 0 56 25.1 56 56z" /></svg>');
+			box-sizing: border-box;
+			display: block;
+			margin: 0 1em;
+			height: 1.6em;
+			width: 1.8em;
+			content: '';
+			left: 0;
+			top: 0;
+		}
+	}
 }
 
 #ntv__message-input {
@@ -62,4 +79,8 @@
 	// &:empty:not(:focus)::before {
 	// 	content: attr(placeholder);
 	// }
+
+	&[contenteditable='false'] {
+		pointer-events: none;
+	}
 }

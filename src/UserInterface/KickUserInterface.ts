@@ -367,12 +367,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		inputController.initialize()
 		inputController.loadInputCompletionBehaviour()
 		inputController.loadChatHistoryBehaviour()
-
-		// User is already timedout or banned, disable chat input and show reason
-		// TODO refactor this when websockets are implemented
-		if (originalTextFieldEl.getAttribute('contenteditable') !== 'true') {
-			this.changeInputStatus('disabled', originalTextFieldEl.getAttribute('data-placeholder'))
-		}
+		this.loadInputStatusBehaviour()
 
 		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
 			if (event.detail.isEmpty) {
@@ -473,8 +468,6 @@ export class KickUserInterface extends AbstractUserInterface {
 			textFieldEl.focus()
 			this.inputController?.contentEditableEditor.forwardEvent(evt)
 		})
-
-		this.observeInputFieldStatusEvents(originalTextFieldEl)
 	}
 
 	loadScrollingBehaviour() {
@@ -946,33 +939,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				const screenPosition = { x: rect.x, y: rect.y - 100 }
 				if (username) this.handleUserInfoModalClick(username, screenPosition)
 			}
-		})
-	}
-
-	observeInputFieldStatusEvents(inputField: HTMLElement) {
-		// TODO refactor this when websockets are implemented
-		const inputFieldObserver = new MutationObserver(mutations => {
-			mutations.forEach(mutation => {
-				if (mutation.attributeName === 'contenteditable') {
-					const isContentEditable = inputField.getAttribute('contenteditable') === 'true'
-
-					if (isContentEditable) {
-						this.elm.submitButton?.classList.remove('disabled')
-						this.changeInputStatus('enabled')
-					} else {
-						const reason = inputField.getAttribute('data-placeholder')
-						this.elm.submitButton?.classList.add('disabled')
-						this.changeInputStatus('disabled', reason)
-					}
-				}
-			})
-		})
-
-		inputFieldObserver.observe(inputField, {
-			childList: false,
-			subtree: false,
-			attributes: true,
-			attributeFilter: ['contenteditable']
 		})
 	}
 

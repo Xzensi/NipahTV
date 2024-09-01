@@ -1,3 +1,4 @@
+import { UserBannedEvent, UserUnbannedEvent } from '../EventServices/EventService'
 import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
 import ReplyMessageComponent from './Components/ReplyMessageComponent'
 import { PriorityEventTarget } from '../Classes/PriorityEventTarget'
@@ -231,12 +232,156 @@ export default abstract class AbstractUserInterface {
 
 		if (status === 'enabled') {
 			contentEditableEditor.enableInput()
-			contentEditableEditor.setPlaceholder('Send message..')
+			contentEditableEditor.setPlaceholder(reason || 'Send message..')
 		} else if (status === 'disabled') {
 			contentEditableEditor.clearInput()
 			contentEditableEditor.setPlaceholder(reason || 'Chat is disabled')
 			contentEditableEditor.disableInput()
 		}
+	}
+
+	protected loadInputStatusBehaviour() {
+		if (!this.inputController) return error('Input controller not loaded yet. Cannot load input status behaviour.')
+
+		// If chatroom is in subscribers only, followers only or emotes only mode,
+		//   or if user is already timedout or banned, disable chat input.
+		const updateInputStatus = () => {
+			const chatroomData = this.session.channelData.chatroom
+			const channelMeData = this.session.channelData.me
+			const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
+			let inputChanged = false
+
+			if (!isPrivileged && channelMeData.isBanned) {
+				log('You got banned from chat')
+
+				if (channelMeData.isBanned.permanent) {
+					this.changeInputStatus('disabled', `You are banned from chat.`)
+				} else {
+					const expiresAt = new Date(channelMeData.isBanned.expiresAt).getTime()
+					const duration = Math.ceil((expiresAt - Date.now()) / 1000 / 60)
+
+					this.changeInputStatus(
+						'disabled',
+						`You are banned from chat for ${duration || 'unknown'} minute(s).`
+					)
+				}
+				inputChanged = true
+			}
+
+			if (
+				!inputChanged &&
+				chatroomData.subscribersMode?.enabled &&
+				(!channelMeData.isSubscribed || isPrivileged)
+			) {
+				log('Subscribers only mode enabled')
+				this.changeInputStatus(
+					isPrivileged || channelMeData.isSubscribed ? 'enabled' : 'disabled',
+					'Subscribers only'
+				)
+				inputChanged = true
+			}
+
+			if (!inputChanged && chatroomData.followersMode?.enabled && (!channelMeData.isFollowing || isPrivileged)) {
+				log('Followers only mode enabled')
+
+				this.changeInputStatus(
+					isPrivileged || channelMeData.isFollowing ? 'enabled' : 'disabled',
+					'Followers only'
+				)
+				inputChanged = true
+			}
+
+			if (!inputChanged && chatroomData.followersMode?.enabled && channelMeData.isFollowing) {
+				const followingSince = new Date(channelMeData.followingSince!)
+				const minDuration = (chatroomData.followersMode.min_duration || 0) * 60
+				const now = new Date()
+				const timeElapsed = ((now.getTime() - followingSince.getTime()) / 1000) << 0
+				let remainingTime = minDuration - timeElapsed
+
+				// Check if user has been following for less than the required minimum following duration of the channel
+				if (remainingTime > 0) {
+					const hours = (remainingTime / 3600) << 0
+					remainingTime -= hours * 3600
+					const minutes = (remainingTime / 60) << 0
+					const hoursString = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : ''
+					const minutesString = minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : ''
+					const secondsString =
+						remainingTime % 60 > 0 ? `${remainingTime % 60} second${remainingTime % 60 > 1 ? 's' : ''}` : ''
+					const formattedRemainingTime = hoursString
+						? `${hoursString} and ${minutesString || '0 minutes'}`.trim()
+						: minutesString
+						? `${minutesString} and ${secondsString || '0 seconds'}`.trim()
+						: `${secondsString}`
+
+					this.changeInputStatus(
+						isPrivileged ? 'enabled' : 'disabled',
+						`Followers only, please wait for ${formattedRemainingTime} before you can chat.`
+					)
+					inputChanged = true
+				}
+			}
+
+			if (!inputChanged && chatroomData.emotesMode?.enabled) {
+				log('Emotes only mode enabled')
+				this.changeInputStatus('enabled', 'Emotes only')
+			}
+
+			if (!inputChanged) {
+				log('Normal chat input restored')
+				this.changeInputStatus('enabled', 'Send message..')
+			}
+		}
+
+		// TODO there's no handle on the follow button yet so a page refresh is required..
+		const channelMeData = this.session.channelData.me
+		const chatroomData = this.session.channelData.chatroom
+		const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
+		if (
+			this.session.channelData.chatroom.followersMode?.enabled &&
+			chatroomData.followersMode?.min_duration &&
+			!isPrivileged
+		) {
+			const followingSince = new Date(channelMeData.followingSince!)
+			const minDuration = (chatroomData.followersMode?.min_duration || 0) * 60
+			const now = new Date()
+			const timeElapsed = ((now.getTime() - followingSince.getTime()) / 1000) << 0
+			const remainingTime = minDuration - timeElapsed
+
+			// Update remaining following only time every second until min channel following duration is reached
+			if (remainingTime > 0) {
+				let intervalHandle = setInterval(updateInputStatus, 1000)
+				setTimeout(() => {
+					clearInterval(intervalHandle)
+					updateInputStatus()
+				}, remainingTime * 1000)
+			}
+		}
+
+		this.session.eventBus.subscribe('ntv.channel.chatroom.me.banned', (data: UserBannedEvent) => {
+			const channelMeData = this.session.channelData.me
+			const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
+
+			if (data.permanent) {
+				this.changeInputStatus(isPrivileged ? 'enabled' : 'disabled', `You are banned from chat.`)
+			} else {
+				const expiresAt = new Date(data.expiresAt).getTime()
+				const now = Date.now()
+				const duration = Math.ceil((expiresAt - now) / 1000 / 60)
+
+				this.changeInputStatus(
+					isPrivileged ? 'enabled' : 'disabled',
+					`You are banned from chat for ${duration || 'unknown'} minute(s).`
+				)
+			}
+		})
+
+		this.session.eventBus.subscribe('ntv.channel.chatroom.me.unbanned', (data: UserUnbannedEvent) => {
+			updateInputStatus()
+		})
+
+		updateInputStatus()
+		this.session.eventBus.subscribe('ntv.channel.chatroom.updated', updateInputStatus)
+		this.session.eventBus.subscribe('ntv.channel.chatroom.me.unbanned', updateInputStatus)
 	}
 
 	showUserInfoModal(username: string, position?: { x: number; y: number }) {

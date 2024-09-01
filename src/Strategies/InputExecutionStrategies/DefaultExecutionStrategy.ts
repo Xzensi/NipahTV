@@ -13,7 +13,8 @@ export default class DefaultExecutionStrategy implements InputExecutionStrategy 
 		inputIntentDTO: InputIntentDTO,
 		dontClearInput?: boolean
 	): Promise<void | string> {
-		const { networkInterface } = this.session
+		const { session } = this
+		const { networkInterface } = session
 
 		dontClearInput || contentEditableEditor.clearInput()
 
@@ -25,10 +26,11 @@ export default class DefaultExecutionStrategy implements InputExecutionStrategy 
 				inputIntentDTO.replyRefs.messageId,
 				inputIntentDTO.replyRefs.messageContent,
 				inputIntentDTO.replyRefs.senderId,
-				inputIntentDTO.replyRefs.senderUsername
+				inputIntentDTO.replyRefs.senderUsername,
+				session.channelData.chatroom.emotesMode?.enabled
 			)
 		} else {
-			await networkInterface.sendMessage(inputIntentDTO.input)
+			await networkInterface.sendMessage(inputIntentDTO.input, session.channelData.chatroom.emotesMode?.enabled)
 		}
 	}
 }
