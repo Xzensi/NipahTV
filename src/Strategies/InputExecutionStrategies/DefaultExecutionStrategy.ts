@@ -27,10 +27,10 @@ export default class DefaultExecutionStrategy implements InputExecutionStrategy 
 				inputIntentDTO.replyRefs.messageContent,
 				inputIntentDTO.replyRefs.senderId,
 				inputIntentDTO.replyRefs.senderUsername,
-				session.channelData.chatroom.emotesMode?.enabled
+				session.channelData.chatroom?.emotesMode?.enabled
 			)
 		} else {
-			await networkInterface.sendMessage(inputIntentDTO.input, session.channelData.chatroom.emotesMode?.enabled)
+			await networkInterface.sendMessage(inputIntentDTO.input, session.channelData.chatroom?.emotesMode?.enabled)
 		}
 	}
 }

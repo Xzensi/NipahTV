@@ -84,7 +84,7 @@ declare global {
 		channelName: TChannelName
 		userId: TUserId
 		isVod?: boolean
-		chatroom: ChatroomData
+		chatroom?: ChatroomData
 		me: {
 			isLoggedIn: boolean
 			isSubscribed?: boolean

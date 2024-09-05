@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.2',
+		date: '2024-09-05',
+		description: `
+                  Fix: VOD chat history no longer rendering emotes
+            `
+	},
+	{
 		version: '1.5.1',
 		date: '2024-09-01',
 		description: `

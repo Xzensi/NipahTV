@@ -127,7 +127,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 				channelId: '' + id,
 				channelName: user.username,
 				isVod: true,
-				me: {}
+				me: { isLoggedIn: false }
 			})
 		} else {
 			// We extract channel name from the URL
@@ -209,6 +209,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 
 	async sendMessage(message: string, noUtag = false) {
 		if (!this.session.channelData) throw new Error('Channel data is not loaded yet.')
+		if (!this.session.channelData.chatroom) throw new Error('Chatroom data is not loaded yet.')
 
 		// let randomSpamFilterBustingTag = ''
 		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0)) +
@@ -246,6 +247,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 		noUtag = false
 	) {
 		if (!this.session.channelData) throw new Error('Channel data is not loaded yet.')
+		if (!this.session.channelData.chatroom) throw new Error('Chatroom data is not loaded yet.')
 
 		if (!noUtag) message[message.length - 1] === ' ' || (message += ' ')
 

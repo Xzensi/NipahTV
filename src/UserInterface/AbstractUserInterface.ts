@@ -243,6 +243,12 @@ export default abstract class AbstractUserInterface {
 	protected loadInputStatusBehaviour() {
 		if (!this.inputController) return error('Input controller not loaded yet. Cannot load input status behaviour.')
 
+		const chatroomData = this.session.channelData.chatroom
+		const channelMeData = this.session.channelData.me
+
+		if (!chatroomData) return error('Chatroom data is missing from channelData')
+		if (!channelMeData) return error('Channel me data is missing from channelData')
+
 		// If chatroom is in subscribers only, followers only or emotes only mode,
 		//   or if user is already timedout or banned, disable chat input.
 		const updateInputStatus = () => {
@@ -250,6 +256,8 @@ export default abstract class AbstractUserInterface {
 			const channelMeData = this.session.channelData.me
 			const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
 			let inputChanged = false
+
+			if (!chatroomData) return error('Chatroom data is missing from channelData')
 
 			if (!isPrivileged && channelMeData.isBanned) {
 				log('You got banned from chat')
@@ -333,14 +341,8 @@ export default abstract class AbstractUserInterface {
 		}
 
 		// TODO there's no handle on the follow button yet so a page refresh is required..
-		const channelMeData = this.session.channelData.me
-		const chatroomData = this.session.channelData.chatroom
 		const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
-		if (
-			this.session.channelData.chatroom.followersMode?.enabled &&
-			chatroomData.followersMode?.min_duration &&
-			!isPrivileged
-		) {
+		if (chatroomData.followersMode?.enabled && chatroomData.followersMode?.min_duration && !isPrivileged) {
 			const followingSince = new Date(channelMeData.followingSince!)
 			const minDuration = (chatroomData.followersMode?.min_duration || 0) * 60
 			const now = new Date()

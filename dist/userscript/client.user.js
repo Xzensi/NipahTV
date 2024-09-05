@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.1
+// @version 1.5.2
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -13292,11 +13292,16 @@ var AbstractUserInterface = class {
   }
   loadInputStatusBehaviour() {
     if (!this.inputController) return error("Input controller not loaded yet. Cannot load input status behaviour.");
+    const chatroomData = this.session.channelData.chatroom;
+    const channelMeData = this.session.channelData.me;
+    if (!chatroomData) return error("Chatroom data is missing from channelData");
+    if (!channelMeData) return error("Channel me data is missing from channelData");
     const updateInputStatus = () => {
       const chatroomData2 = this.session.channelData.chatroom;
       const channelMeData2 = this.session.channelData.me;
       const isPrivileged2 = channelMeData2.isSuperAdmin || channelMeData2.isBroadcaster || channelMeData2.isModerator;
       let inputChanged = false;
+      if (!chatroomData2) return error("Chatroom data is missing from channelData");
       if (!isPrivileged2 && channelMeData2.isBanned) {
         log("You got banned from chat");
         if (channelMeData2.isBanned.permanent) {
@@ -13357,10 +13362,8 @@ var AbstractUserInterface = class {
         this.changeInputStatus("enabled", "Send message..");
       }
     };
-    const channelMeData = this.session.channelData.me;
-    const chatroomData = this.session.channelData.chatroom;
     const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator;
-    if (this.session.channelData.chatroom.followersMode?.enabled && chatroomData.followersMode?.min_duration && !isPrivileged) {
+    if (chatroomData.followersMode?.enabled && chatroomData.followersMode?.min_duration && !isPrivileged) {
       const followingSince = new Date(channelMeData.followingSince);
       const minDuration = (chatroomData.followersMode?.min_duration || 0) * 60;
       const now = /* @__PURE__ */ new Date();
@@ -16166,6 +16169,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   loadShadowProxyElements() {
     if (!this.session.channelData.me.isLoggedIn) return;
+    if (this.session.channelData.isVod) return;
     Array.from(document.getElementsByClassName("ntv__submit-button")).forEach((element) => {
       element.remove();
     });
@@ -19261,7 +19265,7 @@ var KickNetworkInterface = class {
         channelId: "" + id,
         channelName: user.username,
         isVod: true,
-        me: {}
+        me: { isLoggedIn: false }
       });
     } else {
       const channelName2 = pathArr[0];
@@ -19334,6 +19338,7 @@ var KickNetworkInterface = class {
   }
   async sendMessage(message, noUtag = false) {
     if (!this.session.channelData) throw new Error("Channel data is not loaded yet.");
+    if (!this.session.channelData.chatroom) throw new Error("Chatroom data is not loaded yet.");
     if (!noUtag) message[message.length - 1] === " " || (message += " ");
     const chatroomId = this.session.channelData.chatroom.id;
     return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
@@ -19348,6 +19353,7 @@ var KickNetworkInterface = class {
   }
   async sendReply(message, originalMessageId, originalMessageContent, originalSenderId, originalSenderUsername, noUtag = false) {
     if (!this.session.channelData) throw new Error("Channel data is not loaded yet.");
+    if (!this.session.channelData.chatroom) throw new Error("Chatroom data is not loaded yet.");
     if (!noUtag) message[message.length - 1] === " " || (message += " ");
     const chatroomId = this.session.channelData.chatroom.id;
     return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
@@ -19765,6 +19771,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.2",
+    date: "2024-09-05",
+    description: `
+                  Fix: VOD chat history no longer rendering emotes
+            `
+  },
   {
     version: "1.5.1",
     date: "2024-09-01",
@@ -21547,10 +21560,10 @@ var DefaultExecutionStrategy = class {
         inputIntentDTO.replyRefs.messageContent,
         inputIntentDTO.replyRefs.senderId,
         inputIntentDTO.replyRefs.senderUsername,
-        session.channelData.chatroom.emotesMode?.enabled
+        session.channelData.chatroom?.emotesMode?.enabled
       );
     } else {
-      await networkInterface.sendMessage(inputIntentDTO.input, session.channelData.chatroom.emotesMode?.enabled);
+      await networkInterface.sendMessage(inputIntentDTO.input, session.channelData.chatroom?.emotesMode?.enabled);
     }
   }
 };
@@ -21883,12 +21896,16 @@ var KickEventService = class {
   connect(channelData) {
   }
   subToChatroomEvents(channelData) {
-    const channelId = channelData.chatroom.id;
+    const { chatroom } = channelData;
+    if (!chatroom) return error("Chatroom data is missing from channelData");
+    const channelId = chatroom.id;
     this.chatroomChannelsMap.set(channelId, this.pusher.subscribe(`chatrooms.${channelId}.v2`));
   }
   addEventListener(channelData, event, callback) {
-    const channel = this.chatroomChannelsMap.get(channelData.chatroom.id);
-    if (!channel) return error("Unable to find channel for EventService chatroom", channelData.chatroom.id);
+    const { chatroom } = channelData;
+    if (!chatroom) return error("Chatroom data is missing from channelData");
+    const channel = this.chatroomChannelsMap.get(chatroom.id);
+    if (!channel) return error("Unable to find channel for EventService chatroom", chatroom.id);
     if (event === "message") {
     } else if (event === "chatroom_updated") {
       channel.bind("App\\Events\\ChatroomUpdatedEvent", (data) => {
@@ -21949,11 +21966,13 @@ var KickEventService = class {
     }
   }
   disconnect(channelData) {
-    const channel = this.chatroomChannelsMap.get(channelData.chatroom.id);
+    const { chatroom } = channelData;
+    if (!chatroom) return error("Chatroom data is missing from channelData");
+    const channel = this.chatroomChannelsMap.get(chatroom.id);
     if (channel) {
-      this.pusher.unsubscribe(`chatrooms.${channelData.chatroom.id}.v2`);
+      this.pusher.unsubscribe(`chatrooms.${chatroom.id}.v2`);
       channel.unbind_all();
-      this.chatroomChannelsMap.delete(channelData.chatroom.id);
+      this.chatroomChannelsMap.delete(chatroom.id);
     }
   }
   disconnectAll() {
@@ -21980,7 +21999,7 @@ var TwitchEventService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.1";
+  VERSION = "1.5.2";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -22143,16 +22162,17 @@ var NipahClient = class {
   }
   attachEventServiceListeners(rootContext, session) {
     const { eventBus, channelData, meData } = session;
+    if (channelData.isVod) return;
     rootContext.eventService.subToChatroomEvents(channelData);
     rootContext.eventService.addEventListener(channelData, "chatroom_updated", (chatroomData) => {
       const oldChatroomData = channelData.chatroom;
-      if (oldChatroomData.emotesMode?.enabled !== chatroomData.emotesMode?.enabled) {
+      if (oldChatroomData?.emotesMode?.enabled !== chatroomData.emotesMode?.enabled) {
         eventBus.publish("ntv.channel.chatroom.emotes_mode.updated", chatroomData.emotesMode);
-      } else if (oldChatroomData.subscribersMode?.enabled !== chatroomData.subscribersMode?.enabled) {
+      } else if (oldChatroomData?.subscribersMode?.enabled !== chatroomData.subscribersMode?.enabled) {
         eventBus.publish("ntv.channel.chatroom.subscribers_mode.updated", chatroomData.subscribersMode);
-      } else if (oldChatroomData.followersMode?.enabled !== chatroomData.followersMode?.enabled || oldChatroomData.followersMode?.min_duration !== chatroomData.followersMode?.min_duration) {
+      } else if (oldChatroomData?.followersMode?.enabled !== chatroomData.followersMode?.enabled || oldChatroomData?.followersMode?.min_duration !== chatroomData.followersMode?.min_duration) {
         eventBus.publish("ntv.channel.chatroom.followers_mode.updated", chatroomData.followersMode);
-      } else if (oldChatroomData.slowMode?.enabled !== chatroomData.slowMode?.enabled || oldChatroomData.slowMode?.messageInterval !== chatroomData.slowMode?.messageInterval) {
+      } else if (oldChatroomData?.slowMode?.enabled !== chatroomData.slowMode?.enabled || oldChatroomData?.slowMode?.messageInterval !== chatroomData.slowMode?.messageInterval) {
         eventBus.publish("ntv.channel.chatroom.slow_mode.updated", chatroomData.slowMode);
       }
       channelData.chatroom = chatroomData;
