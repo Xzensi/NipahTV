@@ -25,7 +25,10 @@ export default class KickEventService implements EventService {
 	connect(channelData: ChannelData) {}
 
 	subToChatroomEvents(channelData: ChannelData) {
-		const channelId = channelData.chatroom.id
+		const { chatroom } = channelData
+		if (!chatroom) return error('Chatroom data is missing from channelData')
+
+		const channelId = chatroom.id
 		this.chatroomChannelsMap.set(channelId, this.pusher.subscribe(`chatrooms.${channelId}.v2`))
 	}
 
@@ -34,8 +37,11 @@ export default class KickEventService implements EventService {
 		event: K,
 		callback: (data: EventData[K]) => void
 	) {
-		const channel = this.chatroomChannelsMap.get(channelData.chatroom.id)
-		if (!channel) return error('Unable to find channel for EventService chatroom', channelData.chatroom.id)
+		const { chatroom } = channelData
+		if (!chatroom) return error('Chatroom data is missing from channelData')
+
+		const channel = this.chatroomChannelsMap.get(chatroom.id)
+		if (!channel) return error('Unable to find channel for EventService chatroom', chatroom.id)
 
 		if (event === 'message') {
 		} else if (event === 'chatroom_updated') {
@@ -98,11 +104,14 @@ export default class KickEventService implements EventService {
 	}
 
 	disconnect(channelData: ChannelData) {
-		const channel = this.chatroomChannelsMap.get(channelData.chatroom.id)
+		const { chatroom } = channelData
+		if (!chatroom) return error('Chatroom data is missing from channelData')
+
+		const channel = this.chatroomChannelsMap.get(chatroom.id)
 		if (channel) {
-			this.pusher.unsubscribe(`chatrooms.${channelData.chatroom.id}.v2`)
+			this.pusher.unsubscribe(`chatrooms.${chatroom.id}.v2`)
 			channel.unbind_all()
-			this.chatroomChannelsMap.delete(channelData.chatroom.id)
+			this.chatroomChannelsMap.delete(chatroom.id)
 		}
 	}
 

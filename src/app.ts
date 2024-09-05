@@ -265,23 +265,25 @@ class NipahClient {
 	attachEventServiceListeners(rootContext: RootContext, session: Session) {
 		const { eventBus, channelData, meData } = session
 
+		if (channelData.isVod) return // VODs don't have chatrooms
+
 		rootContext.eventService.subToChatroomEvents(channelData)
 
 		rootContext.eventService.addEventListener(channelData, 'chatroom_updated', chatroomData => {
 			const oldChatroomData = channelData.chatroom
 
-			if (oldChatroomData.emotesMode?.enabled !== chatroomData.emotesMode?.enabled) {
+			if (oldChatroomData?.emotesMode?.enabled !== chatroomData.emotesMode?.enabled) {
 				eventBus.publish('ntv.channel.chatroom.emotes_mode.updated', chatroomData.emotesMode)
-			} else if (oldChatroomData.subscribersMode?.enabled !== chatroomData.subscribersMode?.enabled) {
+			} else if (oldChatroomData?.subscribersMode?.enabled !== chatroomData.subscribersMode?.enabled) {
 				eventBus.publish('ntv.channel.chatroom.subscribers_mode.updated', chatroomData.subscribersMode)
 			} else if (
-				oldChatroomData.followersMode?.enabled !== chatroomData.followersMode?.enabled ||
-				oldChatroomData.followersMode?.min_duration !== chatroomData.followersMode?.min_duration
+				oldChatroomData?.followersMode?.enabled !== chatroomData.followersMode?.enabled ||
+				oldChatroomData?.followersMode?.min_duration !== chatroomData.followersMode?.min_duration
 			) {
 				eventBus.publish('ntv.channel.chatroom.followers_mode.updated', chatroomData.followersMode)
 			} else if (
-				oldChatroomData.slowMode?.enabled !== chatroomData.slowMode?.enabled ||
-				oldChatroomData.slowMode?.messageInterval !== chatroomData.slowMode?.messageInterval
+				oldChatroomData?.slowMode?.enabled !== chatroomData.slowMode?.enabled ||
+				oldChatroomData?.slowMode?.messageInterval !== chatroomData.slowMode?.messageInterval
 			) {
 				eventBus.publish('ntv.channel.chatroom.slow_mode.updated', chatroomData.slowMode)
 			}

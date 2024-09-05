@@ -299,6 +299,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	loadShadowProxyElements() {
 		if (!this.session.channelData.me.isLoggedIn) return
+		if (this.session.channelData.isVod) return
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
