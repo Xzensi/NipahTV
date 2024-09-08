@@ -56,11 +56,13 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		super.loadInterface()
 
+		const { abortController } = this
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		const { channelData, eventBus } = this.session
-		const { abortController } = this
+		const { channelId } = channelData
 		const abortSignal = abortController.signal
 
+		this.loadAnnouncements()
 		this.loadSettings()
 
 		// Wait for text input & submit button to load
@@ -74,7 +76,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.loadQuickEmotesHolder()
 				this.loadTheatreModeBehaviour()
 
-				if (settingsManager.getSetting('shared.chat.behavior.smooth_scrolling')) {
+				if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
 					document.getElementById('chatroom')?.classList.add('ntv__smooth-scrolling')
 				}
 			})
@@ -98,12 +100,12 @@ export class KickUserInterface extends AbstractUserInterface {
 				const chatroomEl = document.getElementById(chatroomContainerSelector)
 				if (chatroomEl) {
 					// Add alternating background color to chat messages
-					if (settingsManager.getSetting('shared.chat.appearance.alternating_background')) {
+					if (settingsManager.getSetting(channelId, 'chat.appearance.alternating_background')) {
 						chatroomEl.classList.add('ntv__alternating-background')
 					}
 
 					// Add seperator lines to chat messages
-					const seperatorSettingVal = settingsManager.getSetting('shared.chat.appearance.seperators')
+					const seperatorSettingVal = settingsManager.getSetting(channelId, 'chat.appearance.seperators')
 					if (seperatorSettingVal && seperatorSettingVal !== 'none') {
 						chatroomEl.classList.add(`ntv__seperators-${seperatorSettingVal}`)
 					}
@@ -171,7 +173,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Set chat smooth scrolling mode
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.chat.behavior.smooth_scrolling',
+			'ntv.settings.change.chat.behavior.smooth_scrolling',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				document.getElementById(chatroomContainerSelector)?.classList.toggle('ntv__smooth-scrolling', !!value)
 			}
@@ -179,7 +181,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Add alternating background color to chat messages
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.chat.appearance.alternating_background',
+			'ntv.settings.change.chat.appearance.alternating_background',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				//* Not respecting chatroomContainerSelector on purpose here because vods reverse the order of chat messages resulting in alternating background not working as expected
 				document.getElementById('chatroom')?.classList.toggle('ntv__alternating-background', !!value)
@@ -188,7 +190,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Add seperator lines to chat messages
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.chat.appearance.seperators',
+			'ntv.settings.change.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				if (prevValue !== 'none')
 					document.getElementById(chatroomContainerSelector)?.classList.remove(`ntv__seperators-${prevValue}`)
@@ -199,7 +201,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Chat messages spacing settings change
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.chat.appearance.messages_spacing',
+			'ntv.settings.change.chat.appearance.messages_spacing',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
 					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
@@ -210,7 +212,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Chat messages style settings change
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.chat.appearance.messages_style',
+			'ntv.settings.change.chat.appearance.messages_style',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
 					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--theme-${prevValue}`)
@@ -240,15 +242,16 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async loadQuickEmotesHolder() {
 		const { settingsManager } = this.rootContext
-		const { eventBus } = this.session
-		const quickEmotesHolderEnabled = settingsManager.getSetting('shared.quick_emote_holder.enabled')
+		const { eventBus, channelData } = this.session
+		const channelId = channelData.channelId
+		const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, 'quick_emote_holder.enabled')
 		if (quickEmotesHolderEnabled) {
 			const placeholder = document.createElement('div')
 			document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
 			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init()
 		}
 
-		eventBus.subscribe('ntv.settings.change.shared.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
+		eventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
 			if (value) {
 				const placeholder = document.createElement('div')
 				document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(placeholder)
@@ -271,11 +274,53 @@ export class KickUserInterface extends AbstractUserInterface {
 			.catch(() => {})
 	}
 
+	loadAnnouncements() {
+		const rootContext = this.rootContext
+		if (!rootContext) throw new Error('Root context is not initialized.')
+		const { announcementService, eventBus: rootEventBus } = rootContext
+
+		const showAnnouncements = () => {
+			announcementService.registerAnnouncement({
+				id: 'website_overhaul_sept_2024',
+				dateTimeRange: [new Date(1726618455607)],
+				message: `
+					<h2>Major Kick website overhaul</h2>
+					<p>As I'm sure many of you are aware by now, and perhaps you just found out by the time you read this announcement because it already happened, Kick has planned a major overhaul of the website.</p>
+					<p>As reportedly planned it currently stands to be released on:</p>
+					<ul>
+						<li><b>Monday 9 Sept</b> for all of Oceania</li>
+						<li><b>Tuesday 10 Sept</b> for Latin America</li>
+						<li><b>Wednesday 11 Sept</b> for Europe</li>
+						<li><b>Thursday 12 Sept</b> for North America</li>
+					</ul>
+					<p>It is not yet known in what ways the new website will break NipahTV, but we will do our best to keep up with the changes and provide you with the best experience possible. If it turns out to be utterly broken, simply temporarily disable the extension/userscript until we can push an update to fix it. Please be patient and allow us some time to adjust to the coming changes.</p>
+					<p>Thank you for supporting NipahTV!</p>
+				`
+			})
+
+			if (announcementService.hasAnnouncement('website_overhaul_sept_2024')) {
+				setTimeout(() => {
+					announcementService.displayAnnouncement('website_overhaul_sept_2024')
+				}, 1000)
+			}
+		}
+
+		rootEventBus.subscribe(
+			'ntv.settings.loaded',
+			() => {
+				document.addEventListener('DOMContentLoaded', showAnnouncements)
+				if (document.readyState === 'complete') showAnnouncements()
+			},
+			true
+		)
+	}
+
 	loadSettings() {
 		const { settingsManager } = this.rootContext
-		const { eventBus } = this.session
+		const { eventBus, channelData } = this.session
+		const channelId = channelData.channelId
 
-		const firstMessageHighlightColor = settingsManager.getSetting('shared.chat.appearance.highlight_color')
+		const firstMessageHighlightColor = settingsManager.getSetting(channelId, 'chat.appearance.highlight_color')
 		if (firstMessageHighlightColor) {
 			const rgb = hex2rgb(firstMessageHighlightColor)
 			document.documentElement.style.setProperty(
@@ -285,7 +330,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		eventBus.subscribe(
-			'ntv.settings.change.shared.chat.appearance.highlight_color',
+			'ntv.settings.change.chat.appearance.highlight_color',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				if (!value) return
 				const rgb = hex2rgb(value)
@@ -523,6 +568,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		// TODO refactor this to methods handleTheatreCollapseChat, handleTheatreUncollapseChat etc
 
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
+		const channelId = this.session.channelData.channelId
 		let prevSetting: string | null = null
 		let isTheatreModeChatCollapsed = false
 
@@ -567,7 +613,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		const handleTheatreModeSwitchFn = (isTheatreMode: boolean) => {
-			const overlayChatSetting: string = settingsManager.getSetting('shared.appearance.layout.overlay_chat')
+			const overlayChatSetting: string = settingsManager.getSetting(channelId, 'appearance.layout.overlay_chat')
 			if (overlayChatSetting && overlayChatSetting !== 'none') {
 				toggleOverlayModeClasses(isTheatreMode, overlayChatSetting)
 			}
@@ -611,7 +657,8 @@ export class KickUserInterface extends AbstractUserInterface {
 					'click',
 					() => {
 						const overlayChatSetting: string = settingsManager.getSetting(
-							'shared.appearance.layout.overlay_chat'
+							channelId,
+							'appearance.layout.overlay_chat'
 						)
 
 						if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== 'none') {
@@ -652,7 +699,8 @@ export class KickUserInterface extends AbstractUserInterface {
 						'click',
 						() => {
 							const overlayChatSetting: string = settingsManager.getSetting(
-								'shared.appearance.layout.overlay_chat'
+								channelId,
+								'appearance.layout.overlay_chat'
 							)
 							if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== 'none') {
 								// Re-apply the theatre overlay mode classes that got removed when chat was collapsed
@@ -695,7 +743,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Handle changing the overlay chat setting
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.appearance.layout.overlay_chat',
+			'ntv.settings.change.appearance.layout.overlay_chat',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				if (this.isTheatreMode) {
 					const mainViewEl = document.getElementById('main-view')
@@ -858,6 +906,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	observeChatMessages() {
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
 		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for observing')
+		const channelId = this.session.channelData.channelId
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
@@ -886,7 +935,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Show emote tooltip with emote name, remove when mouse leaves
-		const showTooltipImage = this.rootContext.settingsManager.getSetting('shared.chat.tooltips.images')
+		const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, 'chat.tooltips.images')
 		chatMessagesContainerEl.addEventListener('mouseover', evt => {
 			const target = evt.target as HTMLElement
 			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
@@ -1168,6 +1217,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { settingsManager } = this.rootContext
 		const { emotesManager, usersManager } = this.session
 		const { channelData } = this.session
+		const channelId = channelData.channelId
 
 		if (!channelData.isVod) {
 			const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
@@ -1182,10 +1232,12 @@ export class KickUserInterface extends AbstractUserInterface {
 
 					if (!usersManager.hasSeenUser(chatEntryUserId)) {
 						const enableFirstMessageHighlight = settingsManager.getSetting(
-							'shared.chat.appearance.highlight_first_message'
+							channelId,
+							'chat.appearance.highlight_first_message'
 						)
 						const highlightWhenModeratorOnly = settingsManager.getSetting(
-							'shared.chat.appearance.highlight_first_message_moderator'
+							channelId,
+							'chat.appearance.highlight_first_message_moderator'
 						)
 						if (
 							enableFirstMessageHighlight &&
@@ -1264,7 +1316,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (usernameNode) usernameNode.classList.add('ntv__chat-message__username')
 
 			// Add NTV badge to badges container
-			if (settingsManager.getSetting('shared.chat.badges.show_ntv_badge')) {
+			if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
 				// Check if message has been signed by NTV
 				const lastElChild = messageBodyNode.lastElementChild
 				if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
@@ -1396,8 +1448,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 		}
 
-		const chatMessagesStyle = settingsManager.getSetting('shared.chat.appearance.messages_style')
-		const chatMessagesSpacing = settingsManager.getSetting('shared.chat.appearance.messages_spacing')
+		const chatMessagesStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
+		const chatMessagesSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
 		if (chatMessagesStyle && chatMessagesStyle !== 'none')
 			messageNode.classList.add('ntv__chat-message--theme-' + chatMessagesStyle)
 		if (chatMessagesSpacing && chatMessagesSpacing !== 'none')

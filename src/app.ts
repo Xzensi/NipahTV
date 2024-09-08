@@ -11,7 +11,6 @@ import KickEmoteProvider from './Providers/KickEmoteProvider'
 import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
 import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
-import AbstractUserInterface from './UserInterface/AbstractUserInterface'
 import { log, info, error, RESTFromMain, debounce } from './utils'
 import KickBadgeProvider from './Providers/KickBadgeProvider'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
@@ -28,6 +27,7 @@ import BotrixExtension from './Extensions/Botrix'
 import { EventService } from './EventServices/EventService'
 import KickEventService from './EventServices/KickEventService'
 import TwitchEventService from './EventServices/TwitchEventService'
+import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
 	VERSION = '1.5.2'
@@ -44,7 +44,7 @@ class NipahClient {
 	eventBus: Publisher | null = null
 	emotesManager: EmotesManager | null = null
 	rootContext: RootContext | null = null
-	settingsManagerPromise: Promise<void> | null = null
+	loadSettingsManagerPromise: Promise<void> | null = null
 
 	private database: DatabaseProxy | null = null
 	private sessions: Session[] = []
@@ -52,34 +52,53 @@ class NipahClient {
 	initialize() {
 		const { ENV_VARS } = this
 
-		window.NTV_APP_VERSION = this.VERSION
+		info(`Initializing Nipah client [${this.VERSION}]..`)
 
-		info(`Initializing Nipah client [${NTV_APP_VERSION}]..`)
-
+		let resourceRoot: string
 		if (__USERSCRIPT__ && __LOCAL__) {
 			info('Running in debug mode enabled..')
-			NTV_RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT
+			resourceRoot = ENV_VARS.LOCAL_RESOURCE_ROOT
 			window.NipahTV = this
 		} else if (!__USERSCRIPT__) {
 			info('Running in extension mode..')
-			NTV_RESOURCE_ROOT = browser.runtime.getURL('/')
+			resourceRoot = browser.runtime.getURL('/')
 		} else {
-			NTV_RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
+			resourceRoot = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
 		}
 
-		Object.freeze(NTV_RESOURCE_ROOT)
-
+		let platform: PLATFORM_ENUM
 		if (window.location.host === 'kick.com') {
-			NTV_PLATFORM = PLATFORM_ENUM.KICK
+			platform = PLATFORM_ENUM.KICK
 			info('Platform detected: Kick')
 		} else if (window.location.host === 'www.twitch.tv') {
-			NTV_PLATFORM = PLATFORM_ENUM.TWITCH
+			platform = PLATFORM_ENUM.TWITCH
 			info('Platform detected: Twitch')
 		} else {
 			return error('Unsupported platform', window.location.host)
 		}
 
-		Object.freeze(NTV_PLATFORM)
+		// Set global variables
+		if (__USERSCRIPT__) {
+			// Compiler automatically prefixes with NTV_ for userscripts to prevent
+			//  global namespace pollution, unless accessed via window object.
+			// @ts-expect-error
+			window.NTV_APP_VERSION = this.VERSION
+			// @ts-expect-error
+			window.NTV_PLATFORM = platform
+			// @ts-expect-error
+			window.NTV_RESOURCE_ROOT = resourceRoot
+		} else {
+			// @ts-expect-error
+			window.PLATFORM = platform
+			// @ts-expect-error
+			window.RESOURCE_ROOT = resourceRoot
+			// @ts-expect-error
+			window.APP_VERSION = this.VERSION
+		}
+
+		Object.freeze(APP_VERSION)
+		Object.freeze(PLATFORM)
+		Object.freeze(RESOURCE_ROOT)
 
 		this.attachPageNavigationListener()
 		this.setupDatabase().then(async () => {
@@ -130,18 +149,14 @@ class NipahClient {
 
 		info('Setting up client environment..')
 
-		const eventBus = new Publisher('root')
-		const settingsManager = new SettingsManager({ database, eventBus })
+		const rootEventBus = new Publisher('root')
+		const settingsManager = new SettingsManager({ database, rootEventBus })
 		settingsManager.initialize()
 
-		this.settingsManagerPromise = settingsManager.loadSettings().catch(err => {
-			throw new Error(`Couldn't load settings because: ${err}`)
-		})
-
 		let eventService: EventService
-		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			eventService = new KickEventService()
-		} else if (NTV_PLATFORM === PLATFORM_ENUM.TWITCH) {
+		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
 			eventService = new TwitchEventService()
 		} else {
 			throw new Error('Unsupported platform')
@@ -149,22 +164,30 @@ class NipahClient {
 
 		//* The shared context for all sessions
 		this.rootContext = {
-			eventBus,
+			eventBus: rootEventBus,
 			database,
 			settingsManager,
-			eventService
+			eventService,
+			announcementService: new AnnouncementService(rootEventBus, settingsManager)
 		}
 
 		this.loadExtensions()
+
+		this.loadSettingsManagerPromise = settingsManager.loadSettings().catch(err => {
+			throw new Error(`Couldn't load settings because: ${err}`)
+		})
+
 		this.createChannelSession()
 	}
 
 	async loadExtensions() {
 		// Dynamically load extensions according to enabled extensions
-		const rootContext = this.rootContext!
-		const { settingsManager } = rootContext
+		const rootContext = this.rootContext
+		if (!rootContext) throw new Error('Root context is not initialized.')
 
-		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared.extensions.botrix.enabled')
+		const { settingsManager } = rootContext
+		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
+
 		if (isBotrixExtensionEnabled) {
 			const botrixExtension = new BotrixExtension(rootContext, this.sessions)
 			botrixExtension.onEnable()
@@ -177,7 +200,7 @@ class NipahClient {
 		const rootContext = this.rootContext
 		if (!rootContext) throw new Error('Root context is not initialized.')
 
-		const { database, settingsManager, eventBus: rootEventBus } = rootContext
+		const { settingsManager, eventBus: rootEventBus } = rootContext
 
 		const eventBus = new Publisher('session')
 		const usersManager = new UsersManager({ eventBus, settingsManager })
@@ -189,9 +212,9 @@ class NipahClient {
 			inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
 		} as Session
 
-		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			session.networkInterface = new KickNetworkInterface(session)
-		} else if (NTV_PLATFORM === PLATFORM_ENUM.TWITCH) {
+		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
 			// session.networkInterface = new TwitchNetworkInterface()
 			throw new Error('Twitch platform is not supported yet.')
 		} else {
@@ -204,7 +227,7 @@ class NipahClient {
 		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 
 		await Promise.allSettled([
-			this.settingsManagerPromise,
+			this.loadSettingsManagerPromise,
 			networkInterface.loadMeData().catch(err => {
 				throw new Error(`Couldn't load me data because: ${err}`)
 			}),
@@ -219,7 +242,7 @@ class NipahClient {
 
 		this.attachEventServiceListeners(rootContext, session)
 
-		// badgeProvider: NTV_PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, channelData) :
+		// badgeProvider: PLATFORM === PLATFORM_ENUM.KICK ? new KickBadgeProvider(rootContext, channelData) :
 		session.badgeProvider = new KickBadgeProvider(rootContext, channelData)
 		session.badgeProvider.initialize()
 
@@ -232,10 +255,10 @@ class NipahClient {
 		session.inputExecutionStrategyRegister.registerStrategy(new CommandExecutionStrategy(rootContext, session))
 
 		let userInterface: KickUserInterface
-		if (NTV_PLATFORM === PLATFORM_ENUM.KICK) {
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface(rootContext, session)
 		} else {
-			return error('Platform has no user interface implemented..', NTV_PLATFORM)
+			return error('Platform has no user interface implemented..', PLATFORM)
 		}
 
 		session.userInterface = userInterface
@@ -342,7 +365,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: NTV_RESOURCE_ROOT + 'dist/css/kick.css',
+					url: RESOURCE_ROOT + 'dist/css/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
 						log('Loaded styles from local resource..')
@@ -352,7 +375,7 @@ class NipahClient {
 				})
 			} else {
 				let style
-				switch (NTV_PLATFORM) {
+				switch (PLATFORM) {
 					case PLATFORM_ENUM.KICK:
 						style = 'KICK_CSS'
 						break
@@ -449,9 +472,6 @@ class NipahClient {
 		// delete globalThis['EventTarget']
 		globalThis['EventTarget'] = window['EventTarget']
 	}
-
-	NTV_PLATFORM = PLATFORM_ENUM.NULL
-	NTV_RESOURCE_ROOT = ''
 
 	const nipahClient = new NipahClient()
 	nipahClient.initialize()

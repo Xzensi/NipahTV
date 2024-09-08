@@ -1,0 +1,39 @@
+@use '../variables' as *;
+
+.ntv__announcement-modal {
+	min-height: 350px;
+	max-height: 600px;
+	max-width: 550px;
+
+	.ntv__modal__header__body {
+		> * {
+			margin-right: $golden_ratio_inverse * 1em;
+		}
+	}
+
+	.ntv__modal__body {
+		padding: $golden_ratio * 1em 2em 5em;
+		display: block;
+
+		> button {
+			position: absolute;
+			bottom: 1.6em;
+			right: 1.6em;
+		}
+	}
+
+	// &__overflow-wrapper {
+	// 	overflow-y: scroll;
+
+	// 	// button {
+	// 	// 	position: absolute;
+	// 	// 	bottom: 0;
+	// 	// 	right: 0;
+	// 	// }
+	// }
+
+	// &__button-wrapper {
+	// 	flex-basis: 100%;
+	// 	margin-top: 1em;
+	// }
+}

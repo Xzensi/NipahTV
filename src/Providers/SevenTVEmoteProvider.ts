@@ -11,11 +11,11 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		super(settingsManager)
 	}
 
-	async fetchEmotes({ userId }: ChannelData) {
+	async fetchEmotes({ userId, channelId }: ChannelData) {
 		info('Fetching emote data from SevenTV..')
 		if (!userId) return error('Missing Kick channel id for SevenTV provider.')! || []
 
-		const isChatEnabled = !!this.settingsManager.getSetting('shared.chat.emote_providers.7tv.show_emotes')
+		const isChatEnabled = !!this.settingsManager.getSetting(channelId, 'chat.emote_providers.7tv.show_emotes')
 		if (!isChatEnabled) return []
 
 		const [globalData, userData] = await Promise.all([
@@ -32,8 +32,8 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			return []
 		}
 
-		const globalEmoteSet = this.unpackGlobalEmotes(globalData || {})
-		const userEmoteSet = this.unpackUserEmotes(userData || {})
+		const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {})
+		const userEmoteSet = this.unpackUserEmotes(channelId, userData || {})
 
 		if (globalEmoteSet.length + userEmoteSet.length > 1)
 			log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`)
@@ -43,7 +43,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		return [...globalEmoteSet, ...userEmoteSet]
 	}
 
-	private unpackGlobalEmotes(globalData: any) {
+	private unpackGlobalEmotes(channelId: ChannelId, globalData: any) {
 		if (!globalData.emotes || !globalData.emotes?.length) {
 			error('No global emotes found for SevenTV provider')
 			return []
@@ -77,7 +77,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			} as Emote
 		})
 
-		const isMenuEnabled = !!this.settingsManager.getSetting('shared.emote_menu.emote_providers.7tv.show_global')
+		const isMenuEnabled = !!this.settingsManager.getSetting(channelId, 'emote_menu.emote_providers.7tv.show_global')
 
 		return [
 			{
@@ -97,7 +97,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		]
 	}
 
-	private unpackUserEmotes(userData: any) {
+	private unpackUserEmotes(channelId: ChannelId, userData: any) {
 		if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
 			log('No emotes found for SevenTV provider')
 			this.status = 'no_user_emotes_found'
@@ -136,7 +136,8 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		// log('SIZES:', Array.from(test).sort())
 
 		const isMenuEnabled = !!this.settingsManager.getSetting(
-			'shared.emote_menu.emote_providers.kick.show_current_channel'
+			channelId,
+			'emote_menu.emote_providers.kick.show_current_channel'
 		)
 
 		return [

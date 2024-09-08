@@ -11,7 +11,7 @@ export class DropdownComponent extends AbstractComponent {
 	event = new EventTarget()
 	element: HTMLElement
 
-	constructor(id: string, label: string, options = [], selectedOption = null) {
+	constructor(id: string, label: string, options: { label: string; value: string }[], selectedOption = null) {
 		super()
 		this.id = id
 		this.label = label

@@ -41,7 +41,8 @@ export default class InputController {
 			textFieldEl
 		)
 
-		const { inputCompletionStrategyRegister } = session
+		const { inputCompletionStrategyRegister, channelData } = session
+		const channelId = channelData.channelId
 
 		this.inputCompletionStrategyManager = new InputCompletionStrategyManager(
 			session,
@@ -52,7 +53,7 @@ export default class InputController {
 
 		session.inputCompletionStrategyManager = this.inputCompletionStrategyManager
 
-		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.commands.enabled')) {
+		if (rootContext.settingsManager.getSetting(channelId, 'chat.input.completion.commands.enabled')) {
 			inputCompletionStrategyRegister.registerStrategy(
 				new CommandCompletionStrategy(
 					rootContext,
@@ -63,7 +64,7 @@ export default class InputController {
 			)
 		}
 
-		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.mentions.enabled')) {
+		if (rootContext.settingsManager.getSetting(channelId, 'chat.input.completion.mentions.enabled')) {
 			inputCompletionStrategyRegister.registerStrategy(
 				new MentionCompletionStrategy(
 					rootContext,
@@ -74,7 +75,7 @@ export default class InputController {
 			)
 		}
 
-		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.emotes.enabled')) {
+		if (rootContext.settingsManager.getSetting(channelId, 'chat.input.completion.emotes.enabled')) {
 			inputCompletionStrategyRegister.registerStrategy(
 				new EmoteCompletionStrategy(
 					rootContext,
@@ -85,7 +86,7 @@ export default class InputController {
 			)
 		}
 
-		if (rootContext.settingsManager.getSetting('shared.chat.input.completion.colon_emotes.enabled')) {
+		if (rootContext.settingsManager.getSetting(channelId, 'chat.input.completion.colon_emotes.enabled')) {
 			inputCompletionStrategyRegister.registerStrategy(
 				new ColonEmoteCompletionStrategy(
 					rootContext,
@@ -144,7 +145,9 @@ export default class InputController {
 	loadChatHistoryBehaviour() {
 		const { settingsManager } = this.rootContext
 		const { contentEditableEditor } = this
-		if (!settingsManager.getSetting('shared.chat.input.history.enabled')) return
+
+		const channelId = this.session.channelData.channelId
+		if (!settingsManager.getSetting(channelId, 'chat.input.history.enabled')) return
 
 		contentEditableEditor.addEventListener('keydown', 4, event => {
 			if (this.inputCompletionStrategyManager.hasNavListWindows()) return

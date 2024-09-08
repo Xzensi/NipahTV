@@ -34,6 +34,11 @@
 				opacity: 0.68;
 			}
 		}
+
+		h2 {
+			font-size: 1.618em;
+			margin: 0;
+		}
 	}
 
 	&__close-btn {
@@ -53,5 +58,40 @@
 		overflow: auto;
 		flex: 1 1 100%;
 		display: flex;
+
+		> :first-child {
+			margin-top: 0;
+		}
+
+		h1 {
+			margin-bottom: 0.34em;
+			margin-top: 0.67em;
+			font-size: 2em;
+		}
+
+		h2 {
+			margin-bottom: 0.42em;
+			margin-top: 0.83em;
+			font-size: 1.5em;
+		}
+
+		h3 {
+			margin-bottom: 0.5em;
+			margin-top: 1.15em;
+			font-size: 1.2em;
+		}
+
+		h4 {
+			margin-bottom: 0.34em;
+			margin-top: 0.67em;
+			font-weight: bold;
+			font-size: 1.1em;
+		}
+
+		p {
+			margin-bottom: $golden_ratio_inverse * 1em;
+			margin-top: $golden_ratio_inverse * 1em;
+			font-size: 1em;
+		}
 	}
 }

@@ -21,9 +21,9 @@
 	}
 
 	&__button {
-		padding: $golden_ratio_inverse_half * 1em $golden_ratio_inverse * 1em;
 		background-color: var(--ntv-background-color-accent);
 		transition: 120ms background-color ease-in-out;
+		padding: $golden_ratio_inverse_half * 1em 1em;
 		border-radius: 0.25em;
 		cursor: pointer;
 		font-size: 1em;

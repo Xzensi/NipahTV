@@ -17,7 +17,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 
 		const { settingsManager } = this
 
-		const isChatEnabled = !!settingsManager.getSetting('shared.chat.emote_providers.kick.show_emotes')
+		const isChatEnabled = !!settingsManager.getSetting(channelId, 'chat.emote_providers.kick.show_emotes')
 		if (!isChatEnabled) return []
 
 		info('Fetching emote data from Kick..')
@@ -53,18 +53,20 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 			if (dataSet.id === 'Global') {
 				isGlobalSet = true
 				dataSet.id = 'kick_global'
-				isMenuEnabled = !!settingsManager.getSetting('shared.emote_menu.emote_providers.kick.show_global')
+				isMenuEnabled = !!settingsManager.getSetting(channelId, 'emote_menu.emote_providers.kick.show_global')
 			} else if (dataSet.id === 'Emoji') {
 				isEmoji = true
 				dataSet.id = 'kick_emoji'
-				isMenuEnabled = !!settingsManager.getSetting('shared.emote_menu.emote_providers.kick.show_emojis')
+				isMenuEnabled = !!settingsManager.getSetting(channelId, 'emote_menu.emote_providers.kick.show_emojis')
 			} else if (dataSet.id === channelId) {
 				isMenuEnabled = !!settingsManager.getSetting(
-					'shared.emote_menu.emote_providers.kick.show_current_channel'
+					channelId,
+					'emote_menu.emote_providers.kick.show_current_channel'
 				)
 			} else {
 				isMenuEnabled = !!settingsManager.getSetting(
-					'shared.emote_menu.emote_providers.kick.show_other_channels'
+					channelId,
+					'emote_menu.emote_providers.kick.show_other_channels'
 				)
 			}
 

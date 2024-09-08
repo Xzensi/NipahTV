@@ -358,7 +358,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 			slug: userOwnChannelInfo.slug,
 			username: userOwnChannelInfo.user.username,
 			profilePic:
-				userOwnChannelInfo.user.profile_pic || NTV_RESOURCE_ROOT + 'assets/img/kick/default-user-profile.png',
+				userOwnChannelInfo.user.profile_pic || RESOURCE_ROOT + 'assets/img/kick/default-user-profile.png',
 			bannerImg: userOwnChannelInfo?.banner_image?.url || '',
 			createdAt: userOwnChannelInfo?.chatroom?.created_at
 				? new Date(userOwnChannelInfo?.chatroom?.created_at)

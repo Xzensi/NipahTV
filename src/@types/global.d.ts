@@ -3,6 +3,7 @@ import type InputExecutionStrategyRegister from '../Strategies/InputExecutionStr
 import type InputCompletionStrategyManager from '../Managers/InputCompletionStrategyManager'
 import type KickNetworkInterface from '../NetworkInterfaces/KickNetworkInterface'
 import type AbstractUserInterface from '../UserInterface/AbstractUserInterface'
+import type AnnouncementService from '../Services/AnnouncementService'
 import type { EventService } from '../EventServices/EventService'
 import type { IBadgeProvider } from '../Providers/BadgeProvider'
 import type SettingsManager from '../Managers/SettingsManager'
@@ -15,9 +16,7 @@ import type { RESTFromMain } from '../utils'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
-}
 
-declare global {
 	var __LOCAL__: boolean
 	var __USERSCRIPT__: boolean
 	var __EXTENSION__: boolean
@@ -32,15 +31,15 @@ declare global {
 	var GM_getResourceText: Function
 	var RESTFromMainService: RESTFromMain
 
-	var NTV_PLATFORM: ValueOf<typeof PLATFORM_ENUM>
-	var NTV_RESOURCE_ROOT: string
-	var NTV_APP_VERSION: string
+	type PlatformId = PLATFORM_ENUM // ValueOf<typeof PLATFORM_ENUM> // `${PLATFORM_ENUM}`
+	type ChannelId = string
+	type ChannelName = string
+	type EmoteHid = string
+	type UserId = string
 
-	type TPlatformId = 'kick' | 'twitch' | 'youtube'
-	type TChannelId = string
-	type TEmoteHid = string
-	type TChannelName = string
-	type TUserId = string
+	const PLATFORM: PlatformId
+	const RESOURCE_ROOT: string
+	const APP_VERSION: string
 
 	interface Window {
 		navigation: any
@@ -54,6 +53,7 @@ declare global {
 		eventBus: Publisher
 		database: Database
 		settingsManager: SettingsManager
+		announcementService: AnnouncementService
 		eventService: EventService
 	}
 
@@ -80,9 +80,9 @@ declare global {
 	}
 
 	interface ChannelData {
-		channelId: TChannelId
-		channelName: TChannelName
-		userId: TUserId
+		channelId: ChannelId
+		channelName: ChannelName
+		userId: UserId
 		isVod?: boolean
 		chatroom?: ChatroomData
 		me: {
@@ -139,7 +139,7 @@ declare global {
 
 	interface Emote {
 		id: string
-		hid: TEmoteHid
+		hid: EmoteHid
 		name: string
 		provider: number
 		subscribersOnly: boolean

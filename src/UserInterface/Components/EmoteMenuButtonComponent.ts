@@ -20,7 +20,7 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 			element.remove()
 		})
 
-		const basePath = NTV_RESOURCE_ROOT + 'assets/img/btn'
+		const basePath = RESOURCE_ROOT + 'assets/img/btn'
 		const filename = this.getFile()
 
 		this.element = parseHTML(
@@ -39,10 +39,10 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 	attachEventHandlers() {
 		const { eventBus } = this.session
 
-		eventBus.subscribe('ntv.settings.change.shared.chat.emote_menu.appearance.button_style', () => {
+		eventBus.subscribe('ntv.settings.change.chat.emote_menu.appearance.button_style', () => {
 			if (!this.footerLogoBtnEl) return error('Footer logo button not found, unable to set logo src')
 			const filename = this.getFile()
-			this.footerLogoBtnEl.setAttribute('src', NTV_RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
+			this.footerLogoBtnEl.setAttribute('src', RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
 			this.footerLogoBtnEl.className = filename.toLowerCase()
 		})
 
@@ -56,8 +56,10 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 	}
 
 	getFile() {
+		const channelId = this.session.channelData.channelId
 		const buttonStyle = this.rootContext.settingsManager.getSetting(
-			'shared.chat.emote_menu.appearance.button_style'
+			channelId,
+			'chat.emote_menu.appearance.button_style'
 		)
 		let file = 'Nipah'
 

@@ -1,9 +1,12 @@
 import { databaseExtended } from '../Database'
 
-export const settingsSchema = '&id'
+export const settingsSchema = '&id, platformId, channelId, key'
 
-export interface ISettingDocument {
+export interface SettingDocument {
 	id: string
+	platformId: 'global' | PlatformId
+	channelId: 'shared' | ChannelId
+	key: string
 	value: string
 }
 
