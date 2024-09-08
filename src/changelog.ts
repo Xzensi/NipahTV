@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.4',
+		date: '2024-09-08',
+		description: `
+                  Feat: Added announcement service
+                  Feat: Added partial support for platform and channel independent context scoping of settings for more specificity and granularity control of settings
+                  Chore: Added Kick website overhaul announcement
+                  Refactor: Cleaned up platform globals
+            `
+	},
+	{
 		version: '1.5.2',
 		date: '2024-09-05',
 		description: `
