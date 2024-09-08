@@ -29,6 +29,17 @@ export const assertArgDefined = (arg: any) => {
 	}
 }
 
+export function getPlatformId(): PLATFORM_ENUM {
+	if (location.hostname.match(/(?:www\.)?kick\.com/)) {
+		return PLATFORM_ENUM.KICK
+	} else if (location.hostname.match(/(?:www\.)?twitch\.tv/)) {
+		return PLATFORM_ENUM.TWITCH
+	} else if (location.hostname.match(/(?:www\.)?youtube\.com/)) {
+		return PLATFORM_ENUM.YOUTUBE
+	}
+	return PLATFORM_ENUM.NULL
+}
+
 export class REST {
 	static get(url: string) {
 		return this.fetch(url)

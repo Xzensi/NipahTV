@@ -17,8 +17,7 @@ export default class FavoriteEmotesModel {
 		this.db = db
 	}
 
-	async getRecords(channelId?: string) {
-		const platformId = PLATFORM
+	async getRecords(platformId: PlatformId, channelId?: string) {
 		const query = channelId ? { platformId, channelId } : { platformId }
 		return this.db.favoriteEmotes.where(query).toArray()
 	}

@@ -11,7 +11,7 @@ import KickEmoteProvider from './Providers/KickEmoteProvider'
 import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
 import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
-import { log, info, error, RESTFromMain, debounce } from './utils'
+import { log, info, error, RESTFromMain, debounce, getPlatformId } from './utils'
 import KickBadgeProvider from './Providers/KickBadgeProvider'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import SettingsManager from './Managers/SettingsManager'
@@ -66,13 +66,13 @@ class NipahClient {
 			resourceRoot = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
 		}
 
-		let platform: PLATFORM_ENUM
-		if (window.location.host === 'kick.com') {
-			platform = PLATFORM_ENUM.KICK
+		let platform = getPlatformId()
+		if (platform === PLATFORM_ENUM.KICK) {
 			info('Platform detected: Kick')
-		} else if (window.location.host === 'www.twitch.tv') {
-			platform = PLATFORM_ENUM.TWITCH
+		} else if (platform === PLATFORM_ENUM.TWITCH) {
 			info('Platform detected: Twitch')
+		} else if (platform === PLATFORM_ENUM.YOUTUBE) {
+			info('Platform detected: Youtube')
 		} else {
 			return error('Unsupported platform', window.location.host)
 		}
