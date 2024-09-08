@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.5',
+		date: '2024-09-08',
+		description: `
+                  Fix: Regression of missing plaform ID for extension database
+            `
+	},
+	{
 		version: '1.5.4',
 		date: '2024-09-08',
 		description: `

@@ -60,7 +60,7 @@ export class EmoteDatastore {
 		const { eventBus } = this.session
 
 		database.emoteUsages
-			.getRecords(this.channelId)
+			.getRecords(PLATFORM, this.channelId)
 			.then(usageRecords => {
 				if (usageRecords.length) {
 					for (const record of usageRecords) {
@@ -72,7 +72,7 @@ export class EmoteDatastore {
 			.catch(err => error('Failed to load emote usage data from database.', err.message))
 
 		database.favoriteEmotes
-			.getRecords()
+			.getRecords(PLATFORM)
 			.then(favoriteEmotes => {
 				if (!favoriteEmotes.length) return
 

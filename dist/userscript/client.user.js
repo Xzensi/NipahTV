@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.4
+// @version 1.5.5
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10114,6 +10114,50 @@ var Logger = class {
   }
 };
 
+// src/constants.ts
+var U_TAG_LATIN_A = String.fromCodePoint(917569);
+var U_TAG_LATIN_B = String.fromCodePoint(917570);
+var U_TAG_LATIN_C = String.fromCodePoint(917571);
+var U_TAG_LATIN_D = String.fromCodePoint(917572);
+var U_TAG_LATIN_E = String.fromCodePoint(917573);
+var U_TAG_LATIN_F = String.fromCodePoint(917574);
+var U_TAG_LATIN_G = String.fromCodePoint(917575);
+var U_TAG_LATIN_H = String.fromCodePoint(917576);
+var U_TAG_LATIN_I = String.fromCodePoint(917577);
+var U_TAG_LATIN_J = String.fromCodePoint(917578);
+var U_TAG_LATIN_K = String.fromCodePoint(917579);
+var U_TAG_LATIN_L = String.fromCodePoint(917580);
+var U_TAG_LATIN_M = String.fromCodePoint(917581);
+var U_TAG_LATIN_N = String.fromCodePoint(917582);
+var U_TAG_LATIN_O = String.fromCodePoint(917583);
+var U_TAG_LATIN_P = String.fromCodePoint(917584);
+var U_TAG_LATIN_Q = String.fromCodePoint(917585);
+var U_TAG_LATIN_R = String.fromCodePoint(917586);
+var U_TAG_LATIN_S = String.fromCodePoint(917587);
+var U_TAG_LATIN_T = String.fromCodePoint(917588);
+var U_TAG_LATIN_U = String.fromCodePoint(917589);
+var U_TAG_LATIN_V = String.fromCodePoint(917590);
+var U_TAG_LATIN_W = String.fromCodePoint(917591);
+var U_TAG_LATIN_X = String.fromCodePoint(917592);
+var U_TAG_LATIN_Y = String.fromCodePoint(917593);
+var U_TAG_LATIN_Z = String.fromCodePoint(917594);
+var U_TAG_DIGIT_0 = String.fromCodePoint(917552);
+var U_TAG_DIGIT_1 = String.fromCodePoint(917553);
+var U_TAG_DIGIT_2 = String.fromCodePoint(917554);
+var U_TAG_DIGIT_3 = String.fromCodePoint(917555);
+var U_TAG_DIGIT_4 = String.fromCodePoint(917556);
+var U_TAG_DIGIT_5 = String.fromCodePoint(917557);
+var U_TAG_DIGIT_6 = String.fromCodePoint(917558);
+var U_TAG_DIGIT_7 = String.fromCodePoint(917559);
+var U_TAG_DIGIT_8 = String.fromCodePoint(917560);
+var U_TAG_DIGIT_9 = String.fromCodePoint(917561);
+var U_TAG_SPACE = String.fromCodePoint(917536);
+var U_TAG_EXCLAMATION_MARK = String.fromCodePoint(917537);
+var U_TAG_COMMERCIAL_AT = String.fromCodePoint(917568);
+var U_TAG_CANCEL = String.fromCodePoint(917631);
+var U_TAG_NTV = U_TAG_LATIN_N + U_TAG_LATIN_T + U_TAG_LATIN_V;
+var U_TAG_NTV_AFFIX = U_TAG_EXCLAMATION_MARK;
+
 // src/utils.ts
 var logger = new Logger();
 var log = logger.log.bind(logger);
@@ -10138,6 +10182,16 @@ var assertArgDefined = (arg) => {
     throw new Error("Invalid argument, expected defined value");
   }
 };
+function getPlatformId() {
+  if (location.hostname.match(/(?:www\.)?kick\.com/)) {
+    return "kick" /* KICK */;
+  } else if (location.hostname.match(/(?:www\.)?twitch\.tv/)) {
+    return "twitch" /* TWITCH */;
+  } else if (location.hostname.match(/(?:www\.)?youtube\.com/)) {
+    return "youtube" /* YOUTUBE */;
+  }
+  return "null" /* NULL */;
+}
 var REST = class {
   static get(url) {
     return this.fetch(url);
@@ -11609,50 +11663,6 @@ var PriorityEventTarget = class {
     }
   }
 };
-
-// src/constants.ts
-var U_TAG_LATIN_A = String.fromCodePoint(917569);
-var U_TAG_LATIN_B = String.fromCodePoint(917570);
-var U_TAG_LATIN_C = String.fromCodePoint(917571);
-var U_TAG_LATIN_D = String.fromCodePoint(917572);
-var U_TAG_LATIN_E = String.fromCodePoint(917573);
-var U_TAG_LATIN_F = String.fromCodePoint(917574);
-var U_TAG_LATIN_G = String.fromCodePoint(917575);
-var U_TAG_LATIN_H = String.fromCodePoint(917576);
-var U_TAG_LATIN_I = String.fromCodePoint(917577);
-var U_TAG_LATIN_J = String.fromCodePoint(917578);
-var U_TAG_LATIN_K = String.fromCodePoint(917579);
-var U_TAG_LATIN_L = String.fromCodePoint(917580);
-var U_TAG_LATIN_M = String.fromCodePoint(917581);
-var U_TAG_LATIN_N = String.fromCodePoint(917582);
-var U_TAG_LATIN_O = String.fromCodePoint(917583);
-var U_TAG_LATIN_P = String.fromCodePoint(917584);
-var U_TAG_LATIN_Q = String.fromCodePoint(917585);
-var U_TAG_LATIN_R = String.fromCodePoint(917586);
-var U_TAG_LATIN_S = String.fromCodePoint(917587);
-var U_TAG_LATIN_T = String.fromCodePoint(917588);
-var U_TAG_LATIN_U = String.fromCodePoint(917589);
-var U_TAG_LATIN_V = String.fromCodePoint(917590);
-var U_TAG_LATIN_W = String.fromCodePoint(917591);
-var U_TAG_LATIN_X = String.fromCodePoint(917592);
-var U_TAG_LATIN_Y = String.fromCodePoint(917593);
-var U_TAG_LATIN_Z = String.fromCodePoint(917594);
-var U_TAG_DIGIT_0 = String.fromCodePoint(917552);
-var U_TAG_DIGIT_1 = String.fromCodePoint(917553);
-var U_TAG_DIGIT_2 = String.fromCodePoint(917554);
-var U_TAG_DIGIT_3 = String.fromCodePoint(917555);
-var U_TAG_DIGIT_4 = String.fromCodePoint(917556);
-var U_TAG_DIGIT_5 = String.fromCodePoint(917557);
-var U_TAG_DIGIT_6 = String.fromCodePoint(917558);
-var U_TAG_DIGIT_7 = String.fromCodePoint(917559);
-var U_TAG_DIGIT_8 = String.fromCodePoint(917560);
-var U_TAG_DIGIT_9 = String.fromCodePoint(917561);
-var U_TAG_SPACE = String.fromCodePoint(917536);
-var U_TAG_EXCLAMATION_MARK = String.fromCodePoint(917537);
-var U_TAG_COMMERCIAL_AT = String.fromCodePoint(917568);
-var U_TAG_CANCEL = String.fromCodePoint(917631);
-var U_TAG_NTV = U_TAG_LATIN_N + U_TAG_LATIN_T + U_TAG_LATIN_V;
-var U_TAG_NTV_AFFIX = U_TAG_EXCLAMATION_MARK;
 
 // src/UserInterface/Components/TimerComponent.ts
 var TimerComponent = class extends AbstractComponent {
@@ -18412,14 +18422,14 @@ var EmoteDatastore = class {
     info("Reading out emotes data from database..");
     const { database } = this.rootContext;
     const { eventBus } = this.session;
-    database.emoteUsages.getRecords(this.channelId).then((usageRecords) => {
+    database.emoteUsages.getRecords(NTV_PLATFORM, this.channelId).then((usageRecords) => {
       if (usageRecords.length) {
         for (const record of usageRecords) {
           this.emoteUsage.set(record.emoteHid, record.count);
         }
       }
     }).then(() => eventBus.publish("ntv.datastore.emotes.usage.loaded")).catch((err) => error("Failed to load emote usage data from database.", err.message));
-    database.favoriteEmotes.getRecords().then((favoriteEmotes) => {
+    database.favoriteEmotes.getRecords(NTV_PLATFORM).then((favoriteEmotes) => {
       if (!favoriteEmotes.length) return;
       for (const favoriteEmote of favoriteEmotes) {
         this.favoriteEmotesDocumentsMap.set(favoriteEmote.emoteHid, favoriteEmote);
@@ -19843,6 +19853,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.5",
+    date: "2024-09-08",
+    description: `
+                  Fix: Regression of missing plaform ID for extension database
+            `
+  },
   {
     version: "1.5.4",
     date: "2024-09-08",
@@ -21466,8 +21483,7 @@ var FavoriteEmotesModel = class {
   constructor(db) {
     this.db = db;
   }
-  async getRecords(channelId) {
-    const platformId = NTV_PLATFORM;
+  async getRecords(platformId, channelId) {
     const query = channelId ? { platformId, channelId } : { platformId };
     return this.db.favoriteEmotes.where(query).toArray();
   }
@@ -21521,8 +21537,8 @@ var EmoteUsagesModel = class {
   constructor(db) {
     this.db = db;
   }
-  async getRecords(channelId) {
-    return this.db.emoteUsages.where({ platformId: NTV_PLATFORM, channelId }).toArray();
+  async getRecords(platformId, channelId) {
+    return this.db.emoteUsages.where({ platformId, channelId }).toArray();
   }
   async updateRecord(platformId, channelId, emoteHid, count) {
     return this.db.emoteUsages.where({ platformId, channelId, emoteHid }).modify({ count });
@@ -22204,7 +22220,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.4";
+  VERSION = "1.5.5";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -22233,13 +22249,13 @@ var NipahClient = class {
     } else {
       resourceRoot = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
     }
-    let platform;
-    if (window.location.host === "kick.com") {
-      platform = "kick" /* KICK */;
+    let platform = getPlatformId();
+    if (platform === "kick" /* KICK */) {
       info("Platform detected: Kick");
-    } else if (window.location.host === "www.twitch.tv") {
-      platform = "twitch" /* TWITCH */;
+    } else if (platform === "twitch" /* TWITCH */) {
       info("Platform detected: Twitch");
+    } else if (platform === "youtube" /* YOUTUBE */) {
+      info("Platform detected: Youtube");
     } else {
       return error("Unsupported platform", window.location.host);
     }

@@ -16,8 +16,8 @@ export default class EmoteUsagesModel {
 		this.db = db
 	}
 
-	async getRecords(channelId: string) {
-		return this.db.emoteUsages.where({ platformId: PLATFORM, channelId }).toArray()
+	async getRecords(platformId: PlatformId, channelId: string) {
+		return this.db.emoteUsages.where({ platformId, channelId }).toArray()
 	}
 
 	async updateRecord(platformId: string, channelId: string, emoteHid: string, count: number) {
