@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.2
+// @version 1.5.3
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-c97f7328.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f2c6061f.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -7003,8 +7003,8 @@ var require_pusher = __commonJS({
                 if (core_pusher.log) {
                   core_pusher.log(message);
                 } else if (core_pusher.logToConsole) {
-                  const log18 = defaultLoggingFunction.bind(this);
-                  log18(message);
+                  const log17 = defaultLoggingFunction.bind(this);
+                  log17(message);
                 }
               }
             }
@@ -10138,9 +10138,6 @@ var assertArgDefined = (arg) => {
     throw new Error("Invalid argument, expected defined value");
   }
 };
-function getPlatformSlug() {
-  return "kick";
-}
 var REST = class {
   static get(url) {
     return this.fetch(url);
@@ -10591,9 +10588,10 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     this.placeholder = placeholder;
   }
   render() {
+    const channelId = this.session.channelData.channelId;
     const oldEls = document.getElementsByClassName("ntv__quick-emotes-holder");
     for (const el of oldEls) el.remove();
-    const rows = this.rootContext.settingsManager.getSetting("shared.quick_emote_holder.rows") || 2;
+    const rows = this.rootContext.settingsManager.getSetting(channelId, "quick_emote_holder.rows") || 2;
     this.element = parseHTML(
       `<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
       true
@@ -10674,17 +10672,17 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       this.reorderCommonlyUsedEmote(emoteHid);
     });
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.quick_emote_holder.rows",
+      "ntv.settings.change.quick_emote_holder.rows",
       ({ value, prevValue }) => {
         this.element?.setAttribute("data-rows", value || "0");
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.quick_emote_holder.show_non_cross_channel_favorites",
+      "ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites",
       this.renderFavoriteEmotes.bind(this)
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.quick_emote_holder.show_favorites",
+      "ntv.settings.change.quick_emote_holder.show_favorites",
       this.renderFavoriteEmotes.bind(this)
     );
   }
@@ -10692,7 +10690,8 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     assertArgDefined(emoteHid);
     const emote = this.session.emotesManager.getEmote(emoteHid);
     if (!emote) return error("Invalid emote");
-    if (this.rootContext.settingsManager.getSetting("shared.chat.quick_emote_holder.send_immediately")) {
+    const channelId = this.session.channelData.channelId;
+    if (this.rootContext.settingsManager.getSetting(channelId, "chat.quick_emote_holder.send_immediately")) {
       sendImmediately = true;
     }
     this.session.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
@@ -10744,15 +10743,17 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     }
   }
   renderFavoriteEmotes() {
-    const { emotesManager } = this.session;
     const { settingsManager } = this.rootContext;
+    const { emotesManager, channelData } = this.session;
+    const channelId = channelData.channelId;
     while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove();
-    if (!settingsManager.getSetting("shared.quick_emote_holder.show_favorites")) return;
+    if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
     const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
       (a, b) => b.orderIndex - a.orderIndex
     );
     const showNonCrossChannelEmotes = settingsManager.getSetting(
-      "shared.quick_emote_holder.show_non_cross_channel_favorites"
+      channelId,
+      "quick_emote_holder.show_non_cross_channel_favorites"
     );
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
@@ -10764,9 +10765,10 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     }
   }
   reorderFavoriteEmote(emoteHid) {
-    const { emotesManager } = this.session;
     const { settingsManager } = this.rootContext;
-    if (!settingsManager.getSetting("shared.quick_emote_holder.show_favorites")) return;
+    const { emotesManager, channelData } = this.session;
+    const channelId = channelData.channelId;
+    if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
     if (this.lastDraggedEmoteEl === emoteHid) {
       this.lastDraggedEmoteEl = null;
       log("Prevented reordering of dragged emote");
@@ -10877,7 +10879,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
   }
   attachEventHandlers() {
     const { eventBus } = this.session;
-    eventBus.subscribe("ntv.settings.change.shared.chat.emote_menu.appearance.button_style", () => {
+    eventBus.subscribe("ntv.settings.change.chat.emote_menu.appearance.button_style", () => {
       if (!this.footerLogoBtnEl) return error("Footer logo button not found, unable to set logo src");
       const filename = this.getFile();
       this.footerLogoBtnEl.setAttribute("src", NTV_RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
@@ -10891,8 +10893,10 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     });
   }
   getFile() {
+    const channelId = this.session.channelData.channelId;
     const buttonStyle = this.rootContext.settingsManager.getSetting(
-      "shared.chat.emote_menu.appearance.button_style"
+      channelId,
+      "chat.emote_menu.appearance.button_style"
     );
     let file = "Nipah";
     switch (buttonStyle) {
@@ -10953,7 +10957,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   render() {
     const { settingsManager } = this.rootContext;
-    const showSearchBox = settingsManager.getSetting("shared.chat.emote_menu.search_box");
+    const channelId = this.session.channelData.channelId;
+    const showSearchBox = settingsManager.getSetting(channelId, "chat.emote_menu.search_box");
     const showSidebar = true;
     Array.from(document.getElementsByClassName("ntv__emote-menu")).forEach((element) => {
       element.remove();
@@ -11011,7 +11016,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   attachEventHandlers() {
     const { settingsManager } = this.rootContext;
-    const { eventBus, emotesManager } = this.session;
+    const { eventBus, emotesManager, channelData } = this.session;
+    const channelId = channelData.channelId;
     let mouseDownTimeout = null;
     let skipClickEvent = false;
     this.scrollableEl?.addEventListener("click", (evt) => {
@@ -11072,7 +11078,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       if (!emoteHid) return;
       const emote = emotesManager.getEmote(emoteHid);
       if (!emote) return;
-      const imageInTooltop = settingsManager.getSetting("shared.chat.tooltips.images");
+      const imageInTooltop = settingsManager.getSetting(channelId, "chat.tooltips.images");
       const tooltipEl = parseHTML(
         cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
@@ -11127,7 +11133,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     document.addEventListener("keydown", (evt) => {
       if (evt.key === "Escape") this.toggleShow(false);
     });
-    if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_spacebar")) {
+    if (settingsManager.getSetting(channelId, "chat.appearance.emote_menu_ctrl_spacebar")) {
       document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === " ") {
           evt.preventDefault();
@@ -11135,7 +11141,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         }
       });
     }
-    if (settingsManager.getSetting("shared.chat.appearance.emote_menu_ctrl_e")) {
+    if (settingsManager.getSetting(channelId, "chat.appearance.emote_menu_ctrl_e")) {
       document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === "e") {
           evt.preventDefault();
@@ -11148,7 +11154,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
     if (!(evt.target instanceof HTMLInputElement)) return;
     if (this.tooltipEl) this.tooltipEl.remove();
     const { settingsManager } = this.rootContext;
-    const { emotesManager } = this.session;
+    const { emotesManager, channelData } = this.session;
+    const channelId = channelData.channelId;
     const searchVal = evt.target.value;
     if (searchVal.length) {
       this.switchPanel("search");
@@ -11160,7 +11167,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     while (this.panels.search?.firstChild) {
       this.panels.search.removeChild(this.panels.search.firstChild);
     }
-    const hideSubscribersEmotes = settingsManager.getSetting("shared.chat.emotes.hide_subscriber_emotes");
+    const hideSubscribersEmotes = settingsManager.getSetting(channelId, "chat.emotes.hide_subscriber_emotes");
     let maxResults = 75;
     for (const emoteResult of emotesResult) {
       const emote = emoteResult.item;
@@ -11205,10 +11212,11 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   renderFavoriteEmoteSet() {
     const { sidebarSetsEl, scrollableEl } = this;
+    const channelId = this.session.channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
     if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error("Invalid emote menu elements");
     const { settingsManager } = this.rootContext;
-    if (!settingsManager.getSetting("shared.emote_menu.show_favorites")) return;
+    if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
     const sidebarFavoritesBtn = parseHTML(
       `<div class="ntv__emote-menu__sidebar-btn"><svg data-id="favorites" xmlns="http://www.w3.org/2000/svg" width="1.5em" height="1.5em" viewBox="0 0 24 24"><path fill="currentColor" d="m19 23.3l-.6-.5c-2-1.9-3.4-3.1-3.4-4.6c0-1.2 1-2.2 2.2-2.2c.7 0 1.4.3 1.8.8c.4-.5 1.1-.8 1.8-.8c1.2 0 2.2.9 2.2 2.2c0 1.5-1.4 2.7-3.4 4.6zM17 4v6l-2-2l-2 2V4H9v16h4.08c.12.72.37 1.39.72 2H7c-1.05 0-2-.95-2-2v-1H3v-2h2v-4H3v-2h2V7H3V5h2V4a2 2 0 0 1 2-2h12c1.05 0 2 .95 2 2v9.34c-.63-.22-1.3-.34-2-.34V4zM5 19h2v-2H5zm0-6h2v-2H5zm0-6h2V5H5z" /></svg></div`,
       true
@@ -11234,7 +11242,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   renderFavoriteEmotes() {
     const { settingsManager } = this.rootContext;
-    if (!settingsManager.getSetting("shared.emote_menu.show_favorites")) return;
+    const channelId = this.session.channelData.channelId;
+    if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
     if (!this.favoritesEmoteSetEl) return error("Invalid favorites emote set element");
     log("Rendering favorite emote set in emote menu..");
     const { emotesManager } = this.session;
@@ -11243,7 +11252,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
       (a, b) => b.orderIndex - a.orderIndex
     );
-    const showUnavailableEmotes = settingsManager.getSetting("shared.emote_menu.show_unavailable_favorites");
+    const showUnavailableEmotes = settingsManager.getSetting(channelId, "emote_menu.show_unavailable_favorites");
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
       if (!emoteIsLoaded && !showUnavailableEmotes) continue;
@@ -11260,7 +11269,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   renderEmoteSets() {
     const { sidebarSetsEl, scrollableEl, rootContext } = this;
-    const { emotesManager } = this.session;
+    const { emotesManager, channelData } = this.session;
+    const channelId = channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
     if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error("Invalid emote menu elements");
     const emotesPanelElChildren = Array.from(emotesPanelEl.children);
@@ -11272,7 +11282,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
       if (child.children[0]?.getAttribute("data-id") !== "favorites") child.remove();
     }
     const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
-      "shared.chat.emotes.hide_subscriber_emotes"
+      channelId,
+      "chat.emotes.hide_subscriber_emotes"
     );
     const emoteSets = emotesManager.getMenuEnabledEmoteSets();
     const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex);
@@ -11368,7 +11379,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   handleEmoteClick(target, emoteHid, isHoldingCtrl) {
     const { settingsManager } = this.rootContext;
-    const { emotesManager, eventBus } = this.session;
+    const { emotesManager, eventBus, channelData } = this.session;
+    const channelId = channelData.channelId;
     if (isHoldingCtrl) {
       const isFavorited = emotesManager.isEmoteFavorited(emoteHid);
       if (isFavorited) emotesManager.removeEmoteFromFavorites(emoteHid);
@@ -11378,7 +11390,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       const emote = emotesManager.getEmote(emoteHid);
       if (!emote) return error("Emote not found");
       eventBus.publish("ntv.ui.emote.click", { emoteHid });
-      const closeOnClick = settingsManager.getSetting("shared.chat.emote_menu.close_on_click");
+      const closeOnClick = settingsManager.getSetting(channelId, "chat.emote_menu.close_on_click");
       if (closeOnClick) this.toggleShow(false);
     }
   }
@@ -12062,7 +12074,7 @@ var UserInfoModal = class extends AbstractModal {
 					<div class="ntv__user-info-modal__header__banner">
 						<div class="ntv__user-info-modal__header__banner__img"><img src="${userInfo.profilePic}"></div>
 						<h4><a href="/${userChannelInfo.slug}" target="_blank">${userInfo.username}</a></h4>
-						<p>
+						<div class="ntv__user-info-modal__header__banner__dates">
 							${formattedAccountDate ? `<span>
 								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0.5 0 24 21">
 									<g fill="none" stroke="currentColor" stroke-width="1.5">
@@ -12078,7 +12090,7 @@ var UserInfoModal = class extends AbstractModal {
 								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
 									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
 								</svg> Following since: ${formattedJoinDate ? formattedJoinDate : "-"}</span>`}
-						</p>
+						</div>
 					</div>
 				</div>
 				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join("")}</div>
@@ -15834,7 +15846,8 @@ var InputController = class {
       { messageHistory: this.messageHistory, clipboard },
       textFieldEl
     );
-    const { inputCompletionStrategyRegister } = session;
+    const { inputCompletionStrategyRegister, channelData } = session;
+    const channelId = channelData.channelId;
     this.inputCompletionStrategyManager = new InputCompletionStrategyManager(
       session,
       inputCompletionStrategyRegister,
@@ -15842,7 +15855,7 @@ var InputController = class {
       textFieldEl.parentElement
     );
     session.inputCompletionStrategyManager = this.inputCompletionStrategyManager;
-    if (rootContext.settingsManager.getSetting("shared.chat.input.completion.commands.enabled")) {
+    if (rootContext.settingsManager.getSetting(channelId, "chat.input.completion.commands.enabled")) {
       inputCompletionStrategyRegister.registerStrategy(
         new CommandCompletionStrategy(
           rootContext,
@@ -15852,7 +15865,7 @@ var InputController = class {
         )
       );
     }
-    if (rootContext.settingsManager.getSetting("shared.chat.input.completion.mentions.enabled")) {
+    if (rootContext.settingsManager.getSetting(channelId, "chat.input.completion.mentions.enabled")) {
       inputCompletionStrategyRegister.registerStrategy(
         new MentionCompletionStrategy(
           rootContext,
@@ -15862,7 +15875,7 @@ var InputController = class {
         )
       );
     }
-    if (rootContext.settingsManager.getSetting("shared.chat.input.completion.emotes.enabled")) {
+    if (rootContext.settingsManager.getSetting(channelId, "chat.input.completion.emotes.enabled")) {
       inputCompletionStrategyRegister.registerStrategy(
         new EmoteCompletionStrategy(
           rootContext,
@@ -15872,7 +15885,7 @@ var InputController = class {
         )
       );
     }
-    if (rootContext.settingsManager.getSetting("shared.chat.input.completion.colon_emotes.enabled")) {
+    if (rootContext.settingsManager.getSetting(channelId, "chat.input.completion.colon_emotes.enabled")) {
       inputCompletionStrategyRegister.registerStrategy(
         new ColonEmoteCompletionStrategy(
           rootContext,
@@ -15912,7 +15925,8 @@ var InputController = class {
   loadChatHistoryBehaviour() {
     const { settingsManager } = this.rootContext;
     const { contentEditableEditor } = this;
-    if (!settingsManager.getSetting("shared.chat.input.history.enabled")) return;
+    const channelId = this.session.channelData.channelId;
+    if (!settingsManager.getSetting(channelId, "chat.input.history.enabled")) return;
     contentEditableEditor.addEventListener("keydown", 4, (event) => {
       if (this.inputCompletionStrategyManager.hasNavListWindows()) return;
       const textFieldEl = contentEditableEditor.getInputNode();
@@ -15989,10 +16003,12 @@ var KickUserInterface = class extends AbstractUserInterface {
   async loadInterface() {
     info("Creating user interface..");
     super.loadInterface();
+    const { abortController } = this;
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const { channelData, eventBus } = this.session;
-    const { abortController } = this;
+    const { channelId } = channelData;
     const abortSignal = abortController.signal;
+    this.loadAnnouncements();
     this.loadSettings();
     waitForElements(["#message-input", "#chatroom-footer button.base-button"], 1e4, abortSignal).then((foundElements) => {
       if (this.session.isDestroyed) return;
@@ -16001,7 +16017,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.loadEmoteMenuButton();
       this.loadQuickEmotesHolder();
       this.loadTheatreModeBehaviour();
-      if (settingsManager.getSetting("shared.chat.behavior.smooth_scrolling")) {
+      if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
         document.getElementById("chatroom")?.classList.add("ntv__smooth-scrolling");
       }
     }).catch(() => {
@@ -16015,10 +16031,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.elm.chatMessagesContainer = chatMessagesContainerEl;
       const chatroomEl = document.getElementById(chatroomContainerSelector);
       if (chatroomEl) {
-        if (settingsManager.getSetting("shared.chat.appearance.alternating_background")) {
+        if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
           chatroomEl.classList.add("ntv__alternating-background");
         }
-        const seperatorSettingVal = settingsManager.getSetting("shared.chat.appearance.seperators");
+        const seperatorSettingVal = settingsManager.getSetting(channelId, "chat.appearance.seperators");
         if (seperatorSettingVal && seperatorSettingVal !== "none") {
           chatroomEl.classList.add(`ntv__seperators-${seperatorSettingVal}`);
         }
@@ -16065,19 +16081,19 @@ var KickUserInterface = class extends AbstractUserInterface {
     );
     eventBus.subscribe("ntv.input_controller.submit", (data) => this.submitInput(false, data?.dontClearInput));
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.chat.behavior.smooth_scrolling",
+      "ntv.settings.change.chat.behavior.smooth_scrolling",
       ({ value, prevValue }) => {
         document.getElementById(chatroomContainerSelector)?.classList.toggle("ntv__smooth-scrolling", !!value);
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.chat.appearance.alternating_background",
+      "ntv.settings.change.chat.appearance.alternating_background",
       ({ value, prevValue }) => {
         document.getElementById("chatroom")?.classList.toggle("ntv__alternating-background", !!value);
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.chat.appearance.seperators",
+      "ntv.settings.change.chat.appearance.seperators",
       ({ value, prevValue }) => {
         if (prevValue !== "none")
           document.getElementById(chatroomContainerSelector)?.classList.remove(`ntv__seperators-${prevValue}`);
@@ -16086,7 +16102,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.chat.appearance.messages_spacing",
+      "ntv.settings.change.chat.appearance.messages_spacing",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
           if (prevValue !== "none") el.classList.remove(`ntv__chat-message--${prevValue}`);
@@ -16095,7 +16111,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.chat.appearance.messages_style",
+      "ntv.settings.change.chat.appearance.messages_style",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
           if (prevValue !== "none") el.classList.remove(`ntv__chat-message--theme-${prevValue}`);
@@ -16118,14 +16134,15 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   async loadQuickEmotesHolder() {
     const { settingsManager } = this.rootContext;
-    const { eventBus } = this.session;
-    const quickEmotesHolderEnabled = settingsManager.getSetting("shared.quick_emote_holder.enabled");
+    const { eventBus, channelData } = this.session;
+    const channelId = channelData.channelId;
+    const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, "quick_emote_holder.enabled");
     if (quickEmotesHolderEnabled) {
       const placeholder = document.createElement("div");
       document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
       this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init();
     }
-    eventBus.subscribe("ntv.settings.change.shared.quick_emote_holder.enabled", ({ value, prevValue }) => {
+    eventBus.subscribe("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
       if (value) {
         const placeholder = document.createElement("div");
         document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(placeholder);
@@ -16144,10 +16161,48 @@ var KickUserInterface = class extends AbstractUserInterface {
     }).catch(() => {
     });
   }
+  loadAnnouncements() {
+    const rootContext = this.rootContext;
+    if (!rootContext) throw new Error("Root context is not initialized.");
+    const { announcementService, eventBus: rootEventBus } = rootContext;
+    const showAnnouncements = () => {
+      announcementService.registerAnnouncement({
+        id: "website_overhaul_sept_2024",
+        dateTimeRange: [/* @__PURE__ */ new Date(1726618455607)],
+        message: `
+					<h2>Major Kick website overhaul</h2>
+					<p>As I'm sure many of you are aware by now, and perhaps you just found out by the time you read this announcement because it already happened, Kick has planned a major overhaul of the website.</p>
+					<p>As reportedly planned it currently stands to be released on:</p>
+					<ul>
+						<li><b>Monday 9 Sept</b> for all of Oceania</li>
+						<li><b>Tuesday 10 Sept</b> for Latin America</li>
+						<li><b>Wednesday 11 Sept</b> for Europe</li>
+						<li><b>Thursday 12 Sept</b> for North America</li>
+					</ul>
+					<p>It is not yet known in what ways the new website will break NipahTV, but we will do our best to keep up with the changes and provide you with the best experience possible. If it turns out to be utterly broken, simply temporarily disable the extension/userscript until we can push an update to fix it. Please be patient and allow us some time to adjust to the coming changes.</p>
+					<p>Thank you for supporting NipahTV!</p>
+				`
+      });
+      if (announcementService.hasAnnouncement("website_overhaul_sept_2024")) {
+        setTimeout(() => {
+          announcementService.displayAnnouncement("website_overhaul_sept_2024");
+        }, 1e3);
+      }
+    };
+    rootEventBus.subscribe(
+      "ntv.settings.loaded",
+      () => {
+        document.addEventListener("DOMContentLoaded", showAnnouncements);
+        if (document.readyState === "complete") showAnnouncements();
+      },
+      true
+    );
+  }
   loadSettings() {
     const { settingsManager } = this.rootContext;
-    const { eventBus } = this.session;
-    const firstMessageHighlightColor = settingsManager.getSetting("shared.chat.appearance.highlight_color");
+    const { eventBus, channelData } = this.session;
+    const channelId = channelData.channelId;
+    const firstMessageHighlightColor = settingsManager.getSetting(channelId, "chat.appearance.highlight_color");
     if (firstMessageHighlightColor) {
       const rgb = hex2rgb(firstMessageHighlightColor);
       document.documentElement.style.setProperty(
@@ -16156,7 +16211,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       );
     }
     eventBus.subscribe(
-      "ntv.settings.change.shared.chat.appearance.highlight_color",
+      "ntv.settings.change.chat.appearance.highlight_color",
       ({ value, prevValue }) => {
         if (!value) return;
         const rgb = hex2rgb(value);
@@ -16332,6 +16387,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   loadTheatreModeBehaviour() {
     if (this.session.isDestroyed) return;
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
+    const channelId = this.session.channelData.channelId;
     let prevSetting = null;
     let isTheatreModeChatCollapsed = false;
     const toggleOverlayModeClasses = (isOverlayMode, setting) => {
@@ -16362,7 +16418,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     };
     const handleTheatreModeSwitchFn = (isTheatreMode) => {
-      const overlayChatSetting = settingsManager.getSetting("shared.appearance.layout.overlay_chat");
+      const overlayChatSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
       if (overlayChatSetting && overlayChatSetting !== "none") {
         toggleOverlayModeClasses(isTheatreMode, overlayChatSetting);
       }
@@ -16396,7 +16452,8 @@ var KickUserInterface = class extends AbstractUserInterface {
         "click",
         () => {
           const overlayChatSetting = settingsManager.getSetting(
-            "shared.appearance.layout.overlay_chat"
+            channelId,
+            "appearance.layout.overlay_chat"
           );
           if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== "none") {
             isTheatreModeChatCollapsed = true;
@@ -16421,7 +16478,8 @@ var KickUserInterface = class extends AbstractUserInterface {
           "click",
           () => {
             const overlayChatSetting = settingsManager.getSetting(
-              "shared.appearance.layout.overlay_chat"
+              channelId,
+              "appearance.layout.overlay_chat"
             );
             if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== "none") {
               const mainViewEl = document.getElementById("main-view");
@@ -16450,7 +16508,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
     };
     rootEventBus.subscribe(
-      "ntv.settings.change.shared.appearance.layout.overlay_chat",
+      "ntv.settings.change.appearance.layout.overlay_chat",
       ({ value, prevValue }) => {
         if (this.isTheatreMode) {
           const mainViewEl = document.getElementById("main-view");
@@ -16574,6 +16632,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   observeChatMessages() {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
     if (!chatMessagesContainerEl) return error("Chat messages container not loaded for observing");
+    const channelId = this.session.channelData.channelId;
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
     this.session.eventBus.subscribe(
       "ntv.providers.loaded",
@@ -16596,7 +16655,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       },
       true
     );
-    const showTooltipImage = this.rootContext.settingsManager.getSetting("shared.chat.tooltips.images");
+    const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, "chat.tooltips.images");
     chatMessagesContainerEl.addEventListener("mouseover", (evt) => {
       const target = evt.target;
       if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box")) return;
@@ -16799,6 +16858,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { settingsManager } = this.rootContext;
     const { emotesManager, usersManager } = this.session;
     const { channelData } = this.session;
+    const channelId = channelData.channelId;
     if (!channelData.isVod) {
       const usernameEl = messageNode.querySelector(".chat-entry-username");
       if (usernameEl) {
@@ -16811,10 +16871,12 @@ var KickUserInterface = class extends AbstractUserInterface {
           }
           if (!usersManager.hasSeenUser(chatEntryUserId)) {
             const enableFirstMessageHighlight = settingsManager.getSetting(
-              "shared.chat.appearance.highlight_first_message"
+              channelId,
+              "chat.appearance.highlight_first_message"
             );
             const highlightWhenModeratorOnly = settingsManager.getSetting(
-              "shared.chat.appearance.highlight_first_message_moderator"
+              channelId,
+              "chat.appearance.highlight_first_message_moderator"
             );
             if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
               messageNode.classList.add("ntv__highlight-first-message");
@@ -16840,7 +16902,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       messageIdentityNode.classList.add("ntv__chat-message__identity");
       const usernameNode = messageIdentityNode.querySelector(".chat-entry-username");
       if (usernameNode) usernameNode.classList.add("ntv__chat-message__username");
-      if (settingsManager.getSetting("shared.chat.badges.show_ntv_badge")) {
+      if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
         const lastElChild = messageBodyNode.lastElementChild;
         if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
           const badgesContainer = messageIdentityNode.getElementsByClassName("items-center")[0];
@@ -16930,8 +16992,8 @@ var KickUserInterface = class extends AbstractUserInterface {
         subtree: false
       });
     }
-    const chatMessagesStyle = settingsManager.getSetting("shared.chat.appearance.messages_style");
-    const chatMessagesSpacing = settingsManager.getSetting("shared.chat.appearance.messages_spacing");
+    const chatMessagesStyle = settingsManager.getSetting(channelId, "chat.appearance.messages_style");
+    const chatMessagesSpacing = settingsManager.getSetting(channelId, "chat.appearance.messages_spacing");
     if (chatMessagesStyle && chatMessagesStyle !== "none")
       messageNode.classList.add("ntv__chat-message--theme-" + chatMessagesStyle);
     if (chatMessagesSpacing && chatMessagesSpacing !== "none")
@@ -18370,7 +18432,7 @@ var EmoteDatastore = class {
   storeDatabase() {
     if (!this.hasPendingChanges) return;
     const { database } = this.rootContext;
-    const platformSlug = getPlatformSlug();
+    const platformSlug = NTV_PLATFORM;
     const pendingEmoteUsageChanges = structuredClone(this.pendingEmoteUsageChanges);
     this.pendingEmoteUsageChanges = {};
     const pendingFavoriteEmoteChanges = structuredClone(this.pendingFavoriteEmoteChanges);
@@ -18506,7 +18568,7 @@ var EmoteDatastore = class {
     const emote = this.emoteMap.get(emoteHid);
     if (!emote) return error("Unable to favorite emote, emote not found", emoteHid);
     const favoriteEmote = {
-      platformId: getPlatformSlug(),
+      platformId: NTV_PLATFORM,
       channelId: this.channelId,
       emoteHid,
       orderIndex: 0,
@@ -18790,8 +18852,15 @@ var EmotesManager = class {
   }
   searchEmotes(search2, limit = 0) {
     const { settingsManager } = this.rootContext;
-    const biasCurrentChannel = settingsManager.getSetting("shared.chat.behavior.search_bias_subscribed_channels");
-    const biasSubscribedChannels = settingsManager.getSetting("shared.chat.behavior.search_bias_current_channels");
+    const channelId = this.session.channelData.channelId;
+    const biasCurrentChannel = settingsManager.getSetting(
+      channelId,
+      "chat.behavior.search_bias_subscribed_channels"
+    );
+    const biasSubscribedChannels = settingsManager.getSetting(
+      channelId,
+      "chat.behavior.search_bias_current_channels"
+    );
     const results = this.datastore.searchEmotes(search2, biasCurrentChannel, biasSubscribedChannels);
     if (limit) return results.slice(0, limit);
     return results;
@@ -18928,10 +18997,10 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
   constructor(settingsManager) {
     super(settingsManager);
   }
-  async fetchEmotes({ userId }) {
+  async fetchEmotes({ userId, channelId }) {
     info("Fetching emote data from SevenTV..");
     if (!userId) return error("Missing Kick channel id for SevenTV provider.") || [];
-    const isChatEnabled = !!this.settingsManager.getSetting("shared.chat.emote_providers.7tv.show_emotes");
+    const isChatEnabled = !!this.settingsManager.getSetting(channelId, "chat.emote_providers.7tv.show_emotes");
     if (!isChatEnabled) return [];
     const [globalData, userData] = await Promise.all([
       REST.get(`https://7tv.io/v3/emote-sets/global`).catch((err) => {
@@ -18945,15 +19014,15 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       this.status = "connection_failed";
       return [];
     }
-    const globalEmoteSet = this.unpackGlobalEmotes(globalData || {});
-    const userEmoteSet = this.unpackUserEmotes(userData || {});
+    const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {});
+    const userEmoteSet = this.unpackUserEmotes(channelId, userData || {});
     if (globalEmoteSet.length + userEmoteSet.length > 1)
       log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`);
     else log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`);
     this.status = "loaded";
     return [...globalEmoteSet, ...userEmoteSet];
   }
-  unpackGlobalEmotes(globalData) {
+  unpackGlobalEmotes(channelId, globalData) {
     if (!globalData.emotes || !globalData.emotes?.length) {
       error("No global emotes found for SevenTV provider");
       return [];
@@ -18985,7 +19054,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         size
       };
     });
-    const isMenuEnabled = !!this.settingsManager.getSetting("shared.emote_menu.emote_providers.7tv.show_global");
+    const isMenuEnabled = !!this.settingsManager.getSetting(channelId, "emote_menu.emote_providers.7tv.show_global");
     return [
       {
         provider: this.id,
@@ -19003,7 +19072,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       }
     ];
   }
-  unpackUserEmotes(userData) {
+  unpackUserEmotes(channelId, userData) {
     if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
       log("No emotes found for SevenTV provider");
       this.status = "no_user_emotes_found";
@@ -19037,7 +19106,8 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       };
     });
     const isMenuEnabled = !!this.settingsManager.getSetting(
-      "shared.emote_menu.emote_providers.kick.show_current_channel"
+      channelId,
+      "emote_menu.emote_providers.kick.show_current_channel"
     );
     return [
       {
@@ -19079,7 +19149,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
     if (!channelId) return error("Missing channel id for Kick provider") || [];
     if (!channelName) return error("Missing channel name for Kick provider") || [];
     const { settingsManager } = this;
-    const isChatEnabled = !!settingsManager.getSetting("shared.chat.emote_providers.kick.show_emotes");
+    const isChatEnabled = !!settingsManager.getSetting(channelId, "chat.emote_providers.kick.show_emotes");
     if (!isChatEnabled) return [];
     info("Fetching emote data from Kick..");
     const dataSets = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`);
@@ -19108,18 +19178,20 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
       if (dataSet.id === "Global") {
         isGlobalSet = true;
         dataSet.id = "kick_global";
-        isMenuEnabled = !!settingsManager.getSetting("shared.emote_menu.emote_providers.kick.show_global");
+        isMenuEnabled = !!settingsManager.getSetting(channelId, "emote_menu.emote_providers.kick.show_global");
       } else if (dataSet.id === "Emoji") {
         isEmoji = true;
         dataSet.id = "kick_emoji";
-        isMenuEnabled = !!settingsManager.getSetting("shared.emote_menu.emote_providers.kick.show_emojis");
+        isMenuEnabled = !!settingsManager.getSetting(channelId, "emote_menu.emote_providers.kick.show_emojis");
       } else if (dataSet.id === channelId) {
         isMenuEnabled = !!settingsManager.getSetting(
-          "shared.emote_menu.emote_providers.kick.show_current_channel"
+          channelId,
+          "emote_menu.emote_providers.kick.show_current_channel"
         );
       } else {
         isMenuEnabled = !!settingsManager.getSetting(
-          "shared.emote_menu.emote_providers.kick.show_other_channels"
+          channelId,
+          "emote_menu.emote_providers.kick.show_other_channels"
         );
       }
       const dataSetId = "" + dataSet.id;
@@ -19657,7 +19729,7 @@ var DropdownComponent = class extends AbstractComponent {
   selectEl;
   event = new EventTarget();
   element;
-  constructor(id, label, options = [], selectedOption = null) {
+  constructor(id, label, options, selectedOption = null) {
     super();
     this.id = id;
     this.label = label;
@@ -20417,11 +20489,6 @@ var CHANGELOG = [
 
 // src/UserInterface/Modals/SettingsModal.ts
 var SettingsModal = class extends AbstractModal {
-  eventBus;
-  settingsOpts;
-  panelsEl;
-  sidebarEl;
-  sidebarBtnEl;
   constructor(eventBus, settingsOpts) {
     const geometry = {
       position: "center"
@@ -20430,6 +20497,9 @@ var SettingsModal = class extends AbstractModal {
     this.eventBus = eventBus;
     this.settingsOpts = settingsOpts;
   }
+  panelsEl;
+  sidebarEl;
+  sidebarBtnEl;
   init() {
     super.init();
     return this;
@@ -20437,7 +20507,7 @@ var SettingsModal = class extends AbstractModal {
   render() {
     super.render();
     log("Rendered settings modal..");
-    const sharedSettings = this.settingsOpts.sharedSettings;
+    const uiSettings = this.settingsOpts.uiSettings;
     const settingsMap = this.settingsOpts.settingsMap;
     const modalBodyEl = this.modalBodyEl;
     const windowWidth = window.innerWidth;
@@ -20461,7 +20531,7 @@ var SettingsModal = class extends AbstractModal {
       true
     );
     const sidebarList = this.sidebarEl.querySelector("ul");
-    for (const category of sharedSettings) {
+    for (const category of uiSettings) {
       const categoryEl = parseHTML(
         cleanupHTML(`
 				<li class="ntv__settings-modal__category">
@@ -20486,7 +20556,7 @@ var SettingsModal = class extends AbstractModal {
         categoryListEl.appendChild(subCategoryEl);
       }
     }
-    for (const category of sharedSettings) {
+    for (const category of uiSettings) {
       for (const subCategory of category.children) {
         const categoryId = `${category.label.toLowerCase()}.${subCategory.label.toLowerCase()}`;
         const subCategoryPanelEl = parseHTML(
@@ -20500,7 +20570,7 @@ var SettingsModal = class extends AbstractModal {
             const changeEl = parseHTML(
               cleanupHTML(
                 `<li>
-								<h4>${change.version} <span>(${change.date})</span></h4>
+								<h3>${change.version} <span>(${change.date})</span></h3>
 							</li>`
               ),
               true
@@ -20516,7 +20586,7 @@ var SettingsModal = class extends AbstractModal {
             cleanupHTML(
               `<div class="ntv__settings-modal__group">
 							<div class="ntv__settings-modal__group-header">
-								<h4>${group.label}</h4>
+								<h3>${group.label}</h3>
 								${group.description ? `<p>${group.description}</p>` : ""}
 							</div>
 						</div>`
@@ -20525,21 +20595,20 @@ var SettingsModal = class extends AbstractModal {
           );
           subCategoryPanelEl.append(groupEl);
           for (const setting of group.children) {
+            const settingId = `global.shared.${setting.key}`;
             let settingComponent;
-            let settingValue = settingsMap.get(setting.id);
-            if (typeof settingValue === "undefined") {
-              settingValue = setting.default;
-            }
+            let settingValue = settingsMap.get(settingId);
+            if (typeof settingValue === "undefined") settingValue = setting.default || null;
             switch (setting.type) {
               case "checkbox":
-                settingComponent = new CheckboxComponent(setting.id, setting.label, settingValue);
+                settingComponent = new CheckboxComponent(settingId, setting.label, settingValue);
                 break;
               case "color":
-                settingComponent = new ColorComponent(setting.id, setting.label, settingValue);
+                settingComponent = new ColorComponent(settingId, setting.label, settingValue);
                 break;
               case "dropdown":
                 settingComponent = new DropdownComponent(
-                  setting.id,
+                  settingId,
                   setting.label,
                   setting.options,
                   settingValue
@@ -20547,7 +20616,7 @@ var SettingsModal = class extends AbstractModal {
                 break;
               case "number":
                 settingComponent = new NumberComponent(
-                  setting.id,
+                  settingId,
                   setting.label,
                   settingValue,
                   setting.min,
@@ -20556,7 +20625,7 @@ var SettingsModal = class extends AbstractModal {
                 );
                 break;
               default:
-                error(`No component found for setting type: ${setting.type}`);
+                error(`No component found for setting,`, setting);
                 continue;
             }
             settingComponent?.init();
@@ -20564,7 +20633,15 @@ var SettingsModal = class extends AbstractModal {
             settingComponent.event.addEventListener("change", () => {
               const value = settingComponent.getValue();
               this.eventTarget.dispatchEvent(
-                new CustomEvent("setting_change", { detail: { id: setting.id, value } })
+                new CustomEvent("setting_change", {
+                  detail: {
+                    id: settingId,
+                    platformId: "global",
+                    channelId: "shared",
+                    key: setting.key,
+                    value
+                  }
+                })
               );
             });
           }
@@ -20610,7 +20687,7 @@ var SettingsModal = class extends AbstractModal {
 // src/Managers/SettingsManager.ts
 var SettingsManager = class {
   /*
-     - Shared global settings
+     - Global shared settings
   	= Appearance
   	    = Layout
   			(Appearance)
@@ -20676,7 +20753,7 @@ var SettingsManager = class {
                  (Behavior)
                      - Send emotes to chat immediately on click
   */
-  sharedSettings = [
+  uiSettings = [
     {
       label: "NipahTV",
       children: [
@@ -20697,7 +20774,7 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)",
-                  id: "shared.appearance.layout.overlay_chat",
+                  key: "appearance.layout.overlay_chat",
                   default: "none",
                   type: "dropdown",
                   options: [
@@ -20736,25 +20813,25 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Highlight first user messages",
-                  id: "shared.chat.appearance.highlight_first_message",
+                  key: "chat.appearance.highlight_first_message",
                   default: false,
                   type: "checkbox"
                 },
                 {
                   label: "Highlight first user messages only for channels where you are a moderator",
-                  id: "shared.chat.appearance.highlight_first_message_moderator",
+                  key: "chat.appearance.highlight_first_message_moderator",
                   default: false,
                   type: "checkbox"
                 },
                 {
                   label: "Highlight Color",
-                  id: "shared.chat.appearance.highlight_color",
+                  key: "chat.appearance.highlight_color",
                   default: "",
                   type: "color"
                 },
                 {
                   label: "Display lines with alternating background colors",
-                  id: "shared.chat.appearance.alternating_background",
+                  key: "chat.appearance.alternating_background",
                   default: false,
                   type: "checkbox"
                 }
@@ -20766,13 +20843,13 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Use Ctrl+E to open the Emote Menu",
-                  id: "shared.chat.appearance.emote_menu_ctrl_e",
+                  key: "chat.appearance.emote_menu_ctrl_e",
                   default: false,
                   type: "checkbox"
                 },
                 {
                   label: "Use Ctrl+Spacebar to open the Emote Menu",
-                  id: "shared.chat.appearance.emote_menu_ctrl_spacebar",
+                  key: "chat.appearance.emote_menu_ctrl_spacebar",
                   default: true,
                   type: "checkbox"
                 }
@@ -20783,7 +20860,7 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Seperators",
-                  id: "shared.chat.appearance.seperators",
+                  key: "chat.appearance.seperators",
                   default: "none",
                   type: "dropdown",
                   options: [
@@ -20811,7 +20888,7 @@ var SettingsManager = class {
                 },
                 {
                   label: "Messages spacing",
-                  id: "shared.chat.appearance.messages_spacing",
+                  key: "chat.appearance.messages_spacing",
                   default: "none",
                   type: "dropdown",
                   options: [
@@ -20831,7 +20908,7 @@ var SettingsManager = class {
                 },
                 {
                   label: "Messages style",
-                  id: "shared.chat.appearance.messages_style",
+                  key: "chat.appearance.messages_style",
                   default: "none",
                   type: "dropdown",
                   options: [
@@ -20861,7 +20938,7 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Show the NipahTV badge for NTV users",
-                  id: "shared.chat.badges.show_ntv_badge",
+                  key: "chat.badges.show_ntv_badge",
                   default: true,
                   type: "checkbox"
                 }
@@ -20877,7 +20954,7 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Enable chat smooth scrolling",
-                  id: "shared.chat.behavior.smooth_scrolling",
+                  key: "chat.behavior.smooth_scrolling",
                   default: false,
                   type: "checkbox"
                 }
@@ -20889,13 +20966,13 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Add bias to emotes of channels you are subscribed to",
-                  id: "shared.chat.behavior.search_bias_subscribed_channels",
+                  key: "chat.behavior.search_bias_subscribed_channels",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Add extra bias to emotes of the current channel you are watching the stream of",
-                  id: "shared.chat.behavior.search_bias_current_channels",
+                  key: "chat.behavior.search_bias_current_channels",
                   default: true,
                   type: "checkbox"
                 }
@@ -20911,13 +20988,13 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them",
-                  id: "shared.chat.emotes.hide_subscriber_emotes",
+                  key: "chat.emotes.hide_subscriber_emotes",
                   default: false,
                   type: "checkbox"
                 },
                 {
                   label: "Display images in tooltips",
-                  id: "shared.chat.tooltips.images",
+                  key: "chat.tooltips.images",
                   default: true,
                   type: "checkbox"
                 }
@@ -20933,7 +21010,7 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Choose the style of the emote menu button",
-                  id: "shared.chat.emote_menu.appearance.button_style",
+                  key: "chat.emote_menu.appearance.button_style",
                   default: "nipah",
                   type: "dropdown",
                   options: [
@@ -20970,31 +21047,31 @@ var SettingsManager = class {
                 // Dangerous, impossible to undo because settings button will be hidden
                 // {
                 // 	label: 'Show the navigation sidebar on the side of the menu',
-                // 	id: 'shared.chat.emote_menu.sidebar',
+                // 	key: 'chat.emote_menu.sidebar',
                 // 	default: true,
                 // 	type: 'checkbox'
                 // },
                 {
                   label: "Show the search box",
-                  id: "shared.chat.emote_menu.search_box",
+                  key: "chat.emote_menu.search_box",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show favorited emotes in the emote menu (requires page refresh)",
-                  id: "shared.emote_menu.show_favorites",
+                  key: "emote_menu.show_favorites",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes (requires page refresh)",
-                  id: "shared.emote_menu.show_unavailable_favorites",
+                  key: "emote_menu.show_unavailable_favorites",
                   default: false,
                   type: "checkbox"
                 },
                 {
                   label: "Close the emote menu after clicking an emote",
-                  id: "shared.chat.emote_menu.close_on_click",
+                  key: "chat.emote_menu.close_on_click",
                   default: false,
                   type: "checkbox"
                 }
@@ -21011,31 +21088,31 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Show emotes in chat",
-                  id: "shared.chat.emote_providers.kick.show_emotes",
+                  key: "chat.emote_providers.kick.show_emotes",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show global emote set in emote menu",
-                  id: "shared.emote_menu.emote_providers.kick.show_global",
+                  key: "emote_menu.emote_providers.kick.show_global",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show current channel emote set in emote menu",
-                  id: "shared.emote_menu.emote_providers.kick.show_current_channel",
+                  key: "emote_menu.emote_providers.kick.show_current_channel",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show other channel emote sets in emote menu",
-                  id: "shared.emote_menu.emote_providers.kick.show_other_channels",
+                  key: "emote_menu.emote_providers.kick.show_other_channels",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show Emoji emote set in emote menu",
-                  id: "shared.emote_menu.emote_providers.kick.show_emojis",
+                  key: "emote_menu.emote_providers.kick.show_emojis",
                   default: false,
                   type: "checkbox"
                 }
@@ -21047,19 +21124,19 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Show emotes in chat",
-                  id: "shared.chat.emote_providers.7tv.show_emotes",
+                  key: "chat.emote_providers.7tv.show_emotes",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show global emote set in emote menu",
-                  id: "shared.emote_menu.emote_providers.7tv.show_global",
+                  key: "emote_menu.emote_providers.7tv.show_global",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Show current channel emote set in emote menu",
-                  id: "shared.emote_menu.emote_providers.7tv.show_current_channel",
+                  key: "emote_menu.emote_providers.7tv.show_current_channel",
                   default: true,
                   type: "checkbox"
                 }
@@ -21075,7 +21152,7 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages",
-                  id: "shared.chat.input.history.enabled",
+                  key: "chat.input.history.enabled",
                   default: true,
                   type: "checkbox"
                 }
@@ -21087,31 +21164,31 @@ var SettingsManager = class {
               children: [
                 // {
                 // 	label: 'Display a tooltip when using tab-completion',
-                // 	id: 'shared.chat.input.completion.tooltip',
+                // 	key: 'chat.input.completion.tooltip',
                 // 	default: true,
                 // 	type: 'checkbox'
                 // },
                 {
                   label: "Enable <b>&lt;/></b> key command completion suggestions",
-                  id: "shared.chat.input.completion.commands.enabled",
+                  key: "chat.input.completion.commands.enabled",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Enable <b>&lt;TAB></b> key emote completion suggestions",
-                  id: "shared.chat.input.completion.emotes.enabled",
+                  key: "chat.input.completion.emotes.enabled",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Enable <b>&lt;COLON (:)></b> key emote completion suggestions",
-                  id: "shared.chat.input.completion.colon_emotes.enabled",
+                  key: "chat.input.completion.colon_emotes.enabled",
                   default: true,
                   type: "checkbox"
                 },
                 {
                   label: "Enable <b>&lt;@></b> key username mention completion suggestions",
-                  id: "shared.chat.input.completion.mentions.enabled",
+                  key: "chat.input.completion.mentions.enabled",
                   default: true,
                   type: "checkbox"
                 }
@@ -21127,13 +21204,13 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Show quick emote holder",
-                  id: "shared.quick_emote_holder.enabled",
+                  key: "quick_emote_holder.enabled",
                   type: "checkbox",
                   default: true
                 },
                 {
                   label: "Rows of emotes to display",
-                  id: "shared.quick_emote_holder.rows",
+                  key: "quick_emote_holder.rows",
                   type: "number",
                   default: 2,
                   min: 1,
@@ -21141,13 +21218,13 @@ var SettingsManager = class {
                 },
                 {
                   label: "Show favorited emotes in the quick emote holder",
-                  id: "shared.quick_emote_holder.show_favorites",
+                  key: "quick_emote_holder.show_favorites",
                   type: "checkbox",
                   default: true
                 },
                 {
                   label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes",
-                  id: "shared.quick_emote_holder.show_non_cross_channel_favorites",
+                  key: "quick_emote_holder.show_non_cross_channel_favorites",
                   type: "checkbox",
                   default: false
                 }
@@ -21158,7 +21235,7 @@ var SettingsManager = class {
               children: [
                 {
                   label: "Send emotes to chat immediately on click",
-                  id: "shared.chat.quick_emote_holder.send_immediately",
+                  key: "chat.quick_emote_holder.send_immediately",
                   type: "checkbox",
                   default: false
                 }
@@ -21169,23 +21246,26 @@ var SettingsManager = class {
       ]
     }
   ];
-  settingsMap = /* @__PURE__ */ new Map();
+  settingsMap = /* @__PURE__ */ new Map([
+    ["global.shared.app.version", "1.0.0"],
+    ["global.shared.app.announcements", {}]
+  ]);
   isShowingModal = false;
   database;
-  eventBus;
+  rootEventBus;
   modal;
   isLoaded = false;
-  constructor({ database, eventBus }) {
+  constructor({ database, rootEventBus }) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.rootEventBus = rootEventBus;
   }
   initialize() {
-    const { eventBus } = this;
-    for (const category of this.sharedSettings) {
+    const { rootEventBus: eventBus } = this;
+    for (const category of this.uiSettings) {
       for (const subCategory of category.children) {
         for (const group of subCategory.children) {
           for (const setting of group.children) {
-            this.settingsMap.set(setting.id, setting.default);
+            this.settingsMap.set(`global.shared.${setting.key}`, setting.default);
           }
         }
       }
@@ -21193,37 +21273,42 @@ var SettingsManager = class {
     eventBus.subscribe("ntv.ui.settings.toggle_show", this.handleShowModal.bind(this));
   }
   async loadSettings() {
-    const { database } = this;
+    const { database, rootEventBus: eventBus } = this;
     const settingsRecords = await database.settings.getRecords();
     for (const setting of settingsRecords) {
       const { id, value } = setting;
       this.settingsMap.set(id, value);
     }
-    ;
-    [["shared.chat.input.tab_completion.tooltip", "shared.chat.input.completion.tooltip"]].forEach(
-      ([oldKey, newKey]) => {
-        if (this.settingsMap.has(oldKey)) {
-          const val = this.settingsMap.get(oldKey);
-          this.setSetting(newKey, val);
-          database.settings.deleteRecord(oldKey);
-        }
-      }
-    );
-    ["shared.chat.input.tab_completion.multiple_entries"].forEach((key) => {
-      if (!this.settingsMap.has(key)) return;
-      database.settings.deleteRecord(key);
-    });
     this.isLoaded = true;
+    eventBus.publish("ntv.settings.loaded");
   }
-  setSetting(key, value) {
-    if (!key || typeof value === "undefined") return error("Invalid setting key or value", key, value);
-    const { database } = this;
-    database.settings.putRecord({ id: key, value }).catch((err) => error("Failed to save setting to database.", err.message));
-    this.settingsMap.set(key, value);
+  registerSetting(platformId, channelId, key, defaultVal) {
+    const id = `${platformId}.${channelId}.${key}`;
+    if (this.settingsMap.has(id)) return error("Setting already registered:", id);
+    this.settingsMap.set(id, defaultVal);
   }
-  getSetting(key) {
-    return this.settingsMap.get(key);
+  setSetting(platformId, channelId, key, value) {
+    if (!platformId || !channelId || !key || typeof value === "undefined")
+      return error("Unable to set setting, invalid parameters:", { platformId, channelId, key, value });
+    const id = `${platformId}.${channelId}.${key}`;
+    if (!this.settingsMap.has(id)) return error("Setting not registered:", id);
+    this.database.settings.putRecord({ id, platformId, channelId, key, value }).catch((err) => error("Failed to save setting to database.", err.message));
+    this.settingsMap.set(id, value);
   }
+  getSetting(channelId, key, bubbleChannel = true, bubblePlatform = true) {
+    const platformId = NTV_PLATFORM;
+    const id = `${platformId}.${channelId}.${key}`;
+    if (this.settingsMap.has(id)) return this.settingsMap.get(id);
+    else if (bubbleChannel && channelId !== "shared" && this.settingsMap.has(`${platformId}.shared.${key}`))
+      return this.settingsMap.get(`${platformId}.shared.${key}`);
+    else if (bubblePlatform && this.settingsMap.has(`global.${channelId}.${key}`))
+      return this.settingsMap.get(`global.${channelId}.${key}`);
+    else if (bubblePlatform && bubbleChannel && this.settingsMap.has(`global.shared.${key}`))
+      return this.settingsMap.get(`global.shared.${key}`);
+    return error("Setting not registered:", id);
+  }
+  // getSettingsForPlatform(platformId: SettingDocument['platformId']) {}
+  // getSettingsForChannel(platformId: SettingDocument['platformId'], channelId: SettingDocument['channelId']) {}
   handleShowModal(evt) {
     this.showModal(!this.isShowingModal);
   }
@@ -21233,7 +21318,7 @@ var SettingsManager = class {
         "Unable to show settings modal because the settings are not loaded yet, please wait for it to load first."
       );
     }
-    if (bool === false) {
+    if (!bool) {
       this.isShowingModal = false;
       if (this.modal) {
         this.modal.destroy();
@@ -21242,8 +21327,8 @@ var SettingsManager = class {
     } else {
       this.isShowingModal = true;
       if (this.modal) return;
-      this.modal = new SettingsModal(this.eventBus, {
-        sharedSettings: this.sharedSettings,
+      this.modal = new SettingsModal(this.rootEventBus, {
+        uiSettings: this.uiSettings,
         settingsMap: this.settingsMap
       });
       this.modal.init();
@@ -21252,10 +21337,11 @@ var SettingsManager = class {
         delete this.modal;
       });
       this.modal.addEventListener("setting_change", (evt) => {
-        const { id, value } = evt.detail;
-        const prevValue = this.settingsMap.get(id);
-        this.setSetting(id, value);
-        this.eventBus.publish("ntv.settings.change." + id, { value, prevValue });
+        const settingDocument = evt.detail;
+        const { platformId, channelId, key, value } = settingDocument;
+        const prevValue = this.getSetting(channelId, key);
+        this.setSetting(platformId, channelId, key, value);
+        this.rootEventBus.publish("ntv.settings.change." + key, { value, prevValue });
       });
     }
   }
@@ -21371,7 +21457,7 @@ var FavoriteEmotesModel = class {
     this.db = db;
   }
   async getRecords(channelId) {
-    const platformId = getPlatformSlug();
+    const platformId = NTV_PLATFORM;
     const query = channelId ? { platformId, channelId } : { platformId };
     return this.db.favoriteEmotes.where(query).toArray();
   }
@@ -21398,7 +21484,7 @@ var FavoriteEmotesModel = class {
 };
 
 // src/Database/models/SettingsModel.ts
-var settingsSchema = "&id";
+var settingsSchema = "&id, platformId, channelId, key";
 var SettingsModel = class {
   db;
   constructor(db) {
@@ -21426,7 +21512,7 @@ var EmoteUsagesModel = class {
     this.db = db;
   }
   async getRecords(channelId) {
-    return this.db.emoteUsages.where({ platformId: getPlatformSlug(), channelId }).toArray();
+    return this.db.emoteUsages.where({ platformId: NTV_PLATFORM, channelId }).toArray();
   }
   async updateRecord(platformId, channelId, emoteHid, count) {
     return this.db.emoteUsages.where({ platformId, channelId, emoteHid }).modify({ count });
@@ -21481,7 +21567,7 @@ var Database = class {
   constructor(SWDexie) {
     this.idb = SWDexie ? new SWDexie(this.databaseName) : new import_wrapper_default(this.databaseName);
     this.idb.version(2).stores({
-      settings: settingsSchema,
+      settings: "&id",
       emoteUsage: "&[channelId+emoteHid]",
       emoteHistory: null
     }).upgrade(async (tx) => {
@@ -21512,6 +21598,16 @@ var Database = class {
             };
           })
         );
+      });
+    });
+    this.idb.version(4).stores({
+      settings: settingsSchema
+    }).upgrade((tx) => {
+      return tx.table("settings").toCollection().modify((record) => {
+        record.platformId = "global";
+        record.channelId = "shared";
+        record.key = record.id.replace("shared.", "");
+        record.id = `global.shared.${record.key}`;
       });
     });
     this.settings = new SettingsModel(this.idb);
@@ -21722,44 +21818,6 @@ var InputExecutionStrategyRegister = class {
   }
 };
 
-// src/Extensions/Extension.ts
-var Extension = class {
-  rootContext;
-  sessions = [];
-  constructor(rootContext, sessions) {
-    this.rootContext = rootContext;
-    this.sessions = sessions;
-  }
-};
-
-// src/Extensions/Botrix/BotrixExecutionStrategy.ts
-var BotrixExecutionStrategy = class {
-  constructor(rootContext, session) {
-    this.rootContext = rootContext;
-    this.session = session;
-  }
-  shouldUseStrategy(inputIntentDTO) {
-    return inputIntentDTO.input[0] === "!";
-  }
-  async route(contentEditableEditor, inputIntentDTO, dontClearInput) {
-    const { networkInterface } = this.session;
-    dontClearInput || contentEditableEditor.clearInput();
-    if (inputIntentDTO.isReply) {
-      if (!inputIntentDTO.replyRefs) throw new Error("ReplyRefs are required for reply messages.");
-      await networkInterface.sendReply(
-        inputIntentDTO.input,
-        inputIntentDTO.replyRefs.messageId,
-        inputIntentDTO.replyRefs.messageContent,
-        inputIntentDTO.replyRefs.senderId,
-        inputIntentDTO.replyRefs.senderUsername,
-        true
-      );
-    } else {
-      await networkInterface.sendMessage(inputIntentDTO.input, true);
-    }
-  }
-};
-
 // src/Extensions/Botrix/BotrixInputCompletionStrategy.ts
 var BotrixInputCompletionStrategy = class extends AbstractInputCompletionStrategy {
   constructor(rootContext, session, contentEditableEditor, navListWindowManager, { botrixSessionManager }) {
@@ -21807,6 +21865,42 @@ var BotrixInputCompletionStrategy = class extends AbstractInputCompletionStrateg
   }
 };
 
+// src/Extensions/Botrix/BotrixExecutionStrategy.ts
+var BotrixExecutionStrategy = class {
+  constructor(rootContext, session) {
+    this.rootContext = rootContext;
+    this.session = session;
+  }
+  shouldUseStrategy(inputIntentDTO) {
+    return inputIntentDTO.input[0] === "!";
+  }
+  async route(contentEditableEditor, inputIntentDTO, dontClearInput) {
+    const { networkInterface } = this.session;
+    dontClearInput || contentEditableEditor.clearInput();
+    if (inputIntentDTO.isReply) {
+      if (!inputIntentDTO.replyRefs) throw new Error("ReplyRefs are required for reply messages.");
+      await networkInterface.sendReply(
+        inputIntentDTO.input,
+        inputIntentDTO.replyRefs.messageId,
+        inputIntentDTO.replyRefs.messageContent,
+        inputIntentDTO.replyRefs.senderId,
+        inputIntentDTO.replyRefs.senderUsername,
+        true
+      );
+    } else {
+      await networkInterface.sendMessage(inputIntentDTO.input, true);
+    }
+  }
+};
+
+// src/Extensions/Extension.ts
+var Extension = class {
+  constructor(rootContext, sessions) {
+    this.rootContext = rootContext;
+    this.sessions = sessions;
+  }
+};
+
 // src/Extensions/Botrix/index.ts
 var BotrixNetworkInterface = class {
   static async fetchUserShopItems(userSlug, platformId) {
@@ -21821,7 +21915,7 @@ var BotrixSessionManager = class {
   async getUserShopItems() {
     if (!this.userShopItems.length) {
       const userSlug = this.session.channelData.channelName;
-      const platformId = getPlatformSlug();
+      const platformId = NTV_PLATFORM;
       const userShopItems = await BotrixNetworkInterface.fetchUserShopItems(userSlug, platformId);
       log("User shop items:", userShopItems);
     }
@@ -21997,9 +22091,110 @@ var TwitchEventService = class {
   }
 };
 
+// src/UserInterface/Modals/AnnouncementModal.ts
+var AnnouncementModal = class extends AbstractModal {
+  constructor(announcement) {
+    const geometry = {
+      // width: '400px',
+      position: "center"
+    };
+    super("announcement", geometry);
+    this.announcement = announcement;
+  }
+  eventTarget = new EventTarget();
+  init() {
+    super.init();
+    return this;
+  }
+  async render() {
+    super.render();
+    const { announcement } = this;
+    const modalBodyEl = this.modalBodyEl;
+    const modalHeaderEl = this.modalHeaderBodyEl;
+    modalHeaderEl.prepend(
+      parseHTML(
+        cleanupHTML(`
+					<svg class="ntv__modal__logo" alt="NipahTV" width="32" height="32" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0230583" d="M 0.2512317,15.995848 0.2531577,6.8477328 C 0.24943124,6.3032776 0.7989812,5.104041 1.8304975,4.5520217 2.4476507,4.2217505 2.9962666,4.1106784 4.0212875,4.0887637 5.0105274,4.067611 5.5052433,4.2710769 5.6829817,4.3608374 c 0.4879421,0.2263549 0.995257,0.7009925 1.134824,0.9054343 l 4.4137403,6.8270373 c 0.262057,0.343592 0.582941,0.565754 0.919866,0.529874 0.284783,-0.0234 0.4358,-0.268186 0.437049,-0.491242 l 0.003,-9.2749904 L 0.25,2.8575985 0.25004315,0 15.747898,2.1455645e-4 15.747791,13.08679 c -0.0055,0.149056 -0.09606,1.191174 -1.033875,2.026391 -0.839525,0.807902 -2.269442,0.879196 -2.269442,0.879196 -0.601658,0.0088 -1.057295,0.02361 -1.397155,-0.04695 -0.563514,-0.148465 -0.807905,-0.274059 -1.274522,-0.607992 -0.4091245,-0.311857 -0.6818768,-0.678904 -0.9118424,-0.98799 0,0 -1.0856521,-1.86285 -1.8718165,-3.044031 C 6.3863506,10.352753 5.3651096,8.7805786 4.8659674,8.1123589 4.4859461,7.5666062 4.2214229,7.4478431 4.0798053,7.3975803 3.9287117,7.3478681 3.7624996,7.39252 3.6345251,7.4474753 3.5213234,7.5006891 3.4249644,7.5987165 3.4078407,7.7314301 l 7.632e-4,8.2653999 z"/></svg><h2>Announcement</h2>`)
+      )
+    );
+    modalBodyEl.appendChild(parseHTML(cleanupHTML(announcement.message)));
+    const buttonEl = parseHTML(`<button class="ntv__button">Close</button>`, true);
+    buttonEl.addEventListener("click", () => this.close());
+    modalBodyEl.appendChild(buttonEl);
+  }
+  close() {
+    this.eventTarget.dispatchEvent(new Event("acknowledged_announcement"));
+    super.destroy();
+  }
+};
+
+// src/Services/AnnouncementService.ts
+var AnnouncementService = class {
+  constructor(rootEventBus, settingsManager) {
+    this.rootEventBus = rootEventBus;
+    this.settingsManager = settingsManager;
+    settingsManager.registerSetting(NTV_PLATFORM, "shared", "announcements", {});
+    this.rootEventBus.subscribe("ntv.settings.loaded", this.initialize.bind(this), true);
+  }
+  announcements = {};
+  closedAnnouncements = {};
+  queuedAnnouncements = [];
+  currentAnnouncement = null;
+  async initialize() {
+    const { settingsManager } = this;
+    this.closedAnnouncements = settingsManager.getSetting("shared", "announcements");
+  }
+  registerAnnouncement(announcement) {
+    if (this.announcements[announcement.id]) return log("Announcement already registered:", announcement.id);
+    const isClosed = this.closedAnnouncements[announcement.id] !== void 0;
+    if (isClosed) return;
+    if (announcement.dateTimeRange) {
+      const now = /* @__PURE__ */ new Date();
+      if (announcement.dateTimeRange.length === 1) {
+        const [end] = announcement.dateTimeRange;
+        if (now > end) return;
+      } else {
+        const [start, end] = announcement.dateTimeRange;
+        if (now < start || now > end) return;
+      }
+    }
+    this.announcements[announcement.id] = announcement;
+  }
+  hasAnnouncement(id) {
+    return this.announcements[id] !== void 0;
+  }
+  showNextAnnouncement() {
+    if (this.queuedAnnouncements.length) {
+      this.currentAnnouncement = this.queuedAnnouncements.shift();
+      this.displayAnnouncement(this.currentAnnouncement.id);
+    } else {
+      this.currentAnnouncement = null;
+    }
+  }
+  async closeAnnouncement(id) {
+    this.closedAnnouncements[id] = /* @__PURE__ */ new Date();
+    await this.settingsManager.setSetting(NTV_PLATFORM, "shared", "announcements", this.closedAnnouncements);
+  }
+  displayAnnouncement(id) {
+    if (this.closedAnnouncements[id]) return;
+    if (this.currentAnnouncement && this.currentAnnouncement.id !== id) {
+      this.queuedAnnouncements.push(this.announcements[id]);
+      return;
+    }
+    this.currentAnnouncement = this.announcements[id];
+    const announcement = this.currentAnnouncement;
+    const modal = new AnnouncementModal(announcement).init();
+    modal.addEventListener("acknowledged_announcement", () => this.closeAnnouncement(announcement.id));
+    modal.addEventListener("destroy", () => {
+      this.currentAnnouncement = null;
+      this.showNextAnnouncement();
+    });
+  }
+};
+
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.2";
+  VERSION = "1.5.3";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -22011,34 +22206,45 @@ var NipahClient = class {
   eventBus = null;
   emotesManager = null;
   rootContext = null;
-  settingsManagerPromise = null;
+  loadSettingsManagerPromise = null;
   database = null;
   sessions = [];
   initialize() {
     const { ENV_VARS } = this;
-    window.NTV_APP_VERSION = this.VERSION;
-    info(`Initializing Nipah client [${NTV_APP_VERSION}]..`);
+    info(`Initializing Nipah client [${this.VERSION}]..`);
+    let resourceRoot;
     if (false) {
       info("Running in debug mode enabled..");
-      NTV_RESOURCE_ROOT = ENV_VARS.LOCAL_RESOURCE_ROOT;
+      resourceRoot = ENV_VARS.LOCAL_RESOURCE_ROOT;
       window.NipahTV = this;
     } else if (false) {
       info("Running in extension mode..");
-      NTV_RESOURCE_ROOT = browser.runtime.getURL("/");
+      resourceRoot = browser.runtime.getURL("/");
     } else {
-      NTV_RESOURCE_ROOT = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
+      resourceRoot = ENV_VARS.GITHUB_ROOT + "/" + ENV_VARS.RELEASE_BRANCH + "/";
     }
-    Object.freeze(NTV_RESOURCE_ROOT);
+    let platform;
     if (window.location.host === "kick.com") {
-      NTV_PLATFORM = 1 /* KICK */;
+      platform = "kick" /* KICK */;
       info("Platform detected: Kick");
     } else if (window.location.host === "www.twitch.tv") {
-      NTV_PLATFORM = 2 /* TWITCH */;
+      platform = "twitch" /* TWITCH */;
       info("Platform detected: Twitch");
     } else {
       return error("Unsupported platform", window.location.host);
     }
+    if (true) {
+      window.NTV_APP_VERSION = this.VERSION;
+      window.NTV_PLATFORM = platform;
+      window.NTV_RESOURCE_ROOT = resourceRoot;
+    } else {
+      window.PLATFORM = platform;
+      window.RESOURCE_ROOT = resourceRoot;
+      window.APP_VERSION = this.VERSION;
+    }
+    Object.freeze(NTV_APP_VERSION);
     Object.freeze(NTV_PLATFORM);
+    Object.freeze(NTV_RESOURCE_ROOT);
     this.attachPageNavigationListener();
     this.setupDatabase().then(async () => {
       window.RESTFromMainService = new RESTFromMain();
@@ -22063,31 +22269,33 @@ var NipahClient = class {
     const { database } = this;
     if (!database) throw new Error("Database is not initialized.");
     info("Setting up client environment..");
-    const eventBus = new Publisher("root");
-    const settingsManager = new SettingsManager({ database, eventBus });
+    const rootEventBus = new Publisher("root");
+    const settingsManager = new SettingsManager({ database, rootEventBus });
     settingsManager.initialize();
-    this.settingsManagerPromise = settingsManager.loadSettings().catch((err) => {
-      throw new Error(`Couldn't load settings because: ${err}`);
-    });
     let eventService;
-    if (NTV_PLATFORM === 1 /* KICK */) {
+    if (NTV_PLATFORM === "kick" /* KICK */) {
       eventService = new KickEventService();
-    } else if (NTV_PLATFORM === 2 /* TWITCH */) {
+    } else if (NTV_PLATFORM === "twitch" /* TWITCH */) {
       eventService = new TwitchEventService();
     } else {
       throw new Error("Unsupported platform");
     }
     this.rootContext = {
-      eventBus,
+      eventBus: rootEventBus,
       database,
       settingsManager,
-      eventService
+      eventService,
+      announcementService: new AnnouncementService(rootEventBus, settingsManager)
     };
     this.loadExtensions();
+    this.loadSettingsManagerPromise = settingsManager.loadSettings().catch((err) => {
+      throw new Error(`Couldn't load settings because: ${err}`);
+    });
     this.createChannelSession();
   }
   async loadExtensions() {
     const rootContext = this.rootContext;
+    if (!rootContext) throw new Error("Root context is not initialized.");
     const { settingsManager } = rootContext;
     const isBotrixExtensionEnabled = true;
     if (isBotrixExtensionEnabled) {
@@ -22099,7 +22307,7 @@ var NipahClient = class {
     log(`Creating new session for ${window.location.href}...`);
     const rootContext = this.rootContext;
     if (!rootContext) throw new Error("Root context is not initialized.");
-    const { database, settingsManager, eventBus: rootEventBus } = rootContext;
+    const { settingsManager, eventBus: rootEventBus } = rootContext;
     const eventBus = new Publisher("session");
     const usersManager = new UsersManager({ eventBus, settingsManager });
     const session = {
@@ -22108,9 +22316,9 @@ var NipahClient = class {
       inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
       inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
     };
-    if (NTV_PLATFORM === 1 /* KICK */) {
+    if (NTV_PLATFORM === "kick" /* KICK */) {
       session.networkInterface = new KickNetworkInterface(session);
-    } else if (NTV_PLATFORM === 2 /* TWITCH */) {
+    } else if (NTV_PLATFORM === "twitch" /* TWITCH */) {
       throw new Error("Twitch platform is not supported yet.");
     } else {
       throw new Error("Unsupported platform");
@@ -22119,7 +22327,7 @@ var NipahClient = class {
     this.sessions.push(session);
     if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName);
     await Promise.allSettled([
-      this.settingsManagerPromise,
+      this.loadSettingsManagerPromise,
       networkInterface.loadMeData().catch((err) => {
         throw new Error(`Couldn't load me data because: ${err}`);
       }),
@@ -22139,7 +22347,7 @@ var NipahClient = class {
     session.inputExecutionStrategyRegister.registerStrategy(new DefaultExecutionStrategy(rootContext, session));
     session.inputExecutionStrategyRegister.registerStrategy(new CommandExecutionStrategy(rootContext, session));
     let userInterface;
-    if (NTV_PLATFORM === 1 /* KICK */) {
+    if (NTV_PLATFORM === "kick" /* KICK */) {
       userInterface = new KickUserInterface(rootContext, session);
     } else {
       return error("Platform has no user interface implemented..", NTV_PLATFORM);
@@ -22228,7 +22436,7 @@ var NipahClient = class {
       } else {
         let style;
         switch (NTV_PLATFORM) {
-          case 1 /* KICK */:
+          case "kick" /* KICK */:
             style = "KICK_CSS";
             break;
           default:
@@ -22300,12 +22508,11 @@ var NipahClient = class {
   if (false) {
     globalThis["EventTarget"] = window["EventTarget"];
   }
-  NTV_PLATFORM = 0 /* NULL */;
-  NTV_RESOURCE_ROOT = "";
   const nipahClient = new NipahClient();
   nipahClient.initialize();
 })();
 //! Temporary migration code
+//! Temporary delete old settings records
 /*! Bundled license information:
 
 dexie/dist/dexie.js:
