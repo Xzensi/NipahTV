@@ -1,6 +1,6 @@
-import type { IFavoriteEmoteDocument } from '../Database/models/FavoriteEmotesModel'
-import type { IEmoteUsagesDocument } from '../Database/models/EmoteUsagesModel'
-import { log, info, error, getPlatformSlug, isEmpty } from '../utils'
+import type { FavoriteEmoteDocument } from '../Database/models/FavoriteEmotesModel'
+import type { EmoteUsagesDocument } from '../Database/models/EmoteUsagesModel'
+import { log, info, error, isEmpty } from '../utils'
 import { PROVIDER_ENUM } from '../constants'
 import Fuse from 'fuse.js'
 
@@ -10,11 +10,11 @@ export class EmoteDatastore {
 	private emoteNameMap = new Map<string, Emote>()
 	private emoteEmoteSetMap = new Map<string, EmoteSet>()
 	private emoteSetMap = new Map<string, EmoteSet>()
-	private favoriteEmotesDocumentsMap = new Map<string, IFavoriteEmoteDocument>()
+	private favoriteEmotesDocumentsMap = new Map<string, FavoriteEmoteDocument>()
 
 	emoteSets: Array<EmoteSet> = []
 	emoteUsage = new Map<string, number>()
-	favoriteEmoteDocuments: Array<IFavoriteEmoteDocument> = []
+	favoriteEmoteDocuments: Array<FavoriteEmoteDocument> = []
 
 	// Map of pending emote usage changes to be synced to database
 	private hasPendingChanges = false
@@ -93,7 +93,7 @@ export class EmoteDatastore {
 		// info('Syncing emote data changes to database..')
 
 		const { database } = this.rootContext
-		const platformSlug = getPlatformSlug()
+		const platformSlug = PLATFORM
 
 		// Clone the pending changes to prevent changes during the sync
 		const pendingEmoteUsageChanges = structuredClone(this.pendingEmoteUsageChanges)
@@ -101,8 +101,8 @@ export class EmoteDatastore {
 		const pendingFavoriteEmoteChanges = structuredClone(this.pendingFavoriteEmoteChanges)
 		this.pendingFavoriteEmoteChanges = {}
 
-		const emoteUsagePuts: IEmoteUsagesDocument[] = []
-		const emoteUsageDeletes: [TPlatformId, TChannelId, TEmoteHid][] = []
+		const emoteUsagePuts: EmoteUsagesDocument[] = []
+		const emoteUsageDeletes: [PlatformId, ChannelId, EmoteHid][] = []
 
 		if (!isEmpty(pendingEmoteUsageChanges))
 			info(`Syncing ${Object.keys(pendingEmoteUsageChanges).length} emote usage changes to database..`)
@@ -123,7 +123,7 @@ export class EmoteDatastore {
 			}
 		}
 
-		const favoriteEmotePuts: IFavoriteEmoteDocument[] = []
+		const favoriteEmotePuts: FavoriteEmoteDocument[] = []
 		const favoriteEmoteReorders: { platformId: string; emoteHid: string; orderIndex: number }[] = []
 		const favoriteEmoteDeletes: { platformId: string; emoteHid: string }[] = []
 
@@ -310,8 +310,8 @@ export class EmoteDatastore {
 		const emote = this.emoteMap.get(emoteHid)
 		if (!emote) return error('Unable to favorite emote, emote not found', emoteHid)
 
-		const favoriteEmote: IFavoriteEmoteDocument = {
-			platformId: getPlatformSlug(),
+		const favoriteEmote: FavoriteEmoteDocument = {
+			platformId: PLATFORM,
 			channelId: this.channelId,
 			emoteHid: emoteHid,
 			orderIndex: 0,

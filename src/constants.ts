@@ -1,14 +1,14 @@
 export enum PLATFORM_ENUM {
-	NULL = 0,
-	KICK = 1,
-	TWITCH = 2,
-	YOUTUBE = 3
+	NULL = 'null',
+	KICK = 'kick',
+	TWITCH = 'twitch',
+	YOUTUBE = 'youtube'
 }
 
 export enum PROVIDER_ENUM {
-	NULL = 0,
-	KICK = 1,
-	SEVENTV = 2
+	NULL,
+	KICK,
+	SEVENTV
 }
 
 export const U_TAG_LATIN_A = String.fromCodePoint(0xe0041)

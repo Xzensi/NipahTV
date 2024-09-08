@@ -1,59 +1,61 @@
+import { SettingDocument } from '../Database/models/SettingsModel'
 import SettingsModal from '../UserInterface/Modals/SettingsModal'
 import { DatabaseProxy } from '../Classes/DatabaseProxy'
 import Publisher from '../Classes/Publisher'
 import { error, log } from '../utils'
 
-interface settingBase {
+interface UISettingBase {
 	label: string
-	id: string
+	key: string
 }
 
-interface checkboxSetting extends settingBase {
+interface UICheckboxSetting extends UISettingBase {
 	type: 'checkbox'
 	default: boolean
 }
 
-interface numberSetting extends settingBase {
+interface UINumberSetting extends UISettingBase {
 	type: 'number'
 	default: number
 	min: number
 	max: number
+	step?: number
 }
 
-interface colorSetting extends settingBase {
+interface UIColorSetting extends UISettingBase {
 	type: 'color'
 	default: string
 }
 
-interface dropdownSetting extends settingBase {
+interface UIDropdownSetting extends UISettingBase {
 	type: 'dropdown'
 	default: string
 	options: { label: string; value: string }[]
 }
 
-type setting = checkboxSetting | numberSetting | colorSetting | dropdownSetting
+type UISetting = UICheckboxSetting | UINumberSetting | UIColorSetting | UIDropdownSetting
 
-interface settingsSubCategory {
+interface UISettingsSubCategory {
 	label: string
 	description?: string
-	children: setting[]
+	children: UISetting[]
 }
 
-interface settingsCategory {
+interface UISettingsCategory {
 	label: string
 	description?: string
-	children: settingsSubCategory[]
+	children: UISettingsSubCategory[]
 }
 
-interface settingsGroup {
+export interface UISettingsGroup {
 	label: string
 	description?: string
-	children: settingsCategory[]
+	children: UISettingsCategory[]
 }
 
 export default class SettingsManager {
 	/*
-    - Shared global settings
+    - Global shared settings
 		= Appearance
 		    = Layout
 				(Appearance)
@@ -120,7 +122,7 @@ export default class SettingsManager {
                     - Send emotes to chat immediately on click
 	*/
 
-	private sharedSettings: settingsGroup[] = [
+	private uiSettings: UISettingsGroup[] = [
 		{
 			label: 'NipahTV',
 			children: [
@@ -141,7 +143,7 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
-									id: 'shared.appearance.layout.overlay_chat',
+									key: 'appearance.layout.overlay_chat',
 									default: 'none',
 									type: 'dropdown',
 									options: [
@@ -180,25 +182,25 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Highlight first user messages',
-									id: 'shared.chat.appearance.highlight_first_message',
+									key: 'chat.appearance.highlight_first_message',
 									default: false,
 									type: 'checkbox'
 								},
 								{
 									label: 'Highlight first user messages only for channels where you are a moderator',
-									id: 'shared.chat.appearance.highlight_first_message_moderator',
+									key: 'chat.appearance.highlight_first_message_moderator',
 									default: false,
 									type: 'checkbox'
 								},
 								{
 									label: 'Highlight Color',
-									id: 'shared.chat.appearance.highlight_color',
+									key: 'chat.appearance.highlight_color',
 									default: '',
 									type: 'color'
 								},
 								{
 									label: 'Display lines with alternating background colors',
-									id: 'shared.chat.appearance.alternating_background',
+									key: 'chat.appearance.alternating_background',
 									default: false,
 									type: 'checkbox'
 								}
@@ -210,13 +212,13 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Use Ctrl+E to open the Emote Menu',
-									id: 'shared.chat.appearance.emote_menu_ctrl_e',
+									key: 'chat.appearance.emote_menu_ctrl_e',
 									default: false,
 									type: 'checkbox'
 								},
 								{
 									label: 'Use Ctrl+Spacebar to open the Emote Menu',
-									id: 'shared.chat.appearance.emote_menu_ctrl_spacebar',
+									key: 'chat.appearance.emote_menu_ctrl_spacebar',
 									default: true,
 									type: 'checkbox'
 								}
@@ -227,7 +229,7 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Seperators',
-									id: 'shared.chat.appearance.seperators',
+									key: 'chat.appearance.seperators',
 									default: 'none',
 									type: 'dropdown',
 									options: [
@@ -255,7 +257,7 @@ export default class SettingsManager {
 								},
 								{
 									label: 'Messages spacing',
-									id: 'shared.chat.appearance.messages_spacing',
+									key: 'chat.appearance.messages_spacing',
 									default: 'none',
 									type: 'dropdown',
 									options: [
@@ -275,7 +277,7 @@ export default class SettingsManager {
 								},
 								{
 									label: 'Messages style',
-									id: 'shared.chat.appearance.messages_style',
+									key: 'chat.appearance.messages_style',
 									default: 'none',
 									type: 'dropdown',
 									options: [
@@ -305,7 +307,7 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Show the NipahTV badge for NTV users',
-									id: 'shared.chat.badges.show_ntv_badge',
+									key: 'chat.badges.show_ntv_badge',
 									default: true,
 									type: 'checkbox'
 								}
@@ -321,7 +323,7 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Enable chat smooth scrolling',
-									id: 'shared.chat.behavior.smooth_scrolling',
+									key: 'chat.behavior.smooth_scrolling',
 									default: false,
 									type: 'checkbox'
 								}
@@ -333,13 +335,13 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Add bias to emotes of channels you are subscribed to',
-									id: 'shared.chat.behavior.search_bias_subscribed_channels',
+									key: 'chat.behavior.search_bias_subscribed_channels',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Add extra bias to emotes of the current channel you are watching the stream of',
-									id: 'shared.chat.behavior.search_bias_current_channels',
+									key: 'chat.behavior.search_bias_current_channels',
 									default: true,
 									type: 'checkbox'
 								}
@@ -355,13 +357,13 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them',
-									id: 'shared.chat.emotes.hide_subscriber_emotes',
+									key: 'chat.emotes.hide_subscriber_emotes',
 									default: false,
 									type: 'checkbox'
 								},
 								{
 									label: 'Display images in tooltips',
-									id: 'shared.chat.tooltips.images',
+									key: 'chat.tooltips.images',
 									default: true,
 									type: 'checkbox'
 								}
@@ -377,7 +379,7 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Choose the style of the emote menu button',
-									id: 'shared.chat.emote_menu.appearance.button_style',
+									key: 'chat.emote_menu.appearance.button_style',
 									default: 'nipah',
 									type: 'dropdown',
 									options: [
@@ -414,31 +416,31 @@ export default class SettingsManager {
 								// Dangerous, impossible to undo because settings button will be hidden
 								// {
 								// 	label: 'Show the navigation sidebar on the side of the menu',
-								// 	id: 'shared.chat.emote_menu.sidebar',
+								// 	key: 'chat.emote_menu.sidebar',
 								// 	default: true,
 								// 	type: 'checkbox'
 								// },
 								{
 									label: 'Show the search box',
-									id: 'shared.chat.emote_menu.search_box',
+									key: 'chat.emote_menu.search_box',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Show favorited emotes in the emote menu (requires page refresh)',
-									id: 'shared.emote_menu.show_favorites',
+									key: 'emote_menu.show_favorites',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes (requires page refresh)",
-									id: 'shared.emote_menu.show_unavailable_favorites',
+									key: 'emote_menu.show_unavailable_favorites',
 									default: false,
 									type: 'checkbox'
 								},
 								{
 									label: 'Close the emote menu after clicking an emote',
-									id: 'shared.chat.emote_menu.close_on_click',
+									key: 'chat.emote_menu.close_on_click',
 									default: false,
 									type: 'checkbox'
 								}
@@ -455,31 +457,31 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Show emotes in chat',
-									id: 'shared.chat.emote_providers.kick.show_emotes',
+									key: 'chat.emote_providers.kick.show_emotes',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Show global emote set in emote menu',
-									id: 'shared.emote_menu.emote_providers.kick.show_global',
+									key: 'emote_menu.emote_providers.kick.show_global',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Show current channel emote set in emote menu',
-									id: 'shared.emote_menu.emote_providers.kick.show_current_channel',
+									key: 'emote_menu.emote_providers.kick.show_current_channel',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Show other channel emote sets in emote menu',
-									id: 'shared.emote_menu.emote_providers.kick.show_other_channels',
+									key: 'emote_menu.emote_providers.kick.show_other_channels',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Show Emoji emote set in emote menu',
-									id: 'shared.emote_menu.emote_providers.kick.show_emojis',
+									key: 'emote_menu.emote_providers.kick.show_emojis',
 									default: false,
 									type: 'checkbox'
 								}
@@ -491,19 +493,19 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Show emotes in chat',
-									id: 'shared.chat.emote_providers.7tv.show_emotes',
+									key: 'chat.emote_providers.7tv.show_emotes',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Show global emote set in emote menu',
-									id: 'shared.emote_menu.emote_providers.7tv.show_global',
+									key: 'emote_menu.emote_providers.7tv.show_global',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Show current channel emote set in emote menu',
-									id: 'shared.emote_menu.emote_providers.7tv.show_current_channel',
+									key: 'emote_menu.emote_providers.7tv.show_current_channel',
 									default: true,
 									type: 'checkbox'
 								}
@@ -519,7 +521,7 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages',
-									id: 'shared.chat.input.history.enabled',
+									key: 'chat.input.history.enabled',
 									default: true,
 									type: 'checkbox'
 								}
@@ -531,31 +533,31 @@ export default class SettingsManager {
 							children: [
 								// {
 								// 	label: 'Display a tooltip when using tab-completion',
-								// 	id: 'shared.chat.input.completion.tooltip',
+								// 	key: 'chat.input.completion.tooltip',
 								// 	default: true,
 								// 	type: 'checkbox'
 								// },
 								{
 									label: 'Enable <b>&lt;/></b> key command completion suggestions',
-									id: 'shared.chat.input.completion.commands.enabled',
+									key: 'chat.input.completion.commands.enabled',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Enable <b>&lt;TAB></b> key emote completion suggestions',
-									id: 'shared.chat.input.completion.emotes.enabled',
+									key: 'chat.input.completion.emotes.enabled',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Enable <b>&lt;COLON (:)></b> key emote completion suggestions',
-									id: 'shared.chat.input.completion.colon_emotes.enabled',
+									key: 'chat.input.completion.colon_emotes.enabled',
 									default: true,
 									type: 'checkbox'
 								},
 								{
 									label: 'Enable <b>&lt;@></b> key username mention completion suggestions',
-									id: 'shared.chat.input.completion.mentions.enabled',
+									key: 'chat.input.completion.mentions.enabled',
 									default: true,
 									type: 'checkbox'
 								}
@@ -571,13 +573,13 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Show quick emote holder',
-									id: 'shared.quick_emote_holder.enabled',
+									key: 'quick_emote_holder.enabled',
 									type: 'checkbox',
 									default: true
 								},
 								{
 									label: 'Rows of emotes to display',
-									id: 'shared.quick_emote_holder.rows',
+									key: 'quick_emote_holder.rows',
 									type: 'number',
 									default: 2,
 									min: 1,
@@ -585,13 +587,13 @@ export default class SettingsManager {
 								},
 								{
 									label: 'Show favorited emotes in the quick emote holder',
-									id: 'shared.quick_emote_holder.show_favorites',
+									key: 'quick_emote_holder.show_favorites',
 									type: 'checkbox',
 									default: true
 								},
 								{
 									label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes",
-									id: 'shared.quick_emote_holder.show_non_cross_channel_favorites',
+									key: 'quick_emote_holder.show_non_cross_channel_favorites',
 									type: 'checkbox',
 									default: false
 								}
@@ -602,7 +604,7 @@ export default class SettingsManager {
 							children: [
 								{
 									label: 'Send emotes to chat immediately on click',
-									id: 'shared.chat.quick_emote_holder.send_immediately',
+									key: 'chat.quick_emote_holder.send_immediately',
 									type: 'checkbox',
 									default: false
 								}
@@ -614,27 +616,31 @@ export default class SettingsManager {
 		}
 	]
 
-	private settingsMap = new Map()
+	private settingsMap: Map<string, any> = new Map([
+		['global.shared.app.version', '1.0.0'],
+		['global.shared.app.announcements', {}]
+	] as [string, any][])
+
 	private isShowingModal = false
 	private database: DatabaseProxy
-	private eventBus: Publisher
+	private rootEventBus: Publisher
 	private modal?: SettingsModal
 
 	isLoaded = false
 
-	constructor({ database, eventBus }: { database: DatabaseProxy; eventBus: Publisher }) {
+	constructor({ database, rootEventBus }: { database: DatabaseProxy; rootEventBus: Publisher }) {
 		this.database = database
-		this.eventBus = eventBus
+		this.rootEventBus = rootEventBus
 	}
 
 	initialize() {
-		const { eventBus } = this
+		const { rootEventBus: eventBus } = this
 
-		for (const category of this.sharedSettings) {
+		for (const category of this.uiSettings) {
 			for (const subCategory of category.children) {
 				for (const group of subCategory.children) {
 					for (const setting of group.children) {
-						this.settingsMap.set(setting.id, setting.default)
+						this.settingsMap.set(`global.shared.${setting.key}`, setting.default)
 					}
 				}
 			}
@@ -644,7 +650,9 @@ export default class SettingsManager {
 	}
 
 	async loadSettings() {
-		const { database } = this
+		const { database, rootEventBus: eventBus } = this
+
+		// TODO get by global and platform ID primary keys instead of everything
 		const settingsRecords = await database.settings.getRecords()
 
 		for (const setting of settingsRecords) {
@@ -653,39 +661,74 @@ export default class SettingsManager {
 		}
 
 		//! Temporary migration code
-		;[['shared.chat.input.tab_completion.tooltip', 'shared.chat.input.completion.tooltip']].forEach(
-			([oldKey, newKey]) => {
-				if (this.settingsMap.has(oldKey)) {
-					const val = this.settingsMap.get(oldKey)
-					this.setSetting(newKey, val)
-					database.settings.deleteRecord(oldKey)
-				}
-			}
-		)
+		// ;[['shared.chat.input.tab_completion.tooltip', 'shared.chat.input.completion.tooltip']].forEach(
+		// 	([oldKey, newKey]) => {
+		// 		if (this.settingsMap.has(oldKey)) {
+		// 			const val = this.settingsMap.get(oldKey)
+		// 			this.setSetting(newKey, val)
+		// 			database.settings.deleteRecord(oldKey)
+		// 		}
+		// 	}
+		// )
 
-		// ! Temporary delete old settings records
-		;['shared.chat.input.tab_completion.multiple_entries'].forEach(key => {
-			if (!this.settingsMap.has(key)) return
-			database.settings.deleteRecord(key)
-		})
+		//! Temporary delete old settings records
+		// ;['shared.chat.input.tab_completion.multiple_entries'].forEach(key => {
+		// 	if (!this.settingsMap.has(key)) return
+		// 	database.settings.deleteRecord(key)
+		// })
 
 		this.isLoaded = true
+		eventBus.publish('ntv.settings.loaded')
 	}
 
-	setSetting(key: string, value: any) {
-		if (!key || typeof value === 'undefined') return error('Invalid setting key or value', key, value)
-		const { database } = this
+	registerSetting(
+		platformId: SettingDocument['platformId'],
+		channelId: SettingDocument['channelId'],
+		key: string,
+		defaultVal: any
+	) {
+		const id = `${platformId}.${channelId}.${key}`
 
-		database.settings
-			.putRecord({ id: key, value })
+		if (this.settingsMap.has(id)) return error('Setting already registered:', id)
+		this.settingsMap.set(id, defaultVal)
+	}
+
+	setSetting(
+		platformId: SettingDocument['platformId'],
+		channelId: SettingDocument['channelId'],
+		key: string,
+		value: any
+	) {
+		if (!platformId || !channelId || !key || typeof value === 'undefined')
+			return error('Unable to set setting, invalid parameters:', { platformId, channelId, key, value })
+
+		const id = `${platformId}.${channelId}.${key}`
+		if (!this.settingsMap.has(id)) return error('Setting not registered:', id)
+
+		this.database.settings
+			.putRecord({ id, platformId, channelId, key, value })
 			.catch((err: Error) => error('Failed to save setting to database.', err.message))
 
-		this.settingsMap.set(key, value)
+		this.settingsMap.set(id, value)
 	}
 
-	getSetting(key: string) {
-		return this.settingsMap.get(key)
+	getSetting(channelId: SettingDocument['channelId'], key: string, bubbleChannel = true, bubblePlatform = true) {
+		const platformId = PLATFORM
+		const id = `${platformId}.${channelId}.${key}`
+
+		if (this.settingsMap.has(id)) return this.settingsMap.get(id)
+		else if (bubbleChannel && channelId !== 'shared' && this.settingsMap.has(`${platformId}.shared.${key}`))
+			return this.settingsMap.get(`${platformId}.shared.${key}`)
+		else if (bubblePlatform && this.settingsMap.has(`global.${channelId}.${key}`))
+			return this.settingsMap.get(`global.${channelId}.${key}`)
+		else if (bubblePlatform && bubbleChannel && this.settingsMap.has(`global.shared.${key}`))
+			return this.settingsMap.get(`global.shared.${key}`)
+
+		return error('Setting not registered:', id)
 	}
+
+	// getSettingsForPlatform(platformId: SettingDocument['platformId']) {}
+	// getSettingsForChannel(platformId: SettingDocument['platformId'], channelId: SettingDocument['channelId']) {}
 
 	handleShowModal(evt: Event) {
 		this.showModal(!this.isShowingModal)
@@ -698,7 +741,7 @@ export default class SettingsManager {
 			)
 		}
 
-		if (bool === false) {
+		if (!bool) {
 			this.isShowingModal = false
 
 			if (this.modal) {
@@ -709,8 +752,8 @@ export default class SettingsManager {
 			this.isShowingModal = true
 
 			if (this.modal) return
-			this.modal = new SettingsModal(this.eventBus, {
-				sharedSettings: this.sharedSettings,
+			this.modal = new SettingsModal(this.rootEventBus, {
+				uiSettings: this.uiSettings,
 				settingsMap: this.settingsMap
 			})
 			this.modal.init()
@@ -719,12 +762,18 @@ export default class SettingsManager {
 				delete this.modal
 			})
 			this.modal.addEventListener('setting_change', (evt: Event) => {
-				const { id, value } = (evt as CustomEvent).detail
-				const prevValue = this.settingsMap.get(id)
+				const settingDocument = (evt as CustomEvent).detail as SettingDocument
+				const { platformId, channelId, key, value } = settingDocument
 
-				this.setSetting(id, value)
+				const prevValue = this.getSetting(channelId, key)
+
+				this.setSetting(platformId, channelId, key, value)
+
+				// TODO maybe check if setting value changed before emitting event
+				//  may be difficult to do in performant manner due to complex value types like objects
+
 				// this.eventBus.publish('ntv.settings.change', { id, value })
-				this.eventBus.publish('ntv.settings.change.' + id, { value, prevValue })
+				this.rootEventBus.publish('ntv.settings.change.' + key, { value, prevValue })
 			})
 		}
 	}

@@ -24,11 +24,13 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	}
 
 	render() {
+		const channelId = this.session.channelData.channelId
+
 		// Delete any existing quick emote holders, in case cached page got loaded somehow
 		const oldEls = document.getElementsByClassName('ntv__quick-emotes-holder')
 		for (const el of oldEls) el.remove()
 
-		const rows = this.rootContext.settingsManager.getSetting('shared.quick_emote_holder.rows') || 2
+		const rows = this.rootContext.settingsManager.getSetting(channelId, 'quick_emote_holder.rows') || 2
 		this.element = parseHTML(
 			`<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
 			true
@@ -132,19 +134,19 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		})
 
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.quick_emote_holder.rows',
+			'ntv.settings.change.quick_emote_holder.rows',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				this.element?.setAttribute('data-rows', value || '0')
 			}
 		)
 
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.quick_emote_holder.show_non_cross_channel_favorites',
+			'ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites',
 			this.renderFavoriteEmotes.bind(this)
 		)
 
 		rootEventBus.subscribe(
-			'ntv.settings.change.shared.quick_emote_holder.show_favorites',
+			'ntv.settings.change.quick_emote_holder.show_favorites',
 			this.renderFavoriteEmotes.bind(this)
 		)
 	}
@@ -155,7 +157,8 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		const emote = this.session.emotesManager.getEmote(emoteHid)
 		if (!emote) return error('Invalid emote')
 
-		if (this.rootContext.settingsManager.getSetting('shared.chat.quick_emote_holder.send_immediately')) {
+		const channelId = this.session.channelData.channelId
+		if (this.rootContext.settingsManager.getSetting(channelId, 'chat.quick_emote_holder.send_immediately')) {
 			sendImmediately = true
 		}
 
@@ -235,20 +238,22 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	}
 
 	renderFavoriteEmotes() {
-		const { emotesManager } = this.session
 		const { settingsManager } = this.rootContext
+		const { emotesManager, channelData } = this.session
+		const channelId = channelData.channelId
 
 		// Clear the current emotes
 		while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove()
 
-		if (!settingsManager.getSetting('shared.quick_emote_holder.show_favorites')) return
+		if (!settingsManager.getSetting(channelId, 'quick_emote_holder.show_favorites')) return
 
 		const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
 			(a, b) => b.orderIndex - a.orderIndex
 		)
 
 		const showNonCrossChannelEmotes = settingsManager.getSetting(
-			'shared.quick_emote_holder.show_non_cross_channel_favorites'
+			channelId,
+			'quick_emote_holder.show_non_cross_channel_favorites'
 		)
 
 		// Render the emotes
@@ -264,9 +269,11 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	}
 
 	reorderFavoriteEmote(emoteHid: string) {
-		const { emotesManager } = this.session
 		const { settingsManager } = this.rootContext
-		if (!settingsManager.getSetting('shared.quick_emote_holder.show_favorites')) return
+		const { emotesManager, channelData } = this.session
+
+		const channelId = channelData.channelId
+		if (!settingsManager.getSetting(channelId, 'quick_emote_holder.show_favorites')) return
 
 		if (this.lastDraggedEmoteEl === emoteHid) {
 			this.lastDraggedEmoteEl = null

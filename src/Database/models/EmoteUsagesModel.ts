@@ -1,9 +1,8 @@
 import { databaseExtended } from '../Database'
-import { getPlatformSlug } from '../../utils'
 
 export const emoteUsagesSchema = '&[platformId+channelId+emoteHid], platformId, channelId, emoteHid'
 
-export interface IEmoteUsagesDocument {
+export interface EmoteUsagesDocument {
 	platformId: string
 	channelId: string
 	emoteHid: string
@@ -18,7 +17,7 @@ export default class EmoteUsagesModel {
 	}
 
 	async getRecords(channelId: string) {
-		return this.db.emoteUsages.where({ platformId: getPlatformSlug(), channelId }).toArray()
+		return this.db.emoteUsages.where({ platformId: PLATFORM, channelId }).toArray()
 	}
 
 	async updateRecord(platformId: string, channelId: string, emoteHid: string, count: number) {
@@ -33,11 +32,11 @@ export default class EmoteUsagesModel {
 		return this.db.emoteUsages.where({ platformId, emoteHid }).delete()
 	}
 
-	async bulkPutRecords(documents: IEmoteUsagesDocument[]) {
+	async bulkPutRecords(documents: EmoteUsagesDocument[]) {
 		return this.db.emoteUsages.bulkPut(documents)
 	}
 
-	async bulkDeleteRecords(records: [TPlatformId, TChannelId, TEmoteHid][]) {
+	async bulkDeleteRecords(records: [PlatformId, ChannelId, EmoteHid][]) {
 		return this.db.emoteUsages.bulkDelete(records)
 	}
 

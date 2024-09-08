@@ -1,14 +1,14 @@
-import FavoriteEmotesModel, { favoriteEmotesSchema, IFavoriteEmoteDocument } from './models/FavoriteEmotesModel'
-import { ISettingDocument, settingsSchema } from './models/SettingsModel'
-import EmoteUsagesModel, { emoteUsagesSchema, IEmoteUsagesDocument } from './models/EmoteUsagesModel'
+import FavoriteEmotesModel, { favoriteEmotesSchema, FavoriteEmoteDocument } from './models/FavoriteEmotesModel'
+import { SettingDocument, settingsSchema } from './models/SettingsModel'
+import EmoteUsagesModel, { emoteUsagesSchema, EmoteUsagesDocument } from './models/EmoteUsagesModel'
 import Dexie, { DexieConstructor, type Table, type EntityTable } from 'dexie'
 import SettingsModel from './models/SettingsModel'
 import { log, error } from '../utils'
 
 export type databaseExtended = Dexie & {
-	settings: EntityTable<ISettingDocument, 'id'>
-	emoteUsages: Table<IEmoteUsagesDocument, [string, string, string]>
-	favoriteEmotes: Table<IFavoriteEmoteDocument, [string, string, string]>
+	settings: EntityTable<SettingDocument, 'id'>
+	emoteUsages: Table<EmoteUsagesDocument, [string, string, string]>
+	favoriteEmotes: Table<FavoriteEmoteDocument, [string, string, string]>
 }
 
 export default class Database {
@@ -26,7 +26,7 @@ export default class Database {
 		this.idb
 			.version(2)
 			.stores({
-				settings: settingsSchema,
+				settings: '&id',
 				emoteUsage: '&[channelId+emoteHid]',
 				emoteHistory: null
 			})
@@ -72,6 +72,23 @@ export default class Database {
 								}
 							})
 						)
+					})
+			})
+
+		this.idb
+			.version(4)
+			.stores({
+				settings: settingsSchema
+			})
+			.upgrade(tx => {
+				return tx
+					.table('settings')
+					.toCollection()
+					.modify(record => {
+						record.platformId = 'global'
+						record.channelId = 'shared'
+						record.key = record.id.replace('shared.', '')
+						record.id = `global.shared.${record.key}`
 					})
 			})
 

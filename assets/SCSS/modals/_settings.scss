@@ -66,8 +66,8 @@
 
 		span {
 			// border-bottom: 0.1em solid var(--ntv-border-transparent-2);
-			padding: $golden_ratio_inverse * 1em $golden_ratio * 1em;
 			display: inline-block;
+			padding: 0.5em 1.5em;
 			cursor: pointer;
 			width: 100%;
 		}
@@ -88,9 +88,9 @@
 		> span {
 			// padding-left: 1.3em;
 			// padding: 0.209em $golden_ratio * 1em 0.333em 1.3em;
-			padding: 0 $golden_ratio * 1em 0 1.3em;
-			margin-bottom: 0.5em;
-			font-size: 1.333em;
+			padding: 0 $golden_ratio * 1em 0 1.2em;
+			margin-bottom: 0.25em;
+			font-size: 1.2em;
 			cursor: default;
 		}
 	}
@@ -113,11 +113,11 @@
 		margin-bottom: $golden_ratio * 1em;
 
 		&-header {
-			margin-bottom: 1.5em;
+			margin-bottom: $golden_ratio * 1em;
 
-			h4 {
-				font-size: 1.333em;
-			}
+			// h4 {
+			// 	font-size: 1.333em;
+			// }
 		}
 	}
 
@@ -131,11 +131,7 @@
 		padding-top: $golden_ratio_inverse * 1em;
 
 		&[data-panel='nipahtv.changelog'] {
-			h4 {
-				margin-bottom: 1em;
-				font-size: 1.333em;
-				font-weight: bold;
-
+			h3 {
 				span {
 					font-weight: normal;
 					font-size: 0.618em;
@@ -146,6 +142,18 @@
 			p {
 				white-space: preserve;
 				margin-bottom: 1em;
+			}
+
+			ul li:first-child h3:first-child {
+				margin-top: 0;
+			}
+		}
+
+		// First group of panel
+		> .ntv__settings-modal__group:first-child .ntv__settings-modal__group-header {
+			h3,
+			h4 {
+				margin-top: 0;
 			}
 		}
 	}
@@ -176,6 +184,6 @@
 	}
 
 	.ntv__modal__body {
-		padding: 2em 3em 3em 2em;
+		padding: 2em 2em 3em 1em;
 	}
 }

@@ -38,9 +38,10 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 	render() {
 		const { settingsManager } = this.rootContext
+		const channelId = this.session.channelData.channelId
 
-		const showSearchBox = settingsManager.getSetting('shared.chat.emote_menu.search_box')
-		const showSidebar = true //settingsManager.getSetting('shared.chat.emote_menu.appearance.sidebar')
+		const showSearchBox = settingsManager.getSetting(channelId, 'chat.emote_menu.search_box')
+		const showSidebar = true //settingsManager.getSetting(channelId, 'chat.emote_menu.appearance.sidebar')
 
 		// Delete any existing emote menus, in case cached page got loaded somehow
 		Array.from(document.getElementsByClassName('ntv__emote-menu')).forEach(element => {
@@ -108,7 +109,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 	attachEventHandlers() {
 		const { settingsManager } = this.rootContext
-		const { eventBus, emotesManager } = this.session
+		const { eventBus, emotesManager, channelData } = this.session
+		const channelId = channelData.channelId
 
 		let mouseDownTimeout: NodeJS.Timeout | null = null
 
@@ -196,7 +198,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			const emote = emotesManager.getEmote(emoteHid)
 			if (!emote) return
 
-			const imageInTooltop = settingsManager.getSetting('shared.chat.tooltips.images')
+			const imageInTooltop = settingsManager.getSetting(channelId, 'chat.tooltips.images')
 			const tooltipEl = parseHTML(
 				cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
@@ -267,7 +269,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		// On ctrl+spacebar key, open the modal
-		if (settingsManager.getSetting('shared.chat.appearance.emote_menu_ctrl_spacebar')) {
+		if (settingsManager.getSetting(channelId, 'chat.appearance.emote_menu_ctrl_spacebar')) {
 			document.addEventListener('keydown', evt => {
 				if (evt.ctrlKey && evt.key === ' ') {
 					evt.preventDefault()
@@ -277,7 +279,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		}
 
 		// On ctrl+e key, open the modal
-		if (settingsManager.getSetting('shared.chat.appearance.emote_menu_ctrl_e')) {
+		if (settingsManager.getSetting(channelId, 'chat.appearance.emote_menu_ctrl_e')) {
 			document.addEventListener('keydown', evt => {
 				if (evt.ctrlKey && evt.key === 'e') {
 					evt.preventDefault()
@@ -293,7 +295,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		if (this.tooltipEl) this.tooltipEl.remove()
 
 		const { settingsManager } = this.rootContext
-		const { emotesManager } = this.session
+		const { emotesManager, channelData } = this.session
+		const channelId = channelData.channelId
 		const searchVal = evt.target.value
 
 		if (searchVal.length) {
@@ -310,7 +313,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			this.panels.search.removeChild(this.panels.search.firstChild)
 		}
 
-		const hideSubscribersEmotes = settingsManager.getSetting('shared.chat.emotes.hide_subscriber_emotes')
+		const hideSubscribersEmotes = settingsManager.getSetting(channelId, 'chat.emotes.hide_subscriber_emotes')
 
 		// Render the found emotes
 		let maxResults = 75
@@ -365,11 +368,12 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 	renderFavoriteEmoteSet() {
 		const { sidebarSetsEl, scrollableEl } = this
+		const channelId = this.session.channelData.channelId
 		const emotesPanelEl = this.panels.emotes
 		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
 		const { settingsManager } = this.rootContext
-		if (!settingsManager.getSetting('shared.emote_menu.show_favorites')) return
+		if (!settingsManager.getSetting(channelId, 'emote_menu.show_favorites')) return
 
 		const sidebarFavoritesBtn = parseHTML(
 			`<div class="ntv__emote-menu__sidebar-btn"><svg data-id="favorites" xmlns="http://www.w3.org/2000/svg" width="1.5em" height="1.5em" viewBox="0 0 24 24"><path fill="currentColor" d="m19 23.3l-.6-.5c-2-1.9-3.4-3.1-3.4-4.6c0-1.2 1-2.2 2.2-2.2c.7 0 1.4.3 1.8.8c.4-.5 1.1-.8 1.8-.8c1.2 0 2.2.9 2.2 2.2c0 1.5-1.4 2.7-3.4 4.6zM17 4v6l-2-2l-2 2V4H9v16h4.08c.12.72.37 1.39.72 2H7c-1.05 0-2-.95-2-2v-1H3v-2h2v-4H3v-2h2V7H3V5h2V4a2 2 0 0 1 2-2h12c1.05 0 2 .95 2 2v9.34c-.63-.22-1.3-.34-2-.34V4zM5 19h2v-2H5zm0-6h2v-2H5zm0-6h2V5H5z" /></svg></div`,
@@ -400,7 +404,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 	renderFavoriteEmotes() {
 		const { settingsManager } = this.rootContext
-		if (!settingsManager.getSetting('shared.emote_menu.show_favorites')) return
+		const channelId = this.session.channelData.channelId
+		if (!settingsManager.getSetting(channelId, 'emote_menu.show_favorites')) return
 
 		if (!this.favoritesEmoteSetEl) return error('Invalid favorites emote set element')
 		log('Rendering favorite emote set in emote menu..')
@@ -413,7 +418,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			(a, b) => b.orderIndex - a.orderIndex
 		)
 
-		const showUnavailableEmotes = settingsManager.getSetting('shared.emote_menu.show_unavailable_favorites')
+		const showUnavailableEmotes = settingsManager.getSetting(channelId, 'emote_menu.show_unavailable_favorites')
 
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
 			const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
@@ -433,7 +438,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 	renderEmoteSets() {
 		const { sidebarSetsEl, scrollableEl, rootContext } = this
-		const { emotesManager } = this.session
+		const { emotesManager, channelData } = this.session
+		const channelId = channelData.channelId
 		const emotesPanelEl = this.panels.emotes
 		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
@@ -448,7 +454,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		}
 
 		const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
-			'shared.chat.emotes.hide_subscriber_emotes'
+			channelId,
+			'chat.emotes.hide_subscriber_emotes'
 		)
 
 		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
@@ -566,7 +573,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 	handleEmoteClick(target: HTMLElement, emoteHid: string, isHoldingCtrl: boolean) {
 		const { settingsManager } = this.rootContext
-		const { emotesManager, eventBus } = this.session
+		const { emotesManager, eventBus, channelData } = this.session
+		const channelId = channelData.channelId
 
 		if (isHoldingCtrl) {
 			// User tries to favorite an emote
@@ -582,7 +590,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			// User wants to use an emote
 			eventBus.publish('ntv.ui.emote.click', { emoteHid })
 
-			const closeOnClick = settingsManager.getSetting('shared.chat.emote_menu.close_on_click')
+			const closeOnClick = settingsManager.getSetting(channelId, 'chat.emote_menu.close_on_click')
 			if (closeOnClick) this.toggleShow(false)
 		}
 	}

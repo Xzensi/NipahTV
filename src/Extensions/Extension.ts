@@ -2,13 +2,8 @@ export abstract class Extension {
 	abstract name: string
 	abstract version: string
 	abstract description: string
-	rootContext: RootContext
-	sessions: Session[] = []
 
-	constructor(rootContext: RootContext, sessions: Session[]) {
-		this.rootContext = rootContext
-		this.sessions = sessions
-	}
+	constructor(protected rootContext: RootContext, protected sessions: Session[]) {}
 
 	/**
 	 * Called when the extension is enabled

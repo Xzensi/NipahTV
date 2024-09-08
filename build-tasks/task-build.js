@@ -29,7 +29,10 @@ esbuild
 			__CHROMIUM_M2__: 'false',
 			__CHROMIUM_M3__: 'false',
 			__FIREFOX_MV2__: 'false',
-			__FIREFOX_MV3__: 'false'
+			__FIREFOX_MV3__: 'false',
+			APP_VERSION: 'NTV_APP_VERSION',
+			PLATFORM: 'NTV_PLATFORM',
+			RESOURCE_ROOT: 'NTV_RESOURCE_ROOT'
 		}
 	})
 	.then(() => {

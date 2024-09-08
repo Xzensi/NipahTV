@@ -219,8 +219,15 @@ export default class EmotesManager {
 
 	searchEmotes(search: string, limit = 0) {
 		const { settingsManager } = this.rootContext
-		const biasCurrentChannel = settingsManager.getSetting('shared.chat.behavior.search_bias_subscribed_channels')
-		const biasSubscribedChannels = settingsManager.getSetting('shared.chat.behavior.search_bias_current_channels')
+		const channelId = this.session.channelData.channelId
+		const biasCurrentChannel = settingsManager.getSetting(
+			channelId,
+			'chat.behavior.search_bias_subscribed_channels'
+		)
+		const biasSubscribedChannels = settingsManager.getSetting(
+			channelId,
+			'chat.behavior.search_bias_current_channels'
+		)
 
 		const results = this.datastore.searchEmotes(search, biasCurrentChannel, biasSubscribedChannels)
 		if (limit) return results.slice(0, limit)

@@ -1,10 +1,10 @@
-import { error, getPlatformSlug, info, log, REST } from '../../utils'
-import { Extension } from '../Extension'
-import BotrixExecutionStrategy from './BotrixExecutionStrategy'
 import { BotrixInputCompletionStrategy } from './BotrixInputCompletionStrategy'
+import BotrixExecutionStrategy from './BotrixExecutionStrategy'
+import { error, info, log, REST } from '../../utils'
+import { Extension } from '../Extension'
 
 class BotrixNetworkInterface {
-	static async fetchUserShopItems(userSlug: string, platformId: TPlatformId) {
+	static async fetchUserShopItems(userSlug: string, platformId: PlatformId) {
 		return REST.get(`https://botrix.live/api/public/shop/items?u=${userSlug}&platform=${platformId}`)
 	}
 }
@@ -17,7 +17,7 @@ export class BotrixSessionManager {
 	async getUserShopItems() {
 		if (!this.userShopItems.length) {
 			const userSlug = this.session.channelData.channelName
-			const platformId = getPlatformSlug()
+			const platformId = PLATFORM
 			const userShopItems = await BotrixNetworkInterface.fetchUserShopItems(userSlug, platformId)
 			log('User shop items:', userShopItems)
 
