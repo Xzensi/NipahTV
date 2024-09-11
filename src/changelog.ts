@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.7',
+		date: '2024-09-11',
+		description: `
+                  Feat: Add settings option whether to steal focus to chat input when typing
+                  Fix: Typing in chat triggering Kick shortcuts
+                  Fix: Emote menu not opening with <CTRL> + <SPACE>
+            `
+	},
+	{
 		version: '1.5.6',
 		date: '2024-09-11',
 		description: `

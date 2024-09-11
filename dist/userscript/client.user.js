@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.6
+// @version 1.5.7
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -15001,6 +15001,9 @@ var ContentEditableEditor = class {
     if (event.ctrlKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
       return this.handleCtrlArrowKeyDown(event);
     }
+    if (event.ctrlKey && (event.key === " " || event.key === "e")) {
+      return;
+    }
     if (!this.isInputEnabled) {
       event.preventDefault();
       return;
@@ -15024,7 +15027,14 @@ var ContentEditableEditor = class {
       case "Tab":
         event.preventDefault();
         break;
+      case "m":
+      case "f":
+      case "t":
+        event.stopPropagation();
+        break;
       case " ":
+        event.preventDefault();
+        event.stopPropagation();
         this.handleSpaceKey(event);
         break;
       default:
@@ -16413,8 +16423,9 @@ var KickUserInterface = class extends AbstractUserInterface {
       Pause: true,
       NumLock: true
     };
+    const hasStealFocus = () => this.rootContext.settingsManager.getSetting(this.session.channelData.channelId, "chat.input.steal_focus");
     document.body.addEventListener("keydown", (evt) => {
-      if (evt.ctrlKey || evt.altKey || evt.metaKey || ignoredKeys[evt.key] || inputController.isShowingInputCompletorNavListWindow() || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus") || !inputController.contentEditableEditor.isEnabled() || document.getElementById("modal-content")) {
+      if (evt.ctrlKey || evt.altKey || evt.metaKey || ignoredKeys[evt.key] || !hasStealFocus() || inputController.isShowingInputCompletorNavListWindow() || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus") || !inputController.contentEditableEditor.isEnabled() || document.getElementById("modal-content")) {
         return;
       }
       textFieldEl.focus();
@@ -19972,6 +19983,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.7",
+    date: "2024-09-11",
+    description: `
+                  Feat: Add settings option whether to steal focus to chat input when typing
+                  Fix: Typing in chat triggering Kick shortcuts
+                  Fix: Emote menu not opening with <CTRL> + <SPACE>
+            `
+  },
+  {
     version: "1.5.6",
     date: "2024-09-11",
     description: `
@@ -20926,6 +20946,8 @@ var SettingsManager = class {
                      - Show global emote set
                      - Show current channel emote set
              = Input
+  			(Behavior)
+  				- Steal focus to chat input when typing without having chat input focused
                  (Recent Messages)
                      - Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages
                  (Input completion)
@@ -21341,6 +21363,17 @@ var SettingsManager = class {
         {
           label: "Input",
           children: [
+            {
+              label: "Behavior",
+              children: [
+                {
+                  label: "Steal focus to chat input when typing without having chat input focused",
+                  key: "chat.input.steal_focus",
+                  default: false,
+                  type: "checkbox"
+                }
+              ]
+            },
             {
               label: "Recent Messages",
               children: [
@@ -22387,7 +22420,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.6";
+  VERSION = "1.5.7";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

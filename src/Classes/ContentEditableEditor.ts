@@ -240,6 +240,10 @@ export class ContentEditableEditor {
 			return this.handleCtrlArrowKeyDown(event)
 		}
 
+		if (event.ctrlKey && (event.key === ' ' || event.key === 'e')) {
+			return
+		}
+
 		if (!this.isInputEnabled) {
 			event.preventDefault()
 			return
@@ -268,7 +272,16 @@ export class ContentEditableEditor {
 				event.preventDefault()
 				break
 
+			case 'm':
+			case 'f':
+			case 't':
+				// Prevent triggering shortcut external to NTV
+				event.stopPropagation()
+				break
+
 			case ' ': // Space character key
+				event.preventDefault()
+				event.stopPropagation()
 				this.handleSpaceKey(event)
 				break
 

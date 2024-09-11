@@ -530,7 +530,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		})
 
-		// Ignore control keys that are not used for typing
+		// // Ignore control keys that are not used for typing
 		const ignoredKeys: { [key: string]: boolean } = {
 			ArrowUp: true,
 			ArrowDown: true,
@@ -570,6 +570,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			NumLock: true
 		}
 
+		const hasStealFocus = () =>
+			this.rootContext.settingsManager.getSetting(this.session.channelData.channelId, 'chat.input.steal_focus')
+
 		// If started typing with focus not on chat input, focus on chat input
 		document.body.addEventListener('keydown', evt => {
 			if (
@@ -577,6 +580,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				evt.altKey ||
 				evt.metaKey ||
 				ignoredKeys[evt.key] ||
+				!hasStealFocus() ||
 				inputController.isShowingInputCompletorNavListWindow() ||
 				document.activeElement?.tagName === 'INPUT' ||
 				document.activeElement?.getAttribute('contenteditable') ||
