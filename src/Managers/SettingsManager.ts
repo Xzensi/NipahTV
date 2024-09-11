@@ -107,6 +107,8 @@ export default class SettingsManager {
                     - Show global emote set
                     - Show current channel emote set
             = Input
+				(Behavior)
+					- Steal focus to chat input when typing without having chat input focused
                 (Recent Messages)
                     - Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages
                 (Input completion)
@@ -523,6 +525,17 @@ export default class SettingsManager {
 				{
 					label: 'Input',
 					children: [
+						{
+							label: 'Behavior',
+							children: [
+								{
+									label: 'Steal focus to chat input when typing without having chat input focused',
+									key: 'chat.input.steal_focus',
+									default: false,
+									type: 'checkbox'
+								}
+							]
+						},
 						{
 							label: 'Recent Messages',
 							children: [
