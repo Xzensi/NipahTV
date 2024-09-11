@@ -112,8 +112,10 @@ export default abstract class AbstractUserInterface {
 			textContent = textContent.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1)
 		}
 
-		// TODO create abstraction layer for kick emote matching and rendering
+		textContent = textContent.trim()
+		if (!textContent.length) return newNodes
 
+		// TODO create abstraction layer for kick emote matching and rendering
 		let match,
 			lastIndex = 0,
 			textBuffer = ''
@@ -125,7 +127,7 @@ export default abstract class AbstractUserInterface {
 			const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match
 
 			if (kickEmoteFormatMatch) {
-				if (textBuffer) {
+				if (textBuffer.length && textBuffer.trim()) {
 					this.parseEmojisInString(textBuffer, newNodes)
 					textBuffer = ''
 				}
@@ -146,7 +148,7 @@ export default abstract class AbstractUserInterface {
 				if (emoteHid) {
 					const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid)
 					if (emoteRender) {
-						if (textBuffer) {
+						if (textBuffer.length && textBuffer.trim()) {
 							this.parseEmojisInString(textBuffer, newNodes)
 							textBuffer = ''
 						}
@@ -164,7 +166,7 @@ export default abstract class AbstractUserInterface {
 
 		if (lastIndex > 0 && lastIndex < textContent.length) {
 			this.parseEmojisInString(textBuffer + textContent.slice(lastIndex), newNodes)
-		} else if (textBuffer) {
+		} else if (textBuffer.length && textBuffer.trim()) {
 			this.parseEmojisInString(textBuffer, newNodes)
 		} else if (lastIndex === 0) {
 			this.parseEmojisInString(textContent, newNodes)
@@ -174,6 +176,8 @@ export default abstract class AbstractUserInterface {
 	}
 
 	private parseEmojisInString(textContent: string, resultArray: Array<Text | HTMLElement> = []) {
+		textContent = textContent.trim()
+
 		const emojiEntries = twemojiParse(textContent)
 		if (emojiEntries.length) {
 			const totalEmojis = emojiEntries.length
@@ -200,10 +204,10 @@ export default abstract class AbstractUserInterface {
 
 			// After the loop, add any remaining text that comes after the last emoji
 			const remainingText = textContent.slice(lastIndex)
-			if (remainingText) {
+			if (remainingText.length && remainingText.trim()) {
 				resultArray.push(this.createPlainTextMessagePartNode(remainingText))
 			}
-		} else {
+		} else if (textContent.length) {
 			resultArray.push(this.createPlainTextMessagePartNode(textContent))
 		}
 
@@ -220,6 +224,10 @@ export default abstract class AbstractUserInterface {
 	}
 
 	private createPlainTextMessagePartNode(textContent: string) {
+		if (textContent.trim() !== textContent) {
+			error('Attempted to create a text node with a single space character.')
+			return document.createTextNode(' ')
+		}
 		const newNode = document.createElement('span')
 		newNode.append(document.createTextNode(textContent))
 		newNode.className = 'ntv__chat-message__part ntv__chat-message--text'

@@ -2,16 +2,11 @@ import { AbstractComponent } from './AbstractComponent'
 import { error, cleanupHTML, parseHTML, log } from '../../utils'
 
 export default class EmoteMenuButtonComponent extends AbstractComponent {
-	private rootContext: RootContext
-	private session: Session
 	private element?: HTMLElement
 	private footerLogoBtnEl?: HTMLElement
 
-	constructor(rootContex: RootContext, session: Session) {
+	constructor(private rootContext: RootContext, private session: Session, private placeholder: HTMLElement) {
 		super()
-
-		this.rootContext = rootContex
-		this.session = session
 	}
 
 	render() {
@@ -33,7 +28,7 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 		) as HTMLElement
 		this.footerLogoBtnEl = this.element.querySelector('img')!
 
-		document.querySelector('#chatroom-footer .send-row')?.prepend(this.element)
+		this.placeholder.replaceWith(this.element)
 	}
 
 	attachEventHandlers() {

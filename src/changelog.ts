@@ -4,9 +4,51 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.6',
+		date: '2024-09-11',
+		description: `
+                  Kick Website Overhaul:
+
+                  I have been hard at work since Kick's major website overhaul (about 12 hours ago, 10 Sept) and am excited to share that NipahTV is back up and functional with most core functionality restored!
+
+                  For those who are new or out of the loop, Kick introduced a complete redesign of their site yesterday, which has affected NipahTV and other extensions. While there’s still a lot more to be done, you can once again enjoy the core features of NipahTV!
+
+                  Current Known Issues:
+                  
+                  - Reply Functionality: Kick’s overhaul made it impossible to implement the reply message feature. When replying, NipahTV falls back to the default Kick chat input as a temporary workaround.
+                  - Firefox Issues: Kick has historically had many issues with Firefox, and currently, Firefox is having trouble authenticating.
+                  - Mobile Mode Conflicts: Kick’s new mobile mode activates on smaller window sizes, which currently breaks NipahTV.
+                  - Chat Scrolling Problems: Occasionally, chat gets stuck while scrolling, particularly when large messages with a lot of emotes expand.
+                  - Bans/Timeouts: Banning or timing out users causes their page to crash completely.
+                  - Feature Restoration: Some settings, such as the transparent overlay chat in theatre mode, still need to be re-implemented into Kick’s new design.
+                  
+                  We are continuing to make fixes and adjustments to improve the experience and restore the features you all loved. Thank you for your patience and support as we adapt to these changes!
+
+                  MAJOR BREAKING CHANGES
+                  Major fix: Complete rewrite of the Kick userinterface in support of the new website
+                  Feat: Added settings for message timestamps
+                  Fix: Accommodated new changes to the Kick API
+                  Fix: Spacing issues of texts between emotes
+            `
+	},
+	{
 		version: '1.5.5',
 		date: '2024-09-08',
 		description: `
+                  Major Kick website overhaul:
+
+                  As I'm sure many of you are aware by now, and perhaps you just found out by the time you read this announcement because it already happened, Kick has planned a major overhaul of the website.
+
+                  As reportedly planned it currently stands to be released on:
+                  - Monday 9 Sept for all of Oceania
+                  - Tuesday 10 Sept for Latin America
+                  - Wednesday 11 Sept for Europe
+                  - Thursday 12 Sept for North America
+                  
+                  It is not yet known in what ways the new website will break NipahTV, but we will do our best to keep up with the changes and provide you with the best experience possible. If it turns out to be utterly broken, simply temporarily disable the extension/userscript until we can push an update to fix it. Please be patient and allow us some time to adjust to the coming changes.
+
+                  Thank you for supporting NipahTV!
+
                   Fix: Regression of missing plaform ID for extension database
             `
 	},

@@ -72,36 +72,45 @@ export class REST {
 			const xhr = new XMLHttpRequest()
 
 			xhr.open(options.method || 'GET', url as string, true)
-			xhr.setRequestHeader('accept', 'application/json, text/plain, */*')
+			xhr.setRequestHeader('accept', 'application/json')
 
 			if (options.body || options.method !== 'GET') {
 				xhr.setRequestHeader('Content-Type', 'application/json')
-
-				// 	options.headers = Object.assign(options.headers || {}, {
-				// 		// 'Content-Type': 'application/json',
-				// 		Accept: 'application/json, text/plain, */*'
-				// 	})
+				options.headers = Object.assign(options.headers || {}, {
+					'Content-Type': 'application/json'
+					// Accept: 'application/json, text/plain, */*'
+				})
 			}
 
 			const currentDomain = window.location.host.split('.').slice(-2).join('.')
 			const urlDomain = new URL(url as string).host.split('.').slice(-2).join('.')
 			if (currentDomain === urlDomain) {
 				// options.credentials = 'include'
-				// options.referrer = window.location.origin + window.location.pathname
 
 				xhr.withCredentials = true
-				// w.setRequestHeader('X-Referer', window.location.origin + window.location.pathname)
-				// w.setRequestHeader('Referer', window.location.origin + window.location.pathname)
 
-				const XSRFToken = getCookie('XSRF')
-				if (XSRFToken) {
-					xhr.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
-					xhr.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
+				xhr.setRequestHeader('site', 'v2')
 
-					// options.headers = Object.assign(options.headers || {}, {
-					// 	'X-XSRF-TOKEN': XSRFToken,
-					// 	Authorization: 'Bearer ' + XSRFToken
-					// })
+				options.headers = Object.assign(options.headers || {}, {
+					site: 'v2'
+				})
+
+				// const XSRFToken = getCookie('XSRF')
+				// if (XSRFToken) {
+				// 	xhr.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
+
+				// 	options.headers = Object.assign(options.headers || {}, {
+				// 		'X-XSRF-TOKEN': XSRFToken
+				// 	})
+				// }
+
+				const sessionToken = getCookie('session_token')
+				if (sessionToken) {
+					xhr.setRequestHeader('Authorization', 'Bearer ' + sessionToken)
+
+					options.headers = Object.assign(options.headers || {}, {
+						Authorization: 'Bearer ' + sessionToken
+					})
 				}
 			}
 
@@ -328,6 +337,38 @@ export function waitForElements(
 			if (selectors.every(selector => document.querySelector(selector))) {
 				clearInterval(interval)
 				resolve(selectors.map(selector => document.querySelector(selector) as Element))
+			} else if (Date.now() > timeoutTimestamp) {
+				clearInterval(interval)
+				reject(new Error('Timeout'))
+			}
+		}
+
+		interval = setInterval(checkElements, 100)
+		checkElements()
+
+		if (signal) {
+			signal.addEventListener('abort', () => {
+				clearInterval(interval)
+				reject(new DOMException('Aborted', 'AbortError'))
+			})
+		}
+	})
+}
+
+export function waitForTargetedElements(
+	target: Element | Document,
+	selectors: Array<string>,
+	timeout = 10000,
+	signal: AbortSignal | null = null
+): Promise<Array<Element>> {
+	return new Promise((resolve, reject) => {
+		let interval: NodeJS.Timeout
+		let timeoutTimestamp = Date.now() + timeout
+
+		const checkElements = function () {
+			if (selectors.every(selector => target.querySelector(selector))) {
+				clearInterval(interval)
+				resolve(selectors.map(selector => target.querySelector(selector) as Element))
 			} else if (Date.now() > timeoutTimestamp) {
 				clearInterval(interval)
 				reject(new Error('Timeout'))
