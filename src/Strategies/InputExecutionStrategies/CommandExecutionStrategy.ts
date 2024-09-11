@@ -21,10 +21,6 @@ export default class CommandExecutionStrategy implements InputExecutionStrategy 
 		const isInvalid = this.validateInputCommand(inputString.substring(1))
 		const [commandData, commandEntry] = this.getParsedInputCommand(inputString.substring(1))
 
-		log('Command input', inputString, inputString.substring(1))
-		log('Command data', commandData)
-		log('Command entry', commandEntry)
-
 		if (isInvalid) {
 			throw new Error(isInvalid)
 		} else if (!commandData) {
