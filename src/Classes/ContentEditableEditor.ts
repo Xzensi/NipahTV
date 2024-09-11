@@ -273,6 +273,7 @@ export class ContentEditableEditor {
 				break
 
 			case 'm':
+			case 'k':
 			case 'f':
 			case 't':
 				// Prevent triggering shortcut external to NTV

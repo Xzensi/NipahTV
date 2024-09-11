@@ -19,6 +19,11 @@
 		padding: 1em $golden_ratio * 1em;
 	}
 
+	&__mute {
+		// Temporarily disable feature until user registration management is fixed
+		display: none;
+	}
+
 	&__header {
 		position: relative;
 		width: 100%;
