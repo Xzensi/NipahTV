@@ -1,12 +1,6 @@
 @use 'variables' as *;
 
-.ntv__chat-messages-container {
-	flex-direction: column;
-	display: flex;
-}
-
-span.ntv__chat-message,
-div.ntv__chat-message {
+.ntv__chat-message {
 	font-size: $root_font_size;
 	padding: 0.33em 0.9em;
 	margin: 0;
@@ -16,24 +10,43 @@ div.ntv__chat-message {
 	}
 
 	&__identity {
+		// vertical-align: middle;
+		display: inline;
 		margin-left: 0;
+	}
+
+	&__badges,
+	&__username,
+	&__seperator {
+		display: inline;
 	}
 
 	&__timestamp {
 		font-family: Helvetica Neue, sans-serif;
 		font-variant-numeric: tabular-nums;
 		margin-right: 0.45em;
+		white-space: nowrap;
 		color: #adadb8;
+		display: none;
 	}
+
 	&__badges {
+		margin-right: 0.12em;
+		white-space: nowrap;
+
+		.ntv__badge {
+			margin-right: 0.333em;
+		}
 	}
+
 	&__username {
 		font-weight: 700;
 		cursor: pointer;
 	}
+
 	&__part {
 		word-break: break-word;
-		margin-right: 0.3em;
+		margin-right: 0.333em;
 		white-space: normal;
 		line-height: 1.5em;
 

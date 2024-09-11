@@ -228,11 +228,12 @@
 		outline: 0.1em solid var(--ntv-border-transparent-2);
 		box-shadow: shadow_elevation(3);
 		// transform: translateY(-100%);
+		transform: translateY(-100%);
 		font-size: $root_font_size;
 		border-radius: 0.25em;
 		position: absolute;
 		z-index: 1000;
-		bottom: 115%;
+		top: -0.618em;
 		width: 100%;
 		left: 0;
 
@@ -365,7 +366,9 @@
 	}
 
 	&__badge {
-		height: $golden_ratio * 1em;
-		width: $golden_ratio * 1em;
+		vertical-align: middle;
+		display: inline-block;
+		height: 1.4em;
+		width: 1.4em;
 	}
 }

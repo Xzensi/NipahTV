@@ -1,0 +1,17 @@
+@use '../../variables' as *;
+
+.ntv__quick-emotes-holder {
+	padding-bottom: $golden_ratio_inverse * 1em;
+
+	& + div {
+		// Force hide the Kick quick emote holder
+		display: none !important;
+	}
+}
+
+#channel-chatroom > div > div > .z-common:not(.absolute) {
+	// Input & submit button wrapper
+	> .flex {
+		flex-direction: column;
+	}
+}

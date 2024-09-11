@@ -70,7 +70,8 @@ export default class SettingsManager {
                 (General)
                     - Use Ctrl+E to open the Emote Menu
                     - Use Ctrl+Spacebar for quick emote access
-				(Message style)
+				(Messages)
+					- Show timestamps of messages (checkbox)
 					- Seperators (dropdown)
 					- Messages spacing (dropdown)
 					- Messages style (dropdown
@@ -225,8 +226,14 @@ export default class SettingsManager {
 							]
 						},
 						{
-							label: 'Message style',
+							label: 'Messages',
 							children: [
+								{
+									label: 'Show chat message timestamps',
+									key: 'chat.appearance.show_timestamps',
+									default: false,
+									type: 'checkbox'
+								},
 								{
 									label: 'Seperators',
 									key: 'chat.appearance.seperators',

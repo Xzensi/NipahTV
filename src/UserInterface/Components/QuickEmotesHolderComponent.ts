@@ -2,25 +2,17 @@ import { log, info, error, assertArgDefined, parseHTML } from '../../utils'
 import { AbstractComponent } from './AbstractComponent'
 
 export default class QuickEmotesHolderComponent extends AbstractComponent {
-	private rootContext: RootContext
-	private session: Session
-
 	private element!: HTMLElement
 	private favoritesEl!: HTMLElement
 	private commonlyUsedEl!: HTMLElement
 
-	private placeholder: HTMLElement
 	private isDraggingEmote = false
 	private dragHandleEmoteEl: HTMLElement | null = null
 	private dragEmoteNewIndex: number | null = null
 	private lastDraggedEmoteEl: string | null = null
 
-	constructor(rootContext: RootContext, session: Session, placeholder: HTMLElement) {
+	constructor(private rootContext: RootContext, private session: Session, private placeholder: HTMLElement) {
 		super()
-
-		this.rootContext = rootContext
-		this.session = session
-		this.placeholder = placeholder
 	}
 
 	render() {

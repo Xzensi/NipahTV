@@ -1,5 +1,30 @@
 .ntv__chat-message {
-	&__identity {
-		margin-left: 0 !important;
+	&__badge {
+		display: inline-block;
+	}
+}
+
+// .ntv__chat-messages-container {
+// 	> div {
+// 		display: none;
+// 	}
+// }
+
+.ntv__chat-message {
+	.kick__chat-message__actions {
+		display: none;
+
+		.kick__reply-button {
+			svg {
+				pointer-events: none;
+				user-select: none;
+			}
+		}
+	}
+
+	&:hover {
+		.kick__chat-message__actions {
+			display: flex;
+		}
 	}
 }

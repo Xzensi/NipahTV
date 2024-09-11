@@ -104,7 +104,13 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 		this.renderFavoriteEmoteSet()
 
-		this.parentContainer.appendChild(this.containerEl)
+		document.body.appendChild(this.containerEl)
+
+		const parentContainerPosition = this.parentContainer.getBoundingClientRect()
+
+		// Adjust the position of the emote menu based on the parent container
+		this.containerEl.style.top = parentContainerPosition.top - 10 + 'px'
+		this.containerEl.style.left = parentContainerPosition.left + 'px'
 	}
 
 	attachEventHandlers() {

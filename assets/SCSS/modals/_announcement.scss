@@ -3,7 +3,7 @@
 .ntv__announcement-modal {
 	min-height: 350px;
 	max-height: 600px;
-	max-width: 550px;
+	max-width: 600px;
 
 	.ntv__modal__header__body {
 		> * {
@@ -19,6 +19,11 @@
 			position: absolute;
 			bottom: 1.6em;
 			right: 1.6em;
+		}
+
+		ul {
+			margin-bottom: $golden_ratio_inverse * 1em;
+			margin-top: $golden_ratio_inverse * 1em;
 		}
 	}
 
