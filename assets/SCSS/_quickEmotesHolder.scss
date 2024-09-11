@@ -10,7 +10,7 @@
 	// To accomodate for ntv__emote:hover -> scale: 110% with overflow: hidden
 	$hoverScalePadding: 0.18em;
 	overflow: hidden;
-	padding: $hoverScalePadding;
+	margin: $hoverScalePadding;
 	box-sizing: content-box;
 
 	> div {

@@ -272,13 +272,6 @@ export class ContentEditableEditor {
 				event.preventDefault()
 				break
 
-			case 'm':
-			case 'f':
-			case 't':
-				// Prevent triggering shortcut external to NTV
-				event.stopPropagation()
-				break
-
 			case ' ': // Space character key
 				event.preventDefault()
 				event.stopPropagation()
@@ -288,6 +281,7 @@ export class ContentEditableEditor {
 			default:
 				if (eventKeyIsLetterDigitPuncSpaceChar(event)) {
 					event.preventDefault()
+					event.stopPropagation()
 					this.insertText(event.key)
 				}
 		}

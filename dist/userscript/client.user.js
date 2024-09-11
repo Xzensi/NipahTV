@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.7
+// @version 1.5.8
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-38d35cb8.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7588a666.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11087,7 +11087,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
 			`),
       true
     );
-    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/${this.session.channelData.channelName}/chatroom`);
+    this.containerEl.querySelector(".ntv__chatroom-link").setAttribute("href", `/popout/${this.session.channelData.channelName}/chat`);
     this.searchInputEl = this.containerEl.querySelector(".ntv__emote-menu__search input");
     this.scrollableEl = this.containerEl.querySelector(".ntv__emote-menu__scrollable");
     this.settingsBtnEl = this.containerEl.querySelector(".ntv__emote-menu__sidebar-btn--settings");
@@ -15027,11 +15027,6 @@ var ContentEditableEditor = class {
       case "Tab":
         event.preventDefault();
         break;
-      case "m":
-      case "f":
-      case "t":
-        event.stopPropagation();
-        break;
       case " ":
         event.preventDefault();
         event.stopPropagation();
@@ -15040,6 +15035,7 @@ var ContentEditableEditor = class {
       default:
         if (eventKeyIsLetterDigitPuncSpaceChar(event)) {
           event.preventDefault();
+          event.stopPropagation();
           this.insertText(event.key);
         }
     }
@@ -19983,6 +19979,17 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.8",
+    date: "2024-09-11",
+    description: `
+                  Fix: Shortcut <K>key would pause stream while typing in chat
+                  Fix: Command completions not updating on keys that match Kick shortcuts
+                  Fix: Updated old popout chat link
+                  Fix: Quick emote holder showing overflowing emotes
+                  Fix: Temporarily disabled mute button in user info modals until user management is fixed
+            `
+  },
+  {
     version: "1.5.7",
     date: "2024-09-11",
     description: `
@@ -22420,7 +22427,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.7";
+  VERSION = "1.5.8";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
