@@ -3,6 +3,8 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="description" content="NipahTV - Userscript - Transform your chat experience on Kick with new features, emotes and performance improvements." />
+	<meta name="keywords" content="NipahTV, Kick, 7TV, emotes, chat experience, streaming, emote extension, performance improvements" />
 	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 	<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -12,7 +14,7 @@
 	<meta name="application-name" content="NipahTV" />
 	<meta name="msapplication-TileColor" content="#da532c" />
 	<meta name="theme-color" content="#ffffff" />
-
+	
 	<title>NipahTV - Userscript - Transform your chat experience on Kick with new features, emotes and performance improvements</title>
 	
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,7 +39,7 @@
 		<section class="less-padding">
 			<div class="container grid-center">
 				<h2>Userscript Installation Instructions</h2>
-
+				
 				<p>Userscripts are scripts that can be installed in your browser to add new features to websites. NipahTV is also available as an userscript that adds new features to the Kick website. To install the script, you will need to install an userscript manager extension in your browser.</p>
 				
 				<div class="tabs">
@@ -68,15 +70,15 @@
 							
 							<h2>Want to keep 7TV extension for Twitch or Youtube?</h2>
 							<p>If you want to keep using the 7TV extension for other sites like Twitch or Youtube, make sure the extension is not enabled on the Kick domain. To do this, either disable the Kick plaform on the 7TV settings page or go to your browser extensions and follow the following steps to disable it.</p>
-
+							
 							<img src="img/chrome_2.png" alt="Chrome screenshot">
 							<img src="img/chrome_3.png" alt="Chrome screenshot">
-
+							
 							<p>That's all there is to it, enjoy!</p>
 						</div>
 						<div id="firefox" class="tabs__panel">
 							<p>We recommend using the open source Violentmonkey extension as Userscript manager. You can get it from the <a href="https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/" target="_blank">Firefox Add-ons</a>.</p>
-
+							
 							<p>After installing the Userscript manager, click on the extension and open it's dashboard.</p>
 							<img src="img/firefox_1.png" alt="Firefox screenshot">
 							<p>Next in the topleft corner click on the plus icon and choose "Install from URL".</p>
@@ -88,16 +90,16 @@
 							
 							<h2>Want to keep 7TV extension for Twitch or Youtube?</h2>
 							<p>If you want to keep using the 7TV extension for other sites like Twitch or Youtube, make sure the extension is not enabled on the Kick domain. To do this, either disable the Kick plaform on the 7TV settings page or go to your browser extensions and follow the following steps to disable it.</p>
-
+							
 							<img src="img/firefox_5.png" alt="Firefox screenshot">
 							<img src="img/firefox_6.png" alt="Firefox screenshot">
 							<img src="img/firefox_7.png" alt="Firefox screenshot">
-
+							
 							<p>That's all there is to it, enjoy!</p>
 						</div>
 						<div id="edge" class="tabs__panel">
 							<p>We recommend using the open source Violentmonkey extension as Userscript manager. You can get it from the <a href="https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao" target="_blank">Microsoft Edge Add-ons</a>.</p>
-
+							
 							<p>After installing the Userscript manager, <a href="https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js">click here to install the script</a>. A new page will open asking you to install the script. Click the "+ Close" button to install the script and close the page. Lastly, make sure to <a href="https://github.com/Xzensi/NipahTV/wiki/Installation-instructions#want-to-keep-7tv-for-twitch-or-youtube">read the part about 7TV in this section</a>.</p>
 							<img src="img/edge_1.png" alt="Edge screenshot">
 							
@@ -106,7 +108,7 @@
 							
 							<img src="img/edge_2.png" alt="Edge screenshot">
 							<img src="img/edge_3.png" alt="Edge screenshot">
-
+							
 							<p>That's all there is to it, enjoy!</p>
 						</div>
 						<div id="opera" class="tabs__panel">
@@ -120,43 +122,53 @@
 								<a href="https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js">https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js</a>
 								<br><br>
 								Make sure you don't have 7TV extension enabled alongside NipahTV on Kick. Just disable the extension for the kick domain/plaform in your browser settings of the extension.</p>
+							</div>
 						</div>
 					</div>
 				</div>
 			</div>
-		</div>
-	</section>
-	<section>
-		<div class="container grid-center">
-			<h3>Follow us on Github</h3>
-			<a href="https://github.com/Xzensi/NipahTV" target="_blank" rel="noopener">
-				<img src="img/icons/github-mark-white.svg" alt="Github logo" target="_blank" />
-			</a>
-		</div>
-	</section>
-</main>
-
-<script>
-	const browser = (function (agent) {
-        switch (true) {
-            case agent.indexOf("edge") > -1: return "ms_edge"
-            case agent.indexOf("edg") > -1: return "ms_edge"
-            case agent.indexOf("opr") > -1 && !!window.opr: return "opera"
-            case agent.indexOf("chrome") > -1 && !!window.chrome: return "chrome"
-            case agent.indexOf("firefox") > -1: return "firefox"
-            case agent.indexOf("safari") > -1: return "safari"
-        }
-    })(window.navigator.userAgent.toLowerCase());
-
-	if (browser === 'firefox') {
-		document.getElementById('tab2').checked = true
-	} else if (browser === 'ms_edge') {
-		document.getElementById('tab3').checked = true
-	} else if (browser === 'opera') {
-		document.getElementById('tab4').checked = true
-	} else if (browser === 'safari') {
-		document.getElementById('tab5').checked = true
-	}
-</script>
+		</section>
+		<section>
+			<div class="container grid-center">
+				<h3>Follow us on Github</h3>
+				<a href="https://github.com/Xzensi/NipahTV" target="_blank" rel="noopener">
+					<img src="img/icons/github-mark-white.svg" alt="Github logo" target="_blank" />
+				</a>
+			</div>
+		</section>
+	</main>
+	
+	<script>
+		const browser = (function (agent) {
+			switch (true) {
+				case agent.indexOf("edge") > -1: return "ms_edge"
+				case agent.indexOf("edg") > -1: return "ms_edge"
+				case agent.indexOf("opr") > -1 && !!window.opr: return "opera"
+				case agent.indexOf("chrome") > -1 && !!window.chrome: return "chrome"
+				case agent.indexOf("firefox") > -1: return "firefox"
+				case agent.indexOf("safari") > -1: return "safari"
+			}
+		})(window.navigator.userAgent.toLowerCase());
+		
+		if (browser === 'firefox') {
+			document.getElementById('tab2').checked = true
+		} else if (browser === 'ms_edge') {
+			document.getElementById('tab3').checked = true
+		} else if (browser === 'opera') {
+			document.getElementById('tab4').checked = true
+		} else if (browser === 'safari') {
+			document.getElementById('tab5').checked = true
+		}
+	</script>
+	
+	<!-- Google tag (gtag.js) -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZK75GYKWMX"></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+		function gtag(){dataLayer.push(arguments);}
+		gtag('js', new Date());
+		
+		gtag('config', 'G-ZK75GYKWMX');
+	</script>
 </body>
 </html>
