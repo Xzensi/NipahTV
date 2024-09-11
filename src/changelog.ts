@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.8',
+		date: '2024-09-11',
+		description: `
+                  Fix: Shortcut <K>key would pause stream while typing in chat
+                  Fix: Command completions not updating on keys that match Kick shortcuts
+                  Fix: Updated old popout chat link
+                  Fix: Quick emote holder showing overflowing emotes
+                  Fix: Temporarily disabled mute button in user info modals until user management is fixed
+            `
+	},
+	{
 		version: '1.5.7',
 		date: '2024-09-11',
 		description: `
