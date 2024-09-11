@@ -100,6 +100,12 @@ img {
 	padding: 0 1em;
 	margin: 0 auto;
 	width: 100%;
+
+	justify-content: center;
+	align-content: center;
+	align-items: center;
+	flex-wrap: wrap;
+	display: flex;
 }
 
 .tabs {
@@ -240,6 +246,15 @@ section {
 
 	.row {
 		width: 100%;
+	}
+
+	.container {
+		row-gap: 1.618em;
+		column-gap: 5em;
+	}
+
+	.content-block {
+		max-width: 27rem;
 	}
 }
 

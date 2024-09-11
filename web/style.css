@@ -98,6 +98,11 @@ img {
   padding: 0 1em;
   margin: 0 auto;
   width: 100%;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  display: flex;
 }
 
 .tabs {
@@ -217,6 +222,14 @@ section img {
 }
 section .row {
   width: 100%;
+}
+section .container {
+  row-gap: 1.618em;
+  -moz-column-gap: 5em;
+       column-gap: 5em;
+}
+section .content-block {
+  max-width: 27rem;
 }
 
 #banner {
