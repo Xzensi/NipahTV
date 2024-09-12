@@ -206,7 +206,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		// // Submit input to chat
+		// Submit input to chat
 		eventBus.subscribe('ntv.input_controller.submit', (data: any) => this.submitInput(false, data?.dontClearInput))
 
 		// Set chat show message timestamps

@@ -265,7 +265,7 @@ export default class SettingsManager {
 									]
 								},
 								{
-									label: 'Messages spacing',
+									label: 'Messages spacing (currently broken on new Kick website!)',
 									key: 'chat.appearance.messages_spacing',
 									default: 'none',
 									type: 'dropdown',
