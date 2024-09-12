@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.10',
+		date: '2024-09-12',
+		description: `
+                  Feat: Added message rendering queue system to increase performance for fast moving chats
+                  Fix: Translucent chat overlay mode being enabled by default
+            `
+	},
+	{
 		version: '1.5.9',
 		date: '2024-09-12',
 		description: `
