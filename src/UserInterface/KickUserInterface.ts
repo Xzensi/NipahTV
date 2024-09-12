@@ -34,12 +34,14 @@ export class KickUserInterface extends AbstractUserInterface {
 		chatMessagesContainer: HTMLElement | null
 		replyMessageWrapper: HTMLElement | null
 		submitButton: HTMLElement | null
+		originalSubmitButton: HTMLElement | null
 		textField: HTMLElement | null
 		timersContainer: HTMLElement | null
 	} = {
 		chatMessagesContainer: null,
 		replyMessageWrapper: null,
 		submitButton: null,
+		originalSubmitButton: null,
 		textField: null,
 		timersContainer: null
 	}
@@ -432,8 +434,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		submitButtonEl.classList.add('ntv__submit-button', 'disabled')
 		submitButtonEl.textContent = 'Chat'
 
-		kickSubmitButtonEl.after(submitButtonEl)
+		this.elm.originalSubmitButton = kickSubmitButtonEl
 		kickSubmitButtonEl.style.setProperty('display', 'none', 'important')
+		kickSubmitButtonEl.after(submitButtonEl)
 		// kickSubmitButtonEl.remove()
 
 		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
@@ -1628,6 +1631,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		textFieldEl.parentElement!.style.display = 'none'
 		originalTextFieldEl?.parentElement?.style.removeProperty('display')
 
+		this.elm.submitButton!.style.setProperty('display', 'none', 'important')
+		this.elm.originalSubmitButton!.style.removeProperty('display')
+
 		await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2_000)
 
 		const closeReplyButton = document
@@ -1644,6 +1650,8 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (mutation.removedNodes.length) {
 					originalTextFieldEl!.parentElement!.style.display = 'none'
 					textFieldEl.parentElement!.style.removeProperty('display')
+					this.elm.submitButton!.style.removeProperty('display')
+					this.elm.originalSubmitButton!.style.setProperty('display', 'none', 'important')
 					observer.disconnect()
 				}
 			})
