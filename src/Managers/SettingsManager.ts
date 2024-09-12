@@ -60,6 +60,7 @@ export default class SettingsManager {
 		    = Layout
 				(Appearance)
 		            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
+					- Overlay chat position in theatre mode (dropdown)
         = Chat
             = Appearance
                 (Appearance)
@@ -168,6 +169,23 @@ export default class SettingsManager {
 										}
 									]
 								}
+								// Need to adjust the video player controls position when chat is overlayed
+								// {
+								// 	label: 'Overlay chat position in theatre mode',
+								// 	key: 'appearance.layout.overlay_chat_position',
+								// 	default: 'right',
+								// 	type: 'dropdown',
+								// 	options: [
+								// 		{
+								// 			label: 'Right',
+								// 			value: 'right'
+								// 		},
+								// 		{
+								// 			label: 'Left',
+								// 			value: 'left'
+								// 		}
+								// 	]
+								// }
 							]
 						}
 					]

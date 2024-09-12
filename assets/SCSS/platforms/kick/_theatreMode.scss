@@ -1,0 +1,86 @@
+body > [data-theatre='true'].ntv__theatre-overlay {
+	&-mode {
+		#channel-chatroom {
+			background: transparent;
+			position: absolute;
+			right: 0;
+
+			.bg-surface-lower,
+			.bg-grey-950,
+			.kick__chat-footer {
+				background: transparent;
+			}
+
+			& > .bg-surface-lower > .bg-surface-lower.overflow-hidden {
+				padding: 0.333em 0;
+			}
+		}
+
+		&--very-translucent {
+			.ntv__chat-message,
+		.kick__chat-footer,
+        // Chat top bar with text "Chat"
+        #channel-chatroom > :nth-child(1),
+        // Chat top gifters header
+        #channel-chatroom > .bg-surface-lower > .overflow-hidden > .bg-surface-lower {
+				backdrop-filter: blur(5px);
+				background-color: rgba(0, 0, 10, 0.0618) !important;
+			}
+
+			.ntv__chat-message.pinned-message {
+				// Blur doesnt work in chromium due to ancient bug
+				// https://issues.chromium.org/u/1/issues/40942655?pli=1
+				backdrop-filter: blur(20px);
+				background-color: rgba(0, 0, 10, 0.618) !important;
+			}
+		}
+
+		&--semi-translucent {
+			.ntv__chat-message,
+		.kick__chat-footer,
+        // Chat top bar with text "Chat"
+        #channel-chatroom > :nth-child(1),
+        // Chat top gifters header
+        #channel-chatroom > .bg-surface-lower > .overflow-hidden > .bg-surface-lower {
+				backdrop-filter: blur(6px);
+				background-color: rgba(0, 0, 10, 0.2) !important;
+			}
+
+			.ntv__chat-message.pinned-message {
+				backdrop-filter: blur(8px);
+				background-color: rgba(0, 0, 10, 0.618) !important;
+			}
+		}
+
+		&--dark-translucent {
+			.ntv__chat-message,
+		.kick__chat-footer,
+        // Chat top bar with text "Chat"
+        #channel-chatroom > :nth-child(1),
+        // Chat top gifters header
+        #channel-chatroom > .bg-surface-lower > .overflow-hidden > .bg-surface-lower {
+				backdrop-filter: blur(8px);
+				background-color: rgba(0, 0, 10, 0.45) !important;
+			}
+
+			.ntv__chat-message.pinned-message {
+				backdrop-filter: blur(9px);
+				background-color: rgba(0, 0, 10, 0.618) !important;
+			}
+		}
+	}
+
+	&-position {
+		&--right {
+			#channel-chatroom {
+				right: 0;
+			}
+		}
+
+		&--left {
+			#channel-chatroom {
+				left: 0;
+			}
+		}
+	}
+}
