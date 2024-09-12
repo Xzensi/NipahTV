@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.9
+// @version 1.5.10
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f75a7aec.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-8adcd82e.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10382,6 +10382,12 @@ function hex2rgb(hex) {
   const b = parseInt(hex.slice(5, 7), 16);
   return [r, g, b];
 }
+function isElementInDOM(node) {
+  const doc = node.ownerDocument;
+  if (!doc) return false;
+  if (doc.documentElement === document.documentElement) return true;
+  return false;
+}
 function waitForElements(selectors, timeout = 1e4, signal = null) {
   return new Promise((resolve, reject) => {
     let interval;
@@ -16059,6 +16065,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   };
   stickyScroll = true;
   maxMessageLength = 500;
+  queuedChatMessages = [];
   constructor(rootContext, session) {
     super(rootContext, session);
   }
@@ -16085,9 +16092,6 @@ var KickUserInterface = class extends AbstractUserInterface {
       const [textFieldEl, submitButtonEl] = foundElements;
       this.loadInputBehaviour(textFieldEl, submitButtonEl);
       this.loadEmoteMenu();
-      if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
-        document.getElementById("chatroom")?.classList.add("ntv__smooth-scrolling");
-      }
     }).catch(() => {
     });
     waitForElements([`${footerSelector}`], 1e4, abortSignal).then((foundElements) => {
@@ -16133,10 +16137,13 @@ var KickUserInterface = class extends AbstractUserInterface {
       if (seperatorSettingVal && seperatorSettingVal !== "none") {
         chatMessagesContainerEl.classList.add(`ntv__seperators-${seperatorSettingVal}`);
       }
+      if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
+        chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
+      }
       chatMessagesContainerEl.addEventListener("copy", (evt) => {
         this.clipboard.handleCopyEvent(evt);
       });
-      eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
+      eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
       this.observeChatEntriesForDeletionEvents();
       this.observeChatMessages(chatMessagesContainerEl);
       this.loadTheatreModeBehaviour();
@@ -16472,7 +16479,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const channelId = this.session.channelData.channelId;
     const chatOverlayModeSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
-    if (chatOverlayModeSetting) {
+    if (chatOverlayModeSetting && chatOverlayModeSetting !== "none") {
       waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
         containerEl.classList.add("ntv__theatre-overlay-mode");
         containerEl.classList.add(
@@ -16615,6 +16622,37 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     });
   }
+  loadChatMesssageRenderingBehaviour() {
+    const tps = 5;
+    const renderChatMessagesLoop = () => {
+      const queue = this.queuedChatMessages;
+      if (queue.length) {
+        for (let i = queue.length - 1; i >= 0; i--) {
+          const msgEl = queue[i];
+          if (!isElementInDOM(msgEl)) {
+            queue.splice(0, i);
+            break;
+          }
+        }
+        const messageChunkSize = 10;
+        const queueSlice = queue.splice(queue.length - messageChunkSize);
+        for (let i = queueSlice.length - 1; i >= 0; i--) {
+          const msgEl = queueSlice[i];
+          this.renderChatMessage(msgEl);
+        }
+      }
+      setTimeout(() => requestAnimationFrame(renderChatMessagesLoop), 1e3 / tps);
+    };
+    renderChatMessagesLoop();
+  }
+  // renderChatMessages() {
+  // 	if (!this.elm || !this.elm.chatMessagesContainer) return
+  // 	const chatMessagesContainerEl = this.elm.chatMessagesContainer
+  // 	for (const messageNode of chatMessagesContainerEl.children) {
+  // 		this.queuedChatMessages.push(messageNode as HTMLElement)
+  // 		// this.renderChatMessage(messageNode as HTMLElement)
+  // 	}
+  // }
   observeChatMessages(chatMessagesContainerEl) {
     const channelId = this.session.channelData.channelId;
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
@@ -16626,11 +16664,8 @@ var KickUserInterface = class extends AbstractUserInterface {
             if (mutation.addedNodes.length) {
               for (const messageNode of mutation.addedNodes) {
                 if (messageNode instanceof HTMLElement) {
-                  this.renderChatMessage(messageNode);
+                  this.queuedChatMessages.push(messageNode);
                 }
-              }
-              if (this.stickyScroll) {
-                window.requestAnimationFrame(scrollToBottom);
               }
             }
           });
@@ -16818,21 +16853,26 @@ var KickUserInterface = class extends AbstractUserInterface {
   // 		}
   // 	})
   // }
-  renderChatMessages() {
-    if (!this.elm || !this.elm.chatMessagesContainer) return;
-    const chatMessagesContainerEl = this.elm.chatMessagesContainer;
-    for (const messageNode of chatMessagesContainerEl.children) {
-      this.renderChatMessage(messageNode);
-    }
-  }
   renderChatMessage(messageNode) {
     const { settingsManager } = this.rootContext;
     const { emotesManager, usersManager } = this.session;
     const { channelData } = this.session;
     const channelId = channelData.channelId;
-    if (!messageNode.children || !messageNode.firstElementChild.classList.contains("group")) return;
-    messageNode.style.display = "none";
-    const ntvChatMessageContainerEl = messageNode;
+    const chatMessagesStyle = settingsManager.getSetting(channelId, "chat.appearance.messages_style");
+    const chatMessagesSpacing = settingsManager.getSetting(channelId, "chat.appearance.messages_spacing");
+    if (chatMessagesStyle && chatMessagesStyle !== "none")
+      messageNode.classList.add("ntv__chat-message--theme-" + chatMessagesStyle);
+    if (chatMessagesSpacing && chatMessagesSpacing !== "none")
+      messageNode.classList.add("ntv__chat-message--" + chatMessagesSpacing);
+    if (!messageNode.children || !messageNode.firstElementChild.classList.contains("group")) {
+      messageNode.classList.add("ntv__chat-message");
+      if (messageNode.firstElementChild?.classList.contains("items-center")) {
+        messageNode.classList.add("ntv__chat-message--history-breaker");
+      } else {
+        messageNode.classList.add("ntv__chat-message--history-breaker");
+      }
+      return;
+    }
     const ntvIdentityWrapperEl = document.createElement("div");
     ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
     let groupElementNode = messageNode.firstElementChild;
@@ -16842,44 +16882,38 @@ var KickUserInterface = class extends AbstractUserInterface {
     groupElementNode.style.display = "none";
     const betterHoverEl = groupElementNode.firstElementChild;
     if (!betterHoverEl) {
-      error("Better hover element not found");
-      return messageNode.style.removeProperty("display");
+      return error("Better hover element not found");
     }
     let isReply = false;
     if (betterHoverEl.firstElementChild?.classList.contains("w-full")) {
       isReply = true;
       const replyMessageAttachmentEl = betterHoverEl.firstElementChild;
       if (!replyMessageAttachmentEl) {
-        error("Reply message attachment element not found", messageNode);
-        return messageNode.style.removeProperty("display");
+        return error("Reply message attachment element not found", messageNode);
       }
       const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
       ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
-      ntvChatMessageContainerEl.append(ntvReplyMessageAttachmentEl);
+      messageNode.append(ntvReplyMessageAttachmentEl);
     }
     const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl;
     if (!messageBodyWrapper) {
-      error("Chat message body wrapper node not found", messageNode);
-      return messageNode.style.removeProperty("display");
+      return error("Chat message body wrapper node not found", messageNode);
     }
     const contentWrapperNode = messageBodyWrapper.lastElementChild;
     if (!contentWrapperNode) {
-      error("Chat message content wrapper node not found", messageNode);
-      return messageNode.style.removeProperty("display");
+      return error("Chat message content wrapper node not found", messageNode);
     }
     let timestampEl = messageBodyWrapper.firstElementChild;
     while (timestampEl && timestampEl.tagName !== "SPAN") timestampEl = timestampEl.nextElementSibling;
     if (!timestampEl) {
-      error("Chat message timestamp node not found", messageNode);
-      return messageNode.style.removeProperty("display");
+      return error("Chat message timestamp node not found", messageNode);
     }
     const ntvTimestampEl = document.createElement("span");
     ntvTimestampEl.className = "ntv__chat-message__timestamp";
     ntvTimestampEl.textContent = timestampEl.textContent || "00:00 AM";
     const identityEl = timestampEl?.nextElementSibling;
     if (!identityEl) {
-      error("Chat message identity node not found", messageNode);
-      return messageNode.style.removeProperty("display");
+      return error("Chat message identity node not found", messageNode);
     }
     identityEl.className = "ntv__chat-message__identity";
     const ntvBadgesEl = document.createElement("span");
@@ -16901,8 +16935,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     let usernameEl = identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild;
     while (usernameEl && usernameEl.tagName !== "BUTTON") usernameEl = usernameEl.nextElementSibling;
     if (!usernameEl) {
-      error("Chat message username node not found", messageNode);
-      return messageNode.style.removeProperty("display");
+      return error("Chat message username node not found", messageNode);
     }
     const ntvUsernameEl = document.createElement("span");
     ntvUsernameEl.className = "ntv__chat-message__username";
@@ -16911,8 +16944,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     ntvUsernameEl.style.color = usernameEl.style.color;
     const separatorEl = identityEl?.nextElementSibling;
     if (!separatorEl || !separatorEl.hasAttribute("aria-hidden")) {
-      error("Chat message separator node not found", separatorEl);
-      return messageNode.style.removeProperty("display");
+      return error("Chat message separator node not found", separatorEl);
     }
     separatorEl.className = "ntv__chat-message__separator";
     if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
@@ -16962,9 +16994,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         messagePartNodes.push(newContentNode);
       }
     }
-    ntvChatMessageContainerEl.append(ntvIdentityWrapperEl);
-    ntvChatMessageContainerEl.append(...messagePartNodes);
-    ntvChatMessageContainerEl.classList.add("ntv__chat-message");
+    messageNode.append(ntvIdentityWrapperEl);
+    messageNode.append(...messagePartNodes);
+    messageNode.classList.add("ntv__chat-message");
     messageNode.style.removeProperty("display");
     let chatMessageActionsEl = groupElementNode.lastElementChild;
     while (chatMessageActionsEl && chatMessageActionsEl.id !== "chat-message-actions")
@@ -16992,7 +17024,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         });
         ntvChatMessageActionsEl.append(ntvBtnEl);
       }
-      ntvChatMessageContainerEl.append(ntvChatMessageActionsEl);
+      messageNode.append(ntvChatMessageActionsEl);
     }
     ntvUsernameEl.addEventListener("click", (evt) => {
       const event = new MouseEvent("click", { bubbles: true, cancelable: false });
@@ -17004,12 +17036,6 @@ var KickUserInterface = class extends AbstractUserInterface {
       attributes: false,
       subtree: false
     });
-    const chatMessagesStyle = settingsManager.getSetting(channelId, "chat.appearance.messages_style");
-    const chatMessagesSpacing = settingsManager.getSetting(channelId, "chat.appearance.messages_spacing");
-    if (chatMessagesStyle && chatMessagesStyle !== "none")
-      ntvChatMessageContainerEl.classList.add("ntv__chat-message--theme-" + chatMessagesStyle);
-    if (chatMessagesSpacing && chatMessagesSpacing !== "none")
-      ntvChatMessageContainerEl.classList.add("ntv__chat-message--" + chatMessagesSpacing);
   }
   async handleUglyTemporaryReplyBehaviour() {
     const textFieldEl = this.elm.textField;
@@ -17036,7 +17062,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     observer.observe(replyPreviewWrapperEl, { childList: true });
   }
   renderPinnedMessage(node) {
-    this.renderChatMessage(node);
+    this.queuedChatMessages.push(node);
   }
   insertNodesInChat(embedNodes) {
     if (!embedNodes.length) return error("No nodes to insert in chat");
@@ -19914,6 +19940,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.10",
+    date: "2024-09-12",
+    description: `
+                  Feat: Added message rendering queue system to increase performance for fast moving chats
+                  Fix: Translucent chat overlay mode being enabled by default
+            `
+  },
+  {
     version: "1.5.9",
     date: "2024-09-12",
     description: `
@@ -22393,7 +22427,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.9";
+  VERSION = "1.5.10";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
