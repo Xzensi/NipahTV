@@ -4,6 +4,19 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.9',
+		date: '2024-09-12',
+		description: `
+                  Fix: Translucent chat overlay feature in theatre mode
+                  Fix: Links not rendering in messages
+                  Fix: Emote menu positioning wrong after window resize
+                  Fix: Show original Kick submit button for replies
+                  Fix: User channelId not loading
+                  Fix: NTV badge sometimes not showing
+                  Chore: Temporarily removed broken message spacing feature
+            `
+	},
+	{
 		version: '1.5.8',
 		date: '2024-09-11',
 		description: `

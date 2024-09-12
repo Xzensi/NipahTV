@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.8
+// @version 1.5.9
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7588a666.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f75a7aec.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11097,8 +11097,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.renderFavoriteEmoteSet();
     document.body.appendChild(this.containerEl);
     const parentContainerPosition = this.parentContainer.getBoundingClientRect();
-    this.containerEl.style.top = parentContainerPosition.top - 10 + "px";
-    this.containerEl.style.left = parentContainerPosition.left + "px";
+    this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + "px";
+    this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + "px";
   }
   attachEventHandlers() {
     const { settingsManager } = this.rootContext;
@@ -11549,7 +11549,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
     } else {
       window.removeEventListener("click", this.closeModalClickListenerHandle);
     }
-    if (this.containerEl) this.containerEl.style.display = this.isShowing ? "" : "none";
+    if (this.containerEl) {
+      if (this.isShowing) {
+        const parentContainerPosition = this.parentContainer.getBoundingClientRect();
+        this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + "px";
+        this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + "px";
+      }
+      this.containerEl.style.display = this.isShowing ? "" : "none";
+    }
     this.scrollableHeight = this.scrollableEl?.clientHeight || 0;
   }
   destroy() {
@@ -16046,12 +16053,12 @@ var KickUserInterface = class extends AbstractUserInterface {
     chatMessagesContainer: null,
     replyMessageWrapper: null,
     submitButton: null,
+    originalSubmitButton: null,
     textField: null,
     timersContainer: null
   };
   stickyScroll = true;
   maxMessageLength = 500;
-  isTheatreMode = false;
   constructor(rootContext, session) {
     super(rootContext, session);
   }
@@ -16132,6 +16139,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       eventBus.subscribe("ntv.providers.loaded", this.renderChatMessages.bind(this), true);
       this.observeChatEntriesForDeletionEvents();
       this.observeChatMessages(chatMessagesContainerEl);
+      this.loadTheatreModeBehaviour();
     }).catch(() => {
     });
     eventBus.subscribe(
@@ -16307,8 +16315,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     const submitButtonEl = this.elm.submitButton = document.createElement("button");
     submitButtonEl.classList.add("ntv__submit-button", "disabled");
     submitButtonEl.textContent = "Chat";
+    this.elm.originalSubmitButton = kickSubmitButtonEl;
+    kickSubmitButtonEl.style.setProperty("display", "none", "important");
     kickSubmitButtonEl.after(submitButtonEl);
-    kickSubmitButtonEl.remove();
     submitButtonEl.addEventListener("click", (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event));
     this.submitButtonPriorityEventTarget.addEventListener("click", 10, () => this.submitInput(false));
     Array.from(document.getElementsByClassName("ntv__message-input__wrapper")).forEach((el) => el.remove());
@@ -16330,7 +16339,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldWrapperEl.append(textFieldEl);
     kickTextFieldEl.parentElement.before(textFieldWrapperEl);
     if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
-    kickTextFieldEl.parentElement.setAttribute("style", "display: none !important");
+    kickTextFieldEl?.parentElement?.style.setProperty("display", "none", "important");
     let nextSibling = textFieldWrapperEl.nextElementSibling;
     while (nextSibling) {
       if (nextSibling.tagName === "BUTTON") {
@@ -16462,154 +16471,57 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.session.isDestroyed) return;
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const channelId = this.session.channelData.channelId;
-    let prevSetting = null;
-    let isTheatreModeChatCollapsed = false;
-    const toggleOverlayModeClasses = (isOverlayMode, setting) => {
-      const mainViewEl = document.getElementById("main-view");
-      const theatreModeChatHolderEl = document.getElementById("theaterModeChatHolder");
-      if (isOverlayMode && setting) {
-        prevSetting = setting.replaceAll("_", "-");
-        const overlayStyleClass = "ntv__kick__theatre-overlay-mode--" + prevSetting;
-        mainViewEl?.classList.toggle(overlayStyleClass, isOverlayMode);
-        theatreModeChatHolderEl?.classList.toggle(overlayStyleClass, isOverlayMode);
-      } else if (prevSetting) {
-        const overlayStyleClass = "ntv__kick__theatre-overlay-mode--" + prevSetting;
-        mainViewEl?.classList.remove(overlayStyleClass);
-        theatreModeChatHolderEl?.classList.remove(overlayStyleClass);
-        prevSetting = null;
-      }
-      mainViewEl?.classList.toggle("ntv__kick__theatre-overlay-mode", isOverlayMode);
-      mainViewEl?.querySelector(".chat-container")?.parentElement?.classList.toggle("ntv__kick__theatre-overlay-mode__chat-container", isOverlayMode);
-      document.getElementById("theaterModeVideoHolder")?.parentElement?.classList.toggle("ntv__kick__theatre-overlay-mode", isOverlayMode);
-      theatreModeChatHolderEl?.parentElement?.classList.toggle(
-        "ntv__kick__theatre-overlay-mode__chat-container",
-        isOverlayMode
-      );
-      if (isOverlayMode && !isTheatreModeChatCollapsed) {
-        document.getElementById("video-holder")?.classList.toggle("ntv__kick__theatre-overlay-mode__video-holder", true);
-      } else if (!isOverlayMode || isTheatreModeChatCollapsed) {
-        document.getElementById("video-holder")?.classList.remove("ntv__kick__theatre-overlay-mode__video-holder");
-      }
-    };
-    const handleTheatreModeSwitchFn = (isTheatreMode) => {
-      const overlayChatSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
-      if (overlayChatSetting && overlayChatSetting !== "none") {
-        toggleOverlayModeClasses(isTheatreMode, overlayChatSetting);
-      }
-      if (isTheatreMode) {
-        handleTheatreUncollapseChatButtonGn();
-      }
-    };
-    const handleTheatreModeButtonFn = () => {
-      waitForElements(["#video-holder .vjs-control-bar .vjs-button > .kick-icon-theater"], 1e4).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        const [theaterModeButtonEl] = foundElements;
-        theaterModeButtonEl.addEventListener(
-          "click",
-          () => {
-            this.isTheatreMode = !this.isTheatreMode;
-            setTimeout(() => {
-              handleTheatreModeSwitchFn(this.isTheatreMode);
-              handleTheatreModeButtonFn();
-            }, 50);
-          },
-          { passive: true, once: true }
+    const chatOverlayModeSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
+    if (chatOverlayModeSetting) {
+      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+        containerEl.classList.add("ntv__theatre-overlay-mode");
+        containerEl.classList.add(
+          "ntv__theatre-overlay-mode--" + chatOverlayModeSetting.replaceAll("_", "-")
         );
       }).catch(() => {
       });
-    };
-    handleTheatreModeButtonFn();
-    waitForElements(["#chatroom-top .cursor-pointer"], 1e4).then((foundElements) => {
-      if (this.session.isDestroyed) return;
-      const [collapseChatButtonEl] = foundElements;
-      collapseChatButtonEl.addEventListener(
-        "click",
-        () => {
-          const overlayChatSetting = settingsManager.getSetting(
-            channelId,
-            "appearance.layout.overlay_chat"
-          );
-          if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== "none") {
-            isTheatreModeChatCollapsed = true;
-            const mainViewEl = document.getElementById("main-view");
-            mainViewEl?.querySelector(".chat-container")?.parentElement?.classList.toggle(
-              "ntv__kick__theatre-overlay-mode__chat-container",
-              true
-            );
-            document.querySelector("ntv__kick__theatre-overlay-mode__video-holder")?.classList.remove("ntv__kick__theatre-overlay-mode__video-holder");
-          }
-        },
-        { passive: true }
-      );
-    }).catch(() => {
-    });
-    const handleTheatreUncollapseChatButtonGn = () => {
-      waitForElements(["#theaterModeChatHolder"], 1e4).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        const [theatreModeChatHolderEl] = foundElements;
-        const uncollapseChatButtonEl = theatreModeChatHolderEl.parentElement?.querySelector(".cursor-pointer");
-        uncollapseChatButtonEl?.addEventListener(
-          "click",
-          () => {
-            const overlayChatSetting = settingsManager.getSetting(
-              channelId,
-              "appearance.layout.overlay_chat"
-            );
-            if (this.isTheatreMode && overlayChatSetting && overlayChatSetting !== "none") {
-              const mainViewEl = document.getElementById("main-view");
-              mainViewEl?.querySelector(".chat-container")?.parentElement?.classList.toggle(
-                "ntv__kick__theatre-overlay-mode__chat-container",
-                true
-              );
-              if (this.session.channelData.isVod) {
-                document.getElementById("video-holder")?.classList.toggle(
-                  "ntv__kick__theatre-overlay-mode__video-holder",
-                  isTheatreModeChatCollapsed
-                );
-                isTheatreModeChatCollapsed = !isTheatreModeChatCollapsed;
-              } else {
-                isTheatreModeChatCollapsed = false;
-                document.getElementById("video-holder")?.classList.toggle("ntv__kick__theatre-overlay-mode__video-holder", true);
-              }
-            }
-            setTimeout(() => {
-              handleTheatreUncollapseChatButtonGn();
-            }, 5);
-          },
-          { passive: true, once: true }
-        );
-      }).catch(() => {
-      });
-    };
+    }
     rootEventBus.subscribe(
       "ntv.settings.change.appearance.layout.overlay_chat",
       ({ value, prevValue }) => {
-        if (this.isTheatreMode) {
-          const mainViewEl = document.getElementById("main-view");
-          if (prevValue && prevValue === "none") {
-            toggleOverlayModeClasses(true);
-          } else if (prevValue) {
-            mainViewEl?.classList.remove(
-              "ntv__kick__theatre-overlay-mode--" + prevValue.replaceAll("_", "-")
-            );
-          }
-          if (value === "none") {
-            toggleOverlayModeClasses(false);
-          } else {
-            mainViewEl?.classList.add("ntv__kick__theatre-overlay-mode--" + value.replaceAll("_", "-"));
-          }
+        const containerEl = document.querySelector("body > div[data-theatre]");
+        if (!containerEl) return error("Theatre mode container not found");
+        if (prevValue) {
+          containerEl.classList.remove("ntv__theatre-overlay-mode--" + prevValue.replaceAll("_", "-"));
+        }
+        if (value && value !== "none") {
+          containerEl.classList.add("ntv__theatre-overlay-mode");
+          containerEl.classList.add("ntv__theatre-overlay-mode--" + value.replaceAll("_", "-"));
+        } else {
+          containerEl.classList.remove("ntv__theatre-overlay-mode");
         }
       }
     );
-    window.addEventListener("keyup", (event) => {
-      if (event.key === "Escape" && this.isTheatreMode) {
-        this.isTheatreMode = false;
-        handleTheatreModeSwitchFn(false);
-        setTimeout(() => {
-          handleTheatreModeButtonFn();
-        }, 20);
+    const chatOverlayPositionSetting = settingsManager.getSetting(
+      channelId,
+      "appearance.layout.overlay_chat_position"
+    );
+    if (chatOverlayPositionSetting) {
+      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+        containerEl.classList.add(
+          "ntv__theatre-overlay-position--" + chatOverlayPositionSetting.replaceAll("_", "-")
+        );
+      }).catch(() => {
+      });
+    }
+    rootEventBus.subscribe(
+      "ntv.settings.change.appearance.layout.overlay_chat_position",
+      ({ value, prevValue }) => {
+        const containerEl = document.querySelector("body > div[data-theatre]");
+        if (!containerEl) return error("Theatre mode container not found");
+        if (prevValue) {
+          containerEl.classList.remove("ntv__theatre-overlay-position--" + prevValue.replaceAll("_", "-"));
+        }
+        if (value && value !== "none") {
+          containerEl.classList.add("ntv__theatre-overlay-position--" + value.replaceAll("_", "-"));
+        }
       }
-    });
+    );
   }
   getMessageContentString(chatMessageEl) {
     const messageNodes = Array.from(
@@ -17005,7 +16917,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     separatorEl.className = "ntv__chat-message__separator";
     if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
       const lastChildNode = contentWrapperNode.lastChild;
-      if (lastChildNode?.nodeValue?.endsWith(U_TAG_NTV_AFFIX)) {
+      if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
         const badgeEl = parseHTML(
           this.session.badgeProvider.getBadge({ type: "nipahtv" }),
           true
@@ -17044,7 +16956,10 @@ var KickUserInterface = class extends AbstractUserInterface {
         newContentNode.appendChild(ntvImgEl);
         messagePartNodes.push(newContentNode);
       } else {
-        error("Unknown chat message content node", contentNode);
+        const newContentNode = document.createElement("span");
+        newContentNode.classList.add("ntv__chat-message__part");
+        newContentNode.appendChild(contentNode.cloneNode(true));
+        messagePartNodes.push(newContentNode);
       }
     }
     ntvChatMessageContainerEl.append(ntvIdentityWrapperEl);
@@ -17101,6 +17016,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     const originalTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]');
     textFieldEl.parentElement.style.display = "none";
     originalTextFieldEl?.parentElement?.style.removeProperty("display");
+    this.elm.submitButton.style.setProperty("display", "none", "important");
+    this.elm.originalSubmitButton.style.removeProperty("display");
     await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2e3);
     const closeReplyButton = document.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')?.closest("button");
     const replyPreviewWrapperEl = closeReplyButton.closest(".flex.flex-col")?.parentElement;
@@ -17110,6 +17027,8 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (mutation.removedNodes.length) {
           originalTextFieldEl.parentElement.style.display = "none";
           textFieldEl.parentElement.style.removeProperty("display");
+          this.elm.submitButton.style.removeProperty("display");
+          this.elm.originalSubmitButton.style.setProperty("display", "none", "important");
           observer.disconnect();
         }
       });
@@ -19433,6 +19352,16 @@ var KickNetworkInterface = class {
       slug: "" + namedCapturedGroups.slug,
       username: "" + namedCapturedGroups.username
     };
+    const responseChannelData = await RESTFromMainService.get(
+      `https://kick.com/api/v2/channels/${this.session.meData.slug}`
+    );
+    if (!responseChannelData) {
+      throw new Error("Failed to fetch channel data");
+    }
+    if (!responseChannelData.id) {
+      throw new Error('Invalid channel data, missing property "id"');
+    }
+    this.session.meData.channelId = "" + responseChannelData.id;
     log("LOADED ME DATA", this.session.meData);
   }
   async loadChannelData() {
@@ -19629,6 +19558,12 @@ var KickNetworkInterface = class {
   }
   async unfollowUser(slug) {
     return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`);
+  }
+  async setChannelUserIdentity(channelId, userId, badges, color) {
+    return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/identity`, {
+      badges,
+      color
+    });
   }
   async getUserInfo(slug) {
     const [res1, res2] = await Promise.allSettled([
@@ -19978,6 +19913,19 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.9",
+    date: "2024-09-12",
+    description: `
+                  Fix: Translucent chat overlay feature in theatre mode
+                  Fix: Links not rendering in messages
+                  Fix: Emote menu positioning wrong after window resize
+                  Fix: Show original Kick submit button for replies
+                  Fix: User channelId not loading
+                  Fix: NTV badge sometimes not showing
+                  Chore: Temporarily removed broken message spacing feature
+            `
+  },
   {
     version: "1.5.8",
     date: "2024-09-11",
@@ -20906,6 +20854,7 @@ var SettingsManager = class {
   	    = Layout
   			(Appearance)
   	            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
+  				- Overlay chat position in theatre mode (dropdown)
          = Chat
              = Appearance
                  (Appearance)
@@ -21013,6 +20962,23 @@ var SettingsManager = class {
                     }
                   ]
                 }
+                // Need to adjust the video player controls position when chat is overlayed
+                // {
+                // 	label: 'Overlay chat position in theatre mode',
+                // 	key: 'appearance.layout.overlay_chat_position',
+                // 	default: 'right',
+                // 	type: 'dropdown',
+                // 	options: [
+                // 		{
+                // 			label: 'Right',
+                // 			value: 'right'
+                // 		},
+                // 		{
+                // 			label: 'Left',
+                // 			value: 'left'
+                // 		}
+                // 	]
+                // }
               ]
             }
           ]
@@ -21110,7 +21076,7 @@ var SettingsManager = class {
                   ]
                 },
                 {
-                  label: "Messages spacing",
+                  label: "Messages spacing (currently broken on new Kick website!)",
                   key: "chat.appearance.messages_spacing",
                   default: "none",
                   type: "dropdown",
@@ -22427,7 +22393,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.8";
+  VERSION = "1.5.9";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
