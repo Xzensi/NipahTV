@@ -129,6 +129,18 @@ export default class KickNetworkInterface implements NetworkInterface {
 			username: '' + namedCapturedGroups.username
 		}
 
+		const responseChannelData = await RESTFromMainService.get(
+			`https://kick.com/api/v2/channels/${this.session.meData.slug}`
+		)
+		if (!responseChannelData) {
+			throw new Error('Failed to fetch channel data')
+		}
+		if (!responseChannelData.id) {
+			throw new Error('Invalid channel data, missing property "id"')
+		}
+
+		this.session.meData.channelId = '' + responseChannelData.id
+
 		log('LOADED ME DATA', this.session.meData)
 	}
 
@@ -385,6 +397,13 @@ export default class KickNetworkInterface implements NetworkInterface {
 
 	async unfollowUser(slug: string) {
 		return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`)
+	}
+
+	async setChannelUserIdentity(channelId: ChannelId, userId: UserId, badges: string[], color: string) {
+		return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/identity`, {
+			badges,
+			color
+		})
 	}
 
 	async getUserInfo(slug: string) {
