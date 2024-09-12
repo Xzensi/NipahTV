@@ -4,10 +4,19 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.11',
+		date: '2024-09-12',
+		description: `
+                  Chore: Finetuning the message rendering queue system
+                  Fix: Styling on chat causing message rendering performance issues
+            `
+	},
+	{
 		version: '1.5.10',
 		date: '2024-09-12',
 		description: `
                   Feat: Added message rendering queue system to increase performance for fast moving chats
+                  Fix: Force truncate outrageously long usernames
                   Fix: Translucent chat overlay mode being enabled by default
             `
 	},

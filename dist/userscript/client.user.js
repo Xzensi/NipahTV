@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.10
+// @version 1.5.11
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-8adcd82e.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7363eb91.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -16451,6 +16451,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     chatMessagesContainerEl.addEventListener(
       "scroll",
       (evt) => {
+        log("Scroll event", evt);
         if (!this.stickyScroll) {
           const target = evt.target;
           const isAtBottom = (target.scrollHeight || 0) - target.scrollTop <= target.clientHeight + 15;
@@ -16466,6 +16467,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     chatMessagesContainerEl.addEventListener(
       "wheel",
       (evt) => {
+        log("Wheel event", evt);
         if (this.stickyScroll && evt.deltaY < 0) {
           chatMessagesContainerEl.parentElement?.classList.remove("ntv__sticky-scroll");
           this.stickyScroll = false;
@@ -16623,27 +16625,36 @@ var KickUserInterface = class extends AbstractUserInterface {
     });
   }
   loadChatMesssageRenderingBehaviour() {
-    const tps = 5;
+    const tps = 50;
     const renderChatMessagesLoop = () => {
       const queue = this.queuedChatMessages;
       if (queue.length) {
-        for (let i = queue.length - 1; i >= 0; i--) {
-          const msgEl = queue[i];
-          if (!isElementInDOM(msgEl)) {
-            queue.splice(0, i);
-            break;
+        if (queue.length > 200) {
+          log("Chat message queue is too large, clearing it", queue.length);
+          queue.length = 0;
+        } else {
+          for (let i = queue.length - 1; i >= 0; i--) {
+            const msgEl = queue[i];
+            if (!isElementInDOM(msgEl)) {
+              queue.splice(0, i);
+              break;
+            }
           }
-        }
-        const messageChunkSize = 10;
-        const queueSlice = queue.splice(queue.length - messageChunkSize);
-        for (let i = queueSlice.length - 1; i >= 0; i--) {
-          const msgEl = queueSlice[i];
-          this.renderChatMessage(msgEl);
+          const messageChunkSize = 3;
+          const queueSlice = queue.splice(queue.length - messageChunkSize);
+          for (let i = queueSlice.length - 1; i >= 0; i--) {
+            const msgEl = queueSlice[i];
+            this.renderChatMessage(msgEl);
+          }
         }
       }
       setTimeout(() => requestAnimationFrame(renderChatMessagesLoop), 1e3 / tps);
     };
     renderChatMessagesLoop();
+    const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || []);
+    if (chatMessageEls.length) {
+      this.queuedChatMessages.push(...chatMessageEls);
+    }
   }
   // renderChatMessages() {
   // 	if (!this.elm || !this.elm.chatMessagesContainer) return
@@ -19940,10 +19951,19 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.11",
+    date: "2024-09-12",
+    description: `
+                  Chore: Finetuning the message rendering queue system
+                  Fix: Styling on chat causing message rendering performance issues
+            `
+  },
+  {
     version: "1.5.10",
     date: "2024-09-12",
     description: `
                   Feat: Added message rendering queue system to increase performance for fast moving chats
+                  Fix: Force truncate outrageously long usernames
                   Fix: Translucent chat overlay mode being enabled by default
             `
   },
@@ -22427,7 +22447,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.10";
+  VERSION = "1.5.11";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
