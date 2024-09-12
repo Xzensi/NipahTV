@@ -174,7 +174,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.observeChatMessages(chatMessagesContainerEl)
 				this.loadTheatreModeBehaviour()
 
-				// 		this.loadScrollingBehaviour()
+				// this.loadScrollingBehaviour()
 
 				// 		// TODO refactor this, it depends on the chat messages container and inputController but load timing might be off
 				// 		this.loadReplyBehaviour()
@@ -611,6 +611,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		chatMessagesContainerEl.addEventListener(
 			'scroll',
 			evt => {
+				log('Scroll event', evt)
 				if (!this.stickyScroll) {
 					// Calculate if user has scrolled to bottom and set sticky scroll to true
 					const target = evt.target as HTMLElement
@@ -630,6 +631,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		chatMessagesContainerEl.addEventListener(
 			'wheel',
 			evt => {
+				log('Wheel event', evt)
 				if (this.stickyScroll && evt.deltaY < 0) {
 					chatMessagesContainerEl.parentElement?.classList.remove('ntv__sticky-scroll')
 					this.stickyScroll = false
@@ -835,35 +837,41 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadChatMesssageRenderingBehaviour() {
-		const tps = 5
+		const tps = 50
 
 		const renderChatMessagesLoop = () => {
 			const queue = this.queuedChatMessages
 			if (queue.length) {
-				// Remove any messages that no longer exist in the DOM
-				//  this is necessary when chat moves too fast.
-				for (let i = queue.length - 1; i >= 0; i--) {
-					const msgEl = queue[i]
+				if (queue.length > 200) {
+					// Bail out, something is wrong
+					log('Chat message queue is too large, clearing it', queue.length)
+					queue.length = 0
+				} else {
+					// Remove any messages that no longer exist in the DOM
+					//  this is necessary when chat moves too fast.
+					for (let i = queue.length - 1; i >= 0; i--) {
+						const msgEl = queue[i]
 
-					// If message element no longer exists, it means all messages after
-					//  it have also been removed from the DOM, so we can safely
-					//  splice the entire range out of the queue.
-					if (!isElementInDOM(msgEl)) {
-						// Take out all items from start up to index
-						queue.splice(0, i)
-						break
+						// If message element no longer exists, it means all messages after
+						//  it have also been removed from the DOM, so we can safely
+						//  splice the entire range out of the queue.
+						if (!isElementInDOM(msgEl)) {
+							// Take out all items from start up to index
+							queue.splice(0, i)
+							break
+						}
 					}
-				}
 
-				const messageChunkSize = 10
+					const messageChunkSize = 3
 
-				// We render the newest messages first as theyre most likely to be visible
-				const queueSlice = queue.splice(queue.length - messageChunkSize)
+					// We render the newest messages first as theyre most likely to be visible
+					const queueSlice = queue.splice(queue.length - messageChunkSize)
 
-				for (let i = queueSlice.length - 1; i >= 0; i--) {
-					const msgEl = queueSlice[i]
+					for (let i = queueSlice.length - 1; i >= 0; i--) {
+						const msgEl = queueSlice[i]
 
-					this.renderChatMessage(msgEl)
+						this.renderChatMessage(msgEl)
+					}
 				}
 			}
 
@@ -871,6 +879,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		renderChatMessagesLoop()
+
+		// Queue all existing chat messages for rendering
+		const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || [])
+		if (chatMessageEls.length) {
+			this.queuedChatMessages.push(...(chatMessageEls as HTMLElement[]))
+		}
 	}
 
 	// renderChatMessages() {
@@ -897,7 +911,6 @@ export class KickUserInterface extends AbstractUserInterface {
 						if (mutation.addedNodes.length) {
 							for (const messageNode of mutation.addedNodes) {
 								if (messageNode instanceof HTMLElement) {
-									// this.renderChatMessage(messageNode)
 									this.queuedChatMessages.push(messageNode)
 								}
 							}
@@ -1556,7 +1569,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	renderPinnedMessage(node: HTMLElement) {
 		this.queuedChatMessages.push(node)
-		// this.renderChatMessage(node)
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {
