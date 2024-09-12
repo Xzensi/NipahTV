@@ -1480,7 +1480,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
 			// Check if message has been signed by NTV
 			const lastChildNode = contentWrapperNode.lastChild
-			if (lastChildNode?.nodeValue?.endsWith(U_TAG_NTV_AFFIX)) {
+			if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
 				// Kick normally adds a margin-right tailwind class when container is no longer empty so we simulate it
 				// if (!badgesContainer.children.length) badgesContainer.classList.add('mr-1')
 
