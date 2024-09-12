@@ -106,11 +106,10 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 		document.body.appendChild(this.containerEl)
 
-		const parentContainerPosition = this.parentContainer.getBoundingClientRect()
-
 		// Adjust the position of the emote menu based on the parent container
-		this.containerEl.style.top = parentContainerPosition.top - 10 + 'px'
-		this.containerEl.style.left = parentContainerPosition.left + 'px'
+		const parentContainerPosition = this.parentContainer.getBoundingClientRect()
+		this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + 'px'
+		this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + 'px'
 	}
 
 	attachEventHandlers() {
@@ -703,7 +702,16 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			window.removeEventListener('click', this.closeModalClickListenerHandle as any)
 		}
 
-		if (this.containerEl) this.containerEl.style.display = this.isShowing ? '' : 'none'
+		if (this.containerEl) {
+			if (this.isShowing) {
+				// Adjust the position of the emote menu based on the parent container
+				const parentContainerPosition = this.parentContainer.getBoundingClientRect()
+				this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + 'px'
+				this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + 'px'
+			}
+
+			this.containerEl.style.display = this.isShowing ? '' : 'none'
+		}
 		this.scrollableHeight = this.scrollableEl?.clientHeight || 0
 	}
 

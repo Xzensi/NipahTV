@@ -7,20 +7,18 @@
 	outline: 0.1em solid var(--ntv-border-transparent-2);
 	background-color: var(--ntv-background-color);
 	box-shadow: shadow_elevation(4);
-	transform: translateY(-100%);
+	transform: translateX(100%);
 	font-size: $root_font_size;
 	flex-direction: column;
 	border-radius: 0.25em;
 	position: absolute;
 	max-height: 61.8vh;
 	flex-wrap: wrap;
-	// right: 0.618em;
+	right: 0.618em;
 	display: flex;
 	z-index: 1001;
 	height: 45em;
-	left: 0.618em;
-	// bottom: 9em;
-	top: -1em;
+	bottom: 9em;
 
 	&__header {
 		border-bottom: 1px solid var(--ntv-border-transparent-2);
