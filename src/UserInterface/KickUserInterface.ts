@@ -7,7 +7,8 @@ import {
 	hex2rgb,
 	parseHTML,
 	findNodeWithTextContent,
-	waitForTargetedElements
+	waitForTargetedElements,
+	isElementInDOM
 } from '../utils'
 import QuickEmotesHolderComponent from './Components/QuickEmotesHolderComponent'
 import EmoteMenuButtonComponent from './Components/EmoteMenuButtonComponent'
@@ -48,6 +49,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	private stickyScroll = true
 	protected maxMessageLength = 500
+	private queuedChatMessages: HTMLElement[] = []
 
 	constructor(rootContext: RootContext, session: Session) {
 		super(rootContext, session)
@@ -83,10 +85,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				const [textFieldEl, submitButtonEl] = foundElements as HTMLElement[]
 				this.loadInputBehaviour(textFieldEl, submitButtonEl)
 				this.loadEmoteMenu()
-
-				if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
-					document.getElementById('chatroom')?.classList.add('ntv__smooth-scrolling')
-				}
 			})
 			.catch(() => {})
 
@@ -159,12 +157,16 @@ export class KickUserInterface extends AbstractUserInterface {
 					chatMessagesContainerEl.classList.add(`ntv__seperators-${seperatorSettingVal}`)
 				}
 
+				if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
+					chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
+				}
+
 				chatMessagesContainerEl.addEventListener('copy', evt => {
 					this.clipboard.handleCopyEvent(evt)
 				})
 
 				// Render emotes in chat when providers are loaded
-				eventBus.subscribe('ntv.providers.loaded', this.renderChatMessages.bind(this), true)
+				eventBus.subscribe('ntv.providers.loaded', this.loadChatMesssageRenderingBehaviour.bind(this), true)
 
 				// TODO due overaul
 				// this.observePinnedMessage(chatMessagesContainerEl)
@@ -645,7 +647,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Handle changing the overlay chat setting
 		const chatOverlayModeSetting = settingsManager.getSetting(channelId, 'appearance.layout.overlay_chat')
-		if (chatOverlayModeSetting) {
+		if (chatOverlayModeSetting && chatOverlayModeSetting !== 'none') {
 			waitForElements(['body > div[data-theatre]'], 10_000)
 				.then(([containerEl]) => {
 					containerEl.classList.add('ntv__theatre-overlay-mode')
@@ -832,6 +834,55 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 	}
 
+	loadChatMesssageRenderingBehaviour() {
+		const tps = 5
+
+		const renderChatMessagesLoop = () => {
+			const queue = this.queuedChatMessages
+			if (queue.length) {
+				// Remove any messages that no longer exist in the DOM
+				//  this is necessary when chat moves too fast.
+				for (let i = queue.length - 1; i >= 0; i--) {
+					const msgEl = queue[i]
+
+					// If message element no longer exists, it means all messages after
+					//  it have also been removed from the DOM, so we can safely
+					//  splice the entire range out of the queue.
+					if (!isElementInDOM(msgEl)) {
+						// Take out all items from start up to index
+						queue.splice(0, i)
+						break
+					}
+				}
+
+				const messageChunkSize = 10
+
+				// We render the newest messages first as theyre most likely to be visible
+				const queueSlice = queue.splice(queue.length - messageChunkSize)
+
+				for (let i = queueSlice.length - 1; i >= 0; i--) {
+					const msgEl = queueSlice[i]
+
+					this.renderChatMessage(msgEl)
+				}
+			}
+
+			setTimeout(() => requestAnimationFrame(renderChatMessagesLoop), 1000 / tps)
+		}
+
+		renderChatMessagesLoop()
+	}
+
+	// renderChatMessages() {
+	// 	if (!this.elm || !this.elm.chatMessagesContainer) return
+
+	// 	const chatMessagesContainerEl = this.elm.chatMessagesContainer
+	// 	for (const messageNode of chatMessagesContainerEl.children) {
+	// 		this.queuedChatMessages.push(messageNode as HTMLElement)
+	// 		// this.renderChatMessage(messageNode as HTMLElement)
+	// 	}
+	// }
+
 	observeChatMessages(chatMessagesContainerEl: HTMLElement) {
 		const channelId = this.session.channelData.channelId
 
@@ -846,13 +897,14 @@ export class KickUserInterface extends AbstractUserInterface {
 						if (mutation.addedNodes.length) {
 							for (const messageNode of mutation.addedNodes) {
 								if (messageNode instanceof HTMLElement) {
-									this.renderChatMessage(messageNode)
+									// this.renderChatMessage(messageNode)
+									this.queuedChatMessages.push(messageNode)
 								}
 							}
-							if (this.stickyScroll) {
-								// We need to wait for the next frame paint call to render before scrolling to bottom
-								window.requestAnimationFrame(scrollToBottom)
-							}
+							// if (this.stickyScroll) {
+							// 	// We need to wait for the next frame paint call to render before scrolling to bottom
+							// 	window.requestAnimationFrame(scrollToBottom)
+							// }
 						}
 					})
 				}))
@@ -1096,15 +1148,6 @@ export class KickUserInterface extends AbstractUserInterface {
 	// 	})
 	// }
 
-	renderChatMessages() {
-		if (!this.elm || !this.elm.chatMessagesContainer) return
-
-		const chatMessagesContainerEl = this.elm.chatMessagesContainer
-		for (const messageNode of chatMessagesContainerEl.children) {
-			this.renderChatMessage(messageNode as HTMLElement)
-		}
-	}
-
 	renderChatMessage(messageNode: HTMLElement) {
 		const { settingsManager } = this.rootContext
 		const { emotesManager, usersManager } = this.session
@@ -1211,11 +1254,27 @@ export class KickUserInterface extends AbstractUserInterface {
 			</div>
 		*/
 
-		// Message is chatroom history breaker "----- New messages -----"
-		if (!messageNode.children || !messageNode.firstElementChild!.classList.contains('group')) return
-		messageNode.style.display = 'none'
+		const chatMessagesStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
+		const chatMessagesSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
 
-		const ntvChatMessageContainerEl = messageNode //document.createElement('div')
+		if (chatMessagesStyle && chatMessagesStyle !== 'none')
+			messageNode.classList.add('ntv__chat-message--theme-' + chatMessagesStyle)
+
+		if (chatMessagesSpacing && chatMessagesSpacing !== 'none')
+			messageNode.classList.add('ntv__chat-message--' + chatMessagesSpacing)
+
+		// Message is chatroom history breaker "----- New messages -----"
+		if (!messageNode.children || !messageNode.firstElementChild!.classList.contains('group')) {
+			messageNode.classList.add('ntv__chat-message')
+
+			if (messageNode.firstElementChild?.classList.contains('items-center')) {
+				messageNode.classList.add('ntv__chat-message--history-breaker')
+			} else {
+				messageNode.classList.add('ntv__chat-message--history-breaker')
+			}
+
+			return
+		}
 
 		const ntvIdentityWrapperEl = document.createElement('div')
 		ntvIdentityWrapperEl.classList.add('ntv__chat-message__identity')
@@ -1229,8 +1288,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const betterHoverEl = groupElementNode.firstElementChild
 		if (!betterHoverEl) {
-			error('Better hover element not found')
-			return messageNode.style.removeProperty('display')
+			return error('Better hover element not found')
 		}
 
 		let isReply = false
@@ -1240,33 +1298,29 @@ export class KickUserInterface extends AbstractUserInterface {
 			// Clone the reply message attachment to our chat message container
 			const replyMessageAttachmentEl = betterHoverEl.firstElementChild
 			if (!replyMessageAttachmentEl) {
-				error('Reply message attachment element not found', messageNode)
-				return messageNode.style.removeProperty('display')
+				return error('Reply message attachment element not found', messageNode)
 			}
 
 			const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
 			ntvReplyMessageAttachmentEl.classList.add('ntv__chat-message__reply-attachment')
-			ntvChatMessageContainerEl.append(ntvReplyMessageAttachmentEl)
+			messageNode.append(ntvReplyMessageAttachmentEl)
 		}
 
 		const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl
 		if (!messageBodyWrapper) {
-			error('Chat message body wrapper node not found', messageNode)
-			return messageNode.style.removeProperty('display')
+			return error('Chat message body wrapper node not found', messageNode)
 		}
 
 		// First element child might be the reply message attachment wrapper, so we get last instead
 		const contentWrapperNode = messageBodyWrapper.lastElementChild
 		if (!contentWrapperNode) {
-			error('Chat message content wrapper node not found', messageNode)
-			return messageNode.style.removeProperty('display')
+			return error('Chat message content wrapper node not found', messageNode)
 		}
 
 		let timestampEl = messageBodyWrapper.firstElementChild
 		while (timestampEl && timestampEl.tagName !== 'SPAN') timestampEl = timestampEl.nextElementSibling
 		if (!timestampEl) {
-			error('Chat message timestamp node not found', messageNode)
-			return messageNode.style.removeProperty('display')
+			return error('Chat message timestamp node not found', messageNode)
 		}
 
 		const ntvTimestampEl = document.createElement('span')
@@ -1275,8 +1329,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const identityEl = timestampEl?.nextElementSibling
 		if (!identityEl) {
-			error('Chat message identity node not found', messageNode)
-			return messageNode.style.removeProperty('display')
+			return error('Chat message identity node not found', messageNode)
 		}
 		identityEl.className = 'ntv__chat-message__identity'
 
@@ -1304,8 +1357,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		) as HTMLElement
 		while (usernameEl && usernameEl.tagName !== 'BUTTON') usernameEl = usernameEl.nextElementSibling as HTMLElement
 		if (!usernameEl) {
-			error('Chat message username node not found', messageNode)
-			return messageNode.style.removeProperty('display')
+			return error('Chat message username node not found', messageNode)
 		}
 
 		const ntvUsernameEl = document.createElement('span')
@@ -1316,8 +1368,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const separatorEl = identityEl?.nextElementSibling
 		if (!separatorEl || !separatorEl.hasAttribute('aria-hidden')) {
-			error('Chat message separator node not found', separatorEl)
-			return messageNode.style.removeProperty('display')
+			return error('Chat message separator node not found', separatorEl)
 		}
 		separatorEl.className = 'ntv__chat-message__separator'
 
@@ -1344,6 +1395,12 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// const messageBodyChildren = Array.from(contentWrapperNode.childNodes)
 		for (const contentNode of contentWrapperNode.childNodes) {
+			// const newContentNode = document.createElement('span')
+			// newContentNode.classList.add('ntv__chat-message__part')
+			// newContentNode.textContent =
+			// 	'AD ASDA ASDDADDSA ASD ADASDAS DSAD ASD ASD ASD ASDASASDSA ASD ASD ASDAS ASDASD ASD ASDASD AASD DSAA DASD SADSA ASD ASD ASD ASD SD ASD AS AD ASDA ASDDADDSA ASD ADASDAS DSAD ASD ASD ASD ASDASASDSA ASD ASD ASDAS ASDASD ASD ASDASD AASD DSAA DASD SADSA ASD ASD ASD ASD SD ASD AS'
+			// messagePartNodes.push(newContentNode)
+
 			if (contentNode.nodeType === Node.TEXT_NODE) {
 				const parsedEmoteNotes = this.renderEmotesInString(contentNode.textContent || '')
 				messagePartNodes.push(...parsedEmoteNotes)
@@ -1392,10 +1449,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		// We do this late so checks can be done and bailout early
 		//   if necessary leaving the original message untouched
 		// messageNode.append(ntvChatMessageEl)
-		ntvChatMessageContainerEl.append(ntvIdentityWrapperEl)
-		ntvChatMessageContainerEl.append(...messagePartNodes)
+		messageNode.append(ntvIdentityWrapperEl)
+		messageNode.append(...messagePartNodes)
 
-		ntvChatMessageContainerEl.classList.add('ntv__chat-message')
+		messageNode.classList.add('ntv__chat-message')
 		messageNode.style.removeProperty('display')
 
 		// Pull out the chat message actions
@@ -1438,7 +1495,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				ntvChatMessageActionsEl.append(ntvBtnEl)
 			}
 
-			ntvChatMessageContainerEl.append(ntvChatMessageActionsEl)
+			messageNode.append(ntvChatMessageActionsEl)
 		}
 
 		// Forward event to Kick's original username element
@@ -1454,13 +1511,6 @@ export class KickUserInterface extends AbstractUserInterface {
 			attributes: false,
 			subtree: false
 		})
-
-		const chatMessagesStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
-		const chatMessagesSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
-		if (chatMessagesStyle && chatMessagesStyle !== 'none')
-			ntvChatMessageContainerEl.classList.add('ntv__chat-message--theme-' + chatMessagesStyle)
-		if (chatMessagesSpacing && chatMessagesSpacing !== 'none')
-			ntvChatMessageContainerEl.classList.add('ntv__chat-message--' + chatMessagesSpacing)
 
 		// Adding this class removes the display: none from the chat message, causing a reflow
 		// messageNode.classList.add('ntv__chat-message__wrapper')
@@ -1505,7 +1555,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderPinnedMessage(node: HTMLElement) {
-		this.renderChatMessage(node)
+		this.queuedChatMessages.push(node)
+		// this.renderChatMessage(node)
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {

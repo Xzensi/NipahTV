@@ -24,6 +24,7 @@
 	&__timestamp {
 		font-family: Helvetica Neue, sans-serif;
 		font-variant-numeric: tabular-nums;
+		vertical-align: baseline;
 		margin-right: 0.45em;
 		white-space: nowrap;
 		color: #adadb8;
@@ -31,6 +32,7 @@
 	}
 
 	&__badges {
+		vertical-align: baseline;
 		margin-right: 0.12em;
 		white-space: nowrap;
 
@@ -40,8 +42,17 @@
 	}
 
 	&__username {
+		text-overflow: ellipsis;
+		vertical-align: middle;
+		display: inline-block;
 		font-weight: 700;
+		overflow: hidden;
 		cursor: pointer;
+		max-width: 80%;
+	}
+
+	&__separator {
+		vertical-align: middle;
 	}
 
 	&__part {

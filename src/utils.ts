@@ -320,6 +320,13 @@ export function hex2rgb(hex: string) {
 	return [r, g, b]
 }
 
+export function isElementInDOM(node: HTMLElement | Element | Node) {
+	const doc = node.ownerDocument
+	if (!doc) return false
+	if (doc.documentElement === document.documentElement) return true
+	return false
+}
+
 /**
  * Wait for a set of elements to be present in the DOM.
  * Pass an AbortSignal to abort the promise.

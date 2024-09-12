@@ -2,6 +2,10 @@
 	flex-direction: column;
 	display: flex;
 
+	> :not(.ntv__chat-message) {
+		display: none;
+	}
+
 	&.ntv__show-message-timestamps {
 		.ntv__chat-message {
 			&__timestamp {
