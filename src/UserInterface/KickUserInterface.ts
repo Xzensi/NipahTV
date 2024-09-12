@@ -433,7 +433,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		submitButtonEl.textContent = 'Chat'
 
 		kickSubmitButtonEl.after(submitButtonEl)
-		kickSubmitButtonEl.remove()
+		kickSubmitButtonEl.style.setProperty('display', 'none', 'important')
+		// kickSubmitButtonEl.remove()
 
 		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
 		this.submitButtonPriorityEventTarget.addEventListener('click', 10, () => this.submitInput(false))
@@ -465,7 +466,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
 		if (document.activeElement === kickTextFieldEl) textFieldEl.focus()
 		// kickTextFieldEl.parentElement!.remove()
-		kickTextFieldEl.parentElement!.setAttribute('style', 'display: none !important')
+		kickTextFieldEl?.parentElement?.style.setProperty('display', 'none', 'important')
 
 		// Find any emote buttons after out input field
 		let nextSibling = textFieldWrapperEl.nextElementSibling
@@ -1530,10 +1531,12 @@ export class KickUserInterface extends AbstractUserInterface {
 				newContentNode.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
 				newContentNode.setAttribute('contenteditable', 'false')
 				newContentNode.appendChild(ntvImgEl)
-				// ntvChatMessageEl.appendChild(newContentNode)
 				messagePartNodes.push(newContentNode)
 			} else {
-				error('Unknown chat message content node', contentNode)
+				const newContentNode = document.createElement('span')
+				newContentNode.classList.add('ntv__chat-message__part')
+				newContentNode.appendChild(contentNode.cloneNode(true))
+				messagePartNodes.push(newContentNode)
 			}
 		}
 
