@@ -34,29 +34,30 @@
 		}
 	}
 
+	// TODO move these classes to message instead of container using :not()
 	&.ntv__seperators {
 		&-basic {
-			.ntv__chat-message {
+			.ntv__chat-message:not(.ntv__chat-message--first-message):not(.ntv__chat-message--reply-to-me) {
 				border-bottom: 1px solid var(--ntv-border-transparent-2);
 			}
 		}
 
 		&-3d {
-			.ntv__chat-message {
+			.ntv__chat-message:not(.ntv__chat-message--first-message):not(.ntv__chat-message--reply-to-me) {
 				border-top: 1px solid rgba(255, 255, 255, 0.128);
 				border-bottom: 1px solid #000;
 			}
 		}
 
 		&-3d-inset {
-			.ntv__chat-message {
+			.ntv__chat-message:not(.ntv__chat-message--first-message):not(.ntv__chat-message--reply-to-me) {
 				border-bottom: 1px solid rgba(255, 255, 255, 0.128);
 				border-top: 1px solid #000;
 			}
 		}
 
 		&-wide {
-			.ntv__chat-message {
+			.ntv__chat-message:not(.ntv__chat-message--first-message):not(.ntv__chat-message--reply-to-me) {
 				border-bottom: 1px solid rgba(255, 255, 255, 0.128);
 				border-top: 1px solid rgba(255, 255, 255, 0.128);
 				margin-bottom: 0.3em;

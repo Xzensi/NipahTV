@@ -102,20 +102,17 @@ export class KickUserInterface extends AbstractUserInterface {
 				footerEl.append(timersContainer)
 				this.elm.timersContainer = timersContainer
 
-				waitForElements([`${footerSelector} > div.overflow-hidden.pb-2`], 10_000, abortSignal)
+				waitForElements([`${footerSelector}`], 10_000, abortSignal)
 					.then(foundElements => {
 						if (this.session.isDestroyed) return
 
-						const [quickEmotesHolderEl] = foundElements as HTMLElement[]
-						this.loadQuickEmotesHolder(quickEmotesHolderEl)
+						const [footerEl] = foundElements as HTMLElement[]
+						const quickEmotesHolderEl = footerEl.querySelector('& > .overflow-hidden') as HTMLElement
+						this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
 					})
 					.catch(() => {})
 
-				waitForElements(
-					[`${footerSelector} > div.overflow-hidden.pb-2 + .flex > .flex.items-center`],
-					10_000,
-					abortSignal
-				)
+				waitForElements([`${footerSelector} > div.flex > .flex.items-center`], 10_000, abortSignal)
 					.then(foundElements => {
 						if (this.session.isDestroyed) return
 
@@ -302,7 +299,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init()
 	}
 
-	async loadQuickEmotesHolder(kickQuickEmotesHolderEl: HTMLElement) {
+	async loadQuickEmotesHolder(kickFooterEl: HTMLElement, kickQuickEmotesHolderEl?: HTMLElement) {
 		const { settingsManager } = this.rootContext
 		const { eventBus, channelData } = this.session
 		const { channelId } = channelData
@@ -310,14 +307,16 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		if (quickEmotesHolderEnabled) {
 			const placeholder = document.createElement('div')
-			kickQuickEmotesHolderEl.before(placeholder)
+			kickFooterEl.prepend(placeholder)
+			kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
 			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init()
 		}
 
 		eventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
 			if (value) {
 				const placeholder = document.createElement('div')
-				kickQuickEmotesHolderEl.before(placeholder)
+				kickFooterEl.prepend(placeholder)
+				kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
 				this.quickEmotesHolder = new QuickEmotesHolderComponent(
 					this.rootContext,
 					this.session,
@@ -326,7 +325,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			} else {
 				this.quickEmotesHolder?.destroy()
 				this.quickEmotesHolder = null
-				kickQuickEmotesHolderEl.style.display = 'block'
+				kickQuickEmotesHolderEl?.style.removeProperty('display')
 			}
 		})
 	}
@@ -365,11 +364,9 @@ export class KickUserInterface extends AbstractUserInterface {
 					<h3><strong>Current Known Issues:</strong></h3>
 					<ul>
 					<li><strong>Reply Functionality:</strong> Kick’s overhaul made it impossible to implement the reply message feature. When replying, NipahTV falls back to the default Kick chat input as a temporary workaround.</li>
-					<li><strong>Firefox Issues:</strong> Kick has historically had <b>many</b> issues with Firefox, and currently, Firefox is having trouble authenticating.</li>
 					<li><strong>Mobile Mode Conflicts:</strong> Kick’s new mobile mode activates on smaller window sizes, which currently breaks NipahTV.</li>
-					<li><strong>Chat Scrolling Problems:</strong> Occasionally, chat gets stuck while scrolling, particularly when large messages with a lot of emotes expand.</li>
 					<li><strong>Bans/Timeouts:</strong> Banning or timing out users causes their page to crash completely.</li>
-					<li><strong>Feature Restoration:</strong> Some settings, such as the transparent overlay chat in theatre mode, still need to be re-implemented into Kick’s new design.</li>
+					<li><strong>Feature Restoration:</strong> Some settings still need to be re-implemented into Kick’s new design.</li>
 					</ul>
 					<p>We are continuing to make fixes and adjustments to improve the experience and restore the features you all loved. <strong>Thank you for your patience and support</strong> as we adapt to these changes!</p>
 
@@ -679,35 +676,35 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		const chatOverlayPositionSetting = settingsManager.getSetting(
-			channelId,
-			'appearance.layout.overlay_chat_position'
-		)
-		if (chatOverlayPositionSetting) {
-			waitForElements(['body > div[data-theatre]'], 10_000)
-				.then(([containerEl]) => {
-					containerEl.classList.add(
-						'ntv__theatre-overlay-position--' + chatOverlayPositionSetting.replaceAll('_', '-')
-					)
-				})
-				.catch(() => {})
-		}
+		// const chatOverlayPositionSetting = settingsManager.getSetting(
+		// 	channelId,
+		// 	'appearance.layout.overlay_chat_position'
+		// )
+		// if (chatOverlayPositionSetting) {
+		// 	waitForElements(['body > div[data-theatre]'], 10_000)
+		// 		.then(([containerEl]) => {
+		// 			containerEl.classList.add(
+		// 				'ntv__theatre-overlay-position--' + chatOverlayPositionSetting.replaceAll('_', '-')
+		// 			)
+		// 		})
+		// 		.catch(() => {})
+		// }
 
-		rootEventBus.subscribe(
-			'ntv.settings.change.appearance.layout.overlay_chat_position',
-			({ value, prevValue }: { value: string; prevValue?: string }) => {
-				const containerEl = document.querySelector('body > div[data-theatre]')
-				if (!containerEl) return error('Theatre mode container not found')
+		// rootEventBus.subscribe(
+		// 	'ntv.settings.change.appearance.layout.overlay_chat_position',
+		// 	({ value, prevValue }: { value: string; prevValue?: string }) => {
+		// 		const containerEl = document.querySelector('body > div[data-theatre]')
+		// 		if (!containerEl) return error('Theatre mode container not found')
 
-				if (prevValue) {
-					containerEl.classList.remove('ntv__theatre-overlay-position--' + prevValue.replaceAll('_', '-'))
-				}
+		// 		if (prevValue) {
+		// 			containerEl.classList.remove('ntv__theatre-overlay-position--' + prevValue.replaceAll('_', '-'))
+		// 		}
 
-				if (value && value !== 'none') {
-					containerEl.classList.add('ntv__theatre-overlay-position--' + value.replaceAll('_', '-'))
-				}
-			}
-		)
+		// 		if (value && value !== 'none') {
+		// 			containerEl.classList.add('ntv__theatre-overlay-position--' + value.replaceAll('_', '-'))
+		// 		}
+		// 	}
+		// )
 	}
 
 	getMessageContentString(chatMessageEl: HTMLElement) {
@@ -1295,8 +1292,14 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		let isReply = false
+		let isReplyToMe = false
 		if (betterHoverEl.firstElementChild?.classList.contains('w-full')) {
 			isReply = true
+
+			if (betterHoverEl.classList.contains('border-green-500')) {
+				isReplyToMe = true
+				messageNode.classList.add('ntv__chat-message--reply-to-me')
+			}
 
 			// Clone the reply message attachment to our chat message container
 			const replyMessageAttachmentEl = betterHoverEl.firstElementChild

@@ -81,6 +81,14 @@
 	&--unrendered {
 	}
 
+	&--first-message {
+		border: ridge 1.618px var(--ntv-background-highlight-accent-1);
+	}
+
+	&--reply-to-me {
+		border: ridge 1.618px rgba(83, 252, 24, 1);
+	}
+
 	&--deleted {
 		opacity: 0.38;
 
@@ -95,10 +103,6 @@
 
 	&--theme-rounded-2 {
 		border-radius: 1em;
-	}
-
-	&--first-message {
-		border: ridge 1.618px var(--ntv-background-highlight-accent-1) !important;
 	}
 
 	// Temporarily disabled until fixed
