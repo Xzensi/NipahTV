@@ -9,6 +9,7 @@ export const CHANGELOG: {
 		description: `
                   Looks like the chat message rendering is finally stable again now with minimal jittering and acceptable performance on fast moving chats.
 
+                  Fix: User mention auto-completion not working
                   Fix: First time user highlighting
                   Fix: Message render queue not reducing correctly
                   Fix: Annoying jittering message movements
