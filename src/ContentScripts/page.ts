@@ -12,20 +12,27 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 		xhr.setRequestHeader('Content-Type', 'application/json')
 	}
 
+	function getCookie(name: string) {
+		const c = document.cookie
+			.split('; ')
+			.find(v => v.startsWith(name))
+			?.split(/=(.*)/s)
+		return c && c[1] ? decodeURIComponent(c[1]) : null
+	}
+
 	const currentDomain = window.location.host.split('.').slice(-2).join('.')
 	const urlDomain = new URL(url).host.split('.').slice(-2).join('.')
 	if (currentDomain === urlDomain) {
 		xhr.withCredentials = true
 
-		const c = document.cookie
-			.split('; ')
-			.find(v => v.startsWith('XSRF'))
-			?.split(/=(.*)/s)
-
-		const XSRFToken = c && c[1] ? decodeURIComponent(c[1]) : null
+		const XSRFToken = getCookie('XSRF')
 		if (XSRFToken) {
 			xhr.setRequestHeader('X-XSRF-TOKEN', XSRFToken)
-			xhr.setRequestHeader('Authorization', 'Bearer ' + XSRFToken)
+		}
+
+		const sessionToken = getCookie('session_token')
+		if (sessionToken) {
+			xhr.setRequestHeader('Authorization', 'Bearer ' + sessionToken)
 		}
 	}
 

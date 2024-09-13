@@ -38,6 +38,12 @@ export default class CommandExecutionStrategy implements InputExecutionStrategy 
 				.executeCommand(commandData!.name, this.session.channelData.channelName, commandData!.args)
 				.then(() => {
 					dontClearInput || contentEditableEditor.clearInput()
+					if (commandEntry?.api?.protocol === 'http' && commandEntry.api.successMessage)
+						return commandEntry.api.successMessage
+				})
+				.catch(() => {
+					if (commandEntry?.api?.protocol === 'http' && commandEntry.api.errorMessage)
+						throw new Error(commandEntry.api.errorMessage)
 				})
 		}
 	}
