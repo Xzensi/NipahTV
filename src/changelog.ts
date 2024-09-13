@@ -4,6 +4,20 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.12',
+		date: '2024-09-13',
+		description: `
+                  Looks like the chat message rendering is finally stable again now with minimal jittering and acceptable performance on fast moving chats.
+
+                  Fix: First time user highlighting
+                  Fix: Message render queue not reducing correctly
+                  Fix: Annoying jittering message movements
+                  Fix: Reversed message render order resulted in incorrect first time message highlighting
+                  Chore: Further finetuned message rendering
+                  Chore: Clarified settings
+            `
+	},
+	{
 		version: '1.5.11',
 		date: '2024-09-12',
 		description: `
