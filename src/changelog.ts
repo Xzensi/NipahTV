@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.14',
+		date: '2024-09-13',
+		description: `
+                  Fix: Commands not showing notification toasts
+                  Fix: Followonly command has changed definition
+                  Fix: Unreliable network requests due to invalid session token
+            `
+	},
+	{
 		version: '1.5.13',
 		date: '2024-09-13',
 		description: `
