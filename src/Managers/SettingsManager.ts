@@ -202,7 +202,7 @@ export default class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
-									label: 'Highlight first user messages',
+									label: 'Highlight first time user messages (of this chat session, not first time ever)',
 									key: 'chat.appearance.highlight_first_message',
 									default: false,
 									type: 'checkbox'
@@ -283,7 +283,7 @@ export default class SettingsManager {
 									]
 								},
 								{
-									label: 'Messages spacing (currently broken on new Kick website!)',
+									label: 'Messages spacing (currently broken after Kick update!)',
 									key: 'chat.appearance.messages_spacing',
 									default: 'none',
 									type: 'dropdown',
@@ -349,7 +349,7 @@ export default class SettingsManager {
 							label: 'General',
 							children: [
 								{
-									label: 'Enable chat smooth scrolling',
+									label: 'Enable chat smooth scrolling (currently broken after Kick update!)',
 									key: 'chat.behavior.smooth_scrolling',
 									default: false,
 									type: 'checkbox'
@@ -448,7 +448,7 @@ export default class SettingsManager {
 								// 	type: 'checkbox'
 								// },
 								{
-									label: 'Show the search box',
+									label: 'Show the search box (requires page refresh)',
 									key: 'chat.emote_menu.search_box',
 									default: true,
 									type: 'checkbox'
