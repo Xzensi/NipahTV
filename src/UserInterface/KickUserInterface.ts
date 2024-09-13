@@ -403,7 +403,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const rgb = hex2rgb(firstMessageHighlightColor)
 			document.documentElement.style.setProperty(
 				'--ntv-background-highlight-accent-1',
-				`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+				`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.8)`
 			)
 		}
 
@@ -414,7 +414,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				const rgb = hex2rgb(value)
 				document.documentElement.style.setProperty(
 					'--ntv-background-highlight-accent-1',
-					`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.125)`
+					`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.8)`
 				)
 			}
 		)
@@ -875,7 +875,8 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 
 				// We render the newest messages first as theyre most likely to be visible
-				const queueSlice = queue.splice(queue.length - 1 - messageChunkSize)
+				// const queueSlice = queue.splice(queue.length - 1 - messageChunkSize)
+				const queueSlice = queue.splice(0, messageChunkSize)
 
 				for (const msgEl of queueSlice) {
 					this.renderChatMessage(msgEl)
@@ -981,7 +982,6 @@ export class KickUserInterface extends AbstractUserInterface {
 			else if (target.tagName === 'SPAN') {
 				evt.stopPropagation()
 
-				log('Clicked on chat message identity', target)
 				if (!target.classList.contains('ntv__chat-message__username')) return
 
 				const usernameEl = target
@@ -1194,39 +1194,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { channelData } = this.session
 		const channelId = channelData.channelId
 
-		// TODO due overhaul
-		// if (!channelData.isVod) {
-		// 	const usernameEl = messageNode.querySelector('.chat-entry-username') as HTMLElement
-		// 	if (usernameEl) {
-		// 		const { chatEntryUser, chatEntryUserId } = usernameEl.dataset
-		// 		const chatEntryUserName = usernameEl.textContent
-		// 		if (chatEntryUserId && chatEntryUserName) {
-		// 			if (usersManager.hasMutedUser(chatEntryUserId)) {
-		// 				messageNode.remove()
-		// 				return
-		// 			}
-
-		// 			if (!usersManager.hasSeenUser(chatEntryUserId)) {
-		// 				const enableFirstMessageHighlight = settingsManager.getSetting(
-		// 					channelId,
-		// 					'chat.appearance.highlight_first_message'
-		// 				)
-		// 				const highlightWhenModeratorOnly = settingsManager.getSetting(
-		// 					channelId,
-		// 					'chat.appearance.highlight_first_message_moderator'
-		// 				)
-		// 				if (
-		// 					enableFirstMessageHighlight &&
-		// 					(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.isModerator))
-		// 				) {
-		// 					messageNode.classList.add('ntv__highlight-first-message')
-		// 				}
-		// 			}
-		// 			usersManager.registerUser(chatEntryUserId, chatEntryUserName)
-		// 		}
-		// 	}
-		// }
-
 		/*
 		  * Old Kick chat message structure:
 			<div>
@@ -1377,15 +1344,12 @@ export class KickUserInterface extends AbstractUserInterface {
 			error('Chat message identity node not found', messageNode)
 			return
 		}
-		identityEl.className = 'ntv__chat-message__identity'
 
 		const ntvBadgesEl = document.createElement('span')
 		ntvBadgesEl.className = 'ntv__chat-message__badges'
 
 		const badgesEl = identityEl.firstElementChild // Only exists if user has badges
 		if (badgesEl && badgesEl.tagName !== 'BUTTON') {
-			badgesEl.className = 'ntv__chat-message__badges'
-
 			if (badgesEl.firstElementChild)
 				ntvBadgesEl.append(
 					...Array.from(badgesEl.children).map(badgeWrapperEl => {
@@ -1408,11 +1372,38 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
+		const username = usernameEl.title
 		const ntvUsernameEl = document.createElement('span')
 		ntvUsernameEl.className = 'ntv__chat-message__username'
-		ntvUsernameEl.title = usernameEl.title
+		ntvUsernameEl.title = username
 		ntvUsernameEl.textContent = usernameEl.textContent || 'Unknown user'
 		ntvUsernameEl.style.color = usernameEl.style.color
+
+		if (!channelData.isVod && username) {
+			if (usersManager.hasMutedUser(username)) {
+				return
+			}
+
+			if (!usersManager.hasSeenUser(username)) {
+				const enableFirstMessageHighlight = settingsManager.getSetting(
+					channelId,
+					'chat.appearance.highlight_first_message'
+				)
+				const highlightWhenModeratorOnly = settingsManager.getSetting(
+					channelId,
+					'chat.appearance.highlight_first_message_moderator'
+				)
+				if (
+					enableFirstMessageHighlight &&
+					(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.isModerator))
+				) {
+					messageNode.classList.add('ntv__chat-message--first-message')
+				}
+
+				// TODO It's not great, but we dont have slug or user ID here anymore
+				usersManager.registerUser(username, username)
+			}
+		}
 
 		const separatorEl = identityEl?.nextElementSibling
 		if (!separatorEl || !separatorEl.hasAttribute('aria-hidden')) {
@@ -1420,7 +1411,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			error('Chat message separator node not found', separatorEl)
 			return
 		}
-		separatorEl.className = 'ntv__chat-message__separator'
+		const ntvSeparatorEl = document.createElement('span')
+		ntvSeparatorEl.className = 'ntv__chat-message__separator'
+		ntvSeparatorEl.textContent = ': '
 
 		// Add NTV badge to badges container
 		if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
@@ -1439,7 +1432,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}
 
-		ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, separatorEl)
+		ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
 
 		const messagePartNodes = []
 

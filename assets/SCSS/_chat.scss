@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .ntv__chat-messages-container {
 	overflow-x: hidden;
 	// flex-direction: column;
@@ -5,11 +7,13 @@
 
 	> :not(.ntv__chat-message),
 	> .ntv__chat-message--unrendered {
-		right: -9000px;
-		top: -9000px;
+		// This will spaz out the chat
+		// display: none;
 
 		// Necessary to prevent jitter due to difference in size
+		font-size: $root_font_size;
 		padding: 0;
+		margin: 0;
 	}
 
 	&.ntv__show-message-timestamps {
@@ -25,7 +29,7 @@
 	// }
 
 	&.ntv__alternating-background {
-		.ntv__chat-message:not(.ntv__highlight-first-message):not(:hover):nth-child(odd) {
+		.ntv__chat-message:not(.ntv__chat-message--first-message):not(:hover):nth-child(odd) {
 			background-color: rgba(127, 127, 127, 0.05);
 		}
 	}

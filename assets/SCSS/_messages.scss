@@ -97,6 +97,10 @@
 		border-radius: 1em;
 	}
 
+	&--first-message {
+		border: ridge 1.618px var(--ntv-background-highlight-accent-1) !important;
+	}
+
 	// Temporarily disabled until fixed
 	// &--little-spacing {
 	// 	margin: 0.128em 0.2em;

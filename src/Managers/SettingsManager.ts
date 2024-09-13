@@ -202,7 +202,7 @@ export default class SettingsManager {
 							label: 'Appearance',
 							children: [
 								{
-									label: 'Highlight first user messages',
+									label: 'Highlight first time user messages (of this chat session, not first time ever)',
 									key: 'chat.appearance.highlight_first_message',
 									default: false,
 									type: 'checkbox'

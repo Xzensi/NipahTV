@@ -172,7 +172,8 @@ export default class UserInfoModal extends AbstractModal {
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button ntv__user-info-modal__follow">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
 					<button class="ntv__button ntv__user-info-modal__mute">${
-						usersManager.hasMutedUser(userInfo.id) ? 'Unmute' : 'Mute'
+						// TODO change to user ID after replacing chat system
+						usersManager.hasMutedUser(userInfo.username) ? 'Unmute' : 'Mute'
 					}</button>
 					<!--<button class="ntv__button ntv__user-info-modal__Report">Report</button>-->
 				</div>
@@ -336,7 +337,8 @@ export default class UserInfoModal extends AbstractModal {
 		const { id, username } = userInfo
 		const { usersManager } = this.session
 
-		const user = usersManager.getUserById(id)
+		// TODO change to user ID after replacing chat system
+		const user = usersManager.getUserById(username)
 		if (!user) return
 
 		if (user.muted) {
