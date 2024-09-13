@@ -1295,8 +1295,14 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		let isReply = false
+		let isReplyToMe = false
 		if (betterHoverEl.firstElementChild?.classList.contains('w-full')) {
 			isReply = true
+
+			if (betterHoverEl.classList.contains('border-green-500')) {
+				isReplyToMe = true
+				messageNode.classList.add('ntv__chat-message--reply-to-me')
+			}
 
 			// Clone the reply message attachment to our chat message container
 			const replyMessageAttachmentEl = betterHoverEl.firstElementChild
