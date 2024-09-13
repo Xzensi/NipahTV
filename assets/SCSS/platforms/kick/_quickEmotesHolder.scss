@@ -3,7 +3,7 @@
 .ntv__quick-emotes-holder {
 	margin-bottom: $golden_ratio_inverse * 1em;
 
-	& + div {
+	& + div.overflow-hidden.pb-2 {
 		// Force hide the Kick quick emote holder
 		display: none !important;
 	}

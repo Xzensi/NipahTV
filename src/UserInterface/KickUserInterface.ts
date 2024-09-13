@@ -102,20 +102,17 @@ export class KickUserInterface extends AbstractUserInterface {
 				footerEl.append(timersContainer)
 				this.elm.timersContainer = timersContainer
 
-				waitForElements([`${footerSelector} > div.overflow-hidden.pb-2`], 10_000, abortSignal)
+				waitForElements([`${footerSelector}`], 10_000, abortSignal)
 					.then(foundElements => {
 						if (this.session.isDestroyed) return
 
-						const [quickEmotesHolderEl] = foundElements as HTMLElement[]
-						this.loadQuickEmotesHolder(quickEmotesHolderEl)
+						const [footerEl] = foundElements as HTMLElement[]
+						const quickEmotesHolderEl = footerEl.querySelector('& > .overflow-hidden') as HTMLElement
+						this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
 					})
 					.catch(() => {})
 
-				waitForElements(
-					[`${footerSelector} > div.overflow-hidden.pb-2 + .flex > .flex.items-center`],
-					10_000,
-					abortSignal
-				)
+				waitForElements([`${footerSelector} > div.flex > .flex.items-center`], 10_000, abortSignal)
 					.then(foundElements => {
 						if (this.session.isDestroyed) return
 
@@ -302,7 +299,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init()
 	}
 
-	async loadQuickEmotesHolder(kickQuickEmotesHolderEl: HTMLElement) {
+	async loadQuickEmotesHolder(kickFooterEl: HTMLElement, kickQuickEmotesHolderEl?: HTMLElement) {
 		const { settingsManager } = this.rootContext
 		const { eventBus, channelData } = this.session
 		const { channelId } = channelData
@@ -310,14 +307,17 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		if (quickEmotesHolderEnabled) {
 			const placeholder = document.createElement('div')
-			kickQuickEmotesHolderEl.before(placeholder)
+			log('ADSSDDADS', kickQuickEmotesHolderEl)
+			kickFooterEl.prepend(placeholder)
+			kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
 			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init()
 		}
 
 		eventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
 			if (value) {
 				const placeholder = document.createElement('div')
-				kickQuickEmotesHolderEl.before(placeholder)
+				kickFooterEl.prepend(placeholder)
+				kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
 				this.quickEmotesHolder = new QuickEmotesHolderComponent(
 					this.rootContext,
 					this.session,
@@ -326,7 +326,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			} else {
 				this.quickEmotesHolder?.destroy()
 				this.quickEmotesHolder = null
-				kickQuickEmotesHolderEl.style.display = 'block'
+				kickQuickEmotesHolderEl?.style.removeProperty('display')
 			}
 		})
 	}
