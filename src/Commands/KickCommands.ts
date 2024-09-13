@@ -125,7 +125,11 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		description: 'Enable slow mode for chat. Message interval in seconds.',
 		argValidators: {
 			'<on_off>': (arg: string) =>
-				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'
+				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"',
+			'[seconds]': (arg: string) =>
+				!arg || (isStringNumber(arg) && parseInt(arg, 10) > 0)
+					? null
+					: 'Seconds must be a number greater than 0'
 		},
 		api: {
 			protocol: 'http',
@@ -156,18 +160,31 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 	},
 	{
 		name: 'followonly',
-		params: '<on_off>',
+		params: '<on_off> [minutes]',
 		minAllowedRole: 'moderator',
 		description: 'Enable followers only mode for chat.',
 		argValidators: {
 			'<on_off>': (arg: string) =>
-				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'
+				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"',
+			'[minutes]': (arg: string) =>
+				!arg || (isStringNumber(arg) && parseInt(arg, 10) > 0)
+					? null
+					: 'Minutes must be a number greater than 0'
 		},
 		api: {
 			protocol: 'http',
 			method: 'put',
 			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-			data: (args: string[]) => ({ followers_mode: args[0] === 'on' }),
+			data: (args: string[]) => {
+				if (args[1]) {
+					return {
+						followers_mode: args[0] === 'on',
+						following_min_duration: parseInt(args[1], 10)
+					} as Record<string, boolean | number>
+				} else {
+					return { followers_mode: args[0] === 'on' }
+				}
+			},
 			errorMessage: 'Failed to set followers only mode.',
 			successMessage: 'Succesfully toggled followers only mode.'
 		}

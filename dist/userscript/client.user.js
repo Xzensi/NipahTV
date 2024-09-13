@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.13
+// @version 1.5.14
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -13743,7 +13743,8 @@ var KICK_COMMANDS = [
     minAllowedRole: "moderator",
     description: "Enable slow mode for chat. Message interval in seconds.",
     argValidators: {
-      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"',
+      "[seconds]": (arg) => !arg || isStringNumber(arg) && parseInt(arg, 10) > 0 ? null : "Seconds must be a number greater than 0"
     },
     api: {
       protocol: "http",
@@ -13773,17 +13774,27 @@ var KICK_COMMANDS = [
   },
   {
     name: "followonly",
-    params: "<on_off>",
+    params: "<on_off> [minutes]",
     minAllowedRole: "moderator",
     description: "Enable followers only mode for chat.",
     argValidators: {
-      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"',
+      "[minutes]": (arg) => !arg || isStringNumber(arg) && parseInt(arg, 10) > 0 ? null : "Minutes must be a number greater than 0"
     },
     api: {
       protocol: "http",
       method: "put",
       uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-      data: (args) => ({ followers_mode: args[0] === "on" }),
+      data: (args) => {
+        if (args[1]) {
+          return {
+            followers_mode: args[0] === "on",
+            following_min_duration: parseInt(args[1], 10)
+          };
+        } else {
+          return { followers_mode: args[0] === "on" };
+        }
+      },
       errorMessage: "Failed to set followers only mode.",
       successMessage: "Succesfully toggled followers only mode."
     }
@@ -19981,6 +19992,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.14",
+    date: "2024-09-13",
+    description: `
+                  Fix: Commands not showing notification toasts
+                  Fix: Followonly command has changed definition
+                  Fix: Unreliable network requests due to invalid session token
+            `
+  },
+  {
     version: "1.5.13",
     date: "2024-09-13",
     description: `
@@ -21998,6 +22018,11 @@ var CommandExecutionStrategy = class {
       log("Executing command", commandData);
       return networkInterface.executeCommand(commandData.name, this.session.channelData.channelName, commandData.args).then(() => {
         dontClearInput || contentEditableEditor.clearInput();
+        if (commandEntry?.api?.protocol === "http" && commandEntry.api.successMessage)
+          return commandEntry.api.successMessage;
+      }).catch(() => {
+        if (commandEntry?.api?.protocol === "http" && commandEntry.api.errorMessage)
+          throw new Error(commandEntry.api.errorMessage);
       });
     }
   }
@@ -22501,7 +22526,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.13";
+  VERSION = "1.5.14";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
