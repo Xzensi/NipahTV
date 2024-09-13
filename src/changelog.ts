@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.13',
+		date: '2024-09-13',
+		description: `
+                  Fix: Firefox add-on works again
+                  Fix: Reply-to-me message highlighting
+                  Fix: UI elements not loading when Kick native quick emote holder disabled
+            `
+	},
+	{
 		version: '1.5.12',
 		date: '2024-09-13',
 		description: `

@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.12
+// @version 1.5.13
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-54191e1d.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-6ba22aad.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -16103,17 +16103,14 @@ var KickUserInterface = class extends AbstractUserInterface {
       timersContainer.id = "ntv__timers-container";
       footerEl.append(timersContainer);
       this.elm.timersContainer = timersContainer;
-      waitForElements([`${footerSelector} > div.overflow-hidden.pb-2`], 1e4, abortSignal).then((foundElements2) => {
+      waitForElements([`${footerSelector}`], 1e4, abortSignal).then((foundElements2) => {
         if (this.session.isDestroyed) return;
-        const [quickEmotesHolderEl] = foundElements2;
-        this.loadQuickEmotesHolder(quickEmotesHolderEl);
+        const [footerEl2] = foundElements2;
+        const quickEmotesHolderEl = footerEl2.querySelector("& > .overflow-hidden");
+        this.loadQuickEmotesHolder(footerEl2, quickEmotesHolderEl);
       }).catch(() => {
       });
-      waitForElements(
-        [`${footerSelector} > div.overflow-hidden.pb-2 + .flex > .flex.items-center`],
-        1e4,
-        abortSignal
-      ).then((foundElements2) => {
+      waitForElements([`${footerSelector} > div.flex > .flex.items-center`], 1e4, abortSignal).then((foundElements2) => {
         if (this.session.isDestroyed) return;
         const [footerBottomBarEl] = foundElements2;
         this.loadEmoteMenuButton(footerBottomBarEl);
@@ -16224,20 +16221,22 @@ var KickUserInterface = class extends AbstractUserInterface {
     footerSubmitButtonWrapper.prepend(placeholder);
     this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init();
   }
-  async loadQuickEmotesHolder(kickQuickEmotesHolderEl) {
+  async loadQuickEmotesHolder(kickFooterEl, kickQuickEmotesHolderEl) {
     const { settingsManager } = this.rootContext;
     const { eventBus, channelData } = this.session;
     const { channelId } = channelData;
     const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, "quick_emote_holder.enabled");
     if (quickEmotesHolderEnabled) {
       const placeholder = document.createElement("div");
-      kickQuickEmotesHolderEl.before(placeholder);
+      kickFooterEl.prepend(placeholder);
+      kickQuickEmotesHolderEl?.style.setProperty("display", "none", "important");
       this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init();
     }
     eventBus.subscribe("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
       if (value) {
         const placeholder = document.createElement("div");
-        kickQuickEmotesHolderEl.before(placeholder);
+        kickFooterEl.prepend(placeholder);
+        kickQuickEmotesHolderEl?.style.setProperty("display", "none", "important");
         this.quickEmotesHolder = new QuickEmotesHolderComponent(
           this.rootContext,
           this.session,
@@ -16246,7 +16245,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       } else {
         this.quickEmotesHolder?.destroy();
         this.quickEmotesHolder = null;
-        kickQuickEmotesHolderEl.style.display = "block";
+        kickQuickEmotesHolderEl?.style.removeProperty("display");
       }
     });
   }
@@ -16265,11 +16264,9 @@ var KickUserInterface = class extends AbstractUserInterface {
 					<h3><strong>Current Known Issues:</strong></h3>
 					<ul>
 					<li><strong>Reply Functionality:</strong> Kick\u2019s overhaul made it impossible to implement the reply message feature. When replying, NipahTV falls back to the default Kick chat input as a temporary workaround.</li>
-					<li><strong>Firefox Issues:</strong> Kick has historically had <b>many</b> issues with Firefox, and currently, Firefox is having trouble authenticating.</li>
 					<li><strong>Mobile Mode Conflicts:</strong> Kick\u2019s new mobile mode activates on smaller window sizes, which currently breaks NipahTV.</li>
-					<li><strong>Chat Scrolling Problems:</strong> Occasionally, chat gets stuck while scrolling, particularly when large messages with a lot of emotes expand.</li>
 					<li><strong>Bans/Timeouts:</strong> Banning or timing out users causes their page to crash completely.</li>
-					<li><strong>Feature Restoration:</strong> Some settings, such as the transparent overlay chat in theatre mode, still need to be re-implemented into Kick\u2019s new design.</li>
+					<li><strong>Feature Restoration:</strong> Some settings still need to be re-implemented into Kick\u2019s new design.</li>
 					</ul>
 					<p>We are continuing to make fixes and adjustments to improve the experience and restore the features you all loved. <strong>Thank you for your patience and support</strong> as we adapt to these changes!</p>
 
@@ -16504,31 +16501,6 @@ var KickUserInterface = class extends AbstractUserInterface {
           containerEl.classList.add("ntv__theatre-overlay-mode--" + value.replaceAll("_", "-"));
         } else {
           containerEl.classList.remove("ntv__theatre-overlay-mode");
-        }
-      }
-    );
-    const chatOverlayPositionSetting = settingsManager.getSetting(
-      channelId,
-      "appearance.layout.overlay_chat_position"
-    );
-    if (chatOverlayPositionSetting) {
-      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
-        containerEl.classList.add(
-          "ntv__theatre-overlay-position--" + chatOverlayPositionSetting.replaceAll("_", "-")
-        );
-      }).catch(() => {
-      });
-    }
-    rootEventBus.subscribe(
-      "ntv.settings.change.appearance.layout.overlay_chat_position",
-      ({ value, prevValue }) => {
-        const containerEl = document.querySelector("body > div[data-theatre]");
-        if (!containerEl) return error("Theatre mode container not found");
-        if (prevValue) {
-          containerEl.classList.remove("ntv__theatre-overlay-position--" + prevValue.replaceAll("_", "-"));
-        }
-        if (value && value !== "none") {
-          containerEl.classList.add("ntv__theatre-overlay-position--" + value.replaceAll("_", "-"));
         }
       }
     );
@@ -16913,8 +16885,13 @@ var KickUserInterface = class extends AbstractUserInterface {
       return;
     }
     let isReply = false;
+    let isReplyToMe = false;
     if (betterHoverEl.firstElementChild?.classList.contains("w-full")) {
       isReply = true;
+      if (betterHoverEl.classList.contains("border-green-500")) {
+        isReplyToMe = true;
+        messageNode.classList.add("ntv__chat-message--reply-to-me");
+      }
       const replyMessageAttachmentEl = betterHoverEl.firstElementChild;
       if (!replyMessageAttachmentEl) {
         messageNode.classList.remove("ntv__chat-message--unrendered");
@@ -20004,6 +19981,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.13",
+    date: "2024-09-13",
+    description: `
+                  Fix: Firefox add-on works again
+                  Fix: Reply-to-me message highlighting
+                  Fix: UI elements not loading when Kick native quick emote holder disabled
+            `
+  },
+  {
     version: "1.5.12",
     date: "2024-09-13",
     description: `
@@ -22515,7 +22501,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.12";
+  VERSION = "1.5.13";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
