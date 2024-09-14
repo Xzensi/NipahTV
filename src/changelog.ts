@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.15',
+		date: '2024-09-14',
+		description: `
+                  Feat: Make chat message lines consistent in height allowing emote overlap
+                  Fix: Sometimes unable to click emotes in chat #137
+                  Fix: Hide quick emotes holder when replying
+                  Fix: Chat message spacing setting
+                  Chore: Prevent darkening of chat input on focus
+            `
+	},
+	{
 		version: '1.5.14',
 		date: '2024-09-13',
 		description: `

@@ -2,29 +2,47 @@
 
 .ntv__chat-message {
 	font-size: $root_font_size;
-	padding: 0.33em 0.9em;
+	padding: 0em 0.9em;
 	margin: 0;
 
 	&:hover {
 		background-color: rgba(128, 128, 128, 0.09);
 	}
 
-	&__identity {
-		// vertical-align: middle;
-		display: inline;
-		margin-left: 0;
+	&__inner {
+		overflow: hidden;
+		padding: 0.3em 0;
 	}
 
-	&__badges,
+	&__attachment {
+		color: var(--ntv-text-color-disabled-emphasis);
+		margin-bottom: 0.5em;
+		white-space: nowrap;
+		font-size: 0.8em;
+		overflow: hidden;
+	}
+
+	&__identity {
+		display: inline;
+		margin-left: 0;
+
+		// Because align middle is set to bottom of baseline instead of actual middle
+		margin-top: -0.13em;
+	}
+
 	&__username,
 	&__seperator {
 		display: inline;
 	}
 
+	&__identity,
+	&__part {
+		line-height: $golden_ratio * 1em;
+	}
+
 	&__timestamp {
 		font-family: Helvetica Neue, sans-serif;
 		font-variant-numeric: tabular-nums;
-		vertical-align: baseline;
 		margin-right: 0.45em;
 		white-space: nowrap;
 		color: #adadb8;
@@ -32,34 +50,48 @@
 	}
 
 	&__badges {
-		vertical-align: baseline;
+		vertical-align: middle;
 		margin-right: 0.12em;
+		display: inline-flex;
 		white-space: nowrap;
+		align-items: center;
+
+		// Because align middle is set to bottom of baseline instead of actual middle
+		margin-top: -0.1em;
 
 		.ntv__badge {
 			margin-right: 0.333em;
 		}
 	}
 
+	&__badge {
+		display: inline-flex;
+	}
+
 	&__username {
 		text-overflow: ellipsis;
-		vertical-align: middle;
-		display: inline-block;
+		word-break: break-all;
 		font-weight: 700;
 		overflow: hidden;
 		cursor: pointer;
-		max-width: 80%;
+		max-width: 17em;
 	}
 
 	&__separator {
-		vertical-align: middle;
+		display: inline-block;
+		word-break: keep-all;
+		margin-right: 0.3em;
 	}
 
 	&__part {
 		word-break: break-word;
 		margin-right: 0.333em;
 		white-space: normal;
-		line-height: 1.5em;
+		// line-height: 1.5em;
+		// line-height: 2em;
+
+		&--text {
+		}
 
 		&:last-child {
 			margin-right: 0;
@@ -70,15 +102,31 @@
 		}
 	}
 
-	// &--text {
-	// 	margin-right: 0.2em;
-	// }
-
-	// 	> div {
-	// 		white-space: nowrap;
-	// 	}
-
 	&--unrendered {
+	}
+
+	&--seperator {
+		&-basic {
+			border-bottom: 1px solid var(--ntv-border-transparent-2);
+		}
+
+		&-3d {
+			border-top: 1px solid rgba(255, 255, 255, 0.128);
+			border-bottom: 1px solid #000;
+		}
+
+		&-3d-inset {
+			border-bottom: 1px solid rgba(255, 255, 255, 0.128);
+			border-top: 1px solid #000;
+		}
+
+		&-wide {
+			border-bottom: 1px solid rgba(255, 255, 255, 0.128);
+			border-top: 1px solid rgba(255, 255, 255, 0.128);
+			margin-bottom: 0.3em;
+			margin-top: 0.3em;
+			padding: 0.1em;
+		}
 	}
 
 	&--first-message {
@@ -105,14 +153,15 @@
 		border-radius: 1em;
 	}
 
-	// Temporarily disabled until fixed
-	// &--little-spacing {
-	// 	margin: 0.128em 0.2em;
-	// }
+	&--little-spacing {
+		padding-bottom: 0.128em;
+		padding-top: 0.128em;
+	}
 
-	// &--large-spacing {
-	// 	margin: 0.25em 0.2em;
-	// }
+	&--large-spacing {
+		padding-bottom: 0.25em;
+		padding-top: 0.25em;
+	}
 }
 
 .ntv__chat-message-separator {

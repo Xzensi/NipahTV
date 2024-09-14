@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.14
+// @version 1.5.15
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-6ba22aad.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-3d78650b.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -13350,7 +13350,7 @@ var AbstractUserInterface = class {
     }
     const newNode = document.createElement("span");
     newNode.append(document.createTextNode(textContent));
-    newNode.className = "ntv__chat-message__part ntv__chat-message--text";
+    newNode.className = "ntv__chat-message__part ntv__chat-message__part--text";
     return newNode;
   }
   changeInputStatus(status, reason) {
@@ -16142,10 +16142,6 @@ var KickUserInterface = class extends AbstractUserInterface {
       if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
         chatMessagesContainerEl.classList.add("ntv__alternating-background");
       }
-      const seperatorSettingVal = settingsManager.getSetting(channelId, "chat.appearance.seperators");
-      if (seperatorSettingVal && seperatorSettingVal !== "none") {
-        chatMessagesContainerEl.classList.add(`ntv__seperators-${seperatorSettingVal}`);
-      }
       if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
         chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
       }
@@ -16191,10 +16187,13 @@ var KickUserInterface = class extends AbstractUserInterface {
     rootEventBus.subscribe(
       "ntv.settings.change.chat.appearance.seperators",
       ({ value, prevValue }) => {
-        if (prevValue !== "none")
-          document.querySelector(".ntv__chat-messages-container")?.classList.remove(`ntv__seperators-${prevValue}`);
+        if (prevValue !== "none") {
+          const oldClassName = `ntv__chat-message--seperator-${prevValue}`;
+          document.querySelector("." + oldClassName)?.classList.remove(oldClassName);
+        }
         if (!value || value === "none") return;
-        document.querySelector(".ntv__chat-messages-container")?.classList.add(`ntv__seperators-${value}`);
+        const newClassName = `ntv__chat-message--seperator-${value}`;
+        document.querySelector("." + newClassName)?.classList.add(newClassName);
       }
     );
     rootEventBus.subscribe(
@@ -16734,7 +16733,7 @@ var KickUserInterface = class extends AbstractUserInterface {
           if (addedNode.className === "line-through") {
             chatMessageElement.append(
               parseHTML(
-                `<span class="ntv__chat-message__part ntv__chat-message--text">(Deleted)</span>`,
+                `<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
                 true
               )
             );
@@ -16745,7 +16744,7 @@ var KickUserInterface = class extends AbstractUserInterface {
             const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
             chatMessageElement.append(
               parseHTML(
-                `<span class="ntv__chat-message__part ntv__chat-message--text">${deletedMessageContent}</span>`,
+                `<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
                 true
               )
             );
@@ -16857,12 +16856,13 @@ var KickUserInterface = class extends AbstractUserInterface {
   prepareMessageForRendering(messageEl) {
     const settingsManager = this.rootContext.settingsManager;
     const channelId = this.session.channelData.channelId;
-    const chatMessagesStyle = settingsManager.getSetting(channelId, "chat.appearance.messages_style");
-    const chatMessagesSpacing = settingsManager.getSetting(channelId, "chat.appearance.messages_spacing");
-    if (chatMessagesStyle && chatMessagesStyle !== "none")
-      messageEl.classList.add("ntv__chat-message--theme-" + chatMessagesStyle);
-    if (chatMessagesSpacing && chatMessagesSpacing !== "none")
-      messageEl.classList.add("ntv__chat-message--" + chatMessagesSpacing);
+    const settingStyle = settingsManager.getSetting(channelId, "chat.appearance.messages_style");
+    const settingSeperator = settingsManager.getSetting(channelId, "chat.appearance.seperators");
+    const settingSpacing = settingsManager.getSetting(channelId, "chat.appearance.messages_spacing");
+    if (settingStyle && settingStyle !== "none") messageEl.classList.add("ntv__chat-message--theme-" + settingStyle);
+    if (settingSeperator && settingSeperator !== "none")
+      messageEl.classList.add(`ntv__chat-message--seperator-${settingSeperator}`);
+    if (settingSpacing && settingSpacing !== "none") messageEl.classList.add("ntv__chat-message--" + settingSpacing);
     messageEl.classList.add("ntv__chat-message", "ntv__chat-message--unrendered");
   }
   renderChatMessage(messageNode) {
@@ -16880,6 +16880,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
       return;
     }
+    const ntvMessageInnerEl = document.createElement("div");
     const ntvIdentityWrapperEl = document.createElement("div");
     ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
     let groupElementNode = messageNode.firstElementChild;
@@ -16909,6 +16910,10 @@ var KickUserInterface = class extends AbstractUserInterface {
         error("Reply message attachment element not found", messageNode);
         return;
       }
+      const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
+      ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
+      ntvMessageInnerEl.append(ntvMessageAttachmentEl);
+      replyMessageAttachmentEl.style.setProperty("display", "none", "important");
       const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
       ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
       messageNode.append(ntvReplyMessageAttachmentEl);
@@ -16996,7 +17001,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
     const ntvSeparatorEl = document.createElement("span");
     ntvSeparatorEl.className = "ntv__chat-message__separator";
-    ntvSeparatorEl.textContent = ": ";
+    ntvSeparatorEl.textContent = ":";
     if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
       const lastChildNode = contentWrapperNode.lastChild;
       if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
@@ -17030,7 +17035,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         ntvImgEl.setAttribute("data-emote-name", emoteName);
         const emote = emotesManager.getEmoteById(emoteId);
         if (emote) {
-          ntvImgEl.setAttribute("data-emote-id", emote.hid);
+          ntvImgEl.setAttribute("data-emote-hid", emote.hid);
         }
         const newContentNode = document.createElement("span");
         newContentNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
@@ -17046,8 +17051,10 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
     ;
     groupElementNode.style.display = "none";
-    messageNode.append(ntvIdentityWrapperEl);
-    messageNode.append(...messagePartNodes);
+    ntvMessageInnerEl.className = "ntv__chat-message__inner";
+    ntvMessageInnerEl.append(ntvIdentityWrapperEl);
+    ntvMessageInnerEl.append(...messagePartNodes);
+    messageNode.append(ntvMessageInnerEl);
     messageNode.classList.add("ntv__chat-message");
     messageNode.classList.remove("ntv__chat-message--unrendered");
     let chatMessageActionsEl = groupElementNode.lastElementChild;
@@ -17096,22 +17103,34 @@ var KickUserInterface = class extends AbstractUserInterface {
     originalTextFieldEl?.parentElement?.style.removeProperty("display");
     this.elm.submitButton.style.setProperty("display", "none", "important");
     this.elm.originalSubmitButton.style.removeProperty("display");
+    document.querySelector(".ntv__quick-emotes-holder")?.style.setProperty(
+      "display",
+      "none",
+      "important"
+    );
     await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2e3);
     const closeReplyButton = document.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')?.closest("button");
     const replyPreviewWrapperEl = closeReplyButton.closest(".flex.flex-col")?.parentElement;
     if (!replyPreviewWrapperEl) return error("Reply preview wrapper element not found");
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.removedNodes.length) {
-          originalTextFieldEl.parentElement.style.display = "none";
-          textFieldEl.parentElement.style.removeProperty("display");
-          this.elm.submitButton.style.removeProperty("display");
-          this.elm.originalSubmitButton.style.setProperty("display", "none", "important");
-          observer.disconnect();
-        }
+    const restoreTextField = () => {
+      originalTextFieldEl.parentElement.style.display = "none";
+      textFieldEl.parentElement.style.removeProperty("display");
+      this.elm.submitButton.style.removeProperty("display");
+      this.elm.originalSubmitButton.style.setProperty("display", "none", "important");
+      document.querySelector(".ntv__quick-emotes-holder")?.style.removeProperty("display");
+    };
+    if (!isElementInDOM(replyPreviewWrapperEl)) restoreTextField();
+    else {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.removedNodes.length) {
+            restoreTextField();
+            observer.disconnect();
+          }
+        });
       });
-    });
-    observer.observe(replyPreviewWrapperEl, { childList: true });
+      observer.observe(replyPreviewWrapperEl, { childList: true });
+    }
   }
   renderPinnedMessage(node) {
     this.queuedChatMessages.push(node);
@@ -19785,7 +19804,7 @@ var KickBadgeProvider = class {
     const randomId = "_" + (Math.random() * 1e7 << 0);
     switch (badge.type) {
       case "nipahtv":
-        return `<svg class="ntv__badge" ntv-tooltip="NipahTV" width="16" height="16" viewBox="0 0 8.4666666 8.4666666" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0111579" d="M 0.4221268,8.0408451 0.42307359,3.6833954 C 0.42124174,3.4240591 0.69139827,2.852836 1.1984875,2.589897 1.5018775,2.4325816 1.771575,2.3796758 2.2754711,2.3692371 2.7617771,2.3591602 3.0049777,2.4560776 3.092353,2.498832 3.3322233,2.6066496 3.5816174,2.8327302 3.6502278,2.9301102 L 5.8200061,6.1819793 C 5.9488304,6.3456396 6.106575,6.45146 6.2722071,6.4343707 6.412206,6.4231911 6.4864439,6.306628 6.4870601,6.2003826 l 0.00164,-4.4178854 -6.0671778,3.085e-4 2.121e-5,-1.36113751 7.61868519,1.0221e-4 -5.51e-5,6.233427 C 8.0372902,6.7261965 7.9929708,7.2225777 7.5319251,7.6204112 7.1192154,8.0052328 6.4162735,8.0391936 6.4162735,8.0391936 6.1205021,8.0438214 5.8965138,8.0504547 5.7294412,8.0168546 5.4524182,7.9461162 5.3322768,7.8862918 5.1028895,7.7272332 4.9017657,7.5786892 4.767682,7.4038567 4.6546318,7.2566277 c 0,0 -0.5337022,-0.8873138 -0.9201774,-1.4499359 C 3.4381265,5.3529145 2.9360884,4.6040529 2.6907121,4.2857648 2.5038952,4.0258106 2.3738568,3.9692413 2.3042378,3.9452998 2.22996,3.9216198 2.1482519,3.942895 2.0853403,3.9690655 c -0.055649,0.025347 -0.1030197,0.07204 -0.1114378,0.135254 l 3.748e-4,3.9369937 z" /></svg>`;
+        return `<svg class="ntv__badge" ntv-tooltip="NipahTV" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0230583" d="M 0.2512317,15.995848 0.2531577,6.8477328 C 0.24943124,6.3032776 0.7989812,5.104041 1.8304975,4.5520217 2.4476507,4.2217505 2.9962666,4.1106784 4.0212875,4.0887637 5.0105274,4.067611 5.5052433,4.2710769 5.6829817,4.3608374 c 0.4879421,0.2263549 0.995257,0.7009925 1.134824,0.9054343 l 4.4137403,6.8270373 c 0.262057,0.343592 0.582941,0.565754 0.919866,0.529874 0.284783,-0.0234 0.4358,-0.268186 0.437049,-0.491242 l 0.003,-9.2749904 L 0.25,2.8575985 0.25004315,0 15.747898,2.1455645e-4 15.747791,13.08679 c -0.0055,0.149056 -0.09606,1.191174 -1.033875,2.026391 -0.839525,0.807902 -2.269442,0.879196 -2.269442,0.879196 -0.601658,0.0088 -1.057295,0.02361 -1.397155,-0.04695 -0.563514,-0.148465 -0.807905,-0.274059 -1.274522,-0.607992 -0.4091245,-0.311857 -0.6818768,-0.678904 -0.9118424,-0.98799 0,0 -1.0856521,-1.86285 -1.8718165,-3.044031 C 6.3863506,10.352753 5.3651096,8.7805786 4.8659674,8.1123589 4.4859461,7.5666062 4.2214229,7.4478431 4.0798053,7.3975803 3.9287117,7.3478681 3.7624996,7.39252 3.6345251,7.4474753 3.5213234,7.5006891 3.4249644,7.5987165 3.4078407,7.7314301 l 7.632e-4,8.2653999 z"/></svg>`;
       case "broadcaster":
         return `<svg class="ntv__badge" ntv-tooltip="Broadcaster" x="0px" y="0px" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1${randomId}" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2${randomId});" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3${randomId}" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3${randomId});" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4${randomId}" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5${randomId});" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6${randomId}"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6${randomId});" width="1.6" height="3.2"></rect></g></svg>`;
       case "verified":
@@ -19991,6 +20010,17 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.15",
+    date: "2024-09-14",
+    description: `
+                  Feat: Make chat message lines consistent in height allowing emote overlap
+                  Fix: Sometimes unable to click emotes in chat #137
+                  Fix: Hide quick emotes holder when replying
+                  Fix: Chat message spacing setting
+                  Chore: Prevent darkening of chat input on focus
+            `
+  },
   {
     version: "1.5.14",
     date: "2024-09-13",
@@ -21204,7 +21234,7 @@ var SettingsManager = class {
                   ]
                 },
                 {
-                  label: "Messages spacing (currently broken after Kick update!)",
+                  label: "Messages spacing",
                   key: "chat.appearance.messages_spacing",
                   default: "none",
                   type: "dropdown",
@@ -22526,7 +22556,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.14";
+  VERSION = "1.5.15";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -230,7 +230,7 @@ export default abstract class AbstractUserInterface {
 		}
 		const newNode = document.createElement('span')
 		newNode.append(document.createTextNode(textContent))
-		newNode.className = 'ntv__chat-message__part ntv__chat-message--text'
+		newNode.className = 'ntv__chat-message__part ntv__chat-message__part--text'
 		return newNode
 	}
 

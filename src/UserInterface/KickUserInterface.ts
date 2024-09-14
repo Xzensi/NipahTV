@@ -148,12 +148,6 @@ export class KickUserInterface extends AbstractUserInterface {
 					chatMessagesContainerEl.classList.add('ntv__alternating-background')
 				}
 
-				// Add seperator lines to chat messages
-				const seperatorSettingVal = settingsManager.getSetting(channelId, 'chat.appearance.seperators')
-				if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-					chatMessagesContainerEl.classList.add(`ntv__seperators-${seperatorSettingVal}`)
-				}
-
 				if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
 					chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
 				}
@@ -241,12 +235,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		rootEventBus.subscribe(
 			'ntv.settings.change.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
-				if (prevValue !== 'none')
-					document
-						.querySelector('.ntv__chat-messages-container')
-						?.classList.remove(`ntv__seperators-${prevValue}`)
+				if (prevValue !== 'none') {
+					const oldClassName = `ntv__chat-message--seperator-${prevValue}`
+					document.querySelector('.' + oldClassName)?.classList.remove(oldClassName)
+				}
 				if (!value || value === 'none') return
-				document.querySelector('.ntv__chat-messages-container')?.classList.add(`ntv__seperators-${value}`)
+				const newClassName = `ntv__chat-message--seperator-${value}`
+				document.querySelector('.' + newClassName)?.classList.add(newClassName)
 			}
 		)
 
@@ -1012,7 +1007,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					if (addedNode.className === 'line-through') {
 						chatMessageElement.append(
 							parseHTML(
-								`<span class="ntv__chat-message__part ntv__chat-message--text">(Deleted)</span>`,
+								`<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
 								true
 							)
 						)
@@ -1027,7 +1022,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 						chatMessageElement.append(
 							parseHTML(
-								`<span class="ntv__chat-message__part ntv__chat-message--text">${deletedMessageContent}</span>`,
+								`<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
 								true
 							)
 						)
@@ -1173,14 +1168,16 @@ export class KickUserInterface extends AbstractUserInterface {
 		const settingsManager = this.rootContext.settingsManager
 		const channelId = this.session.channelData.channelId
 
-		const chatMessagesStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
-		const chatMessagesSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
+		const settingStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
+		const settingSeperator = settingsManager.getSetting(channelId, 'chat.appearance.seperators')
+		const settingSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
 
-		if (chatMessagesStyle && chatMessagesStyle !== 'none')
-			messageEl.classList.add('ntv__chat-message--theme-' + chatMessagesStyle)
+		if (settingStyle && settingStyle !== 'none') messageEl.classList.add('ntv__chat-message--theme-' + settingStyle)
 
-		if (chatMessagesSpacing && chatMessagesSpacing !== 'none')
-			messageEl.classList.add('ntv__chat-message--' + chatMessagesSpacing)
+		if (settingSeperator && settingSeperator !== 'none')
+			messageEl.classList.add(`ntv__chat-message--seperator-${settingSeperator}`)
+
+		if (settingSpacing && settingSpacing !== 'none') messageEl.classList.add('ntv__chat-message--' + settingSpacing)
 
 		messageEl.classList.add('ntv__chat-message', 'ntv__chat-message--unrendered')
 	}
@@ -1272,6 +1269,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
+		const ntvMessageInnerEl = document.createElement('div')
+
 		const ntvIdentityWrapperEl = document.createElement('div')
 		ntvIdentityWrapperEl.classList.add('ntv__chat-message__identity')
 
@@ -1308,6 +1307,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				error('Reply message attachment element not found', messageNode)
 				return
 			}
+
+			const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
+			ntvMessageAttachmentEl.className = 'ntv__chat-message__attachment'
+			ntvMessageInnerEl.append(ntvMessageAttachmentEl)
+			;(replyMessageAttachmentEl as HTMLElement).style.setProperty('display', 'none', 'important')
 
 			const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
 			ntvReplyMessageAttachmentEl.classList.add('ntv__chat-message__reply-attachment')
@@ -1416,7 +1420,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 		const ntvSeparatorEl = document.createElement('span')
 		ntvSeparatorEl.className = 'ntv__chat-message__separator'
-		ntvSeparatorEl.textContent = ': '
+		ntvSeparatorEl.textContent = ':'
 
 		// Add NTV badge to badges container
 		if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
@@ -1441,12 +1445,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// const messageBodyChildren = Array.from(contentWrapperNode.childNodes)
 		for (const contentNode of contentWrapperNode.childNodes) {
-			// const newContentNode = document.createElement('span')
-			// newContentNode.classList.add('ntv__chat-message__part')
-			// newContentNode.textContent =
-			// 	'AD ASDA ASDDADDSA ASD ADASDAS DSAD ASD ASD ASD ASDASASDSA ASD ASD ASDAS ASDASD ASD ASDASD AASD DSAA DASD SADSA ASD ASD ASD ASD SD ASD AS AD ASDA ASDDADDSA ASD ADASDAS DSAD ASD ASD ASD ASDASASDSA ASD ASD ASDAS ASDASD ASD ASDASD AASD DSAA DASD SADSA ASD ASD ASD ASD SD ASD AS'
-			// messagePartNodes.push(newContentNode)
-
 			if (contentNode.nodeType === Node.TEXT_NODE) {
 				const parsedEmoteNotes = this.renderEmotesInString(contentNode.textContent || '')
 				messagePartNodes.push(...parsedEmoteNotes)
@@ -1475,7 +1473,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				const emote = emotesManager.getEmoteById(emoteId)
 				if (emote) {
-					ntvImgEl.setAttribute('data-emote-id', emote.hid)
+					ntvImgEl.setAttribute('data-emote-hid', emote.hid)
 				}
 
 				const newContentNode = document.createElement('span')
@@ -1493,12 +1491,22 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		;(groupElementNode as HTMLElement).style.display = 'none'
 
+		// const ntvMessagePartsWrapperEl = document.createElement('div')
+		// ntvMessagePartsWrapperEl.className = 'ntv__chat-message__parts-wrapper'
+		// ntvMessagePartsWrapperEl.append(...messagePartNodes)
+
+		ntvMessageInnerEl.className = 'ntv__chat-message__inner'
+		ntvMessageInnerEl.append(ntvIdentityWrapperEl)
+		ntvMessageInnerEl.append(...messagePartNodes)
+
 		// Append all the nodes to our own chat message container
 		// We do this late so checks can be done and bailout early
 		//   if necessary leaving the original message untouched
 		// messageNode.append(ntvChatMessageEl)
-		messageNode.append(ntvIdentityWrapperEl)
-		messageNode.append(...messagePartNodes)
+		messageNode.append(ntvMessageInnerEl)
+		// messageNode.append(ntvIdentityWrapperEl)
+		// messageNode.append(...messagePartNodes)
+		// messageNode.append(ntvMessagePartsWrapperEl)
 
 		messageNode.classList.add('ntv__chat-message')
 		// messageNode.style.removeProperty('display')
@@ -1577,8 +1585,13 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		this.elm.submitButton!.style.setProperty('display', 'none', 'important')
 		this.elm.originalSubmitButton!.style.removeProperty('display')
+		;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.setProperty(
+			'display',
+			'none',
+			'important'
+		)
 
-		await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2_000)
+		await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2000)
 
 		const closeReplyButton = document
 			.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')
@@ -1587,20 +1600,28 @@ export class KickUserInterface extends AbstractUserInterface {
 		const replyPreviewWrapperEl = closeReplyButton.closest('.flex.flex-col')?.parentElement
 		if (!replyPreviewWrapperEl) return error('Reply preview wrapper element not found')
 
-		// Attach observer to reply message button to detect when the element is removed
-		//  so we know the reply message has been closed and we can restore the text field.
-		const observer = new MutationObserver(mutations => {
-			mutations.forEach(mutation => {
-				if (mutation.removedNodes.length) {
-					originalTextFieldEl!.parentElement!.style.display = 'none'
-					textFieldEl.parentElement!.style.removeProperty('display')
-					this.elm.submitButton!.style.removeProperty('display')
-					this.elm.originalSubmitButton!.style.setProperty('display', 'none', 'important')
-					observer.disconnect()
-				}
+		const restoreTextField = () => {
+			originalTextFieldEl!.parentElement!.style.display = 'none'
+			textFieldEl.parentElement!.style.removeProperty('display')
+			this.elm.submitButton!.style.removeProperty('display')
+			this.elm.originalSubmitButton!.style.setProperty('display', 'none', 'important')
+			;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.removeProperty('display')
+		}
+
+		if (!isElementInDOM(replyPreviewWrapperEl)) restoreTextField()
+		else {
+			// Attach observer to reply message button to detect when the element is removed
+			//  so we know the reply message has been closed and we can restore the text field.
+			const observer = new MutationObserver(mutations => {
+				mutations.forEach(mutation => {
+					if (mutation.removedNodes.length) {
+						restoreTextField()
+						observer.disconnect()
+					}
+				})
 			})
-		})
-		observer.observe(replyPreviewWrapperEl, { childList: true })
+			observer.observe(replyPreviewWrapperEl, { childList: true })
+		}
 	}
 
 	renderPinnedMessage(node: HTMLElement) {
