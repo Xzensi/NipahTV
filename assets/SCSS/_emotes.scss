@@ -81,10 +81,9 @@
 	img {
 		// height: #{1.6182 * 1.6182}em;
 		height: #{math.pow(1 + math.div(1, 3), 3)}em;
-		// margin-bottom: -0.5em;
 		vertical-align: middle;
 		position: relative;
-		// margin: -0.5em 0;
+		margin: -0.2em 0;
 		display: inline;
 		cursor: pointer;
 	}

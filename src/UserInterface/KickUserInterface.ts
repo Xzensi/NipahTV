@@ -1007,7 +1007,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					if (addedNode.className === 'line-through') {
 						chatMessageElement.append(
 							parseHTML(
-								`<span class="ntv__chat-message__part ntv__chat-message--text">(Deleted)</span>`,
+								`<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
 								true
 							)
 						)
@@ -1022,7 +1022,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 						chatMessageElement.append(
 							parseHTML(
-								`<span class="ntv__chat-message__part ntv__chat-message--text">${deletedMessageContent}</span>`,
+								`<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
 								true
 							)
 						)
@@ -1269,6 +1269,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
+		const ntvMessageInnerEl = document.createElement('div')
+
 		const ntvIdentityWrapperEl = document.createElement('div')
 		ntvIdentityWrapperEl.classList.add('ntv__chat-message__identity')
 
@@ -1305,6 +1307,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				error('Reply message attachment element not found', messageNode)
 				return
 			}
+
+			const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
+			ntvMessageAttachmentEl.className = 'ntv__chat-message__attachment'
+			ntvMessageInnerEl.append(ntvMessageAttachmentEl)
+			;(replyMessageAttachmentEl as HTMLElement).style.setProperty('display', 'none', 'important')
 
 			const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
 			ntvReplyMessageAttachmentEl.classList.add('ntv__chat-message__reply-attachment')
@@ -1413,7 +1420,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 		const ntvSeparatorEl = document.createElement('span')
 		ntvSeparatorEl.className = 'ntv__chat-message__separator'
-		ntvSeparatorEl.textContent = ': '
+		ntvSeparatorEl.textContent = ':'
 
 		// Add NTV badge to badges container
 		if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
@@ -1438,12 +1445,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// const messageBodyChildren = Array.from(contentWrapperNode.childNodes)
 		for (const contentNode of contentWrapperNode.childNodes) {
-			// const newContentNode = document.createElement('span')
-			// newContentNode.classList.add('ntv__chat-message__part')
-			// newContentNode.textContent =
-			// 	'AD ASDA ASDDADDSA ASD ADASDAS DSAD ASD ASD ASD ASDASASDSA ASD ASD ASDAS ASDASD ASD ASDASD AASD DSAA DASD SADSA ASD ASD ASD ASD SD ASD AS AD ASDA ASDDADDSA ASD ADASDAS DSAD ASD ASD ASD ASDASASDSA ASD ASD ASDAS ASDASD ASD ASDASD AASD DSAA DASD SADSA ASD ASD ASD ASD SD ASD AS'
-			// messagePartNodes.push(newContentNode)
-
 			if (contentNode.nodeType === Node.TEXT_NODE) {
 				const parsedEmoteNotes = this.renderEmotesInString(contentNode.textContent || '')
 				messagePartNodes.push(...parsedEmoteNotes)
@@ -1490,12 +1491,22 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		;(groupElementNode as HTMLElement).style.display = 'none'
 
+		// const ntvMessagePartsWrapperEl = document.createElement('div')
+		// ntvMessagePartsWrapperEl.className = 'ntv__chat-message__parts-wrapper'
+		// ntvMessagePartsWrapperEl.append(...messagePartNodes)
+
+		ntvMessageInnerEl.className = 'ntv__chat-message__inner'
+		ntvMessageInnerEl.append(ntvIdentityWrapperEl)
+		ntvMessageInnerEl.append(...messagePartNodes)
+
 		// Append all the nodes to our own chat message container
 		// We do this late so checks can be done and bailout early
 		//   if necessary leaving the original message untouched
 		// messageNode.append(ntvChatMessageEl)
-		messageNode.append(ntvIdentityWrapperEl)
-		messageNode.append(...messagePartNodes)
+		messageNode.append(ntvMessageInnerEl)
+		// messageNode.append(ntvIdentityWrapperEl)
+		// messageNode.append(...messagePartNodes)
+		// messageNode.append(ntvMessagePartsWrapperEl)
 
 		messageNode.classList.add('ntv__chat-message')
 		// messageNode.style.removeProperty('display')
