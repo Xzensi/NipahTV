@@ -121,7 +121,8 @@ export default class SettingsManager {
                     - Show quick emote holder
                     - Rows of emotes to display (number)
 					- Show favorited emotes in the quick emote holder
-					- Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes
+					- Show favorited emotes of other channels that cannot be used (because they're not cross-channel emotes)
+					- Show recently used emotes in the quick emote holder
                 (Behavior)
                     - Send emotes to chat immediately on click
 	*/
@@ -630,7 +631,13 @@ export default class SettingsManager {
 									default: true
 								},
 								{
-									label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes",
+									label: 'Show recently used emotes in the quick emote holder',
+									key: 'quick_emote_holder.show_recently_used',
+									type: 'checkbox',
+									default: true
+								},
+								{
+									label: "Show favorited emotes of other channels that cannot be used (because they're not cross-channel emotes)",
 									key: 'quick_emote_holder.show_non_cross_channel_favorites',
 									type: 'checkbox',
 									default: false

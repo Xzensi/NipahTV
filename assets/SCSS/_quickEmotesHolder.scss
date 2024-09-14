@@ -82,7 +82,9 @@
 		opacity: 0.36;
 	}
 
-	&__favorites:empty + &__spacer {
+	// Hide the spacer if either favorites or commonly-used sections are empty
+	&__favorites:empty + &__spacer,
+	&__favorites:has(~ &__commonly-used:empty) + &__spacer {
 		display: none;
 	}
 }

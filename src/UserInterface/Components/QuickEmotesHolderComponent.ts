@@ -141,6 +141,11 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			'ntv.settings.change.quick_emote_holder.show_favorites',
 			this.renderFavoriteEmotes.bind(this)
 		)
+
+		rootEventBus.subscribe(
+			'ntv.settings.change.quick_emote_holder.show_recently_used',
+			this.renderCommonlyUsedEmotes.bind(this)
+		)
 	}
 
 	handleEmoteClick(emoteHid: string, sendImmediately = false) {
@@ -309,8 +314,14 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	}
 
 	renderCommonlyUsedEmotes() {
-		const { emotesManager } = this.session
+		const { settingsManager } = this.rootContext
+		const { emotesManager, channelData } = this.session
 		const emoteUsageCounts = [...emotesManager.getEmoteUsageCounts()].sort((a, b) => b[1] - a[1])
+
+		// Clear the current emotes
+		while (this.commonlyUsedEl.firstChild) this.commonlyUsedEl.firstChild.remove()
+
+		if (!settingsManager.getSetting(channelData.channelId, 'quick_emote_holder.show_recently_used')) return
 
 		// Deduplicate emotes in favorites
 		const favoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments()
@@ -320,9 +331,6 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 				emoteUsageCounts.splice(index, 1)
 			}
 		}
-
-		// Clear the current emotes
-		while (this.commonlyUsedEl.firstChild) this.commonlyUsedEl.firstChild.remove()
 
 		// Render the emotes
 		for (const [emoteHid] of emoteUsageCounts) {
