@@ -118,7 +118,3 @@ The project will be built to the `dist` folder as `debug.user.js`. I recommend u
 Finally `npm run build` will build the project for production when merging to master branch.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## License
-
-Distributed under the AGPL-3.0-only License. See `LICENSE` for more information.
