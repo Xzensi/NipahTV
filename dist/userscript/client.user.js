@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.15
+// @version 1.5.16
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10850,7 +10850,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       if (!emoteIsLoaded && !showNonCrossChannelEmotes) continue;
       const emoteClasses = emoteIsLoaded ? "ntv__emote" : "ntv__emote ntv__emote-box--unavailable";
       this.favoritesEl.appendChild(
-        parseHTML(emotesManager.getRenderableEmoteByEmote(favoriteEmoteDoc.emote, emoteClasses))
+        parseHTML(
+          emotesManager.getRenderableEmoteByEmote(emoteIsLoaded || favoriteEmoteDoc.emote, emoteClasses)
+        )
       );
     }
   }
@@ -13587,6 +13589,11 @@ var AbstractUserInterface = class {
     delete this.replyMessageComponent;
     delete this.replyMessageData;
   }
+  isContentEditableEditorDestroyed() {
+    const contentEditableEditor = this.inputController?.contentEditableEditor;
+    if (!contentEditableEditor) return false;
+    return !isElementInDOM(contentEditableEditor.getInputNode());
+  }
 };
 
 // src/Strategies/InputCompletionStrategies/AbstractInputCompletionStrategy.ts
@@ -14274,36 +14281,62 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
   end = 0;
   node = null;
   word = null;
-  mentionEnd = 0;
   shouldUseStrategy(event, contentEditableEditor) {
     const word = Caret.getWordBeforeCaret().word;
-    return event instanceof KeyboardEvent && event.key === "Tab" && word !== null && word[0] === "@";
+    return word !== null && word[0] === "@" || event instanceof KeyboardEvent && event.key === "@";
   }
   maybeCreateNavWindow() {
     if (this.navWindow) return;
     this.navWindow = this.navListWindowManager.createNavWindow(this.id);
     this.navWindow.addEventListener("entry-click", (event) => {
-      Caret.moveCaretTo(this.node, this.mentionEnd);
-      this.contentEditableEditor.insertText(" ");
+      this.renderInlineCompletion();
     });
   }
   getRelevantUsers(searchString) {
-    return this.session.usersManager.searchUsers(searchString.substring(1, 20), 20);
+    return this.session.usersManager.searchUsers(searchString.substring(0, 20), 20);
   }
-  updateCompletionEntries() {
-    const { word, start, end, node } = Caret.getWordBeforeCaret();
-    if (!word) return true;
-    this.word = word;
+  updateCompletionEntries({ word, start, end, node }, event) {
+    const { contentEditableEditor } = this;
+    const isInputEmpty = contentEditableEditor.isInputEmpty();
     this.start = start;
     this.end = end;
+    this.word = word;
     this.node = node;
-    const relevantUsers = this.getRelevantUsers(word);
-    if (!relevantUsers.length) return true;
-    const userNames = relevantUsers.map((result) => result.item.name);
-    const userIds = relevantUsers.map((result) => result.item.id);
+    let searchString = "";
+    if (word) {
+      searchString = word.slice(1);
+    } else if (!isInputEmpty) {
+      return true;
+    }
+    const relevantUsers = searchString.length ? this.getRelevantUsers(searchString) : [];
+    if (relevantUsers.length === 1 && searchString === relevantUsers[0].item.name) {
+      return true;
+    }
     this.clearNavWindow();
     this.maybeCreateNavWindow();
     const navWindow = this.navWindow;
+    if (!relevantUsers.length) {
+      if (!searchString) {
+        navWindow.addEntry(
+          { name: "none", description: "Type an username to see suggestions" },
+          parseHTML(
+            `<li class="not_found_entry"><div>Type an username to see suggestions</div></li>`,
+            true
+          )
+        );
+      } else {
+        navWindow.addEntry(
+          { name: "none", description: "User not seen in chat yet" },
+          parseHTML(
+            `<li class="not_found_entry"><div>User not seen in chat yet</div></li>`,
+            true
+          )
+        );
+      }
+      return false;
+    }
+    const userNames = relevantUsers.map((result) => result.item.name);
+    const userIds = relevantUsers.map((result) => result.item.id);
     for (let i = 0; i < userNames.length; i++) {
       const userName = userNames[i];
       const userId = userIds[i];
@@ -14313,42 +14346,39 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
       );
     }
     navWindow.setSelectedIndex(0);
-    this.renderContentEditorInlineCompletion();
   }
-  renderContentEditorInlineCompletion() {
+  moveSelectorUp() {
+    if (!this.navWindow) return error("No tab completion window to move selector up");
+    this.navWindow.moveSelectorUp();
+    this.renderInlineCompletion();
+  }
+  moveSelectorDown() {
+    if (!this.navWindow) return error("No tab completion window to move selector down");
+    this.navWindow.moveSelectorDown();
+    this.renderInlineCompletion();
+  }
+  renderInlineCompletion() {
     if (!this.navWindow) return error("Tab completion window does not exist yet");
     if (!this.node) return error("Invalid node to render inline user mention");
     const entry = this.navWindow.getSelectedEntry();
     if (!entry) return error("No selected entry to render inline user mention");
     const { userId, userName } = entry;
     const userMention = `@${userName}`;
-    this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
-    Caret.moveCaretTo(this.node, this.mentionEnd);
-    this.contentEditableEditor.processInputContent();
-  }
-  moveSelectorUp() {
-    if (!this.navWindow) return error("No tab completion window to move selector up");
-    this.navWindow.moveSelectorUp();
-    this.restoreOriginalText();
-    this.renderContentEditorInlineCompletion();
-  }
-  moveSelectorDown() {
-    if (!this.navWindow) return error("No tab completion window to move selector down");
-    this.navWindow.moveSelectorDown();
-    this.restoreOriginalText();
-    this.renderContentEditorInlineCompletion();
-  }
-  restoreOriginalText() {
-    if (!this.node) return error("Invalid node to restore original text");
-    Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || "");
+    this.end = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
+    this.word = userName;
     Caret.moveCaretTo(this.node, this.end);
-    this.contentEditableEditor.processInputContent();
+    this.contentEditableEditor.processInputContent(true);
   }
   handleKeyDownEvent(event) {
     if (this.navWindow) {
       switch (event.key) {
         case "Tab":
           event.preventDefault();
+          if (this.navWindow.getEntriesCount() === 1) {
+            this.renderInlineCompletion();
+            this.contentEditableEditor.insertText(" ");
+            return true;
+          }
           if (event.shiftKey) {
             this.moveSelectorDown();
           } else {
@@ -14363,31 +14393,55 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
           event.preventDefault();
           this.moveSelectorDown();
           return false;
+        case "ArrowLeft":
+        case "ArrowRight":
+          return false;
+        case "Enter":
+          event.preventDefault();
+          event.stopPropagation();
+          this.renderInlineCompletion();
+          this.contentEditableEditor.insertText(" ");
+          return true;
       }
     }
     switch (event.key) {
-      case "Enter":
-        event.preventDefault();
-        event.stopPropagation();
-      case "ArrowRight":
-        this.contentEditableEditor.insertText(" ");
-        return true;
       case " ":
-      case "Arrowleft":
       case "Escape":
         return true;
       case "Backspace":
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        this.restoreOriginalText();
-        return true;
+      case "Delete":
+        return false;
+      case "Control":
       case "Shift":
         return false;
     }
-    event.preventDefault();
-    return this.updateCompletionEntries();
+    const wordBeforeCaretResult = Caret.getWordBeforeCaret();
+    const { word, start, startOffset, node } = wordBeforeCaretResult;
+    if (word && startOffset <= start) return true;
+    return this.updateCompletionEntries(wordBeforeCaretResult, event);
+  }
+  handleKeyUpEvent(event) {
+    switch (event.key) {
+      case "Tab":
+      case "ArrowUp":
+      case "ArrowDown":
+      case "Control":
+        return false;
+    }
+    const wordBeforeCaretResult = Caret.getWordBeforeCaret();
+    const { word, start, startOffset } = wordBeforeCaretResult;
+    if (!word || word[0] !== "@" || // If caret is at start of word
+    startOffset <= start)
+      return true;
+    return this.updateCompletionEntries(wordBeforeCaretResult);
   }
   handleClickEvent(event, clickIsInInput) {
+    if (clickIsInInput) {
+      const wordBeforeCaretResult = Caret.getWordBeforeCaret();
+      const { word } = wordBeforeCaretResult;
+      if (!word || word[0] !== "@") return true;
+      return this.updateCompletionEntries(wordBeforeCaretResult);
+    }
     if (!this.isClickInsideNavWindow(event.target)) {
       return true;
     }
@@ -14398,7 +14452,6 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
     this.end = 0;
     this.node = null;
     this.word = null;
-    this.mentionEnd = 0;
   }
 };
 
@@ -14854,7 +14907,7 @@ var InputCompletionStrategyManager = class {
         this.resetInlineStrategy();
       }
     }
-    if (!this.inlineStrategy && (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === ":")) {
+    if (!this.inlineStrategy && (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === ":" || event.key === "@")) {
       this.inlineStrategy = this.inputCompletionStrategyRegister.findApplicableInlineStrategy(event, this.contentEditableEditor) || null;
       if (this.inlineStrategy) {
         const stopUsingInlineStrategy = this.inlineStrategy.handleKeyUpEvent(event);
@@ -15228,8 +15281,12 @@ var ContentEditableEditor = class {
     this.hasUnprocessedContentChanges = true;
     this.processInputContent();
   }
-  processInputContent() {
-    if (!this.hasUnprocessedContentChanges) return;
+  /**
+   * @param force Force processing of input content in case input content was changed through direct DOM manipulation.
+   */
+  processInputContent(force = false) {
+    log("Processing input content", this.hasUnprocessedContentChanges);
+    if (!this.hasUnprocessedContentChanges && !force) return;
     const { eventBus, emotesManager } = this.session;
     const { inputNode } = this;
     const buffer = [];
@@ -15694,7 +15751,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
   emoteComponent = null;
   shouldUseStrategy(event, contentEditableEditor) {
     const word = Caret.getWordBeforeCaret().word;
-    return word !== null && word[0] === ":";
+    return word !== null && word[0] === ":" || event instanceof KeyboardEvent && event.key === ":";
   }
   maybeCreateNavWindow() {
     if (this.navWindow) return;
@@ -15713,38 +15770,33 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
   updateCompletionEntries({ word, start, end, node }, event) {
     const { contentEditableEditor } = this;
     const isInputEmpty = contentEditableEditor.isInputEmpty();
-    const eventKey = event?.key;
+    this.start = start;
+    this.end = end;
+    this.word = word;
+    this.node = node;
     let searchString = "";
-    if (!isInputEmpty) {
-      if (word) {
-        searchString = word.slice(1);
-        this.word = word;
-        this.start = start;
-        this.end = end;
-        this.node = node;
-      } else if (event?.key === ":") {
-        searchString = "";
-      } else {
-        return true;
-      }
+    if (word) {
+      searchString = word.slice(1);
+    } else if (!isInputEmpty) {
+      return true;
     }
     this.clearNavWindow();
     this.maybeCreateNavWindow();
     const navWindow = this.navWindow;
     const relevantEmotes = this.getRelevantEmotes(searchString);
     if (!relevantEmotes.length) {
-      if (!isInputEmpty && eventKey !== ":" && !(word && word[0] === ":")) {
-        navWindow.addEntry(
-          { name: "none", description: "Emote not found" },
-          parseHTML(`<li class="not_found_entry"><div>Emote not found</div></li>`, true)
-        );
-      } else {
+      if (!searchString) {
         navWindow.addEntry(
           { name: "none", description: "Type an emote name to see suggestions" },
           parseHTML(
             `<li class="not_found_entry"><div>Type an emote name to see suggestions</div></li>`,
             true
           )
+        );
+      } else {
+        navWindow.addEntry(
+          { name: "none", description: "Emote not found" },
+          parseHTML(`<li class="not_found_entry"><div>Emote not found</div></li>`, true)
         );
       }
       return false;
@@ -19421,6 +19473,17 @@ var KickNetworkInterface = class {
   async disconnect() {
     return Promise.resolve();
   }
+  getChannelName() {
+    const pathArr = window.location.pathname.substring(1).split("/");
+    switch (pathArr[0]) {
+      case "video":
+        return null;
+      case "popout":
+        return pathArr[1] || null;
+      default:
+        return pathArr[0] || null;
+    }
+  }
   async loadMeData() {
     const veryLongString = Array.from(document.querySelectorAll("body script:not(:empty)"), (x) => {
       let s = x.textContent || "";
@@ -20011,6 +20074,16 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.16",
+    date: "2024-09-14",
+    description: `
+                  Feat: Automatic mention completions instead of <TAB> key triggered
+                  Fix: Double processed chat messages on URL change when session UI is not destroyed #131 
+                  Fix: Favorite emotes showing saved image instead of current channel image #134
+                  Fix: <COLON> key emote completions only triggering after first letter
+            `
+  },
+  {
     version: "1.5.15",
     date: "2024-09-14",
     description: `
@@ -20018,6 +20091,7 @@ var CHANGELOG = [
                   Fix: Sometimes unable to click emotes in chat #137
                   Fix: Hide quick emotes holder when replying
                   Fix: Chat message spacing setting
+                  Fix: Prevent zalgo text from overflowing messages
                   Chore: Prevent darkening of chat input on focus
             `
   },
@@ -22556,7 +22630,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.15";
+  VERSION = "1.5.16";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -22817,11 +22891,19 @@ var NipahClient = class {
   attachPageNavigationListener() {
     info("Current URL:", window.location.href);
     let locationURL = window.location.href;
+    let channelName = null;
     const navigateFn = () => {
       if (locationURL === window.location.href) return;
       if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) return;
       const oldLocation = locationURL;
-      locationURL = window.location.href;
+      const newLocation = window.location.href;
+      const activeSession = this.sessions[0];
+      if (!activeSession) return this.createChannelSession();
+      const newChannelName = activeSession.networkInterface.getChannelName();
+      if (!activeSession.isDestroyed && !activeSession.userInterface?.isContentEditableEditorDestroyed() && channelName && channelName === newChannelName)
+        return;
+      locationURL = newLocation;
+      channelName = newChannelName;
       info("Navigated to:", locationURL);
       this.cleanupSession(oldLocation);
       log("Cleaned up old session for", oldLocation);
