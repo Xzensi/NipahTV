@@ -26,7 +26,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
 		// return (event.key === ':' && word === null) || (word !== null && word[0] === ':')
-		return word !== null && word[0] === ':'
+		return (word !== null && word[0] === ':') || (event instanceof KeyboardEvent && event.key === ':')
 	}
 
 	maybeCreateNavWindow() {
@@ -58,21 +58,17 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	) {
 		const { contentEditableEditor } = this
 		const isInputEmpty = contentEditableEditor.isInputEmpty()
-		const eventKey = event?.key
+
+		this.start = start
+		this.end = end
+		this.word = word
+		this.node = node
 
 		let searchString = ''
-		if (!isInputEmpty) {
-			if (word) {
-				searchString = word.slice(1)
-				this.word = word
-				this.start = start
-				this.end = end
-				this.node = node
-			} else if (event?.key === ':') {
-				searchString = ''
-			} else {
-				return true
-			}
+		if (word) {
+			searchString = word.slice(1)
+		} else if (!isInputEmpty) {
+			return true
 		}
 
 		this.clearNavWindow()
@@ -81,19 +77,18 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 
 		const relevantEmotes = this.getRelevantEmotes(searchString)
 		if (!relevantEmotes.length) {
-			if (!isInputEmpty && eventKey !== ':' && !(word && word[0] === ':')) {
-				navWindow.addEntry(
-					{ name: 'none', description: 'Emote not found' },
-					parseHTML(`<li class="not_found_entry"><div>Emote not found</div></li>`, true) as HTMLElement
-				)
-			} else {
-				// Nothing inputted yet
+			if (!searchString) {
 				navWindow.addEntry(
 					{ name: 'none', description: 'Type an emote name to see suggestions' },
 					parseHTML(
 						`<li class="not_found_entry"><div>Type an emote name to see suggestions</div></li>`,
 						true
 					) as HTMLElement
+				)
+			} else {
+				navWindow.addEntry(
+					{ name: 'none', description: 'Emote not found' },
+					parseHTML(`<li class="not_found_entry"><div>Emote not found</div></li>`, true) as HTMLElement
 				)
 			}
 			return false

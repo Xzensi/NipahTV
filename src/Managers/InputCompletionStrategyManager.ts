@@ -199,7 +199,8 @@ export default class InputCompletionStrategyManager {
 				event.key === 'ArrowRight' ||
 				event.key === 'ArrowUp' ||
 				event.key === 'ArrowDown' ||
-				event.key === ':')
+				event.key === ':' ||
+				event.key === '@')
 		) {
 			this.inlineStrategy =
 				this.inputCompletionStrategyRegister.findApplicableInlineStrategy(event, this.contentEditableEditor) ||

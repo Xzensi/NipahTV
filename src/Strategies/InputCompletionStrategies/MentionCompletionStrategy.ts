@@ -12,7 +12,6 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 	private end = 0
 	private node: Node | null = null
 	private word: string | null = null
-	private mentionEnd = 0
 
 	constructor(
 		protected rootContext: RootContext,
@@ -25,7 +24,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 
 	shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean {
 		const word = Caret.getWordBeforeCaret().word
-		return event instanceof KeyboardEvent && event.key === 'Tab' && word !== null && word[0] === '@'
+		return (word !== null && word[0] === '@') || (event instanceof KeyboardEvent && event.key === '@')
 	}
 
 	maybeCreateNavWindow() {
@@ -33,36 +32,67 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 
 		this.navWindow = this.navListWindowManager.createNavWindow(this.id)
 		this.navWindow.addEventListener('entry-click', (event: Event) => {
-			Caret.moveCaretTo(this.node!, this.mentionEnd)
-			this.contentEditableEditor.insertText(' ')
+			this.renderInlineCompletion()
 		})
 	}
 
 	getRelevantUsers(searchString: string) {
-		return this.session.usersManager.searchUsers(searchString.substring(1, 20), 20)
+		return this.session.usersManager.searchUsers(searchString.substring(0, 20), 20)
 	}
 
-	updateCompletionEntries() {
-		// TODO rewrite this to update livetime while typing instead of only on tab
+	updateCompletionEntries(
+		{ word, start, end, node }: ReturnType<typeof Caret.getWordBeforeCaret>,
+		event?: KeyboardEvent
+	) {
+		const { contentEditableEditor } = this
+		const isInputEmpty = contentEditableEditor.isInputEmpty()
 
-		const { word, start, end, node } = Caret.getWordBeforeCaret()
-		if (!word) return true
-
-		this.word = word
 		this.start = start
 		this.end = end
+		this.word = word
 		this.node = node
 
-		const relevantUsers = this.getRelevantUsers(word)
-		if (!relevantUsers.length) return true // TODO set to false when its implemented to live search while typing
+		let searchString = ''
+		if (word) {
+			searchString = word.slice(1)
+		} else if (!isInputEmpty) {
+			return true
+		}
 
-		const userNames = relevantUsers.map(result => result.item.name)
-		const userIds = relevantUsers.map(result => result.item.id)
+		const relevantUsers = searchString.length ? this.getRelevantUsers(searchString) : []
+
+		// Don't show completion if there's only one user and it's the same as the search string
+		if (relevantUsers.length === 1 && searchString === relevantUsers[0].item.name) {
+			return true
+		}
 
 		this.clearNavWindow()
 		this.maybeCreateNavWindow()
-
 		const navWindow = this.navWindow!
+
+		if (!relevantUsers.length) {
+			if (!searchString) {
+				navWindow.addEntry(
+					{ name: 'none', description: 'Type an username to see suggestions' },
+					parseHTML(
+						`<li class="not_found_entry"><div>Type an username to see suggestions</div></li>`,
+						true
+					) as HTMLElement
+				)
+			} else {
+				navWindow.addEntry(
+					{ name: 'none', description: 'User not seen in chat yet' },
+					parseHTML(
+						`<li class="not_found_entry"><div>User not seen in chat yet</div></li>`,
+						true
+					) as HTMLElement
+				)
+			}
+			return false
+		}
+
+		const userNames = relevantUsers.map(result => result.item.name)
+		const userIds = relevantUsers.map(result => result.item.id)
 
 		// Render mention completion entries
 		for (let i = 0; i < userNames.length; i++) {
@@ -75,10 +105,21 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 		}
 
 		navWindow.setSelectedIndex(0)
-		this.renderContentEditorInlineCompletion()
 	}
 
-	renderContentEditorInlineCompletion() {
+	moveSelectorUp() {
+		if (!this.navWindow) return error('No tab completion window to move selector up')
+		this.navWindow.moveSelectorUp()
+		this.renderInlineCompletion()
+	}
+
+	moveSelectorDown() {
+		if (!this.navWindow) return error('No tab completion window to move selector down')
+		this.navWindow.moveSelectorDown()
+		this.renderInlineCompletion()
+	}
+
+	renderInlineCompletion() {
 		if (!this.navWindow) return error('Tab completion window does not exist yet')
 		if (!this.node) return error('Invalid node to render inline user mention')
 
@@ -87,31 +128,12 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 
 		const { userId, userName } = entry as { userId: string; userName: string }
 		const userMention = `@${userName}`
-		this.mentionEnd = Caret.replaceTextInRange(this.node, this.start, this.end, userMention)
-		Caret.moveCaretTo(this.node, this.mentionEnd)
-		this.contentEditableEditor.processInputContent()
-	}
 
-	moveSelectorUp() {
-		if (!this.navWindow) return error('No tab completion window to move selector up')
-		this.navWindow.moveSelectorUp()
-		this.restoreOriginalText()
-		this.renderContentEditorInlineCompletion()
-	}
-
-	moveSelectorDown() {
-		if (!this.navWindow) return error('No tab completion window to move selector down')
-		this.navWindow.moveSelectorDown()
-		this.restoreOriginalText()
-		this.renderContentEditorInlineCompletion()
-	}
-
-	restoreOriginalText() {
-		if (!this.node) return error('Invalid node to restore original text')
-
-		Caret.replaceTextInRange(this.node, this.start, this.mentionEnd, this.word || '')
+		this.end = Caret.replaceTextInRange(this.node, this.start, this.end, userMention)
+		this.word = userName
 		Caret.moveCaretTo(this.node, this.end)
-		this.contentEditableEditor.processInputContent()
+
+		this.contentEditableEditor.processInputContent(true)
 	}
 
 	handleKeyDownEvent(event: KeyboardEvent) {
@@ -119,6 +141,13 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 			switch (event.key) {
 				case 'Tab':
 					event.preventDefault()
+
+					if (this.navWindow.getEntriesCount() === 1) {
+						this.renderInlineCompletion()
+						this.contentEditableEditor.insertText(' ')
+						return true
+					}
+
 					// Traverse tab completion suggestions up/down depending on whether shift is held with tab
 					if (event.shiftKey) {
 						this.moveSelectorDown()
@@ -136,39 +165,75 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 					event.preventDefault()
 					this.moveSelectorDown()
 					return false
+
+				case 'ArrowLeft':
+				case 'ArrowRight':
+					return false
+
+				case 'Enter':
+					event.preventDefault()
+					event.stopPropagation()
+					this.renderInlineCompletion()
+					this.contentEditableEditor.insertText(' ')
+					return true
 			}
 		}
 
 		switch (event.key) {
-			case 'Enter':
-				event.preventDefault()
-				event.stopPropagation()
-			// Continue to ArrowRight case
-
-			case 'ArrowRight':
-				this.contentEditableEditor.insertText(' ')
-				return true
-
 			case ' ':
-			case 'Arrowleft':
 			case 'Escape':
 				return true
 
 			case 'Backspace':
-				event.preventDefault()
-				event.stopImmediatePropagation()
-				this.restoreOriginalText()
-				return true
+			case 'Delete':
+				return false
 
+			case 'Control':
 			case 'Shift':
 				return false
 		}
 
-		event.preventDefault()
-		return this.updateCompletionEntries()
+		const wordBeforeCaretResult = Caret.getWordBeforeCaret()
+		const { word, start, startOffset, node } = wordBeforeCaretResult
+
+		// If caret is at start or before word
+		if (word && startOffset <= start) return true
+
+		return this.updateCompletionEntries(wordBeforeCaretResult, event)
+	}
+
+	handleKeyUpEvent(event: KeyboardEvent): boolean | void {
+		switch (event.key) {
+			case 'Tab':
+			case 'ArrowUp':
+			case 'ArrowDown':
+			case 'Control':
+				return false
+		}
+
+		const wordBeforeCaretResult = Caret.getWordBeforeCaret()
+		const { word, start, startOffset } = wordBeforeCaretResult
+
+		if (
+			!word ||
+			word[0] !== '@' ||
+			// If caret is at start of word
+			startOffset <= start
+		)
+			return true
+
+		return this.updateCompletionEntries(wordBeforeCaretResult)
 	}
 
 	handleClickEvent(event: MouseEvent, clickIsInInput: boolean) {
+		if (clickIsInInput) {
+			const wordBeforeCaretResult = Caret.getWordBeforeCaret()
+			const { word } = wordBeforeCaretResult
+			if (!word || word[0] !== '@') return true
+
+			return this.updateCompletionEntries(wordBeforeCaretResult)
+		}
+
 		if (!this.isClickInsideNavWindow(event.target as Node)) {
 			return true
 		}
@@ -181,6 +246,5 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 		this.end = 0
 		this.node = null
 		this.word = null
-		this.mentionEnd = 0
 	}
 }
