@@ -250,12 +250,15 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		// Render the emotes
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
+			// const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
 			const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
 			if (!emoteIsLoaded && !showNonCrossChannelEmotes) continue
 
 			const emoteClasses = emoteIsLoaded ? 'ntv__emote' : 'ntv__emote ntv__emote-box--unavailable'
 			this.favoritesEl.appendChild(
-				parseHTML(emotesManager.getRenderableEmoteByEmote(favoriteEmoteDoc.emote, emoteClasses)!) as HTMLElement
+				parseHTML(
+					emotesManager.getRenderableEmoteByEmote(emoteIsLoaded || favoriteEmoteDoc.emote, emoteClasses)!
+				) as HTMLElement
 			)
 		}
 	}

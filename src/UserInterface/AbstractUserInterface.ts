@@ -1,5 +1,5 @@
 import { UserBannedEvent, UserUnbannedEvent } from '../EventServices/EventService'
-import { assertArgDefined, cleanupHTML, error, log, parseHTML } from '../utils'
+import { assertArgDefined, cleanupHTML, error, isElementInDOM, log, parseHTML } from '../utils'
 import ReplyMessageComponent from './Components/ReplyMessageComponent'
 import { PriorityEventTarget } from '../Classes/PriorityEventTarget'
 import type KickEmoteProvider from '../Providers/KickEmoteProvider'
@@ -542,6 +542,13 @@ export default abstract class AbstractUserInterface {
 		this.replyMessageComponent?.destroy()
 		delete this.replyMessageComponent
 		delete this.replyMessageData
+	}
+
+	isContentEditableEditorDestroyed() {
+		const contentEditableEditor = this.inputController?.contentEditableEditor
+		if (!contentEditableEditor) return false
+
+		return !isElementInDOM(contentEditableEditor.getInputNode())
 	}
 
 	abstract renderChatMessage(messageNode: HTMLElement): void

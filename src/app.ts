@@ -30,7 +30,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.15'
+	VERSION = '1.5.16'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -399,6 +399,7 @@ class NipahClient {
 	attachPageNavigationListener() {
 		info('Current URL:', window.location.href)
 		let locationURL = window.location.href
+		let channelName: string | null = null
 
 		const navigateFn = () => {
 			if (locationURL === window.location.href) return
@@ -407,7 +408,24 @@ class NipahClient {
 			if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
 
 			const oldLocation = locationURL
-			locationURL = window.location.href
+			const newLocation = window.location.href
+
+			const activeSession = this.sessions[0]
+			if (!activeSession) return this.createChannelSession()
+
+			const newChannelName = activeSession.networkInterface.getChannelName()
+
+			// Check if session UI is actually destroyed or just part of page has changed
+			if (
+				!activeSession.isDestroyed &&
+				!activeSession.userInterface?.isContentEditableEditorDestroyed() &&
+				channelName &&
+				channelName === newChannelName
+			)
+				return
+
+			locationURL = newLocation
+			channelName = newChannelName
 			info('Navigated to:', locationURL)
 
 			this.cleanupSession(oldLocation)

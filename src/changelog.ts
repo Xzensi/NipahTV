@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.16',
+		date: '2024-09-14',
+		description: `
+                  Feat: Automatic mention completions instead of <TAB> key triggered
+                  Fix: Double processed chat messages on URL change when session UI is not destroyed #131 
+                  Fix: Favorite emotes showing saved image instead of current channel image #134
+                  Fix: <COLON> key emote completions only triggering after first letter
+            `
+	},
+	{
 		version: '1.5.15',
 		date: '2024-09-14',
 		description: `
@@ -11,6 +21,7 @@ export const CHANGELOG: {
                   Fix: Sometimes unable to click emotes in chat #137
                   Fix: Hide quick emotes holder when replying
                   Fix: Chat message spacing setting
+                  Fix: Prevent zalgo text from overflowing messages
                   Chore: Prevent darkening of chat input on focus
             `
 	},
