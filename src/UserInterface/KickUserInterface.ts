@@ -148,12 +148,6 @@ export class KickUserInterface extends AbstractUserInterface {
 					chatMessagesContainerEl.classList.add('ntv__alternating-background')
 				}
 
-				// Add seperator lines to chat messages
-				const seperatorSettingVal = settingsManager.getSetting(channelId, 'chat.appearance.seperators')
-				if (seperatorSettingVal && seperatorSettingVal !== 'none') {
-					chatMessagesContainerEl.classList.add(`ntv__seperators-${seperatorSettingVal}`)
-				}
-
 				if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
 					chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
 				}
@@ -241,25 +235,26 @@ export class KickUserInterface extends AbstractUserInterface {
 		rootEventBus.subscribe(
 			'ntv.settings.change.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
-				if (prevValue !== 'none')
-					document
-						.querySelector('.ntv__chat-messages-container')
-						?.classList.remove(`ntv__seperators-${prevValue}`)
+				if (prevValue !== 'none') {
+					const oldClassName = `ntv__chat-message--seperator-${prevValue}`
+					document.querySelector('.' + oldClassName)?.classList.remove(oldClassName)
+				}
 				if (!value || value === 'none') return
-				document.querySelector('.ntv__chat-messages-container')?.classList.add(`ntv__seperators-${value}`)
+				const newClassName = `ntv__chat-message--seperator-${value}`
+				document.querySelector('.' + newClassName)?.classList.add(newClassName)
 			}
 		)
 
 		// Chat messages spacing settings change
-		rootEventBus.subscribe(
-			'ntv.settings.change.chat.appearance.messages_spacing',
-			({ value, prevValue }: { value?: string; prevValue?: string }) => {
-				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
-					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
-					if (value !== 'none') el.classList.add(`ntv__chat-message--${value}`)
-				})
-			}
-		)
+		// rootEventBus.subscribe(
+		// 	'ntv.settings.change.chat.appearance.messages_spacing',
+		// 	({ value, prevValue }: { value?: string; prevValue?: string }) => {
+		// 		Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
+		// 			if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
+		// 			if (value !== 'none') el.classList.add(`ntv__chat-message--${value}`)
+		// 		})
+		// 	}
+		// )
 
 		// Chat messages style settings change
 		rootEventBus.subscribe(
@@ -1173,14 +1168,16 @@ export class KickUserInterface extends AbstractUserInterface {
 		const settingsManager = this.rootContext.settingsManager
 		const channelId = this.session.channelData.channelId
 
-		const chatMessagesStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
-		const chatMessagesSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
+		const settingStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
+		const settingSeperator = settingsManager.getSetting(channelId, 'chat.appearance.seperators')
+		// const settingSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
 
-		if (chatMessagesStyle && chatMessagesStyle !== 'none')
-			messageEl.classList.add('ntv__chat-message--theme-' + chatMessagesStyle)
+		if (settingStyle && settingStyle !== 'none') messageEl.classList.add('ntv__chat-message--theme-' + settingStyle)
 
-		if (chatMessagesSpacing && chatMessagesSpacing !== 'none')
-			messageEl.classList.add('ntv__chat-message--' + chatMessagesSpacing)
+		if (settingSeperator && settingSeperator !== 'none')
+			messageEl.classList.add(`ntv__chat-message--seperator-${settingSeperator}`)
+
+		// if (settingSpacing && settingSpacing !== 'none') messageEl.classList.add('ntv__chat-message--' + settingSpacing)
 
 		messageEl.classList.add('ntv__chat-message', 'ntv__chat-message--unrendered')
 	}
