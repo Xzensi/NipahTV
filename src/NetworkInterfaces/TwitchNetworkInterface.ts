@@ -10,6 +10,11 @@ export default class TwitchNetworkInterface implements NetworkInterface {
 		return Promise.resolve()
 	}
 
+	getChannelName() {
+		throw new Error('Method not implemented.')
+		return ''
+	}
+
 	async loadChannelData() {
 		throw new Error('Method not implemented.')
 	}

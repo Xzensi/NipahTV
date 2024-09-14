@@ -72,6 +72,18 @@ export default class KickNetworkInterface implements NetworkInterface {
 		return Promise.resolve()
 	}
 
+	getChannelName() {
+		const pathArr = window.location.pathname.substring(1).split('/')
+		switch (pathArr[0]) {
+			case 'video':
+				return null
+			case 'popout':
+				return pathArr[1] || null
+			default:
+				return pathArr[0] || null
+		}
+	}
+
 	async loadMeData() {
 		// Wait for DOMContentLoaded event to fire, so we can read the account data from the page
 		// await new Promise<void>(resolve => {

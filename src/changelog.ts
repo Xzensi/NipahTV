@@ -11,6 +11,7 @@ export const CHANGELOG: {
                   Fix: Sometimes unable to click emotes in chat #137
                   Fix: Hide quick emotes holder when replying
                   Fix: Chat message spacing setting
+                  Fix: Prevent zalgo text from overflowing messages
                   Chore: Prevent darkening of chat input on focus
             `
 	},
