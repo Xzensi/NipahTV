@@ -246,15 +246,15 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Chat messages spacing settings change
-		// rootEventBus.subscribe(
-		// 	'ntv.settings.change.chat.appearance.messages_spacing',
-		// 	({ value, prevValue }: { value?: string; prevValue?: string }) => {
-		// 		Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
-		// 			if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
-		// 			if (value !== 'none') el.classList.add(`ntv__chat-message--${value}`)
-		// 		})
-		// 	}
-		// )
+		rootEventBus.subscribe(
+			'ntv.settings.change.chat.appearance.messages_spacing',
+			({ value, prevValue }: { value?: string; prevValue?: string }) => {
+				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
+					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
+					if (value !== 'none') el.classList.add(`ntv__chat-message--${value}`)
+				})
+			}
+		)
 
 		// Chat messages style settings change
 		rootEventBus.subscribe(
@@ -1170,14 +1170,14 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const settingStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
 		const settingSeperator = settingsManager.getSetting(channelId, 'chat.appearance.seperators')
-		// const settingSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
+		const settingSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
 
 		if (settingStyle && settingStyle !== 'none') messageEl.classList.add('ntv__chat-message--theme-' + settingStyle)
 
 		if (settingSeperator && settingSeperator !== 'none')
 			messageEl.classList.add(`ntv__chat-message--seperator-${settingSeperator}`)
 
-		// if (settingSpacing && settingSpacing !== 'none') messageEl.classList.add('ntv__chat-message--' + settingSpacing)
+		if (settingSpacing && settingSpacing !== 'none') messageEl.classList.add('ntv__chat-message--' + settingSpacing)
 
 		messageEl.classList.add('ntv__chat-message', 'ntv__chat-message--unrendered')
 	}

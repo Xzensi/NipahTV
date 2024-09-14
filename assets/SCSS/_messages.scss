@@ -153,14 +153,15 @@
 		border-radius: 1em;
 	}
 
-	// Temporarily disabled until fixed
-	// &--little-spacing {
-	// 	margin: 0.128em 0.2em;
-	// }
+	&--little-spacing {
+		padding-bottom: 0.128em;
+		padding-top: 0.128em;
+	}
 
-	// &--large-spacing {
-	// 	margin: 0.25em 0.2em;
-	// }
+	&--large-spacing {
+		padding-bottom: 0.25em;
+		padding-top: 0.25em;
+	}
 }
 
 .ntv__chat-message-separator {
