@@ -1473,7 +1473,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				const emote = emotesManager.getEmoteById(emoteId)
 				if (emote) {
-					ntvImgEl.setAttribute('data-emote-id', emote.hid)
+					ntvImgEl.setAttribute('data-emote-hid', emote.hid)
 				}
 
 				const newContentNode = document.createElement('span')
