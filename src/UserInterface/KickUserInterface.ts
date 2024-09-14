@@ -1574,8 +1574,13 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		this.elm.submitButton!.style.setProperty('display', 'none', 'important')
 		this.elm.originalSubmitButton!.style.removeProperty('display')
+		;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.setProperty(
+			'display',
+			'none',
+			'important'
+		)
 
-		await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2_000)
+		await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2000)
 
 		const closeReplyButton = document
 			.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')
@@ -1584,20 +1589,28 @@ export class KickUserInterface extends AbstractUserInterface {
 		const replyPreviewWrapperEl = closeReplyButton.closest('.flex.flex-col')?.parentElement
 		if (!replyPreviewWrapperEl) return error('Reply preview wrapper element not found')
 
-		// Attach observer to reply message button to detect when the element is removed
-		//  so we know the reply message has been closed and we can restore the text field.
-		const observer = new MutationObserver(mutations => {
-			mutations.forEach(mutation => {
-				if (mutation.removedNodes.length) {
-					originalTextFieldEl!.parentElement!.style.display = 'none'
-					textFieldEl.parentElement!.style.removeProperty('display')
-					this.elm.submitButton!.style.removeProperty('display')
-					this.elm.originalSubmitButton!.style.setProperty('display', 'none', 'important')
-					observer.disconnect()
-				}
+		const restoreTextField = () => {
+			originalTextFieldEl!.parentElement!.style.display = 'none'
+			textFieldEl.parentElement!.style.removeProperty('display')
+			this.elm.submitButton!.style.removeProperty('display')
+			this.elm.originalSubmitButton!.style.setProperty('display', 'none', 'important')
+			;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.removeProperty('display')
+		}
+
+		if (!isElementInDOM(replyPreviewWrapperEl)) restoreTextField()
+		else {
+			// Attach observer to reply message button to detect when the element is removed
+			//  so we know the reply message has been closed and we can restore the text field.
+			const observer = new MutationObserver(mutations => {
+				mutations.forEach(mutation => {
+					if (mutation.removedNodes.length) {
+						restoreTextField()
+						observer.disconnect()
+					}
+				})
 			})
-		})
-		observer.observe(replyPreviewWrapperEl, { childList: true })
+			observer.observe(replyPreviewWrapperEl, { childList: true })
+		}
 	}
 
 	renderPinnedMessage(node: HTMLElement) {
