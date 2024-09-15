@@ -61,6 +61,7 @@ export default class SettingsManager {
 				(Appearance)
 		            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
 					- Overlay chat position in theatre mode (dropdown)
+					- Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen) (dropdown)
         = Chat
             = Appearance
                 (Appearance)
@@ -116,6 +117,9 @@ export default class SettingsManager {
                     - Enable <TAB> key emote completion suggestions
 					- Enable <COLON (:)> key emote completion suggestions
 					- Enable < @ > key username mention completion suggestions
+			= Moderators
+				(Messsages)
+					- Show quick actions (delete, timeout, ban) (checkbox)
 			= Quick Emote Holder
                 (Appearance)
                     - Show quick emote holder
@@ -169,24 +173,43 @@ export default class SettingsManager {
 											value: 'dark_translucent'
 										}
 									]
+								},
+								{
+									label: 'Overlay chat position in theatre mode',
+									key: 'appearance.layout.overlay_chat.position',
+									default: 'right',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Right',
+											value: 'right'
+										},
+										{
+											label: 'Left',
+											value: 'left'
+										}
+									]
+								},
+								{
+									label: 'Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen)',
+									key: 'appearance.layout.overlay_chat.video_alignment',
+									default: 'center',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Centered',
+											value: 'center'
+										},
+										{
+											label: 'Aligned to left of screen',
+											value: 'aligned_left'
+										},
+										{
+											label: 'Aligned to right of screen',
+											value: 'aligned_right'
+										}
+									]
 								}
-								// Need to adjust the video player controls position when chat is overlayed
-								// {
-								// 	label: 'Overlay chat position in theatre mode',
-								// 	key: 'appearance.layout.overlay_chat_position',
-								// 	default: 'right',
-								// 	type: 'dropdown',
-								// 	options: [
-								// 		{
-								// 			label: 'Right',
-								// 			value: 'right'
-								// 		},
-								// 		{
-								// 			label: 'Left',
-								// 			value: 'left'
-								// 		}
-								// 	]
-								// }
 							]
 						}
 					]
@@ -420,6 +443,10 @@ export default class SettingsManager {
 											value: 'nipahtv'
 										},
 										{
+											label: 'Logo',
+											value: 'logo'
+										},
+										{
 											label: 'NTV',
 											value: 'ntv'
 										},
@@ -597,6 +624,23 @@ export default class SettingsManager {
 								{
 									label: 'Enable <b>&lt;@></b> key username mention completion suggestions',
 									key: 'chat.input.completion.mentions.enabled',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Moderators',
+					children: [
+						{
+							label: 'Messages',
+							description: 'These settings are only applicable to moderators.',
+							children: [
+								{
+									label: 'Show quick actions (delete, timeout, ban)',
+									key: 'chat.moderators.show_quick_actions',
 									default: true,
 									type: 'checkbox'
 								}
