@@ -1,5 +1,5 @@
 body > [data-theatre='true'].ntv__theatre-overlay {
-	&-mode {
+	&__mode {
 		#channel-chatroom {
 			background: transparent;
 			position: absolute;
@@ -70,7 +70,27 @@ body > [data-theatre='true'].ntv__theatre-overlay {
 		}
 	}
 
-	&-position {
+	&__video-alignment {
+		&--center {
+			#video-player {
+				object-position: center;
+			}
+		}
+
+		&--aligned-left {
+			#video-player {
+				object-position: left;
+			}
+		}
+
+		&--aligned-right {
+			#video-player {
+				object-position: right;
+			}
+		}
+	}
+
+	&__position {
 		&--right {
 			#channel-chatroom {
 				right: 0;
@@ -80,6 +100,11 @@ body > [data-theatre='true'].ntv__theatre-overlay {
 		&--left {
 			#channel-chatroom {
 				left: 0;
+			}
+
+			#video-player + div {
+				left: auto;
+				right: 0;
 			}
 		}
 	}

@@ -30,6 +30,11 @@
 		margin-top: -0.13em;
 	}
 
+	&__mod-buttons {
+		vertical-align: middle;
+		display: none;
+	}
+
 	&__username,
 	&__seperator {
 		display: inline;
@@ -161,6 +166,13 @@
 	&--large-spacing {
 		padding-bottom: 0.25em;
 		padding-top: 0.25em;
+	}
+
+	&--show-quick-actions {
+		.ntv__chat-message__mod-buttons {
+			display: inline-flex;
+			margin-top: -0.05em;
+		}
 	}
 }
 

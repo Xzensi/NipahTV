@@ -5,46 +5,59 @@
 
 	img {
 		transition: background 0.0618s ease-in-out;
-		padding: 0.333em 0.4em 0.333em 0.5em;
 		background: transparent;
 		border-radius: 0.25rem;
 		object-fit: contain;
 		line-height: 1.8em;
 		text-align: center;
 		font-size: 1.4em;
+		max-width: none;
 		cursor: pointer;
-		height: 1.5em;
+		// height: 1.5em;
 		// width: 6em;
 
 		&:hover {
 			background-color: var(--ntv-background-highlight-2);
 		}
+	}
 
-		&.nipah {
-			height: 1.8em;
-		}
+	&--nipah {
+		padding: 0.2em 0.2em 0.25em 0.3em;
+		height: 1.57em;
+	}
 
-		&.nipahtv {
-			height: 1.8em;
-		}
+	&--nipahtv {
+		padding: 0.15em 0.25em 0.15em 0.3em;
+		height: 1.4em;
+	}
 
-		&.ntv {
-		}
+	&--logo {
+		padding: 0.3em;
+		height: 1.7em;
+	}
 
-		&.ntv_3d {
-		}
+	&--ntv {
+		padding: 0.4em 0.4em 0.4em 0.5em;
+		height: 1.6em;
+	}
 
-		&.ntv_3d_rgb {
-		}
+	&--ntv_3d {
+		padding: 0.4em 0.4em 0.4em 0.5em;
+		height: 1.6em;
+	}
 
-		&.ntv_3d_rgb_shadow {
-			padding: 0.2em 0.4em 0.2em 0.5em;
-			height: 1.7em;
-		}
+	&--ntv_3d_rgb {
+		padding: 0.4em 0.4em 0.4em 0.5em;
+		height: 1.6em;
+	}
 
-		&.ntv_3d_rgb_shadow_bevel {
-			padding: 0.2em 0.4em 0.2em 0.5em;
-			height: 1.675em;
-		}
+	&--ntv_3d_shadow {
+		padding: 0.2em 0.4em 0.2em 0.5em;
+		height: 1.6em;
+	}
+
+	&--ntv_3d_shadow_beveled {
+		padding: 0.3em 0.4em 0.1em 0.5em;
+		height: 1.6em;
 	}
 }

@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.17
+// @version 1.5.18
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-330ba8a9.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-be569898.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10962,11 +10962,11 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
       element.remove();
     });
     const basePath = NTV_RESOURCE_ROOT + "assets/img/btn";
-    const filename = this.getFile();
+    const file = this.getFile();
     this.element = parseHTML(
       cleanupHTML(`
 				<div class="ntv__emote-menu-button">
-					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
+					<img class="${file.className}" src="${NTV_RESOURCE_ROOT + file.path}" draggable="false" alt="NTV">
 				</div>
 			`),
       true
@@ -10975,12 +10975,13 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     this.placeholder.replaceWith(this.element);
   }
   attachEventHandlers() {
+    const { eventBus: rootEventBus } = this.rootContext;
     const { eventBus } = this.session;
-    eventBus.subscribe("ntv.settings.change.chat.emote_menu.appearance.button_style", () => {
+    rootEventBus.subscribe("ntv.settings.change.chat.emote_menu.appearance.button_style", () => {
       if (!this.footerLogoBtnEl) return error("Footer logo button not found, unable to set logo src");
-      const filename = this.getFile();
-      this.footerLogoBtnEl.setAttribute("src", NTV_RESOURCE_ROOT + `assets/img/btn/${filename}.png`);
-      this.footerLogoBtnEl.className = filename.toLowerCase();
+      const file = this.getFile();
+      this.footerLogoBtnEl.setAttribute("src", NTV_RESOURCE_ROOT + file.path);
+      this.footerLogoBtnEl.className = file.className;
     });
     this.footerLogoBtnEl?.addEventListener("click", () => {
       if (!this.session.channelData.me.isLoggedIn) {
@@ -10997,26 +10998,48 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     );
     let file = "Nipah";
     switch (buttonStyle) {
+      case "nipah":
+        return {
+          path: "assets/img/btn/Nipah.png",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
       case "nipahtv":
-        file = "NipahTV";
-        break;
+        return {
+          path: "assets/img/btn/NipahTV.png",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
       case "ntv":
-        file = "NTV";
-        break;
+        return {
+          path: "assets/img/btn/NTV.png",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
+      case "logo":
+        return {
+          path: "assets/img/NTV_Logo.svg",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
       case "ntv_3d":
-        file = "NTV_3D";
-        break;
+        return {
+          path: "assets/img/btn/NTV_3D.png",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
       case "ntv_3d_rgb":
-        file = "NTV_3D_RGB";
-        break;
+        return {
+          path: "assets/img/btn/NTV_3D_RGB.png",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
       case "ntv_3d_shadow":
-        file = "NTV_3D_RGB_Shadow";
-        break;
+        return {
+          path: "assets/img/btn/NTV_3D_RGB_Shadow.png",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
       case "ntv_3d_shadow_beveled":
-        file = "NTV_3D_RGB_Shadow_bevel";
-        break;
+      default:
+        return {
+          path: "assets/img/btn/NTV_3D_RGB_Shadow_Beveled.png",
+          className: `ntv__emote-menu-button--${buttonStyle}`
+        };
     }
-    return file;
   }
   destroy() {
     this.element?.remove();
@@ -16228,6 +16251,14 @@ var KickUserInterface = class extends AbstractUserInterface {
     );
     eventBus.subscribe("ntv.input_controller.submit", (data) => this.submitInput(false, data?.dontClearInput));
     rootEventBus.subscribe(
+      "ntv.settings.change.chat.moderators.show_quick_actions",
+      ({ value, prevValue }) => {
+        Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
+          el.classList.toggle("ntv__chat-message--show-quick-actions", !!value);
+        });
+      }
+    );
+    rootEventBus.subscribe(
       "ntv.settings.change.chat.appearance.show_timestamps",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__show-message-timestamps", !!value);
@@ -16237,6 +16268,12 @@ var KickUserInterface = class extends AbstractUserInterface {
       "ntv.settings.change.chat.behavior.smooth_scrolling",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__smooth-scrolling", !!value);
+      }
+    );
+    rootEventBus.subscribe(
+      "ntv.settings.change.chat.moderators.show_quick_actions",
+      ({ value, prevValue }) => {
+        document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__alternating-background", !!value);
       }
     );
     rootEventBus.subscribe(
@@ -16544,9 +16581,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatOverlayModeSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
     if (chatOverlayModeSetting && chatOverlayModeSetting !== "none") {
       waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
-        containerEl.classList.add("ntv__theatre-overlay-mode");
+        containerEl.classList.add("ntv__theatre-overlay__mode");
         containerEl.classList.add(
-          "ntv__theatre-overlay-mode--" + chatOverlayModeSetting.replaceAll("_", "-")
+          "ntv__theatre-overlay__mode--" + chatOverlayModeSetting.replaceAll("_", "-")
         );
       }).catch(() => {
       });
@@ -16556,14 +16593,66 @@ var KickUserInterface = class extends AbstractUserInterface {
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
         if (!containerEl) return error("Theatre mode container not found");
-        if (prevValue) {
-          containerEl.classList.remove("ntv__theatre-overlay-mode--" + prevValue.replaceAll("_", "-"));
+        if (prevValue && prevValue !== "none") {
+          containerEl.classList.remove("ntv__theatre-overlay__mode--" + prevValue.replaceAll("_", "-"));
         }
         if (value && value !== "none") {
-          containerEl.classList.add("ntv__theatre-overlay-mode");
-          containerEl.classList.add("ntv__theatre-overlay-mode--" + value.replaceAll("_", "-"));
+          containerEl.classList.add("ntv__theatre-overlay__mode");
+          containerEl.classList.add("ntv__theatre-overlay__mode--" + value.replaceAll("_", "-"));
         } else {
-          containerEl.classList.remove("ntv__theatre-overlay-mode");
+          containerEl.classList.remove("ntv__theatre-overlay__mode");
+        }
+      }
+    );
+    const videoAlignmentModeSetting = settingsManager.getSetting(
+      channelId,
+      "appearance.layout.overlay_chat.video_alignment"
+    );
+    if (videoAlignmentModeSetting && videoAlignmentModeSetting !== "none") {
+      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+        containerEl.classList.add(
+          "ntv__theatre-overlay__video-alignment--" + videoAlignmentModeSetting.replaceAll("_", "-")
+        );
+      }).catch(() => {
+      });
+    }
+    rootEventBus.subscribe(
+      "ntv.settings.change.appearance.layout.overlay_chat.video_alignment",
+      ({ value, prevValue }) => {
+        const containerEl = document.querySelector("body > div[data-theatre]");
+        if (!containerEl) return error("Theatre container not found");
+        if (prevValue && prevValue !== "none") {
+          containerEl.classList.remove(
+            "ntv__theatre-overlay__video-alignment--" + prevValue.replaceAll("_", "-")
+          );
+        }
+        if (value && value !== "none") {
+          containerEl.classList.add("ntv__theatre-overlay__video-alignment--" + value.replaceAll("_", "-"));
+        }
+      }
+    );
+    const chatOverlayPositionSetting = settingsManager.getSetting(
+      channelId,
+      "appearance.layout.overlay_chat.position"
+    );
+    if (chatOverlayPositionSetting) {
+      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+        containerEl.classList.add(
+          "ntv__theatre-overlay__position--" + chatOverlayPositionSetting.replaceAll("_", "-")
+        );
+      }).catch(() => {
+      });
+    }
+    rootEventBus.subscribe(
+      "ntv.settings.change.appearance.layout.overlay_chat.position",
+      ({ value, prevValue }) => {
+        const containerEl = document.querySelector("body > div[data-theatre]");
+        if (!containerEl) return error("Theatre container not found");
+        if (prevValue && prevValue !== "none") {
+          containerEl.classList.remove("ntv__theatre-overlay__position--" + prevValue.replaceAll("_", "-"));
+        }
+        if (value && value !== "none") {
+          containerEl.classList.add("ntv__theatre-overlay__position--" + value.replaceAll("_", "-"));
         }
       }
     );
@@ -16791,8 +16880,9 @@ var KickUserInterface = class extends AbstractUserInterface {
           if (!chatMessageElement || chatMessageElement.classList.contains("ntv__chat-message--deleted"))
             return;
           chatMessageElement.classList.add("ntv__chat-message--deleted");
+          const chatMessageInnerEl = chatMessageElement.querySelector("& > .ntv__chat-message__inner");
           if (addedNode.className === "line-through") {
-            chatMessageElement.append(
+            chatMessageInnerEl.append(
               parseHTML(
                 `<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
                 true
@@ -16803,7 +16893,7 @@ var KickUserInterface = class extends AbstractUserInterface {
               (node) => node.remove()
             );
             const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
-            chatMessageElement.append(
+            chatMessageInnerEl.append(
               parseHTML(
                 `<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
                 true
@@ -16916,7 +17006,8 @@ var KickUserInterface = class extends AbstractUserInterface {
   // }
   prepareMessageForRendering(messageEl) {
     const settingsManager = this.rootContext.settingsManager;
-    const channelId = this.session.channelData.channelId;
+    const channelData = this.session.channelData;
+    const channelId = channelData.channelId;
     const settingStyle = settingsManager.getSetting(channelId, "chat.appearance.messages_style");
     const settingSeperator = settingsManager.getSetting(channelId, "chat.appearance.seperators");
     const settingSpacing = settingsManager.getSetting(channelId, "chat.appearance.messages_spacing");
@@ -16924,6 +17015,15 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (settingSeperator && settingSeperator !== "none")
       messageEl.classList.add(`ntv__chat-message--seperator-${settingSeperator}`);
     if (settingSpacing && settingSpacing !== "none") messageEl.classList.add("ntv__chat-message--" + settingSpacing);
+    if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
+      const settingModeratorQuickAction = settingsManager.getSetting(
+        channelId,
+        "chat.moderators.show_quick_actions"
+      );
+      if (settingModeratorQuickAction) {
+        messageEl.classList.add("ntv__chat-message--show-quick-actions");
+      }
+    }
     messageEl.classList.add("ntv__chat-message", "ntv__chat-message--unrendered");
   }
   renderChatMessage(messageNode) {
@@ -16984,6 +17084,36 @@ var KickUserInterface = class extends AbstractUserInterface {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error("Chat message body wrapper node not found", messageNode);
       return;
+    }
+    let ntvModBtnsWrapperEl = null;
+    if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
+      const modBtnsWrapperEl = messageBodyWrapper.firstElementChild;
+      if (modBtnsWrapperEl?.classList.contains("inline-flex")) {
+        ntvModBtnsWrapperEl = document.createElement("div");
+        ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
+        const modDeleteBtnEl = modBtnsWrapperEl.children[0];
+        const modTimeoutBtnEl = modBtnsWrapperEl.children[1];
+        const modBanBtnEl = modBtnsWrapperEl.children[2];
+        const ntvModDeleteBtnEl = modDeleteBtnEl.cloneNode(true);
+        const ntvModTimeoutBtnEl = modTimeoutBtnEl.cloneNode(true);
+        const ntvModBanBtnEl = modBanBtnEl.cloneNode(true);
+        ntvModBtnsWrapperEl.append(ntvModDeleteBtnEl, ntvModTimeoutBtnEl, ntvModBanBtnEl);
+        ntvModDeleteBtnEl.addEventListener("click", () => {
+          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+          Object.defineProperty(mEvent, "target", { value: modDeleteBtnEl, enumerable: true });
+          modDeleteBtnEl.dispatchEvent(mEvent);
+        });
+        ntvModTimeoutBtnEl.addEventListener("click", () => {
+          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+          Object.defineProperty(mEvent, "target", { value: modTimeoutBtnEl, enumerable: true });
+          modTimeoutBtnEl.dispatchEvent(mEvent);
+        });
+        ntvModBanBtnEl.addEventListener("click", () => {
+          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+          Object.defineProperty(mEvent, "target", { value: modBanBtnEl, enumerable: true });
+          modBanBtnEl.dispatchEvent(mEvent);
+        });
+      }
     }
     const contentWrapperNode = messageBodyWrapper.lastElementChild;
     if (!contentWrapperNode) {
@@ -17073,6 +17203,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         ntvBadgesEl.append(badgeEl);
       }
     }
+    if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
     ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
     const messagePartNodes = [];
     for (const contentNode of contentWrapperNode.childNodes) {
@@ -20083,16 +20214,29 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.18",
+    date: "2024-09-15",
+    description: `
+                  Feat: Can now change alignment of stream video in chat overlay mode
+                  Feat: Added settings option for moderator quick actions
+                  Fix: Added back in moderator quick action (delete, timeout, ban)
+                  Fix: Changing emote menu button setting not livetime updated
+                  Fix: Chat overlay mode chat position setting
+                  Fix: Deleted messages showing label out of place
+                  Chore: Added new emote menu button style setting
+            `
+  },
+  {
     version: "1.5.17",
     date: "2024-09-15",
     description: `
                   Major issue solved, finally figured what was causing the page to crash when replying to messages.
 
+                  Feat: Added setting whether to show recently used emotes in the quick emotes holder
                   Fix: Replying to messages randomly crashing the page #126
                   Fix: Emote tooltips getting cut off due to overflow
                   Fix: Messages with emojis not rendering correctly
-                  Feat: Added setting whether to show recently used emotes in the quick emotes holder
-                  Fix: Quick emotes holder spacing showing when favorited or recent emotes are empty
+                  Fix: Quick emotes holder spacer showing when favorited or recent emotes are empty
             `
   },
   {
@@ -21109,6 +21253,7 @@ var SettingsManager = class {
   			(Appearance)
   	            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
   				- Overlay chat position in theatre mode (dropdown)
+  				- Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen) (dropdown)
          = Chat
              = Appearance
                  (Appearance)
@@ -21164,6 +21309,9 @@ var SettingsManager = class {
                      - Enable <TAB> key emote completion suggestions
   				- Enable <COLON (:)> key emote completion suggestions
   				- Enable < @ > key username mention completion suggestions
+  		= Moderators
+  			(Messsages)
+  				- Show quick actions (delete, timeout, ban) (checkbox)
   		= Quick Emote Holder
                  (Appearance)
                      - Show quick emote holder
@@ -21216,24 +21364,43 @@ var SettingsManager = class {
                       value: "dark_translucent"
                     }
                   ]
+                },
+                {
+                  label: "Overlay chat position in theatre mode",
+                  key: "appearance.layout.overlay_chat.position",
+                  default: "right",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "Right",
+                      value: "right"
+                    },
+                    {
+                      label: "Left",
+                      value: "left"
+                    }
+                  ]
+                },
+                {
+                  label: "Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen)",
+                  key: "appearance.layout.overlay_chat.video_alignment",
+                  default: "center",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "Centered",
+                      value: "center"
+                    },
+                    {
+                      label: "Aligned to left of screen",
+                      value: "aligned_left"
+                    },
+                    {
+                      label: "Aligned to right of screen",
+                      value: "aligned_right"
+                    }
+                  ]
                 }
-                // Need to adjust the video player controls position when chat is overlayed
-                // {
-                // 	label: 'Overlay chat position in theatre mode',
-                // 	key: 'appearance.layout.overlay_chat_position',
-                // 	default: 'right',
-                // 	type: 'dropdown',
-                // 	options: [
-                // 		{
-                // 			label: 'Right',
-                // 			value: 'right'
-                // 		},
-                // 		{
-                // 			label: 'Left',
-                // 			value: 'left'
-                // 		}
-                // 	]
-                // }
               ]
             }
           ]
@@ -21467,6 +21634,10 @@ var SettingsManager = class {
                       value: "nipahtv"
                     },
                     {
+                      label: "Logo",
+                      value: "logo"
+                    },
+                    {
                       label: "NTV",
                       value: "ntv"
                     },
@@ -21644,6 +21815,23 @@ var SettingsManager = class {
                 {
                   label: "Enable <b>&lt;@></b> key username mention completion suggestions",
                   key: "chat.input.completion.mentions.enabled",
+                  default: true,
+                  type: "checkbox"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          label: "Moderators",
+          children: [
+            {
+              label: "Messages",
+              description: "These settings are only applicable to moderators.",
+              children: [
+                {
+                  label: "Show quick actions (delete, timeout, ban)",
+                  key: "chat.moderators.show_quick_actions",
                   default: true,
                   type: "checkbox"
                 }
@@ -22659,7 +22847,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.17";
+  VERSION = "1.5.18";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

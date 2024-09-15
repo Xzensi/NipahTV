@@ -16,12 +16,12 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 		})
 
 		const basePath = RESOURCE_ROOT + 'assets/img/btn'
-		const filename = this.getFile()
+		const file = this.getFile()
 
 		this.element = parseHTML(
 			cleanupHTML(`
 				<div class="ntv__emote-menu-button">
-					<img class="${filename.toLowerCase()}" src="${basePath}/${filename}.png" draggable="false" alt="Nipah">
+					<img class="${file.className}" src="${RESOURCE_ROOT + file.path}" draggable="false" alt="NTV">
 				</div>
 			`),
 			true
@@ -32,13 +32,15 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 	}
 
 	attachEventHandlers() {
+		const { eventBus: rootEventBus } = this.rootContext
 		const { eventBus } = this.session
 
-		eventBus.subscribe('ntv.settings.change.chat.emote_menu.appearance.button_style', () => {
+		rootEventBus.subscribe('ntv.settings.change.chat.emote_menu.appearance.button_style', () => {
 			if (!this.footerLogoBtnEl) return error('Footer logo button not found, unable to set logo src')
-			const filename = this.getFile()
-			this.footerLogoBtnEl.setAttribute('src', RESOURCE_ROOT + `assets/img/btn/${filename}.png`)
-			this.footerLogoBtnEl.className = filename.toLowerCase()
+
+			const file = this.getFile()
+			this.footerLogoBtnEl.setAttribute('src', RESOURCE_ROOT + file.path)
+			this.footerLogoBtnEl.className = file.className
 		})
 
 		this.footerLogoBtnEl?.addEventListener('click', () => {
@@ -59,27 +61,48 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 		let file = 'Nipah'
 
 		switch (buttonStyle) {
+			case 'nipah':
+				return {
+					path: 'assets/img/btn/Nipah.png',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
 			case 'nipahtv':
-				file = 'NipahTV'
-				break
+				return {
+					path: 'assets/img/btn/NipahTV.png',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
 			case 'ntv':
-				file = 'NTV'
-				break
+				return {
+					path: 'assets/img/btn/NTV.png',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
+			case 'logo':
+				return {
+					path: 'assets/img/NTV_Logo.svg',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
 			case 'ntv_3d':
-				file = 'NTV_3D'
-				break
+				return {
+					path: 'assets/img/btn/NTV_3D.png',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
 			case 'ntv_3d_rgb':
-				file = 'NTV_3D_RGB'
-				break
+				return {
+					path: 'assets/img/btn/NTV_3D_RGB.png',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
 			case 'ntv_3d_shadow':
-				file = 'NTV_3D_RGB_Shadow'
-				break
+				return {
+					path: 'assets/img/btn/NTV_3D_RGB_Shadow.png',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
 			case 'ntv_3d_shadow_beveled':
-				file = 'NTV_3D_RGB_Shadow_bevel'
-				break
+			default:
+				return {
+					path: 'assets/img/btn/NTV_3D_RGB_Shadow_Beveled.png',
+					className: `ntv__emote-menu-button--${buttonStyle}`
+				}
 		}
-
-		return file
 	}
 
 	destroy() {
