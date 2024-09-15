@@ -295,8 +295,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadQuickEmotesHolder(kickFooterEl: HTMLElement, kickQuickEmotesHolderEl?: HTMLElement) {
-		const { settingsManager } = this.rootContext
-		const { eventBus, channelData } = this.session
+		const { settingsManager, eventBus: rootEventBus } = this.rootContext
+		const { channelData } = this.session
 		const { channelId } = channelData
 		const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, 'quick_emote_holder.enabled')
 
@@ -307,7 +307,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init()
 		}
 
-		eventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
+		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
+			this.quickEmotesHolder?.destroy()
+
 			if (value) {
 				const placeholder = document.createElement('div')
 				kickFooterEl.prepend(placeholder)
@@ -318,7 +320,6 @@ export class KickUserInterface extends AbstractUserInterface {
 					placeholder
 				).init()
 			} else {
-				this.quickEmotesHolder?.destroy()
 				this.quickEmotesHolder = null
 				kickQuickEmotesHolderEl?.style.removeProperty('display')
 			}
@@ -932,34 +933,42 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, 'chat.tooltips.images')
-		chatMessagesContainerEl.addEventListener('mouseover', evt => {
-			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box')) return
+		chatMessagesContainerEl.addEventListener(
+			'mouseover',
+			evt => {
+				const target = evt.target as HTMLElement
+				if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box'))
+					return
 
-			const emoteName = target.getAttribute('data-emote-name')
-			if (!emoteName) return
+				const emoteName = target.getAttribute('data-emote-name')
+				if (!emoteName) return
 
-			const tooltipEl = parseHTML(
-				`<div class="ntv__emote-tooltip ntv__emote-tooltip--inline"><span>${emoteName}</span></div>`,
-				true
-			) as HTMLElement
+				const tooltipEl = parseHTML(
+					`<div class="ntv__emote-tooltip"><span>${emoteName}</span></div>`,
+					true
+				) as HTMLElement
 
-			if (showTooltipImage) {
-				const imageNode = target.cloneNode(true) as HTMLImageElement
-				imageNode.className = 'ntv__emote'
-				tooltipEl.prepend(imageNode)
-			}
+				if (showTooltipImage) {
+					const imageNode = target.cloneNode(true) as HTMLImageElement
+					imageNode.className = 'ntv__emote'
+					tooltipEl.prepend(imageNode)
+				}
 
-			target.after(tooltipEl)
+				const rect = target.getBoundingClientRect()
+				tooltipEl.style.left = `${rect.x + rect.width / 2}px`
+				tooltipEl.style.top = `${rect.y}px`
+				document.body.append(tooltipEl)
 
-			target.addEventListener(
-				'mouseleave',
-				() => {
-					tooltipEl.remove()
-				},
-				{ once: true, passive: true }
-			)
-		})
+				target.addEventListener(
+					'mouseleave',
+					() => {
+						tooltipEl.remove()
+					},
+					{ once: true, passive: true }
+				)
+			},
+			{ passive: true }
+		)
 
 		chatMessagesContainerEl.addEventListener('click', evt => {
 			const target = evt.target as HTMLElement
