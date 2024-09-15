@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.18
+// @version 1.5.19
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -17323,6 +17323,15 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
       observer.observe(replyPreviewWrapperEl, { childList: true });
     }
+    const footerEl = document.querySelector(".kick__chat-footer");
+    if (!footerEl) return error("Footer element not found");
+    const textFieldParent = textFieldEl.parentElement;
+    setInterval(() => {
+      const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]');
+      if (!closeReplyBtnEl && textFieldParent.style.display === "none") {
+        restoreTextField();
+      }
+    }, 400);
   }
   renderPinnedMessage(node) {
     this.queuedChatMessages.push(node);
@@ -20214,11 +20223,18 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.19",
+    date: "2024-09-15",
+    description: `
+                  Fix: Replying sometimes get stuck in native Kick chat input
+            `
+  },
+  {
     version: "1.5.18",
     date: "2024-09-15",
     description: `
-                  Feat: Can now change alignment of stream video in chat overlay mode
                   Feat: Added settings option for moderator quick actions
+                  Feat: Can now change alignment of stream video in chat overlay mode
                   Fix: Added back in moderator quick action (delete, timeout, ban)
                   Fix: Changing emote menu button setting not livetime updated
                   Fix: Chat overlay mode chat position setting
@@ -22847,7 +22863,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.18";
+  VERSION = "1.5.19";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -4,11 +4,18 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.19',
+		date: '2024-09-15',
+		description: `
+                  Fix: Replying sometimes get stuck in native Kick chat input
+            `
+	},
+	{
 		version: '1.5.18',
 		date: '2024-09-15',
 		description: `
-                  Feat: Can now change alignment of stream video in chat overlay mode
                   Feat: Added settings option for moderator quick actions
+                  Feat: Can now change alignment of stream video in chat overlay mode
                   Fix: Added back in moderator quick action (delete, timeout, ban)
                   Fix: Changing emote menu button setting not livetime updated
                   Fix: Chat overlay mode chat position setting
