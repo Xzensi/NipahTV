@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.16
+// @version 1.5.17
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-3d78650b.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-330ba8a9.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10775,6 +10775,10 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       "ntv.settings.change.quick_emote_holder.show_favorites",
       this.renderFavoriteEmotes.bind(this)
     );
+    rootEventBus.subscribe(
+      "ntv.settings.change.quick_emote_holder.show_recently_used",
+      this.renderCommonlyUsedEmotes.bind(this)
+    );
   }
   handleEmoteClick(emoteHid, sendImmediately = false) {
     assertArgDefined(emoteHid);
@@ -10888,8 +10892,11 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     }
   }
   renderCommonlyUsedEmotes() {
-    const { emotesManager } = this.session;
+    const { settingsManager } = this.rootContext;
+    const { emotesManager, channelData } = this.session;
     const emoteUsageCounts = [...emotesManager.getEmoteUsageCounts()].sort((a, b) => b[1] - a[1]);
+    while (this.commonlyUsedEl.firstChild) this.commonlyUsedEl.firstChild.remove();
+    if (!settingsManager.getSetting(channelData.channelId, "quick_emote_holder.show_recently_used")) return;
     const favoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
     for (const { emoteHid } of favoriteEmoteDocuments) {
       const index = emoteUsageCounts.findIndex(([hid]) => hid === emoteHid);
@@ -10897,7 +10904,6 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         emoteUsageCounts.splice(index, 1);
       }
     }
-    while (this.commonlyUsedEl.firstChild) this.commonlyUsedEl.firstChild.remove();
     for (const [emoteHid] of emoteUsageCounts) {
       const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
       if (!emoteRender) continue;
@@ -11163,38 +11169,42 @@ var EmoteMenuComponent = class extends AbstractComponent {
       { passive: true }
     );
     let lastEnteredElement = null;
-    this.scrollableEl?.addEventListener("mouseover", (evt) => {
-      const target = evt.target;
-      if (target === lastEnteredElement || target.tagName !== "IMG") return;
-      if (this.tooltipEl) this.tooltipEl.remove();
-      lastEnteredElement = target;
-      const emoteHid = target.getAttribute("data-emote-hid");
-      if (!emoteHid) return;
-      const emote = emotesManager.getEmote(emoteHid);
-      if (!emote) return;
-      const imageInTooltop = settingsManager.getSetting(channelId, "chat.tooltips.images");
-      const tooltipEl = parseHTML(
-        cleanupHTML(`
+    this.scrollableEl?.addEventListener(
+      "mouseover",
+      (evt) => {
+        const target = evt.target;
+        if (target === lastEnteredElement || target.tagName !== "IMG") return;
+        if (this.tooltipEl) this.tooltipEl.remove();
+        lastEnteredElement = target;
+        const emoteHid = target.getAttribute("data-emote-hid");
+        if (!emoteHid) return;
+        const emote = emotesManager.getEmote(emoteHid);
+        if (!emote) return;
+        const imageInTooltop = settingsManager.getSetting(channelId, "chat.tooltips.images");
+        const tooltipEl = parseHTML(
+          cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
 					${imageInTooltop ? emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
 					<span>${emote.name}</span>
 				</div>`),
-        true
-      );
-      this.tooltipEl = tooltipEl;
-      document.body.appendChild(tooltipEl);
-      const rect = target.getBoundingClientRect();
-      tooltipEl.style.top = rect.top + rect.height / 2 + "px";
-      tooltipEl.style.left = rect.left + rect.width / 2 + "px";
-      target.addEventListener(
-        "mouseleave",
-        () => {
-          if (this.tooltipEl) this.tooltipEl.remove();
-          lastEnteredElement = null;
-        },
-        { once: true }
-      );
-    });
+          true
+        );
+        this.tooltipEl = tooltipEl;
+        document.body.appendChild(tooltipEl);
+        const rect = target.getBoundingClientRect();
+        tooltipEl.style.left = rect.left + rect.width / 2 + "px";
+        tooltipEl.style.top = rect.top + "px";
+        target.addEventListener(
+          "mouseleave",
+          () => {
+            if (this.tooltipEl) this.tooltipEl.remove();
+            lastEnteredElement = null;
+          },
+          { once: true, passive: true }
+        );
+      },
+      { passive: true }
+    );
     this.searchInputEl?.addEventListener("input", this.handleSearchInput.bind(this));
     this.panels.emotes?.addEventListener("click", (evt) => {
       const target = evt.target;
@@ -13346,7 +13356,7 @@ var AbstractUserInterface = class {
     return node;
   }
   createPlainTextMessagePartNode(textContent) {
-    if (textContent.trim() !== textContent) {
+    if (textContent === " ") {
       error("Attempted to create a text node with a single space character.");
       return document.createTextNode(" ");
     }
@@ -15285,7 +15295,6 @@ var ContentEditableEditor = class {
    * @param force Force processing of input content in case input content was changed through direct DOM manipulation.
    */
   processInputContent(force = false) {
-    log("Processing input content", this.hasUnprocessedContentChanges);
     if (!this.hasUnprocessedContentChanges && !force) return;
     const { eventBus, emotesManager } = this.session;
     const { inputNode } = this;
@@ -16284,8 +16293,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init();
   }
   async loadQuickEmotesHolder(kickFooterEl, kickQuickEmotesHolderEl) {
-    const { settingsManager } = this.rootContext;
-    const { eventBus, channelData } = this.session;
+    const { settingsManager, eventBus: rootEventBus } = this.rootContext;
+    const { channelData } = this.session;
     const { channelId } = channelData;
     const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, "quick_emote_holder.enabled");
     if (quickEmotesHolderEnabled) {
@@ -16294,7 +16303,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       kickQuickEmotesHolderEl?.style.setProperty("display", "none", "important");
       this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init();
     }
-    eventBus.subscribe("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
+    rootEventBus.subscribe("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
+      this.quickEmotesHolder?.destroy();
       if (value) {
         const placeholder = document.createElement("div");
         kickFooterEl.prepend(placeholder);
@@ -16305,7 +16315,6 @@ var KickUserInterface = class extends AbstractUserInterface {
           placeholder
         ).init();
       } else {
-        this.quickEmotesHolder?.destroy();
         this.quickEmotesHolder = null;
         kickQuickEmotesHolderEl?.style.removeProperty("display");
       }
@@ -16407,14 +16416,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     kickTextFieldEl.parentElement.before(textFieldWrapperEl);
     if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
     kickTextFieldEl?.parentElement?.style.setProperty("display", "none", "important");
-    let nextSibling = textFieldWrapperEl.nextElementSibling;
-    while (nextSibling) {
-      if (nextSibling.tagName === "BUTTON") {
-        nextSibling.remove();
-        break;
-      }
-      nextSibling = nextSibling.nextElementSibling;
-    }
     const inputController = this.inputController = new InputController(
       this.rootContext,
       this.session,
@@ -16728,29 +16729,37 @@ var KickUserInterface = class extends AbstractUserInterface {
       true
     );
     const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, "chat.tooltips.images");
-    chatMessagesContainerEl.addEventListener("mouseover", (evt) => {
-      const target = evt.target;
-      if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box")) return;
-      const emoteName = target.getAttribute("data-emote-name");
-      if (!emoteName) return;
-      const tooltipEl = parseHTML(
-        `<div class="ntv__emote-tooltip ntv__emote-tooltip--inline"><span>${emoteName}</span></div>`,
-        true
-      );
-      if (showTooltipImage) {
-        const imageNode = target.cloneNode(true);
-        imageNode.className = "ntv__emote";
-        tooltipEl.prepend(imageNode);
-      }
-      target.after(tooltipEl);
-      target.addEventListener(
-        "mouseleave",
-        () => {
-          tooltipEl.remove();
-        },
-        { once: true, passive: true }
-      );
-    });
+    chatMessagesContainerEl.addEventListener(
+      "mouseover",
+      (evt) => {
+        const target = evt.target;
+        if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
+          return;
+        const emoteName = target.getAttribute("data-emote-name");
+        if (!emoteName) return;
+        const tooltipEl = parseHTML(
+          `<div class="ntv__emote-tooltip"><span>${emoteName}</span></div>`,
+          true
+        );
+        if (showTooltipImage) {
+          const imageNode = target.cloneNode(true);
+          imageNode.className = "ntv__emote";
+          tooltipEl.prepend(imageNode);
+        }
+        const rect = target.getBoundingClientRect();
+        tooltipEl.style.left = `${rect.x + rect.width / 2}px`;
+        tooltipEl.style.top = `${rect.y}px`;
+        document.body.append(tooltipEl);
+        target.addEventListener(
+          "mouseleave",
+          () => {
+            tooltipEl.remove();
+          },
+          { once: true, passive: true }
+        );
+      },
+      { passive: true }
+    );
     chatMessagesContainerEl.addEventListener("click", (evt) => {
       const target = evt.target;
       if (target.tagName === "IMG" && target?.parentElement?.classList.contains("ntv__inline-emote-box")) {
@@ -20074,6 +20083,19 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.17",
+    date: "2024-09-15",
+    description: `
+                  Major issue solved, finally figured what was causing the page to crash when replying to messages.
+
+                  Fix: Replying to messages randomly crashing the page #126
+                  Fix: Emote tooltips getting cut off due to overflow
+                  Fix: Messages with emojis not rendering correctly
+                  Feat: Added setting whether to show recently used emotes in the quick emotes holder
+                  Fix: Quick emotes holder spacing showing when favorited or recent emotes are empty
+            `
+  },
+  {
     version: "1.5.16",
     date: "2024-09-14",
     description: `
@@ -21147,7 +21169,8 @@ var SettingsManager = class {
                      - Show quick emote holder
                      - Rows of emotes to display (number)
   				- Show favorited emotes in the quick emote holder
-  				- Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes
+  				- Show favorited emotes of other channels that cannot be used (because they're not cross-channel emotes)
+  				- Show recently used emotes in the quick emote holder
                  (Behavior)
                      - Send emotes to chat immediately on click
   */
@@ -21655,7 +21678,13 @@ var SettingsManager = class {
                   default: true
                 },
                 {
-                  label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes",
+                  label: "Show recently used emotes in the quick emote holder",
+                  key: "quick_emote_holder.show_recently_used",
+                  type: "checkbox",
+                  default: true
+                },
+                {
+                  label: "Show favorited emotes of other channels that cannot be used (because they're not cross-channel emotes)",
                   key: "quick_emote_holder.show_non_cross_channel_favorites",
                   type: "checkbox",
                   default: false
@@ -22630,7 +22659,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.16";
+  VERSION = "1.5.17";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
