@@ -4,16 +4,29 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.18',
+		date: '2024-09-15',
+		description: `
+                  Feat: Can now change alignment of stream video in chat overlay mode
+                  Feat: Added settings option for moderator quick actions
+                  Fix: Added back in moderator quick action (delete, timeout, ban)
+                  Fix: Changing emote menu button setting not livetime updated
+                  Fix: Chat overlay mode chat position setting
+                  Fix: Deleted messages showing label out of place
+                  Chore: Added new emote menu button style setting
+            `
+	},
+	{
 		version: '1.5.17',
 		date: '2024-09-15',
 		description: `
                   Major issue solved, finally figured what was causing the page to crash when replying to messages.
 
+                  Feat: Added setting whether to show recently used emotes in the quick emotes holder
                   Fix: Replying to messages randomly crashing the page #126
                   Fix: Emote tooltips getting cut off due to overflow
                   Fix: Messages with emojis not rendering correctly
-                  Feat: Added setting whether to show recently used emotes in the quick emotes holder
-                  Fix: Quick emotes holder spacing showing when favorited or recent emotes are empty
+                  Fix: Quick emotes holder spacer showing when favorited or recent emotes are empty
             `
 	},
 	{
