@@ -35,7 +35,7 @@
 	outline: 0.1em solid var(--ntv-border-transparent-2);
 	background-color: var(--ntv-background-color-tint-1);
 	padding: 0.618em 0.618em 0.333em 0.618em;
-	transform: translate(-50%, -130%);
+	transform: translate(-50%, -108%);
 	font-size: $root_font_size;
 	padding: 0.382em 1.382em;
 	text-overflow: ellipsis;
@@ -55,10 +55,6 @@
 	top: 0;
 
 	@include user_select;
-
-	&--inline {
-		top: 0.75em;
-	}
 
 	img {
 		margin: 0 auto 0.5em auto;

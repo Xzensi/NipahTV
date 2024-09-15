@@ -224,7 +224,7 @@ export default abstract class AbstractUserInterface {
 	}
 
 	private createPlainTextMessagePartNode(textContent: string) {
-		if (textContent.trim() !== textContent) {
+		if (textContent === ' ') {
 			error('Attempted to create a text node with a single space character.')
 			return document.createTextNode(' ')
 		}

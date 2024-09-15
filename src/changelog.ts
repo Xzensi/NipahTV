@@ -4,6 +4,19 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.17',
+		date: '2024-09-15',
+		description: `
+                  Major issue solved, finally figured what was causing the page to crash when replying to messages.
+
+                  Fix: Replying to messages randomly crashing the page #126
+                  Fix: Emote tooltips getting cut off due to overflow
+                  Fix: Messages with emojis not rendering correctly
+                  Feat: Added setting whether to show recently used emotes in the quick emotes holder
+                  Fix: Quick emotes holder spacing showing when favorited or recent emotes are empty
+            `
+	},
+	{
 		version: '1.5.16',
 		date: '2024-09-14',
 		description: `

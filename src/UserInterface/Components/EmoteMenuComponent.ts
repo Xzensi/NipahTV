@@ -191,44 +191,48 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 		// Tooltip for emotes
 		let lastEnteredElement: HTMLElement | null = null
-		this.scrollableEl?.addEventListener('mouseover', evt => {
-			const target = evt.target as HTMLElement
-			if (target === lastEnteredElement || target.tagName !== 'IMG') return
-			if (this.tooltipEl) this.tooltipEl.remove()
-			lastEnteredElement = target
+		this.scrollableEl?.addEventListener(
+			'mouseover',
+			evt => {
+				const target = evt.target as HTMLElement
+				if (target === lastEnteredElement || target.tagName !== 'IMG') return
+				if (this.tooltipEl) this.tooltipEl.remove()
+				lastEnteredElement = target
 
-			const emoteHid = target.getAttribute('data-emote-hid')
-			if (!emoteHid) return
+				const emoteHid = target.getAttribute('data-emote-hid')
+				if (!emoteHid) return
 
-			const emote = emotesManager.getEmote(emoteHid)
-			if (!emote) return
+				const emote = emotesManager.getEmote(emoteHid)
+				if (!emote) return
 
-			const imageInTooltop = settingsManager.getSetting(channelId, 'chat.tooltips.images')
-			const tooltipEl = parseHTML(
-				cleanupHTML(`
+				const imageInTooltop = settingsManager.getSetting(channelId, 'chat.tooltips.images')
+				const tooltipEl = parseHTML(
+					cleanupHTML(`
 				<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
 					${imageInTooltop ? emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
 					<span>${emote.name}</span>
 				</div>`),
-				true
-			) as HTMLElement
+					true
+				) as HTMLElement
 
-			this.tooltipEl = tooltipEl
-			document.body.appendChild(tooltipEl)
+				this.tooltipEl = tooltipEl
+				document.body.appendChild(tooltipEl)
 
-			const rect = target.getBoundingClientRect()
-			tooltipEl.style.top = rect.top + rect.height / 2 + 'px'
-			tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
+				const rect = target.getBoundingClientRect()
+				tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
+				tooltipEl.style.top = rect.top + 'px'
 
-			target.addEventListener(
-				'mouseleave',
-				() => {
-					if (this.tooltipEl) this.tooltipEl.remove()
-					lastEnteredElement = null
-				},
-				{ once: true }
-			)
-		})
+				target.addEventListener(
+					'mouseleave',
+					() => {
+						if (this.tooltipEl) this.tooltipEl.remove()
+						lastEnteredElement = null
+					},
+					{ once: true, passive: true }
+				)
+			},
+			{ passive: true }
+		)
 
 		// Search input event
 		this.searchInputEl?.addEventListener('input', this.handleSearchInput.bind(this) as any)

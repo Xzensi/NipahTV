@@ -1,3 +1,9 @@
+.ntv__message-input__wrapper {
+	& ~ button {
+		display: none;
+	}
+}
+
 #ntv__message-input {
 	outline: 2px solid transparent;
 	border-color: transparent;
