@@ -464,16 +464,6 @@ export class KickUserInterface extends AbstractUserInterface {
 		// kickTextFieldEl.parentElement!.remove()
 		kickTextFieldEl?.parentElement?.style.setProperty('display', 'none', 'important')
 
-		// Find any emote buttons after out input field
-		let nextSibling = textFieldWrapperEl.nextElementSibling
-		while (nextSibling) {
-			if (nextSibling.tagName === 'BUTTON') {
-				nextSibling.remove()
-				break
-			}
-			nextSibling = nextSibling.nextElementSibling
-		}
-
 		// const moderatorChatIdentityBadgeIconEl = document.querySelector('.chat-input-wrapper .chat-input-icon')
 		// if (moderatorChatIdentityBadgeIconEl) textFieldEl.before(moderatorChatIdentityBadgeIconEl)
 
