@@ -1621,6 +1621,19 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			observer.observe(replyPreviewWrapperEl, { childList: true })
 		}
+
+		// Theres some weird bug where the observer doesnt trigger when the reply message is closed
+		//  so we have to add a setInterval to check if the reply message is still in the DOM.
+		const footerEl = document.querySelector('.kick__chat-footer')
+		if (!footerEl) return error('Footer element not found')
+
+		const textFieldParent = textFieldEl.parentElement!
+		setInterval(() => {
+			const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]')
+			if (!closeReplyBtnEl && textFieldParent.style.display === 'none') {
+				restoreTextField()
+			}
+		}, 400)
 	}
 
 	renderPinnedMessage(node: HTMLElement) {
