@@ -405,6 +405,7 @@ export default class SettingsManager {
 					children: [
 						{
 							label: 'Appearance',
+							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
 									label: 'Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them',

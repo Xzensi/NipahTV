@@ -25,6 +25,11 @@
 			margin-bottom: $golden_ratio_inverse * 1em;
 			margin-top: $golden_ratio_inverse * 1em;
 		}
+
+		a {
+			text-decoration: underline;
+			color: #5781f3;
+		}
 	}
 
 	// &__overflow-wrapper {

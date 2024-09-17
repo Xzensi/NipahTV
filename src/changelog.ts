@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.20',
+		date: '2024-09-15',
+		description: `
+                  Fix: Add label to settings category
+                  Chore: Added Discord community server launch announcement
+            `
+	},
+	{
 		version: '1.5.19',
 		date: '2024-09-15',
 		description: `

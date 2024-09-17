@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.19
+// @version 1.5.20
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-be569898.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-6ccc62c5.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -16363,26 +16363,20 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { announcementService, eventBus: rootEventBus } = rootContext;
     const showAnnouncements = () => {
       announcementService.registerAnnouncement({
-        id: "website_overhaul_sept_2024_update",
+        id: "discord_community_server_launch",
         dateTimeRange: [/* @__PURE__ */ new Date(1727595396025)],
         message: `
-					<h2><strong>NipahTV Update: Kick Website Overhaul</strong></h2>
-					<p>I have been hard at work since Kick's major website overhaul (about 12 hours ago, 10 Sept) and am excited to share that <strong>NipahTV is back up and functional</strong> with most core functionality restored!</p>
-					<p>For those who are new or out of the loop, Kick introduced a complete redesign of their site yesterday, which has affected NipahTV and other extensions. While there\u2019s still a lot more to be done, you can once again enjoy the core features of NipahTV!</p>
-					<h3><strong>Current Known Issues:</strong></h3>
-					<ul>
-					<li><strong>Reply Functionality:</strong> Kick\u2019s overhaul made it impossible to implement the reply message feature. When replying, NipahTV falls back to the default Kick chat input as a temporary workaround.</li>
-					<li><strong>Mobile Mode Conflicts:</strong> Kick\u2019s new mobile mode activates on smaller window sizes, which currently breaks NipahTV.</li>
-					<li><strong>Bans/Timeouts:</strong> Banning or timing out users causes their page to crash completely.</li>
-					<li><strong>Feature Restoration:</strong> Some settings still need to be re-implemented into Kick\u2019s new design.</li>
-					</ul>
-					<p>We are continuing to make fixes and adjustments to improve the experience and restore the features you all loved. <strong>Thank you for your patience and support</strong> as we adapt to these changes!</p>
-
+					<p>\u{1F680} <strong>NipahTV is Taking Off\u2014Thanks to You!</strong> \u{1F680}</p>
+					<p>It's been a short while now since the humble beginning of this project. At first it was just for our little community because when we joined Kick the chatting experience was very lackluster, so I decided to take it upon myself to do it better. Back then we had no expectations of ever growing big and it was simply a passion project to improve our own lives on the Kick plaform.</p>
+					<p>We had a slow and steady growth, but over the last few days, since the new Kick website launch, we've suddenly exploded in popularity! Our install count has skyrocketed, and we\u2019re beyond excited to welcome so many new users! \u{1F44B}</p>
+					<p>You\u2019ve likely noticed that the new Kick update has broken a lot of things, but rest assured\u2014we\u2019re working hard to get everything in working order again and bring you new features to make NipahTV even better.</p>
+					<p>Lastly, our brand-new Discord community server is live, and we'd love to invite you! Swing by to say hi and help shape NipahTV by sharing feedback and voting on the features you want to see next.</p>
+					<p>Discord link: <a href="https://discord.gg/KZZZYM6ESs">NipahTV Discord server</a></p>
 				`
       });
-      if (announcementService.hasAnnouncement("website_overhaul_sept_2024_update")) {
+      if (announcementService.hasAnnouncement("discord_community_server_launch")) {
         setTimeout(() => {
-          announcementService.displayAnnouncement("website_overhaul_sept_2024_update");
+          announcementService.displayAnnouncement("discord_community_server_launch");
         }, 1e3);
       }
     };
@@ -20223,6 +20217,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.20",
+    date: "2024-09-15",
+    description: `
+                  Fix: Add label to settings category
+                  Chore: Added Discord community server launch announcement
+            `
+  },
+  {
     version: "1.5.19",
     date: "2024-09-15",
     description: `
@@ -21612,6 +21614,7 @@ var SettingsManager = class {
           children: [
             {
               label: "Appearance",
+              description: "These settings require a page refresh to take effect.",
               children: [
                 {
                   label: "Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them",
@@ -22863,7 +22866,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.19";
+  VERSION = "1.5.20";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
