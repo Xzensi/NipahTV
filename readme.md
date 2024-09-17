@@ -11,7 +11,9 @@
   <p align="center">
     <br />
     <a href="https://nipahtv.com">Releases</a>
-    .
+    ·
+    <a href="https://discord.gg/KZZZYM6ESs">Discord Community</a>
+    ·
     <a href="https://github.com/Xzensi/NipahTV/issues">Request Feature</a>
     ·
     <a href="https://github.com/Xzensi/NipahTV/issues">Report Bug</a>
@@ -30,17 +32,17 @@
 
 <br />
 
-
 Transform your Kick chat experience with new features, emotes and performance improvements.
 
 NipahTV integrates emotes from multiple providers, including native Kick and 7TV emotes, eliminating the need for multiple emote extensions.
 
 Key Features:
-- User-friendly emote menu
-- Global and per-channel emotes for both native Kick and 7TV
-- Improved moderator experience with enhanced Kick commands
-- Message history feature for re-sending messages
-- Quality of life options like message highlighting
+
+-   User-friendly emote menu
+-   Global and per-channel emotes for both native Kick and 7TV
+-   Improved moderator experience with enhanced Kick commands
+-   Message history feature for re-sending messages
+-   Quality of life options like message highlighting
 
 <b>Please note:</b> This project is under active development and may contain bugs. Feedback is appreciated as we continue to refine and improve NipahTV.
 
@@ -49,6 +51,8 @@ Key Features:
 ## Where to download?
 
 Releases are available at [NipahTV.com](https://nipahtv.com)
+
+Or come say hi at our [Discord Community server](https://discord.gg/KZZZYM6ESs)
 
 <br />
 
