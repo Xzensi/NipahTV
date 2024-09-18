@@ -163,7 +163,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (channelData.isVod) {
 					this.loadVodBehaviour()
 				} else {
-					// this.observePinnedMessage(chatMessagesContainerEl)
+					this.observePinnedMessage()
 					this.observeChatEntriesForDeletionEvents()
 				}
 
@@ -1101,8 +1101,6 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadVodBehaviour() {
-		// The chatroom messages wrapper gets deleted when scrubbing the video player
-		//  so we observe it and reload the chat UI when it gets re-added
 		log('Loading VOD behaviour..')
 
 		const chatroomParentContainerEl = document
@@ -1112,6 +1110,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		this.addExistingMessagesToQueue()
 
+		// The chatroom messages wrapper gets deleted when scrubbing the video player
+		//  so we observe it and reload the chat UI when it gets re-added.
 		const observer = new MutationObserver(mutations => {
 			mutations.forEach(mutation => {
 				if (mutation.addedNodes.length) {
@@ -1216,52 +1216,66 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 	}
 
-	// observePinnedMessage(chatMessagesContainerEl: HTMLElement) {
-	// 	this.session.eventBus.subscribe('ntv.providers.loaded', () => {
-	// 		const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
-	// 			mutations.forEach(mutation => {
-	// 				if (mutation.addedNodes.length) {
-	// 					for (const node of mutation.addedNodes) {
-	// 						if (node instanceof HTMLElement && node.classList.contains('pinned-message')) {
-	// 							this.renderPinnedMessage(node as HTMLElement)
+	observePinnedMessage() {
+		const pinnedMessageContainerEl = document
+			.getElementById('channel-chatroom')
+			?.querySelector('& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden')
+		if (!pinnedMessageContainerEl) return error('Pinned message container not found for observation')
 
-	// 							// Clicking on emotes in pinned message
-	// 							node.addEventListener('click', evt => {
-	// 								const target = evt.target as HTMLElement
-	// 								if (
-	// 									target.tagName === 'IMG' &&
-	// 									target?.parentElement?.classList.contains('ntv__inline-emote-box')
-	// 								) {
-	// 									const emoteHid = target.getAttribute('data-emote-hid')
-	// 									if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
-	// 								}
-	// 							})
-	// 						}
-	// 					}
-	// 				}
-	// 			})
-	// 		}))
+		const renderPinnedMessageBody = (contentBodyEl: HTMLElement) => {
+			// Cleanup old pinned messages
+			Array.from(document.getElementsByClassName('ntv__pinned-message__content')).forEach(node => {
+				node.remove()
+			})
 
-	// 		observer.observe(chatMessagesContainerEl, { childList: true, subtree: true })
+			this.renderPinnedMessageContent(contentBodyEl as HTMLElement)
+		}
 
-	// 		const pinnedMessage = chatroomTopEl.querySelector('.pinned-message')
-	// 		if (pinnedMessage) {
-	// 			this.renderPinnedMessage(pinnedMessage as HTMLElement)
+		this.session.eventBus.subscribe('ntv.providers.loaded', () => {
+			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
+				for (const mutation of mutations) {
+					if (mutation.type === 'characterData') {
+						if (mutation.target.parentElement?.classList.contains('[&>a:hover]:text-primary')) {
+							const contentBodyEl = mutation.target.parentElement
+							renderPinnedMessageBody(contentBodyEl)
+							return
+						}
+					} else if (mutation.addedNodes.length) {
+						for (const node of mutation.addedNodes) {
+							if (node instanceof HTMLElement && node.classList.contains('z-absolute')) {
+								const contentBodyEl = node.querySelector('.\\[\\&\\>a\\:hover\\]\\:text-primary')
+								if (!contentBodyEl) return
 
-	// 			// Clicking on emotes in pinned message
-	// 			pinnedMessage.addEventListener('click', evt => {
-	// 				const target = evt.target as HTMLElement
-	// 				if (
-	// 					target.tagName === 'IMG' &&
-	// 					target?.parentElement?.classList.contains('ntv__inline-emote-box')
-	// 				) {
-	// 					const emoteHid = target.getAttribute('data-emote-hid')
-	// 					if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
-	// 				}
-	// 			})
-	// 		}
-	// 	})
-	// }
+								renderPinnedMessageBody(contentBodyEl as HTMLElement)
+								return
+							} else if (node.parentElement?.classList.contains('[&>a:hover]:text-primary')) {
+								renderPinnedMessageBody(node.parentElement)
+								return
+							}
+						}
+					}
+				}
+			}))
+
+			observer.observe(pinnedMessageContainerEl, { childList: true, subtree: true, characterData: true })
+
+			const pinnedMessageContent = document
+				.getElementById('channel-chatroom')
+				?.querySelector(
+					'& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden .\\[\\&\\>a\\:hover\\]\\:text-primary'
+				)
+			if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent as HTMLElement)
+		})
+
+		// Clicking on emotes in pinned message
+		pinnedMessageContainerEl.addEventListener('click', evt => {
+			const target = evt.target as HTMLElement
+			if (target.tagName === 'IMG' && target?.parentElement?.classList.contains('ntv__inline-emote-box')) {
+				const emoteHid = target.getAttribute('data-emote-hid')
+				if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+			}
+		})
+	}
 
 	prepareMessageForRendering(messageEl: HTMLElement) {
 		const settingsManager = this.rootContext.settingsManager
@@ -1790,8 +1804,35 @@ export class KickUserInterface extends AbstractUserInterface {
 		}, 400)
 	}
 
-	renderPinnedMessage(node: HTMLElement) {
-		this.queuedChatMessages.push(node)
+	renderPinnedMessageContent(contentBodyEl: HTMLElement) {
+		log('Rendering pinned message..', contentBodyEl)
+
+		const ntvPinnedMessageBodyEl = document.createElement('div')
+		ntvPinnedMessageBodyEl.className = 'ntv__pinned-message__content'
+
+		for (const childNode of Array.from(contentBodyEl.childNodes)) {
+			if (childNode.nodeType === Node.TEXT_NODE) {
+				const parsedEmoteNotes = this.renderEmotesInString(childNode.textContent || '')
+				ntvPinnedMessageBodyEl.append(...parsedEmoteNotes)
+			} else if (childNode.nodeType === Node.ELEMENT_NODE) {
+				const emoteName = (childNode as HTMLElement).getAttribute('data-emote-name')
+				if (!emoteName) {
+					error('Emote name not found for pinned message node', childNode)
+					continue
+				}
+
+				const emoteHid = this.session.emotesManager.getEmoteHidByName(emoteName)
+				if (!emoteHid) continue
+
+				const emoteRender = this.session.emotesManager.getRenderableEmoteByHid(emoteHid)!
+				ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emoteRender, emoteHid))
+			} else {
+				error('Unknown node found for pinned message', childNode)
+				ntvPinnedMessageBodyEl.append(childNode.cloneNode(true))
+			}
+		}
+
+		contentBodyEl.before(ntvPinnedMessageBodyEl)
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {

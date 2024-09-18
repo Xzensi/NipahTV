@@ -177,6 +177,14 @@
 	}
 }
 
+.ntv__pinned-message {
+	font-size: $root_font_size;
+
+	&__content {
+	}
+}
+
+// TODO why is this separate from the above?
 .ntv__chat-message-separator {
 	align-items: center;
 	display: flex;

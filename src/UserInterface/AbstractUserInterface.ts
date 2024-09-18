@@ -214,7 +214,7 @@ export default abstract class AbstractUserInterface {
 		return resultArray
 	}
 
-	private createEmoteMessagePartElement(emoteRender: string, emoteHid: string) {
+	createEmoteMessagePartElement(emoteRender: string, emoteHid: string) {
 		const node = document.createElement('span')
 		node.appendChild(parseHTML(emoteRender, true))
 		node.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')

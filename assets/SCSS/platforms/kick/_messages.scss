@@ -1,3 +1,5 @@
+@use '../../variables' as *;
+
 // .ntv__chat-message {
 // 	&__badge {
 // 		display: inline-block;
@@ -25,6 +27,22 @@
 	&:hover {
 		.kick__chat-message__actions {
 			display: flex;
+		}
+	}
+}
+
+.ntv__pinned-message {
+	&__content {
+		font-size: $root_font_size;
+
+		// Hide the original Kick pinned message content
+		& + .\[\&\>a\:hover\]\:text-primary {
+			display: none !important;
+		}
+
+		// Hide the collapse/expand button, it doesn't work now anyway
+		& ~ button {
+			display: none !important;
 		}
 	}
 }
