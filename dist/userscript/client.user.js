@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.21
+// @version 1.5.22
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -17410,7 +17410,9 @@ var KickUserInterface = class extends AbstractUserInterface {
       } else if (childNode.nodeType === Node.ELEMENT_NODE) {
         const emoteName = childNode.getAttribute("data-emote-name");
         if (!emoteName) {
-          error("Emote name not found for pinned message node", childNode);
+          const newNode = childNode.cloneNode(true);
+          newNode?.classList.add("ntv__chat-message__part");
+          ntvPinnedMessageBodyEl.append(newNode);
           continue;
         }
         const emoteHid = this.session.emotesManager.getEmoteHidByName(emoteName);
@@ -17419,7 +17421,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emoteRender, emoteHid));
       } else {
         error("Unknown node found for pinned message", childNode);
-        ntvPinnedMessageBodyEl.append(childNode.cloneNode(true));
+        const newNode = childNode.cloneNode(true);
+        newNode?.classList.add("ntv__chat-message__part");
+        ntvPinnedMessageBodyEl.append(newNode);
       }
     }
     contentBodyEl.before(ntvPinnedMessageBodyEl);
@@ -20313,6 +20317,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.22",
+    date: "2024-09-18",
+    description: `
+                  Fix: Pinned messages not rendering hyperlinks #151
+                  Fix: NTV logo image not loading for emote menu button
+            `
+  },
+  {
     version: "1.5.21",
     date: "2024-09-18",
     description: `
@@ -22973,7 +22985,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.21";
+  VERSION = "1.5.22";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

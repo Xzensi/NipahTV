@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.22',
+		date: '2024-09-18',
+		description: `
+                  Fix: Pinned messages not rendering hyperlinks #151
+                  Fix: NTV logo image not loading for emote menu button
+            `
+	},
+	{
 		version: '1.5.21',
 		date: '2024-09-18',
 		description: `
