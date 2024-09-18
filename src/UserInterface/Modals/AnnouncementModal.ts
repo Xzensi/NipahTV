@@ -35,7 +35,7 @@ export default class AnnouncementModal extends AbstractModal {
 
 		modalBodyEl.appendChild(parseHTML(cleanupHTML(announcement.message)))
 
-		const buttonEl = parseHTML(`<button class="ntv__button">Close</button>`, true) as HTMLElement
+		const buttonEl = parseHTML(`<button class="ntv__button">Don't show again</button>`, true) as HTMLElement
 		buttonEl.addEventListener('click', () => this.close())
 
 		modalBodyEl.appendChild(buttonEl)
