@@ -1817,7 +1817,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			} else if (childNode.nodeType === Node.ELEMENT_NODE) {
 				const emoteName = (childNode as HTMLElement).getAttribute('data-emote-name')
 				if (!emoteName) {
-					error('Emote name not found for pinned message node', childNode)
+					const newNode = childNode.cloneNode(true) as HTMLElement
+					newNode?.classList.add('ntv__chat-message__part')
+					ntvPinnedMessageBodyEl.append(newNode)
 					continue
 				}
 
@@ -1828,7 +1830,9 @@ export class KickUserInterface extends AbstractUserInterface {
 				ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emoteRender, emoteHid))
 			} else {
 				error('Unknown node found for pinned message', childNode)
-				ntvPinnedMessageBodyEl.append(childNode.cloneNode(true))
+				const newNode = childNode.cloneNode(true) as HTMLElement
+				newNode?.classList.add('ntv__chat-message__part')
+				ntvPinnedMessageBodyEl.append(newNode)
 			}
 		}
 
