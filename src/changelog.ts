@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.23',
+		date: '2024-09-18',
+		description: `
+                  Fix: Change announcement button label
+            `
+	},
+	{
 		version: '1.5.22',
 		date: '2024-09-18',
 		description: `

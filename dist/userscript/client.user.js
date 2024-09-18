@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.22
+// @version 1.5.23
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -20317,6 +20317,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.23",
+    date: "2024-09-18",
+    description: `
+                  Fix: Change announcement button label
+            `
+  },
+  {
     version: "1.5.22",
     date: "2024-09-18",
     description: `
@@ -22909,7 +22916,7 @@ var AnnouncementModal = class extends AbstractModal {
       )
     );
     modalBodyEl.appendChild(parseHTML(cleanupHTML(announcement.message)));
-    const buttonEl = parseHTML(`<button class="ntv__button">Close</button>`, true);
+    const buttonEl = parseHTML(`<button class="ntv__button">Don't show again</button>`, true);
     buttonEl.addEventListener("click", () => this.close());
     modalBodyEl.appendChild(buttonEl);
   }
@@ -22985,7 +22992,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.22";
+  VERSION = "1.5.23";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
