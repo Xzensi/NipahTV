@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.21',
+		date: '2024-09-18',
+		description: `
+                  Fix: VODs not rendering message emotes on new Kick website
+                  Fix: Reply and mentions not highlighting messages
+                  Fix: Pinned messages not rendering on new Kick website #150
+                  Fix: Improve mention completion behaviour #143
+                  Fix: Improve color emote completion behaviour
+            `
+	},
+	{
 		version: '1.5.20',
 		date: '2024-09-15',
 		description: `

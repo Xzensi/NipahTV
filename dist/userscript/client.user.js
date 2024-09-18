@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.20
+// @version 1.5.21
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-6ccc62c5.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-de6bdb69.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -7003,8 +7003,8 @@ var require_pusher = __commonJS({
                 if (core_pusher.log) {
                   core_pusher.log(message);
                 } else if (core_pusher.logToConsole) {
-                  const log16 = defaultLoggingFunction.bind(this);
-                  log16(message);
+                  const log15 = defaultLoggingFunction.bind(this);
+                  log15(message);
                 }
               }
             }
@@ -14314,6 +14314,7 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
   end = 0;
   node = null;
   word = null;
+  hasNavigated = false;
   shouldUseStrategy(event, contentEditableEditor) {
     const word = Caret.getWordBeforeCaret().word;
     return word !== null && word[0] === "@" || event instanceof KeyboardEvent && event.key === "@";
@@ -14351,7 +14352,7 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
     if (!relevantUsers.length) {
       if (!searchString) {
         navWindow.addEntry(
-          { name: "none", description: "Type an username to see suggestions" },
+          { name: "none", description: "Type an username to see suggestions", type: "info" },
           parseHTML(
             `<li class="not_found_entry"><div>Type an username to see suggestions</div></li>`,
             true
@@ -14359,7 +14360,7 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
         );
       } else {
         navWindow.addEntry(
-          { name: "none", description: "User not seen in chat yet" },
+          { name: "none", description: "User not seen in chat yet", type: "info" },
           parseHTML(
             `<li class="not_found_entry"><div>User not seen in chat yet</div></li>`,
             true
@@ -14382,13 +14383,17 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
   }
   moveSelectorUp() {
     if (!this.navWindow) return error("No tab completion window to move selector up");
-    this.navWindow.moveSelectorUp();
+    if (this.hasNavigated) this.navWindow.moveSelectorUp();
+    else this.navWindow.setSelectedIndex(0);
     this.renderInlineCompletion();
+    this.hasNavigated = true;
   }
   moveSelectorDown() {
     if (!this.navWindow) return error("No tab completion window to move selector down");
-    this.navWindow.moveSelectorDown();
+    if (this.hasNavigated) this.navWindow.moveSelectorDown();
+    else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1);
     this.renderInlineCompletion();
+    this.hasNavigated = true;
   }
   renderInlineCompletion() {
     if (!this.navWindow) return error("Tab completion window does not exist yet");
@@ -14407,6 +14412,7 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
       switch (event.key) {
         case "Tab":
           event.preventDefault();
+          log("Tab key pressed in mention completion strategy", this.navWindow.getEntriesCount());
           if (this.navWindow.getEntriesCount() === 1) {
             this.renderInlineCompletion();
             this.contentEditableEditor.insertText(" ");
@@ -14473,7 +14479,9 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
       const wordBeforeCaretResult = Caret.getWordBeforeCaret();
       const { word } = wordBeforeCaretResult;
       if (!word || word[0] !== "@") return true;
-      return this.updateCompletionEntries(wordBeforeCaretResult);
+      const stopStrategy = this.updateCompletionEntries(wordBeforeCaretResult);
+      this.hasNavigated = true;
+      return stopStrategy;
     }
     if (!this.isClickInsideNavWindow(event.target)) {
       return true;
@@ -14485,6 +14493,7 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
     this.end = 0;
     this.node = null;
     this.word = null;
+    this.hasNavigated = false;
   }
 };
 
@@ -14695,7 +14704,7 @@ var NavigatableListWindowComponent = class extends AbstractComponent {
     return this.element.contains(node);
   }
   getEntriesCount() {
-    return this.entries.length;
+    return this.entries.filter((entry) => entry["type"] !== "info").length;
   }
   addEntry(data, element) {
     this.entries.push(data);
@@ -14723,7 +14732,9 @@ var NavigatableListWindowComponent = class extends AbstractComponent {
     while (this.listEl.firstChild) this.listEl.firstChild.remove();
   }
   getSelectedEntry() {
-    return this.entries[this.selectedIndex];
+    const entry = this.entries[this.selectedIndex];
+    if (entry["type"] === "info") return null;
+    return entry;
   }
   setSelectedIndex(index) {
     this.selectedIndex = index;
@@ -15781,6 +15792,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
   node = null;
   word = null;
   emoteComponent = null;
+  hasNavigated = false;
   shouldUseStrategy(event, contentEditableEditor) {
     const word = Caret.getWordBeforeCaret().word;
     return word !== null && word[0] === ":" || event instanceof KeyboardEvent && event.key === ":";
@@ -15819,7 +15831,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
     if (!relevantEmotes.length) {
       if (!searchString) {
         navWindow.addEntry(
-          { name: "none", description: "Type an emote name to see suggestions" },
+          { name: "none", description: "Type an emote name to see suggestions", type: "info" },
           parseHTML(
             `<li class="not_found_entry"><div>Type an emote name to see suggestions</div></li>`,
             true
@@ -15827,7 +15839,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
         );
       } else {
         navWindow.addEntry(
-          { name: "none", description: "Emote not found" },
+          { name: "none", description: "Emote not found", type: "info" },
           parseHTML(`<li class="not_found_entry"><div>Emote not found</div></li>`, true)
         );
       }
@@ -15865,13 +15877,17 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
   }
   moveSelectorUp() {
     if (!this.navWindow) return error("No tab completion window to move selector up");
-    this.navWindow.moveSelectorUp();
+    if (this.hasNavigated) this.navWindow.moveSelectorUp();
+    else this.navWindow.setSelectedIndex(0);
     this.renderInlineCompletion();
+    this.hasNavigated = true;
   }
   moveSelectorDown() {
     if (!this.navWindow) return error("No tab completion window to move selector down");
-    this.navWindow.moveSelectorDown();
+    if (this.hasNavigated) this.navWindow.moveSelectorDown();
+    else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1);
     this.renderInlineCompletion();
+    this.hasNavigated = true;
   }
   renderInlineCompletion() {
     if (!this.navWindow) return error("No tab completion window to render inline completion");
@@ -15974,7 +15990,9 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
       const wordBeforeCaretResult = Caret.getWordBeforeCaret();
       const { word } = wordBeforeCaretResult;
       if (!word || word[0] !== ":") return true;
-      return this.updateCompletionEntries(wordBeforeCaretResult);
+      const stopStrategy = this.updateCompletionEntries(wordBeforeCaretResult);
+      this.hasNavigated = true;
+      return stopStrategy;
     }
     if (!this.isClickInsideNavWindow(event.target)) {
       return true;
@@ -15987,6 +16005,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
     this.node = null;
     this.word = null;
     this.emoteComponent = null;
+    this.hasNavigated = false;
   }
 };
 
@@ -16213,8 +16232,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
     }).catch(() => {
     });
-    const chatroomContainerSelector = channelData.isVod ? "chatroom-replay" : "chatroom";
-    const chatMessagesContainerSelector = channelData.isVod ? "#chatroom-replay > .overflow-y-scroll > .flex-col-reverse" : "#chatroom-messages > .no-scrollbar";
+    const chatMessagesContainerSelector = "#chatroom-messages > .no-scrollbar";
     waitForElements([chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
       if (this.session.isDestroyed) return;
       const [chatMessagesContainerEl] = foundElements;
@@ -16233,8 +16251,17 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.clipboard.handleCopyEvent(evt);
       });
       eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
-      this.observeChatEntriesForDeletionEvents();
       this.observeChatMessages(chatMessagesContainerEl);
+      if (channelData.isVod) {
+        this.loadVodBehaviour();
+      } else {
+        this.observePinnedMessage();
+        this.observeChatEntriesForDeletionEvents();
+      }
+    }).catch(() => {
+    });
+    waitForElements(["#video-player", chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
+      if (this.session.isDestroyed) return;
       this.loadTheatreModeBehaviour();
     }).catch(() => {
     });
@@ -16665,84 +16692,96 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
     return messageContent.join(" ");
   }
-  loadReplyBehaviour() {
-    const { inputController } = this;
-    const { channelData } = this.session;
-    if (!channelData.me.isLoggedIn) return;
-    if (!inputController) return error("Input controller not loaded for reply behaviour");
-    const chatMessagesContainerEl = this.elm.chatMessagesContainer;
-    if (!chatMessagesContainerEl) return error("Chat messages container not loaded for reply behaviour");
-    const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement;
-    const replyMessageWrapperEl = document.createElement("div");
-    replyMessageWrapperEl.classList.add("ntv__reply-message__wrapper");
-    document.querySelector("#chatroom-footer .chat-mode")?.parentElement?.prepend(replyMessageWrapperEl);
-    this.elm.replyMessageWrapper = replyMessageWrapperEl;
-    const replyMessageButtonCallback = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (!this.inputController) return error("Input controller not loaded for reply behaviour");
-      const targetMessage = chatMessagesContainerEl.querySelector(
-        ".chat-entry.bg-secondary-lighter"
-      )?.parentElement;
-      if (!targetMessage) return this.toastError("Reply target message not found");
-      const messageNodes = Array.from(
-        // targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
-        targetMessage.classList.contains("ntv__chat-message") ? targetMessage.querySelectorAll(".chat-entry > span") : targetMessage.querySelectorAll(".chat-message-identity, .chat-message-identity ~ span")
-      );
-      if (!messageNodes.length)
-        return this.toastError("Unable to reply to message, target message content not found");
-      const chatEntryContentString = this.getMessageContentString(targetMessage);
-      const chatEntryId = targetMessage.getAttribute("data-chat-entry");
-      if (!chatEntryId) return this.toastError("Unable to reply to message, target message ID not found");
-      const chatEntryUsernameEl = targetMessage.querySelector(".chat-entry-username");
-      const chatEntryUserId = chatEntryUsernameEl?.getAttribute("data-chat-entry-user-id");
-      if (!chatEntryUserId) return this.toastError("Unable to reply to message, target message user ID not found");
-      const chatEntryUsername = chatEntryUsernameEl?.textContent;
-      if (!chatEntryUsername)
-        return this.toastError("Unable to reply to message, target message username not found");
-      this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername);
-    };
-    const observer = this.replyObserver = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.addedNodes.length) {
-          for (const messageNode of mutation.addedNodes) {
-            if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
-              messageNode.querySelector;
-              const replyBtnEl = messageNode.querySelector(
-                '[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
-              )?.parentElement?.parentElement?.parentElement;
-              if (!replyBtnEl) return;
-              const newButtonEl = replyBtnEl.cloneNode(true);
-              replyBtnEl.replaceWith(newButtonEl);
-              newButtonEl.addEventListener("click", replyMessageButtonCallback);
-            }
-          }
-        } else if (mutation.removedNodes.length) {
-          for (const messageNode of mutation.removedNodes) {
-            if (messageNode instanceof HTMLElement) {
-              if (messageNode instanceof HTMLElement && messageNode.classList.contains("fixed") && messageNode.classList.contains("z-10")) {
-                const replyBtnEl = messageNode.querySelector(
-                  '[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
-                )?.parentElement?.parentElement?.parentElement;
-                replyBtnEl?.removeEventListener("click", replyMessageButtonCallback);
-              }
-            }
-          }
-        }
-      });
-    });
-    observer.observe(chatMessagesContainerWrapperEl, { childList: true });
-    inputController.addEventListener("keydown", 9, (event) => {
-      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
-        this.destroyReplyMessageContext();
-      }
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
-        this.destroyReplyMessageContext();
-      }
-    });
-  }
+  // loadReplyBehaviour() {
+  // 	const { inputController } = this
+  // 	const { channelData } = this.session
+  // 	if (!channelData.me.isLoggedIn) return
+  // 	if (!inputController) return error('Input controller not loaded for reply behaviour')
+  // 	const chatMessagesContainerEl = this.elm.chatMessagesContainer
+  // 	if (!chatMessagesContainerEl) return error('Chat messages container not loaded for reply behaviour')
+  // 	const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement!
+  // 	const replyMessageWrapperEl = document.createElement('div')
+  // 	replyMessageWrapperEl.classList.add('ntv__reply-message__wrapper')
+  // 	document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(replyMessageWrapperEl)
+  // 	this.elm.replyMessageWrapper = replyMessageWrapperEl
+  // 	const replyMessageButtonCallback = (event: Event) => {
+  // 		event.preventDefault()
+  // 		event.stopPropagation()
+  // 		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
+  // 		const targetMessage = chatMessagesContainerEl.querySelector(
+  // 			'.chat-entry.bg-secondary-lighter'
+  // 		)?.parentElement
+  // 		if (!targetMessage) return this.toastError('Reply target message not found')
+  // 		const messageNodes = Array.from(
+  // 			// targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
+  // 			targetMessage.classList.contains('ntv__chat-message')
+  // 				? targetMessage.querySelectorAll('.chat-entry > span')
+  // 				: targetMessage.querySelectorAll('.chat-message-identity, .chat-message-identity ~ span')
+  // 		)
+  // 		if (!messageNodes.length)
+  // 			return this.toastError('Unable to reply to message, target message content not found')
+  // 		const chatEntryContentString = this.getMessageContentString(targetMessage)
+  // 		const chatEntryId = targetMessage.getAttribute('data-chat-entry')
+  // 		if (!chatEntryId) return this.toastError('Unable to reply to message, target message ID not found')
+  // 		const chatEntryUsernameEl = targetMessage.querySelector('.chat-entry-username')
+  // 		const chatEntryUserId = chatEntryUsernameEl?.getAttribute('data-chat-entry-user-id')
+  // 		if (!chatEntryUserId) return this.toastError('Unable to reply to message, target message user ID not found')
+  // 		const chatEntryUsername = chatEntryUsernameEl?.textContent
+  // 		if (!chatEntryUsername)
+  // 			return this.toastError('Unable to reply to message, target message username not found')
+  // 		this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
+  // 	}
+  // 	const observer = (this.replyObserver = new MutationObserver(mutations => {
+  // 		mutations.forEach(mutation => {
+  // 			if (mutation.addedNodes.length) {
+  // 				for (const messageNode of mutation.addedNodes) {
+  // 					if (
+  // 						messageNode instanceof HTMLElement &&
+  // 						messageNode.classList.contains('fixed') &&
+  // 						messageNode.classList.contains('z-10')
+  // 					) {
+  // 						messageNode.querySelector
+  // 						// It's painful, but this seems to be the only reliable way to get the reply button element
+  // 						const replyBtnEl = messageNode.querySelector(
+  // 							'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+  // 						)?.parentElement?.parentElement?.parentElement
+  // 						if (!replyBtnEl) return //error('Reply button element not found', messageNode)
+  // 						// The only way to remove Kick's event listeners from the button is to replace it with a new button
+  // 						const newButtonEl = replyBtnEl.cloneNode(true)
+  // 						replyBtnEl.replaceWith(newButtonEl)
+  // 						newButtonEl.addEventListener('click', replyMessageButtonCallback)
+  // 					}
+  // 				}
+  // 			} else if (mutation.removedNodes.length) {
+  // 				for (const messageNode of mutation.removedNodes) {
+  // 					if (messageNode instanceof HTMLElement) {
+  // 						if (
+  // 							messageNode instanceof HTMLElement &&
+  // 							messageNode.classList.contains('fixed') &&
+  // 							messageNode.classList.contains('z-10')
+  // 						) {
+  // 							const replyBtnEl = messageNode.querySelector(
+  // 								'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+  // 							)?.parentElement?.parentElement?.parentElement
+  // 							replyBtnEl?.removeEventListener('click', replyMessageButtonCallback)
+  // 						}
+  // 					}
+  // 				}
+  // 			}
+  // 		})
+  // 	}))
+  // 	observer.observe(chatMessagesContainerWrapperEl, { childList: true })
+  // 	inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
+  // 		if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
+  // 			this.destroyReplyMessageContext()
+  // 		}
+  // 	})
+  // 	document.addEventListener('keydown', (event: KeyboardEvent) => {
+  // 		if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
+  // 			this.destroyReplyMessageContext()
+  // 		}
+  // 	})
+  // }
   loadChatMesssageRenderingBehaviour() {
     const tps = 60;
     const queue = this.queuedChatMessages;
@@ -16781,6 +16820,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         queue2.splice(queue2.length - 1 - 150);
       }
     }, 4e3);
+    this.addExistingMessagesToQueue();
+  }
+  addExistingMessagesToQueue() {
     const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || []);
     if (chatMessageEls.length) {
       for (const chatMessageEl of chatMessageEls) {
@@ -16898,6 +16940,27 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
     });
   }
+  loadVodBehaviour() {
+    log("Loading VOD behaviour..");
+    const chatroomParentContainerEl = document.getElementById("channel-chatroom")?.querySelector("& > .bg-surface-lower");
+    if (!chatroomParentContainerEl) return error("Chatroom container not found");
+    this.addExistingMessagesToQueue();
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length) {
+          for (const node of mutation.addedNodes) {
+            if (node instanceof HTMLElement && node.firstElementChild?.id === "chatroom-messages") {
+              log("New chatroom messages container found, reloading chat UI..");
+              const chatroomContainerEl = node.firstElementChild.querySelector("& > .no-scrollbar");
+              this.chatObserver?.disconnect();
+              this.observeChatMessages(chatroomContainerEl);
+            }
+          }
+        }
+      });
+    });
+    observer.observe(chatroomParentContainerEl, { childList: true });
+  }
   async handleUserInfoModalClick(username, screenPosition) {
     const userInfoModal = this.showUserInfoModal(username, screenPosition);
     const processKickUserProfileModal = async function(userInfoModal2, kickUserInfoModalContainerEl2) {
@@ -16956,48 +17019,53 @@ var KickUserInterface = class extends AbstractUserInterface {
       processKickUserProfileModal(userInfoModal, kickUserInfoModalContainerEl2);
     }
   }
-  // observePinnedMessage(chatMessagesContainerEl: HTMLElement) {
-  // 	this.session.eventBus.subscribe('ntv.providers.loaded', () => {
-  // 		const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
-  // 			mutations.forEach(mutation => {
-  // 				if (mutation.addedNodes.length) {
-  // 					for (const node of mutation.addedNodes) {
-  // 						if (node instanceof HTMLElement && node.classList.contains('pinned-message')) {
-  // 							this.renderPinnedMessage(node as HTMLElement)
-  // 							// Clicking on emotes in pinned message
-  // 							node.addEventListener('click', evt => {
-  // 								const target = evt.target as HTMLElement
-  // 								if (
-  // 									target.tagName === 'IMG' &&
-  // 									target?.parentElement?.classList.contains('ntv__inline-emote-box')
-  // 								) {
-  // 									const emoteHid = target.getAttribute('data-emote-hid')
-  // 									if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
-  // 								}
-  // 							})
-  // 						}
-  // 					}
-  // 				}
-  // 			})
-  // 		}))
-  // 		observer.observe(chatMessagesContainerEl, { childList: true, subtree: true })
-  // 		const pinnedMessage = chatroomTopEl.querySelector('.pinned-message')
-  // 		if (pinnedMessage) {
-  // 			this.renderPinnedMessage(pinnedMessage as HTMLElement)
-  // 			// Clicking on emotes in pinned message
-  // 			pinnedMessage.addEventListener('click', evt => {
-  // 				const target = evt.target as HTMLElement
-  // 				if (
-  // 					target.tagName === 'IMG' &&
-  // 					target?.parentElement?.classList.contains('ntv__inline-emote-box')
-  // 				) {
-  // 					const emoteHid = target.getAttribute('data-emote-hid')
-  // 					if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
-  // 				}
-  // 			})
-  // 		}
-  // 	})
-  // }
+  observePinnedMessage() {
+    const pinnedMessageContainerEl = document.getElementById("channel-chatroom")?.querySelector("& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden");
+    if (!pinnedMessageContainerEl) return error("Pinned message container not found for observation");
+    const renderPinnedMessageBody = (contentBodyEl) => {
+      Array.from(document.getElementsByClassName("ntv__pinned-message__content")).forEach((node) => {
+        node.remove();
+      });
+      this.renderPinnedMessageContent(contentBodyEl);
+    };
+    this.session.eventBus.subscribe("ntv.providers.loaded", () => {
+      const observer = this.pinnedMessageObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === "characterData") {
+            if (mutation.target.parentElement?.classList.contains("[&>a:hover]:text-primary")) {
+              const contentBodyEl = mutation.target.parentElement;
+              renderPinnedMessageBody(contentBodyEl);
+              return;
+            }
+          } else if (mutation.addedNodes.length) {
+            for (const node of mutation.addedNodes) {
+              if (node instanceof HTMLElement && node.classList.contains("z-absolute")) {
+                const contentBodyEl = node.querySelector(".\\[\\&\\>a\\:hover\\]\\:text-primary");
+                if (!contentBodyEl) return;
+                renderPinnedMessageBody(contentBodyEl);
+                return;
+              } else if (node.parentElement?.classList.contains("[&>a:hover]:text-primary")) {
+                renderPinnedMessageBody(node.parentElement);
+                return;
+              }
+            }
+          }
+        }
+      });
+      observer.observe(pinnedMessageContainerEl, { childList: true, subtree: true, characterData: true });
+      const pinnedMessageContent = document.getElementById("channel-chatroom")?.querySelector(
+        "& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden .\\[\\&\\>a\\:hover\\]\\:text-primary"
+      );
+      if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent);
+    });
+    pinnedMessageContainerEl.addEventListener("click", (evt) => {
+      const target = evt.target;
+      if (target.tagName === "IMG" && target?.parentElement?.classList.contains("ntv__inline-emote-box")) {
+        const emoteHid = target.getAttribute("data-emote-hid");
+        if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid);
+      }
+    });
+  }
   prepareMessageForRendering(messageEl) {
     const settingsManager = this.rootContext.settingsManager;
     const channelData = this.session.channelData;
@@ -17050,6 +17118,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error("Better hover element not found");
       return;
+    }
+    const messageHasMentionedMe = betterHoverEl.classList.contains("border-green-500");
+    if (messageHasMentionedMe) {
+      messageNode.classList.add("ntv__chat-message--mentioned-me");
     }
     let isReply = false;
     let isReplyToMe = false;
@@ -17327,8 +17399,30 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     }, 400);
   }
-  renderPinnedMessage(node) {
-    this.queuedChatMessages.push(node);
+  renderPinnedMessageContent(contentBodyEl) {
+    log("Rendering pinned message..", contentBodyEl);
+    const ntvPinnedMessageBodyEl = document.createElement("div");
+    ntvPinnedMessageBodyEl.className = "ntv__pinned-message__content";
+    for (const childNode of Array.from(contentBodyEl.childNodes)) {
+      if (childNode.nodeType === Node.TEXT_NODE) {
+        const parsedEmoteNotes = this.renderEmotesInString(childNode.textContent || "");
+        ntvPinnedMessageBodyEl.append(...parsedEmoteNotes);
+      } else if (childNode.nodeType === Node.ELEMENT_NODE) {
+        const emoteName = childNode.getAttribute("data-emote-name");
+        if (!emoteName) {
+          error("Emote name not found for pinned message node", childNode);
+          continue;
+        }
+        const emoteHid = this.session.emotesManager.getEmoteHidByName(emoteName);
+        if (!emoteHid) continue;
+        const emoteRender = this.session.emotesManager.getRenderableEmoteByHid(emoteHid);
+        ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emoteRender, emoteHid));
+      } else {
+        error("Unknown node found for pinned message", childNode);
+        ntvPinnedMessageBodyEl.append(childNode.cloneNode(true));
+      }
+    }
+    contentBodyEl.before(ntvPinnedMessageBodyEl);
   }
   insertNodesInChat(embedNodes) {
     if (!embedNodes.length) return error("No nodes to insert in chat");
@@ -19619,13 +19713,15 @@ var KickNetworkInterface = class {
   getChannelName() {
     const pathArr = window.location.pathname.substring(1).split("/");
     switch (pathArr[0]) {
-      case "video":
-        return null;
       case "popout":
         return pathArr[1] || null;
       default:
         return pathArr[0] || null;
     }
+  }
+  isVOD() {
+    const pathArr = window.location.pathname.substring(1).split("/");
+    return pathArr[1] === "videos";
   }
   async loadMeData() {
     const veryLongString = Array.from(document.querySelectorAll("body script:not(:empty)"), (x) => {
@@ -19670,9 +19766,9 @@ var KickNetworkInterface = class {
   async loadChannelData() {
     const pathArr = window.location.pathname.substring(1).split("/");
     const channelData = {};
-    if (pathArr[0] === "video") {
+    if (pathArr[1] === "videos") {
       info("VOD video detected..");
-      const videoId = pathArr[1];
+      const videoId = pathArr[2];
       if (!videoId) throw new Error("Failed to extract video ID from URL");
       const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v1/video/${videoId}`).catch(
         () => {
@@ -20216,6 +20312,17 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.21",
+    date: "2024-09-18",
+    description: `
+                  Fix: VODs not rendering message emotes on new Kick website
+                  Fix: Reply and mentions not highlighting messages
+                  Fix: Pinned messages not rendering on new Kick website #150
+                  Fix: Improve mention completion behaviour #143
+                  Fix: Improve color emote completion behaviour
+            `
+  },
   {
     version: "1.5.20",
     date: "2024-09-15",
@@ -22866,7 +22973,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.20";
+  VERSION = "1.5.21";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23135,11 +23242,12 @@ var NipahClient = class {
       const newLocation = window.location.href;
       const activeSession = this.sessions[0];
       if (!activeSession) return this.createChannelSession();
-      const newChannelName = activeSession.networkInterface.getChannelName();
-      if (!activeSession.isDestroyed && !activeSession.userInterface?.isContentEditableEditorDestroyed() && channelName && channelName === newChannelName)
+      const newLocationChannelName = activeSession.networkInterface.getChannelName();
+      const newLocationIsVod = activeSession.networkInterface.isVOD();
+      if (!newLocationIsVod && !activeSession.isDestroyed && !activeSession.userInterface?.isContentEditableEditorDestroyed() && channelName && channelName === newLocationChannelName)
         return;
       locationURL = newLocation;
-      channelName = newChannelName;
+      channelName = newLocationChannelName;
       info("Navigated to:", locationURL);
       this.cleanupSession(oldLocation);
       log("Cleaned up old session for", oldLocation);
