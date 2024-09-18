@@ -12,6 +12,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 	private end = 0
 	private node: Node | null = null
 	private word: string | null = null
+	private hasNavigated = false
 
 	constructor(
 		protected rootContext: RootContext,
@@ -73,7 +74,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 		if (!relevantUsers.length) {
 			if (!searchString) {
 				navWindow.addEntry(
-					{ name: 'none', description: 'Type an username to see suggestions' },
+					{ name: 'none', description: 'Type an username to see suggestions', type: 'info' },
 					parseHTML(
 						`<li class="not_found_entry"><div>Type an username to see suggestions</div></li>`,
 						true
@@ -81,7 +82,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 				)
 			} else {
 				navWindow.addEntry(
-					{ name: 'none', description: 'User not seen in chat yet' },
+					{ name: 'none', description: 'User not seen in chat yet', type: 'info' },
 					parseHTML(
 						`<li class="not_found_entry"><div>User not seen in chat yet</div></li>`,
 						true
@@ -109,14 +110,18 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 
 	moveSelectorUp() {
 		if (!this.navWindow) return error('No tab completion window to move selector up')
-		this.navWindow.moveSelectorUp()
+		if (this.hasNavigated) this.navWindow.moveSelectorUp()
+		else this.navWindow.setSelectedIndex(0)
 		this.renderInlineCompletion()
+		this.hasNavigated = true
 	}
 
 	moveSelectorDown() {
 		if (!this.navWindow) return error('No tab completion window to move selector down')
-		this.navWindow.moveSelectorDown()
+		if (this.hasNavigated) this.navWindow.moveSelectorDown()
+		else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1)
 		this.renderInlineCompletion()
+		this.hasNavigated = true
 	}
 
 	renderInlineCompletion() {
@@ -142,6 +147,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 				case 'Tab':
 					event.preventDefault()
 
+					log('Tab key pressed in mention completion strategy', this.navWindow.getEntriesCount())
 					if (this.navWindow.getEntriesCount() === 1) {
 						this.renderInlineCompletion()
 						this.contentEditableEditor.insertText(' ')
@@ -231,7 +237,9 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 			const { word } = wordBeforeCaretResult
 			if (!word || word[0] !== '@') return true
 
-			return this.updateCompletionEntries(wordBeforeCaretResult)
+			const stopStrategy = this.updateCompletionEntries(wordBeforeCaretResult)
+			this.hasNavigated = true
+			return stopStrategy
 		}
 
 		if (!this.isClickInsideNavWindow(event.target as Node)) {
@@ -246,5 +254,6 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 		this.end = 0
 		this.node = null
 		this.word = null
+		this.hasNavigated = false
 	}
 }

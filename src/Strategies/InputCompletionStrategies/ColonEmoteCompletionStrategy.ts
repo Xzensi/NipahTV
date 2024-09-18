@@ -13,6 +13,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	private node: Node | null = null
 	private word: string | null = null
 	private emoteComponent: HTMLElement | null = null
+	private hasNavigated = false
 
 	constructor(
 		protected rootContext: RootContext,
@@ -79,7 +80,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 		if (!relevantEmotes.length) {
 			if (!searchString) {
 				navWindow.addEntry(
-					{ name: 'none', description: 'Type an emote name to see suggestions' },
+					{ name: 'none', description: 'Type an emote name to see suggestions', type: 'info' },
 					parseHTML(
 						`<li class="not_found_entry"><div>Type an emote name to see suggestions</div></li>`,
 						true
@@ -87,7 +88,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 				)
 			} else {
 				navWindow.addEntry(
-					{ name: 'none', description: 'Emote not found' },
+					{ name: 'none', description: 'Emote not found', type: 'info' },
 					parseHTML(`<li class="not_found_entry"><div>Emote not found</div></li>`, true) as HTMLElement
 				)
 			}
@@ -138,14 +139,18 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 
 	moveSelectorUp() {
 		if (!this.navWindow) return error('No tab completion window to move selector up')
-		this.navWindow.moveSelectorUp()
+		if (this.hasNavigated) this.navWindow.moveSelectorUp()
+		else this.navWindow.setSelectedIndex(0)
 		this.renderInlineCompletion()
+		this.hasNavigated = true
 	}
 
 	moveSelectorDown() {
 		if (!this.navWindow) return error('No tab completion window to move selector down')
-		this.navWindow.moveSelectorDown()
+		if (this.hasNavigated) this.navWindow.moveSelectorDown()
+		else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1)
 		this.renderInlineCompletion()
+		this.hasNavigated = true
 	}
 
 	renderInlineCompletion() {
@@ -284,7 +289,9 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 			const { word } = wordBeforeCaretResult
 			if (!word || word[0] !== ':') return true
 
-			return this.updateCompletionEntries(wordBeforeCaretResult)
+			const stopStrategy = this.updateCompletionEntries(wordBeforeCaretResult)
+			this.hasNavigated = true
+			return stopStrategy
 		}
 
 		if (!this.isClickInsideNavWindow(event.target as Node)) {
@@ -300,5 +307,6 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 		this.node = null
 		this.word = null
 		this.emoteComponent = null
+		this.hasNavigated = false
 	}
 }

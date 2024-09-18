@@ -63,7 +63,7 @@ export default class NavigatableListWindowComponent extends AbstractComponent {
 	}
 
 	getEntriesCount() {
-		return this.entries.length
+		return this.entries.filter(entry => entry['type'] !== 'info').length
 	}
 
 	addEntry(data: {}, element: HTMLElement) {
@@ -96,7 +96,9 @@ export default class NavigatableListWindowComponent extends AbstractComponent {
 	}
 
 	getSelectedEntry() {
-		return this.entries[this.selectedIndex]
+		const entry = this.entries[this.selectedIndex]
+		if (entry['type'] === 'info') return null
+		return entry
 	}
 
 	setSelectedIndex(index: number) {
