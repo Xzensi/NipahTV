@@ -32,7 +32,7 @@
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["assets/img/*.png", "assets/img/btn/*.png"],
+			"resources": ["assets/img/*.png", "assets/img/*.svg", "assets/img/btn/*.png"],
 			"matches": ["https://kick.com/*"]
 		}
 	]
