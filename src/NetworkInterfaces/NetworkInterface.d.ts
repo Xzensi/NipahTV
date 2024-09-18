@@ -46,6 +46,7 @@ export interface NetworkInterface {
 	connect(): Promise<any>
 	disconnect(): Promise<any>
 	getChannelName(): string | null
+	isVOD(): boolean
 	loadChannelData(): Promise<any>
 	sendMessage(message: string): Promise<any>
 	sendReply(

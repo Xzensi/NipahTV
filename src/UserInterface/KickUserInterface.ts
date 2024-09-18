@@ -123,10 +123,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
-		const chatroomContainerSelector = channelData.isVod ? 'chatroom-replay' : 'chatroom'
-		const chatMessagesContainerSelector = channelData.isVod
-			? '#chatroom-replay > .overflow-y-scroll > .flex-col-reverse' // TODO chat container of VODs
-			: '#chatroom-messages > .no-scrollbar'
+		const chatMessagesContainerSelector = '#chatroom-messages > .no-scrollbar'
 
 		// Wait for chat messages container to load
 		waitForElements([chatMessagesContainerSelector], 10_000, abortSignal)
@@ -159,29 +156,30 @@ export class KickUserInterface extends AbstractUserInterface {
 				// Render emotes in chat when providers are loaded
 				eventBus.subscribe('ntv.providers.loaded', this.loadChatMesssageRenderingBehaviour.bind(this), true)
 
-				// TODO due overaul
-				// this.observePinnedMessage(chatMessagesContainerEl)
-				this.observeChatEntriesForDeletionEvents()
+				// TODO due overhaul
 				this.observeChatMessages(chatMessagesContainerEl)
-				this.loadTheatreModeBehaviour()
-
 				// this.loadScrollingBehaviour()
+
+				if (channelData.isVod) {
+					this.loadVodBehaviour()
+				} else {
+					// this.observePinnedMessage(chatMessagesContainerEl)
+					this.observeChatEntriesForDeletionEvents()
+				}
 
 				// 		// TODO refactor this, it depends on the chat messages container and inputController but load timing might be off
 				// 		this.loadReplyBehaviour()
 			})
 			.catch(() => {})
 
-		// waitForElements(['#chatroom-footer .send-row'], 10_000)
-		// 	.then(foundElements => {
-		// 		if (this.session.isDestroyed) return
+		// Wait for video player and chat messages container to load
+		waitForElements(['#video-player', chatMessagesContainerSelector], 10_000, abortSignal)
+			.then(foundElements => {
+				if (this.session.isDestroyed) return
 
-		// if (channelData.isVod) {
-		// 	document.body.classList.add('ntv__kick__page-vod')
-		// 	this.loadTheatreModeBehaviour()
-		// } else {
-		// 	document.body.classList.add('ntv__kick__page-live-stream')
-		// }
+				this.loadTheatreModeBehaviour()
+			})
+			.catch(() => {})
 
 		// Inject or send emote to chat on emote click
 		eventBus.subscribe(
@@ -774,115 +772,115 @@ export class KickUserInterface extends AbstractUserInterface {
 		return messageContent.join(' ')
 	}
 
-	loadReplyBehaviour() {
-		const { inputController } = this
-		const { channelData } = this.session
-		if (!channelData.me.isLoggedIn) return
-		if (!inputController) return error('Input controller not loaded for reply behaviour')
+	// loadReplyBehaviour() {
+	// 	const { inputController } = this
+	// 	const { channelData } = this.session
+	// 	if (!channelData.me.isLoggedIn) return
+	// 	if (!inputController) return error('Input controller not loaded for reply behaviour')
 
-		const chatMessagesContainerEl = this.elm.chatMessagesContainer
-		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for reply behaviour')
-		const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement!
+	// 	const chatMessagesContainerEl = this.elm.chatMessagesContainer
+	// 	if (!chatMessagesContainerEl) return error('Chat messages container not loaded for reply behaviour')
+	// 	const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement!
 
-		const replyMessageWrapperEl = document.createElement('div')
-		replyMessageWrapperEl.classList.add('ntv__reply-message__wrapper')
-		document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(replyMessageWrapperEl)
-		this.elm.replyMessageWrapper = replyMessageWrapperEl
+	// 	const replyMessageWrapperEl = document.createElement('div')
+	// 	replyMessageWrapperEl.classList.add('ntv__reply-message__wrapper')
+	// 	document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(replyMessageWrapperEl)
+	// 	this.elm.replyMessageWrapper = replyMessageWrapperEl
 
-		const replyMessageButtonCallback = (event: Event) => {
-			event.preventDefault()
-			event.stopPropagation()
+	// 	const replyMessageButtonCallback = (event: Event) => {
+	// 		event.preventDefault()
+	// 		event.stopPropagation()
 
-			if (!this.inputController) return error('Input controller not loaded for reply behaviour')
+	// 		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
 
-			const targetMessage = chatMessagesContainerEl.querySelector(
-				'.chat-entry.bg-secondary-lighter'
-			)?.parentElement
-			if (!targetMessage) return this.toastError('Reply target message not found')
+	// 		const targetMessage = chatMessagesContainerEl.querySelector(
+	// 			'.chat-entry.bg-secondary-lighter'
+	// 		)?.parentElement
+	// 		if (!targetMessage) return this.toastError('Reply target message not found')
 
-			const messageNodes = Array.from(
-				// targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
-				targetMessage.classList.contains('ntv__chat-message')
-					? targetMessage.querySelectorAll('.chat-entry > span')
-					: targetMessage.querySelectorAll('.chat-message-identity, .chat-message-identity ~ span')
-			)
-			if (!messageNodes.length)
-				return this.toastError('Unable to reply to message, target message content not found')
+	// 		const messageNodes = Array.from(
+	// 			// targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
+	// 			targetMessage.classList.contains('ntv__chat-message')
+	// 				? targetMessage.querySelectorAll('.chat-entry > span')
+	// 				: targetMessage.querySelectorAll('.chat-message-identity, .chat-message-identity ~ span')
+	// 		)
+	// 		if (!messageNodes.length)
+	// 			return this.toastError('Unable to reply to message, target message content not found')
 
-			const chatEntryContentString = this.getMessageContentString(targetMessage)
+	// 		const chatEntryContentString = this.getMessageContentString(targetMessage)
 
-			const chatEntryId = targetMessage.getAttribute('data-chat-entry')
-			if (!chatEntryId) return this.toastError('Unable to reply to message, target message ID not found')
+	// 		const chatEntryId = targetMessage.getAttribute('data-chat-entry')
+	// 		if (!chatEntryId) return this.toastError('Unable to reply to message, target message ID not found')
 
-			const chatEntryUsernameEl = targetMessage.querySelector('.chat-entry-username')
-			const chatEntryUserId = chatEntryUsernameEl?.getAttribute('data-chat-entry-user-id')
-			if (!chatEntryUserId) return this.toastError('Unable to reply to message, target message user ID not found')
+	// 		const chatEntryUsernameEl = targetMessage.querySelector('.chat-entry-username')
+	// 		const chatEntryUserId = chatEntryUsernameEl?.getAttribute('data-chat-entry-user-id')
+	// 		if (!chatEntryUserId) return this.toastError('Unable to reply to message, target message user ID not found')
 
-			const chatEntryUsername = chatEntryUsernameEl?.textContent
-			if (!chatEntryUsername)
-				return this.toastError('Unable to reply to message, target message username not found')
+	// 		const chatEntryUsername = chatEntryUsernameEl?.textContent
+	// 		if (!chatEntryUsername)
+	// 			return this.toastError('Unable to reply to message, target message username not found')
 
-			this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
-		}
+	// 		this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
+	// 	}
 
-		const observer = (this.replyObserver = new MutationObserver(mutations => {
-			mutations.forEach(mutation => {
-				if (mutation.addedNodes.length) {
-					for (const messageNode of mutation.addedNodes) {
-						if (
-							messageNode instanceof HTMLElement &&
-							messageNode.classList.contains('fixed') &&
-							messageNode.classList.contains('z-10')
-						) {
-							messageNode.querySelector
+	// 	const observer = (this.replyObserver = new MutationObserver(mutations => {
+	// 		mutations.forEach(mutation => {
+	// 			if (mutation.addedNodes.length) {
+	// 				for (const messageNode of mutation.addedNodes) {
+	// 					if (
+	// 						messageNode instanceof HTMLElement &&
+	// 						messageNode.classList.contains('fixed') &&
+	// 						messageNode.classList.contains('z-10')
+	// 					) {
+	// 						messageNode.querySelector
 
-							// It's painful, but this seems to be the only reliable way to get the reply button element
-							const replyBtnEl = messageNode.querySelector(
-								'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
-							)?.parentElement?.parentElement?.parentElement
-							if (!replyBtnEl) return //error('Reply button element not found', messageNode)
+	// 						// It's painful, but this seems to be the only reliable way to get the reply button element
+	// 						const replyBtnEl = messageNode.querySelector(
+	// 							'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+	// 						)?.parentElement?.parentElement?.parentElement
+	// 						if (!replyBtnEl) return //error('Reply button element not found', messageNode)
 
-							// The only way to remove Kick's event listeners from the button is to replace it with a new button
-							const newButtonEl = replyBtnEl.cloneNode(true)
-							replyBtnEl.replaceWith(newButtonEl)
+	// 						// The only way to remove Kick's event listeners from the button is to replace it with a new button
+	// 						const newButtonEl = replyBtnEl.cloneNode(true)
+	// 						replyBtnEl.replaceWith(newButtonEl)
 
-							newButtonEl.addEventListener('click', replyMessageButtonCallback)
-						}
-					}
-				} else if (mutation.removedNodes.length) {
-					for (const messageNode of mutation.removedNodes) {
-						if (messageNode instanceof HTMLElement) {
-							if (
-								messageNode instanceof HTMLElement &&
-								messageNode.classList.contains('fixed') &&
-								messageNode.classList.contains('z-10')
-							) {
-								const replyBtnEl = messageNode.querySelector(
-									'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
-								)?.parentElement?.parentElement?.parentElement
+	// 						newButtonEl.addEventListener('click', replyMessageButtonCallback)
+	// 					}
+	// 				}
+	// 			} else if (mutation.removedNodes.length) {
+	// 				for (const messageNode of mutation.removedNodes) {
+	// 					if (messageNode instanceof HTMLElement) {
+	// 						if (
+	// 							messageNode instanceof HTMLElement &&
+	// 							messageNode.classList.contains('fixed') &&
+	// 							messageNode.classList.contains('z-10')
+	// 						) {
+	// 							const replyBtnEl = messageNode.querySelector(
+	// 								'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
+	// 							)?.parentElement?.parentElement?.parentElement
 
-								replyBtnEl?.removeEventListener('click', replyMessageButtonCallback)
-							}
-						}
-					}
-				}
-			})
-		}))
+	// 							replyBtnEl?.removeEventListener('click', replyMessageButtonCallback)
+	// 						}
+	// 					}
+	// 				}
+	// 			}
+	// 		})
+	// 	}))
 
-		observer.observe(chatMessagesContainerWrapperEl, { childList: true })
+	// 	observer.observe(chatMessagesContainerWrapperEl, { childList: true })
 
-		inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
-				this.destroyReplyMessageContext()
-			}
-		})
+	// 	inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
+	// 		if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
+	// 			this.destroyReplyMessageContext()
+	// 		}
+	// 	})
 
-		document.addEventListener('keydown', (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
-				this.destroyReplyMessageContext()
-			}
-		})
-	}
+	// 	document.addEventListener('keydown', (event: KeyboardEvent) => {
+	// 		if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
+	// 			this.destroyReplyMessageContext()
+	// 		}
+	// 	})
+	// }
 
 	loadChatMesssageRenderingBehaviour() {
 		const tps = 60
@@ -946,6 +944,10 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}, 4000)
 
+		this.addExistingMessagesToQueue()
+	}
+
+	addExistingMessagesToQueue() {
 		// Queue all existing chat messages for rendering
 		const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || [])
 		if (chatMessageEls.length) {
@@ -1096,6 +1098,37 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			})
 		})
+	}
+
+	loadVodBehaviour() {
+		// The chatroom messages wrapper gets deleted when scrubbing the video player
+		//  so we observe it and reload the chat UI when it gets re-added
+		log('Loading VOD behaviour..')
+
+		const chatroomParentContainerEl = document
+			.getElementById('channel-chatroom')
+			?.querySelector('& > .bg-surface-lower')
+		if (!chatroomParentContainerEl) return error('Chatroom container not found')
+
+		this.addExistingMessagesToQueue()
+
+		const observer = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.addedNodes.length) {
+					for (const node of mutation.addedNodes) {
+						if (node instanceof HTMLElement && node.firstElementChild?.id === 'chatroom-messages') {
+							log('New chatroom messages container found, reloading chat UI..')
+
+							const chatroomContainerEl = node.firstElementChild.querySelector('& > .no-scrollbar')
+							this.chatObserver?.disconnect()
+							this.observeChatMessages(chatroomContainerEl as HTMLElement)
+						}
+					}
+				}
+			})
+		})
+
+		observer.observe(chatroomParentContainerEl, { childList: true })
 	}
 
 	async handleUserInfoModalClick(username: string, screenPosition?: { x: number; y: number }) {

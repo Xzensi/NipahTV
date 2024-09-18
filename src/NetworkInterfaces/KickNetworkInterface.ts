@@ -75,13 +75,16 @@ export default class KickNetworkInterface implements NetworkInterface {
 	getChannelName() {
 		const pathArr = window.location.pathname.substring(1).split('/')
 		switch (pathArr[0]) {
-			case 'video':
-				return null
 			case 'popout':
 				return pathArr[1] || null
 			default:
 				return pathArr[0] || null
 		}
+	}
+
+	isVOD() {
+		const pathArr = window.location.pathname.substring(1).split('/')
+		return pathArr[1] === 'videos'
 	}
 
 	async loadMeData() {
@@ -160,11 +163,11 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const pathArr = window.location.pathname.substring(1).split('/')
 		const channelData = {} as ChannelData
 
-		if (pathArr[0] === 'video') {
+		if (pathArr[1] === 'videos') {
 			info('VOD video detected..')
 
 			// We are on a VOD page
-			const videoId = pathArr[1]
+			const videoId = pathArr[2]
 			if (!videoId) throw new Error('Failed to extract video ID from URL')
 
 			// We extract channel data from the Kick API

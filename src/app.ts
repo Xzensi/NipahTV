@@ -413,19 +413,21 @@ class NipahClient {
 			const activeSession = this.sessions[0]
 			if (!activeSession) return this.createChannelSession()
 
-			const newChannelName = activeSession.networkInterface.getChannelName()
+			const newLocationChannelName = activeSession.networkInterface.getChannelName()
+			const newLocationIsVod = activeSession.networkInterface.isVOD()
 
 			// Check if session UI is actually destroyed or just part of page has changed
 			if (
+				!newLocationIsVod &&
 				!activeSession.isDestroyed &&
 				!activeSession.userInterface?.isContentEditableEditorDestroyed() &&
 				channelName &&
-				channelName === newChannelName
+				channelName === newLocationChannelName
 			)
 				return
 
 			locationURL = newLocation
-			channelName = newChannelName
+			channelName = newLocationChannelName
 			info('Navigated to:', locationURL)
 
 			this.cleanupSession(oldLocation)

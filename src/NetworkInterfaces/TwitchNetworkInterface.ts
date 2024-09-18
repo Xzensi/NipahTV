@@ -15,6 +15,11 @@ export default class TwitchNetworkInterface implements NetworkInterface {
 		return ''
 	}
 
+	isVOD() {
+		throw new Error('Method not implemented.')
+		return false
+	}
+
 	async loadChannelData() {
 		throw new Error('Method not implemented.')
 	}
