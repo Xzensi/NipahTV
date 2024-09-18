@@ -138,7 +138,8 @@
 		border: ridge 1.618px var(--ntv-background-highlight-accent-1);
 	}
 
-	&--reply-to-me {
+	&--reply-to-me,
+	&--mentioned-me {
 		border: ridge 1.618px rgba(83, 252, 24, 1);
 	}
 

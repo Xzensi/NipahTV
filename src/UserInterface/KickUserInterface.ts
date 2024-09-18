@@ -1368,6 +1368,11 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
+		const messageHasMentionedMe = betterHoverEl.classList.contains('border-green-500')
+		if (messageHasMentionedMe) {
+			messageNode.classList.add('ntv__chat-message--mentioned-me')
+		}
+
 		let isReply = false
 		let isReplyToMe = false
 		if (betterHoverEl.firstElementChild?.classList.contains('w-full')) {
