@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.25',
+		date: '2024-09-20',
+		description: `
+                  Chore: Added link to extension compatibility warning
+            `
+	},
+	{
 		version: '1.5.24',
 		date: '2024-09-20',
 		description: `

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.24
+// @version 1.5.25
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -20300,6 +20300,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.25",
+    date: "2024-09-20",
+    description: `
+                  Chore: Added link to extension compatibility warning
+            `
+  },
+  {
     version: "1.5.24",
     date: "2024-09-20",
     description: `
@@ -23004,7 +23011,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.24";
+  VERSION = "1.5.25";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23131,7 +23138,8 @@ var NipahClient = class {
 					<h2>\u{1F4A5} <strong>7TV Extension Conflict!</strong> \u{1F4A5}</h2>
 					<p>The 7TV extension has been found to be enabled on ${platformName}. 7TV is not compatible with NipahTV and will cause issues if both are enabled at the same time. It is possible to keep the 7TV extension for <b>other</b> streaming websites if you want, by disabling the extension for only ${platformName}.</p>
 					<h4>How to disable 7TV extension <i>only</i> just for ${platformName}?</h4>
-					<p>If you want to keep 7TV for other streaming websites instead of uninstalling it completely, please follow the instructions on <a href="https://nipahtv.com/seventv_compatibility" target="_blank">https://nipahtv.com/seventv_compatibility</a></p>
+					<p>If you want to keep 7TV for other streaming websites instead of uninstalling it completely, please follow the instructions on <a href="https://nipahtv.com/seventv_compatibility" target="_blank">https://nipahtv.com/seventv_compatibility</a>.</p>
+					<p>Feel free to join the <a href="https://discord.gg/KZZZYM6ESs" target="_blank">NipahTV Discord community</a> if you need help with this.</p>
 					<br>
 					<p>You can ignore this warning if you want, but expect weird issues such as blank and empty messages.</p>
 				`
