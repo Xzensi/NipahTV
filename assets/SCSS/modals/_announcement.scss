@@ -15,21 +15,47 @@
 		padding: $golden_ratio * 1em 2em 5em;
 		display: block;
 
-		> button {
-			position: absolute;
-			bottom: 1.6em;
-			right: 1.6em;
-		}
+		// > button {
+		// 	position: absolute;
+		// 	bottom: 1.6em;
+		// 	right: 1.6em;
+		// }
 
-		ul {
+		ul,
+		ol {
 			margin-bottom: $golden_ratio_inverse * 1em;
 			margin-top: $golden_ratio_inverse * 1em;
+			margin-left: 1em;
+		}
+
+		li {
+			margin-bottom: $golden_ratio_inverse * 1em;
+			list-style: initial;
 		}
 
 		a {
 			text-decoration: underline;
 			color: #5781f3;
 		}
+
+		h3,
+		h4 {
+			margin-top: $golden_ratio * 1em;
+		}
+
+		ul,
+		ol,
+		p {
+			margin-bottom: $golden_ratio_inverse * 1em;
+		}
+	}
+
+	&__button-container {
+		position: absolute;
+		display: flex;
+		bottom: 1.6em;
+		right: 1.6em;
+		gap: 0.618em;
 	}
 
 	// &__overflow-wrapper {

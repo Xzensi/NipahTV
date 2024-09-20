@@ -5,7 +5,10 @@ import { log } from '../utils'
 
 export interface Announcement {
 	id: string
+	title?: string
 	message: string
+	showDontShowAgainButton?: boolean
+	showCloseButton?: boolean
 	dateTimeRange?: [Date] | [Date, Date]
 }
 
@@ -46,6 +49,10 @@ export default class AnnouncementService {
 			}
 		}
 
+		if (typeof announcement.showDontShowAgainButton === 'undefined') {
+			announcement.showDontShowAgainButton = true
+		}
+
 		this.announcements[announcement.id] = announcement
 	}
 
@@ -73,6 +80,12 @@ export default class AnnouncementService {
 		if (this.currentAnnouncement && this.currentAnnouncement.id !== id) {
 			this.queuedAnnouncements.push(this.announcements[id])
 			return
+		}
+
+		// Clean up any old modals
+		const oldModal = document.querySelectorAll(`.ntv__modal[data-announcement-id="${id}"]`)
+		if (oldModal.length) {
+			Array.from(oldModal).forEach(el => el.remove())
 		}
 
 		this.currentAnnouncement = this.announcements[id]
