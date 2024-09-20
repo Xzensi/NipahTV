@@ -11,7 +11,7 @@ import KickEmoteProvider from './Providers/KickEmoteProvider'
 import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
 import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
-import { log, info, error, RESTFromMain, debounce, getPlatformId } from './utils'
+import { log, info, error, RESTFromMain, debounce, getPlatformId, waitForElements } from './utils'
 import KickBadgeProvider from './Providers/KickBadgeProvider'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import SettingsManager from './Managers/SettingsManager'
@@ -177,6 +177,7 @@ class NipahClient {
 			throw new Error(`Couldn't load settings because: ${err}`)
 		})
 
+		this.doExtensionCompatibilityChecks()
 		this.createChannelSession()
 	}
 
@@ -192,6 +193,35 @@ class NipahClient {
 			const botrixExtension = new BotrixExtension(rootContext, this.sessions)
 			botrixExtension.onEnable()
 		}
+	}
+
+	doExtensionCompatibilityChecks() {
+		info('Checking for extension compatibility issues..')
+
+		const rootContext = this.rootContext
+		if (!rootContext) throw new Error('Root context is not initialized.')
+		const { announcementService, eventBus: rootEventBus } = rootContext
+
+		waitForElements(['#seventv-site-hosted', '#seventv-stylesheet'], 6000).then(() => {
+			log('Detected SevenTV extension')
+			const platformName = PLATFORM[0].toUpperCase() + PLATFORM.slice(1)
+
+			announcementService.registerAnnouncement({
+				id: 'seventv_conflict',
+				title: 'NipahTV Compatibility Warning',
+				showDontShowAgainButton: true,
+				showCloseButton: true,
+				message: `
+					<h2>💥 <strong>7TV Extension Conflict!</strong> 💥</h2>
+					<p>The 7TV extension has been found to be enabled on ${platformName}. 7TV is not compatible with NipahTV and will cause issues if both are enabled at the same time. It is possible to keep the 7TV extension for <b>other</b> streaming websites if you want, by disabling the extension for only ${platformName}.</p>
+					<h4>How to disable 7TV extension <i>only</i> just for ${platformName}?</h4>
+					<p>If you want to keep 7TV for other streaming websites instead of uninstalling it completely, please follow the instructions on <a href="https://nipahtv.com/seventv_compatibility" target="_blank">https://nipahtv.com/seventv_compatibility</a></p>
+					<br>
+					<p>You can ignore this warning if you want, but expect weird issues such as blank and empty messages.</p>
+				`
+			})
+			announcementService.displayAnnouncement('seventv_conflict')
+		})
 	}
 
 	async createChannelSession() {
@@ -433,6 +463,8 @@ class NipahClient {
 			this.cleanupSession(oldLocation)
 			log('Cleaned up old session for', oldLocation)
 			this.createChannelSession()
+
+			this.doExtensionCompatibilityChecks()
 		}
 
 		if (window.navigation) {
