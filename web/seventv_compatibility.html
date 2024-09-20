@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content="NipahTV - How to keep 7TV extension for other streaming plaforms" />
+		<meta
+			name="keywords"
+			content="NipahTV, Kick, 7TV, emotes, chat experience, streaming, emote extension, performance improvements" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="apple-mobile-web-app-title" content="NipahTV" />
+		<meta name="application-name" content="NipahTV" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+
+		<title>NipahTV - How to keep 7TV extension for other streaming plaforms</title>
+
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<header>
+			<div class="container">
+				<a href="/"><img src="img/NTV_icon_128.png" alt="Logo icon" /></a>
+				<nav>
+					<ul>
+						<li><a href="/">HOME</a></li>
+						<li><a href="userscript">USERSCRIPT</a></li>
+						<li class="active"><a href="seventv_compatibility">7TV COMPATIBILITY</a></li>
+					</ul>
+				</nav>
+			</div>
+		</header>
+
+		<main>
+			<section class="less-padding">
+				<div class="container grid-center">
+					<h2>7TV extension compatibility</h2>
+
+					<p>
+						7TV is not compatible with NipahTV and will cause issues if both are enabled at the same time on
+						a streaming plaform.
+					</p>
+
+					<h4>How to keep 7TV extension for other streaming plaforms?</h4>
+
+					<p>
+						If you want to keep using the 7TV extension for other streaming plaforms instead of disabling it
+						completely, make sure the extension is not enabled on the Kick domain. To do this, follow the
+						instructions below.
+					</p>
+
+					<div class="tabs">
+						<input type="radio" name="tabset" id="tab1" aria-controls="Chrome" checked />
+						<label for="tab1">Chrome</label>
+						<!-- Tab 2 -->
+						<input type="radio" name="tabset" id="tab2" aria-controls="Firefox" />
+						<label for="tab2">Firefox</label>
+						<!-- Tab 3 -->
+						<input type="radio" name="tabset" id="tab3" aria-controls="Edge" />
+						<label for="tab3">Edge</label>
+						<!-- Tab 4 -->
+						<input type="radio" name="tabset" id="tab4" aria-controls="Opera" />
+						<label for="tab4">Opera</label>
+
+						<div class="tabs__panels">
+							<div id="chrome" class="tabs__panel">
+								<p>
+									The permissions system of 7TV is a bit broken, so please do follow all steps. First
+									go to the 7TV extension browser settings by right clicking the extension and then
+									clicking "Manage extension"
+								</p>
+
+								<img src="img/seventv_chrome_1.png" alt="Chrome screenshot" />
+
+								<p>
+									Here, go to "Site access" and uncheck "Automatically allow access on the following
+									sites". If you want to use 7TV on Twitch, click the checkbox of "*://*.twitch.tv/*"
+									again to make sure its checked.
+								</p>
+
+								<img src="img/seventv_chrome_2.png" alt="Chrome screenshot" />
+
+								<p>Next right click the extension again and click "Options"</p>
+
+								<img src="img/seventv_chrome_3.png" alt="Chrome screenshot" />
+
+								<p>
+									This will open up the installation wizard of 7TV where it asks you to choose the
+									streaming plaforms to enable it for. Here, you can now select the plaforms you wish
+									to enable it for.
+								</p>
+
+								<img src="img/seventv_onboarding.png" alt="Chrome screenshot" />
+
+								<p>That's all there is to it, enjoy!</p>
+							</div>
+
+							<div id="firefox" class="tabs__panel">
+								<p>
+									The permissions system of 7TV is a bit broken, so please do follow all steps. First
+									go to the 7TV extension browser settings by right clicking the extension and then
+									clicking "Manage Extension"
+								</p>
+
+								<img src="img/seventv_firefox_1.png" alt="Firefox screenshot" />
+
+								<p>Go to tab "Permissions"</p>
+
+								<img src="img/seventv_firefox_2.png" alt="Firefox screenshot" />
+
+								<p>
+									Enable/disable the streaming platforms as you'd like. E.g. here I disable it only
+									for just kick.com. The other options we leave as it is by default.
+								</p>
+
+								<img src="img/seventv_firefox_3.png" alt="Firefox screenshot" />
+
+								<p>That's all there is to it, enjoy!</p>
+							</div>
+
+							<div id="edge" class="tabs__panel">
+								<p>
+									The permissions system of 7TV is a bit broken, so please do follow all steps. First
+									go to the 7TV extension browser settings by clicking "Manage extension"
+								</p>
+
+								<img src="img/seventv_edge_1.png" alt="Edge screenshot" />
+
+								<p>
+									Under "Site access" uncheck "Automatically allow access on the following sites". If
+									you want to use 7TV on Twitch, click the checkbox of "*://*.twitch.tv/*" again to
+									make sure its checked.
+								</p>
+
+								<img src="img/seventv_edge_2.png" alt="Edge screenshot" />
+
+								<p>Scroll down and click on "Extension options"</p>
+
+								<img src="img/seventv_edge_3.png" alt="Edge screenshot" />
+
+								<p>
+									This will open up the installation wizard of 7TV where it asks you to choose the
+									streaming plaforms to enable it for. Here, you can now select the plaforms you wish
+									to enable it for.
+								</p>
+
+								<img src="img/seventv_onboarding.png" alt="Edge screenshot" />
+
+								<p>That's all there is to it, enjoy!</p>
+							</div>
+
+							<div id="opera" class="tabs__panel">
+								<p>
+									The permissions system of 7TV is a bit broken, so please do follow all steps. First
+									go to the 7TV extension browser settings by clicking "Manage extension"
+								</p>
+
+								<img src="img/seventv_operagx_1.png" alt="Edge screenshot" />
+
+								<p>
+									Under "Site access" uncheck "Automatically allow access on the following sites". If
+									you want to use 7TV on Twitch, click the checkbox of "*://*.twitch.tv/*" again to
+									make sure its checked.
+								</p>
+
+								<img src="img/seventv_operagx_2.png" alt="Edge screenshot" />
+
+								<p>Scroll down and click on "Extension options"</p>
+
+								<img src="img/seventv_operagx_3.png" alt="Edge screenshot" />
+
+								<p>
+									This will open up the installation wizard of 7TV where it asks you to choose the
+									streaming plaforms to enable it for. Here, you can now select the plaforms you wish
+									to enable it for.
+								</p>
+
+								<img src="img/seventv_onboarding.png" alt="Edge screenshot" />
+
+								<p>That's all there is to it, enjoy!</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+			<section>
+				<div class="container grid-center">
+					<h3>Follow us on Github</h3>
+					<a href="https://github.com/Xzensi/NipahTV" target="_blank" rel="noopener">
+						<img src="img/icons/github-mark-white.svg" alt="Github logo" target="_blank" />
+					</a>
+				</div>
+			</section>
+		</main>
+
+		<script>
+			const browser = (function (agent) {
+				switch (true) {
+					case agent.indexOf('edge') > -1:
+						return 'ms_edge'
+					case agent.indexOf('edg') > -1:
+						return 'ms_edge'
+					case agent.indexOf('opr') > -1 && !!window.opr:
+						return 'opera'
+					case agent.indexOf('chrome') > -1 && !!window.chrome:
+						return 'chrome'
+					case agent.indexOf('firefox') > -1:
+						return 'firefox'
+					case agent.indexOf('safari') > -1:
+						return 'safari'
+				}
+			})(window.navigator.userAgent.toLowerCase())
+
+			if (browser === 'firefox') {
+				document.getElementById('tab2').checked = true
+			} else if (browser === 'ms_edge') {
+				document.getElementById('tab3').checked = true
+			} else if (browser === 'opera') {
+				document.getElementById('tab4').checked = true
+			} else if (browser === 'safari') {
+				document.getElementById('tab5').checked = true
+			}
+		</script>
+
+		<!-- Google tag (gtag.js) -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZK75GYKWMX"></script>
+		<script>
+			window.dataLayer = window.dataLayer || []
+			function gtag() {
+				dataLayer.push(arguments)
+			}
+			gtag('js', new Date())
+
+			gtag('config', 'G-ZK75GYKWMX')
+		</script>
+	</body>
+</html>
