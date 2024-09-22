@@ -435,19 +435,21 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		)
 
 		const showUnavailableEmotes = settingsManager.getSetting(channelId, 'emote_menu.show_unavailable_favorites')
-		const isSubscribed = this.session.channelData.me.isSubscribed
 
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
 			const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
 			if (!emote && !showUnavailableEmotes) continue
 
+			const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote
+			const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid)
+
 			let emoteBoxClasses = emote ? '' : ' ntv__emote-box--unavailable'
-			emoteBoxClasses += !isSubscribed && emote?.subscribersOnly ? 'ntv__emote-box--locked' : ''
+			emoteBoxClasses += !emoteSet?.isSubscribed && emote?.subscribersOnly ? 'ntv__emote-box--locked' : ''
 
 			emotesEl.append(
 				parseHTML(
 					`<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
-						emote || favoriteEmoteDoc.emote,
+						maybeFavoriteEmote,
 						'ntv__emote'
 					)}</div>`
 				)
