@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.26
+// @version 1.5.27
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10855,16 +10855,18 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       channelId,
       "quick_emote_holder.show_non_cross_channel_favorites"
     );
-    const isSubscribed = channelData.me.isSubscribed;
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
       if (!emote && !showNonCrossChannelEmotes) continue;
+      const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
+      const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
       let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
-      emoteBoxClasses += !isSubscribed && emote?.subscribersOnly ? "ntv__emote-box--locked" : "";
+      if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.subscribersOnly)
+        emoteBoxClasses += " ntv__emote-box--locked";
       this.favoritesEl.append(
         parseHTML(
           `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
-            emote || favoriteEmoteDoc.emote,
+            maybeFavoriteEmote,
             "ntv__emote"
           )}</div>`
         )
@@ -10919,8 +10921,8 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         emoteUsageCounts.splice(index, 1);
       }
     }
-    const isSubscribed = this.session.channelData.me.isSubscribed;
     for (const [emoteHid] of emoteUsageCounts) {
+      const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed;
       if (!isSubscribed && emotesManager.getEmote(emoteHid)?.subscribersOnly) continue;
       const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
       if (!emoteRender) continue;
@@ -11400,16 +11402,17 @@ var EmoteMenuComponent = class extends AbstractComponent {
       (a, b) => b.orderIndex - a.orderIndex
     );
     const showUnavailableEmotes = settingsManager.getSetting(channelId, "emote_menu.show_unavailable_favorites");
-    const isSubscribed = this.session.channelData.me.isSubscribed;
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
       if (!emote && !showUnavailableEmotes) continue;
+      const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
+      const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
       let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
-      emoteBoxClasses += !isSubscribed && emote?.subscribersOnly ? "ntv__emote-box--locked" : "";
+      emoteBoxClasses += !emoteSet?.isSubscribed && emote?.subscribersOnly ? "ntv__emote-box--locked" : "";
       emotesEl.append(
         parseHTML(
           `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
-            emote || favoriteEmoteDoc.emote,
+            maybeFavoriteEmote,
             "ntv__emote"
           )}</div>`
         )
@@ -20325,6 +20328,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.27",
+    date: "2024-09-22",
+    description: `
+                  Fix: Incorrect sub emote subscribers status check for other channels locking them
+            `
+  },
+  {
     version: "1.5.26",
     date: "2024-09-22",
     description: `
@@ -23071,7 +23081,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.26";
+  VERSION = "1.5.27";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
