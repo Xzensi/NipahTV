@@ -133,7 +133,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			const isHoldingCtrl = evt.ctrlKey
 
 			const target = evt.target as HTMLElement
-			if (target.tagName !== 'IMG' || target.parentElement?.classList.contains('ntv__emote-box--locked')) return
+			if (!target.parentElement?.classList.contains('ntv__emote-box')) return
+			const emoteBoxEl = target.parentElement
 
 			const emoteHid = target.getAttribute('data-emote-hid')
 			if (!emoteHid) return error('Invalid emote hid')
@@ -144,53 +145,53 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				return
 			}
 
-			this.handleEmoteClick(target, emoteHid, isHoldingCtrl)
+			this.handleEmoteClick(emoteBoxEl, emoteHid, isHoldingCtrl)
 		})
 
 		this.favoritesEmoteSetEl?.addEventListener(
 			'mousedown',
 			(evt: MouseEvent) => {
-				const emoteEl = evt.target as HTMLElement
+				const targetEl = evt.target as HTMLElement
 
 				if (
-					!(emoteEl instanceof HTMLElement) ||
-					emoteEl.tagName !== 'IMG' ||
-					!emoteEl.classList.contains('ntv__emote')
-				)
-					return
-				if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
+					targetEl instanceof HTMLElement &&
+					targetEl.parentElement &&
+					targetEl.parentElement.classList.contains('ntv__emote-box')
+				) {
+					if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
 
-				const emoteHid = emoteEl.getAttribute('data-emote-hid')
-				if (!emoteHid) return error('Unable to start dragging emote, invalid emote hid')
+					const emoteHid = targetEl.getAttribute('data-emote-hid')
+					if (!emoteHid) return error('Unable to start dragging emote, invalid emote hid')
 
-				const emoteBoxEl = emoteEl.parentElement as HTMLElement
+					const emoteBoxEl = targetEl.parentElement
 
-				mouseDownTimeout = setTimeout(() => {
-					// Double check that emote still exists
-					if (!emoteEl.isConnected) return
+					mouseDownTimeout = setTimeout(() => {
+						// Double check that emote still exists
+						if (!emoteBoxEl.isConnected) return
 
-					this.startDragFavoriteEmote(evt, emoteBoxEl, emoteEl)
-				}, 500)
+						this.startDragFavoriteEmote(evt, emoteBoxEl)
+					}, 500)
 
-				emoteBoxEl.addEventListener(
-					'mouseleave',
-					() => {
-						if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
-					},
-					{ once: true, passive: true }
-				)
+					emoteBoxEl.addEventListener(
+						'mouseleave',
+						() => {
+							if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
+						},
+						{ once: true, passive: true }
+					)
 
-				window.addEventListener(
-					'mouseup',
-					() => {
-						if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
-						if (this.isDraggingEmote) {
-							this.stopDragFavoriteEmote(emoteBoxEl, emoteHid)
-							skipClickEvent = true
-						}
-					},
-					{ once: true, passive: true }
-				)
+					window.addEventListener(
+						'mouseup',
+						() => {
+							if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
+							if (this.isDraggingEmote) {
+								this.stopDragFavoriteEmote(emoteBoxEl, emoteHid)
+								skipClickEvent = true
+							}
+						},
+						{ once: true, passive: true }
+					)
+				}
 			},
 			{ passive: true }
 		)
@@ -434,17 +435,20 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		)
 
 		const showUnavailableEmotes = settingsManager.getSetting(channelId, 'emote_menu.show_unavailable_favorites')
+		const isSubscribed = this.session.channelData.me.isSubscribed
 
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
-			const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
-			if (!emoteIsLoaded && !showUnavailableEmotes) continue
-			const unavailableClass = emoteIsLoaded ? '' : 'ntv__emote-box--unavailable'
+			const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
+			if (!emote && !showUnavailableEmotes) continue
+
+			let emoteBoxClasses = emote ? '' : ' ntv__emote-box--unavailable'
+			emoteBoxClasses += !isSubscribed && emote?.subscribersOnly ? 'ntv__emote-box--locked' : ''
 
 			emotesEl.append(
 				parseHTML(
-					`<div class="ntv__emote-box ${unavailableClass}">${emotesManager.getRenderableEmote(
-						favoriteEmoteDoc.emote,
-						'ntv__emote ntv__emote-set__emote'
+					`<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
+						emote || favoriteEmoteDoc.emote,
+						'ntv__emote'
 					)}</div>`
 				)
 			)
@@ -586,18 +590,21 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl)
 	}
 
-	handleEmoteClick(target: HTMLElement, emoteHid: string, isHoldingCtrl: boolean) {
+	handleEmoteClick(emoteBoxEl: HTMLElement, emoteHid: string, isHoldingCtrl: boolean) {
 		const { settingsManager } = this.rootContext
 		const { emotesManager, eventBus, channelData } = this.session
 		const channelId = channelData.channelId
+
+		const isUnavailable = emoteBoxEl.classList.contains('ntv__emote-box--unavailable')
+		const isLocked = emoteBoxEl.classList.contains('ntv__emote-box--locked')
 
 		if (isHoldingCtrl) {
 			// User tries to favorite an emote
 			const isFavorited = emotesManager.isEmoteFavorited(emoteHid)
 			if (isFavorited) emotesManager.removeEmoteFromFavorites(emoteHid)
-			else emotesManager.addEmoteToFavorites(emoteHid)
+			else if (!isLocked && !isUnavailable) emotesManager.addEmoteToFavorites(emoteHid)
 		} else {
-			if (target.parentElement?.classList.contains('ntv__emote-box--unavailable')) return
+			if (isUnavailable || isLocked) return
 
 			const emote = emotesManager.getEmote(emoteHid)
 			if (!emote) return error('Emote not found')
@@ -617,9 +624,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		if (!withinComposedPath) this.toggleShow(false)
 	}
 
-	startDragFavoriteEmote(event: MouseEvent, emoteBoxEl: HTMLElement, emoteEl: HTMLElement) {
-		const emoteHid = emoteEl?.getAttribute('data-emote-hid')
-		if (!emoteHid) return error('Unable to drag emote, emote hid attribute does not exist..')
+	startDragFavoriteEmote(event: MouseEvent, emoteBoxEl: HTMLElement) {
 		if (!this.favoritesEmoteSetEl) return error('Unable to drag emote, favorites emote set does not exist..')
 		log('Starting emote drag mode..')
 
@@ -629,8 +634,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		const favoriteEmotesSetBodyEl = this.favoritesEmoteSetEl.querySelector('.ntv__emote-set__emotes') as HTMLElement
 
 		// Create a drag handle for the emote which will be used to drag the emote around
-		const dragHandleEmoteEl = (this.dragHandleEmoteEl = emoteEl.cloneNode(true) as HTMLElement)
-		dragHandleEmoteEl.classList.add('ntv__emote--dragging')
+		const dragHandleEmoteEl = (this.dragHandleEmoteEl = emoteBoxEl.cloneNode(true) as HTMLElement)
+		dragHandleEmoteEl.classList.add('ntv__emote-box--dragging')
 		document.body.appendChild(dragHandleEmoteEl)
 
 		// Move the emote drag handle to the mouse position
@@ -678,7 +683,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		log('Stopped emote drag mode')
 
 		this.favoritesEmoteSetEl.classList.remove('ntv__emote-set--dragging-emote')
-		emoteBoxEl?.classList.remove('ntv__emote--dragging')
+		emoteBoxEl?.classList.remove('ntv__emote-box--dragging')
 
 		this.isDraggingEmote = false
 		this.dragHandleEmoteEl?.remove()
