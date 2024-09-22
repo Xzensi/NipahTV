@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.27',
+		date: '2024-09-22',
+		description: `
+                  Fix: Incorrect sub emote subscribers status check for other channels locking them
+            `
+	},
+	{
 		version: '1.5.26',
 		date: '2024-09-22',
 		description: `

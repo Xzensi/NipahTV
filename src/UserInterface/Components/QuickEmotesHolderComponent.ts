@@ -271,20 +271,23 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			'quick_emote_holder.show_non_cross_channel_favorites'
 		)
 
-		const isSubscribed = channelData.me.isSubscribed
-
 		// Render the emotes
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
 			const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
 			if (!emote && !showNonCrossChannelEmotes) continue
 
+			const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote
+			const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid)
+
 			let emoteBoxClasses = emote ? '' : ' ntv__emote-box--unavailable'
-			emoteBoxClasses += !isSubscribed && emote?.subscribersOnly ? 'ntv__emote-box--locked' : ''
+
+			if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.subscribersOnly)
+				emoteBoxClasses += ' ntv__emote-box--locked'
 
 			this.favoritesEl.append(
 				parseHTML(
 					`<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
-						emote || favoriteEmoteDoc.emote,
+						maybeFavoriteEmote,
 						'ntv__emote'
 					)}</div>`
 				)
@@ -361,10 +364,10 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			}
 		}
 
-		const isSubscribed = this.session.channelData.me.isSubscribed
-
 		// Render the emotes
 		for (const [emoteHid] of emoteUsageCounts) {
+			const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed
+
 			// Don't show subscribers only emotes if user is not subscribed
 			if (!isSubscribed && emotesManager.getEmote(emoteHid)?.subscribersOnly) continue
 
