@@ -183,7 +183,15 @@
 		}
 	}
 
-	.ntv__modal__body {
-		padding: 2em 2em 3em 1em;
+	.ntv__modal {
+		&__header__body {
+		}
+		&__update-available {
+		}
+		&__update-btn {
+		}
+		&__body {
+			padding: 2em 2em 3em 1em;
+		}
 	}
 }
