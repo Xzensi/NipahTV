@@ -3,6 +3,15 @@
 @use 'functions' as *;
 @use 'mixins' as *;
 
+@keyframes translateX46 {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(46px);
+	}
+}
+
 .ntv__emote-menu {
 	outline: 0.1em solid var(--ntv-border-transparent-2);
 	background-color: var(--ntv-background-color);
@@ -136,6 +145,7 @@
 		&-btn {
 			justify-content: center;
 			border-radius: 0.25em;
+			overflow: hidden;
 			cursor: pointer;
 			padding: 1em 0;
 			display: flex;
@@ -147,6 +157,33 @@
 
 			&--settings {
 				width: 100%;
+			}
+
+			&--highlighted {
+				position: relative;
+
+				&:before {
+					position: absolute;
+					content: '';
+					left: -46px;
+					bottom: 0;
+					right: 0;
+					top: 0;
+
+					background: repeating-linear-gradient(
+						-55deg,
+						#ffd9005e 1px,
+						#ff99005e 2px,
+						#ff99005e 11px,
+						#ffd9005e 12px,
+						#ffd9005e 20px
+					);
+
+					animation-name: translateX46;
+					animation-duration: 4s;
+					animation-timing-function: linear;
+					animation-iteration-count: infinite;
+				}
 			}
 		}
 
@@ -161,6 +198,7 @@
 			vertical-align: middle;
 			pointer-events: none;
 			margin: 0 auto;
+			z-index: 1;
 		}
 	}
 

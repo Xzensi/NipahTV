@@ -30,7 +30,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.25'
+	VERSION = '1.5.26'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -173,12 +173,48 @@ class NipahClient {
 
 		this.loadExtensions()
 
-		this.loadSettingsManagerPromise = settingsManager.loadSettings().catch(err => {
-			throw new Error(`Couldn't load settings because: ${err}`)
-		})
+		this.loadSettingsManagerPromise = settingsManager
+			.loadSettings()
+			.then(() => {
+				log('Settings loaded successfully.')
 
+				const appVersion = settingsManager.getGlobalSetting('app.version')
+				if (!appVersion || appVersion !== this.VERSION) {
+					settingsManager.setGlobalSetting('app.version', this.VERSION)
+				}
+
+				// Semver string comparison to check if the current version is newer than the stored version
+				const updateAvailableVersion = settingsManager.getGlobalSetting('app.update_available')
+				if (updateAvailableVersion && updateAvailableVersion <= this.VERSION) {
+					settingsManager.setGlobalSetting('app.update_available', null)
+				}
+			})
+			.catch(err => {
+				throw new Error(`Couldn't load settings because: ${err}`)
+			})
+
+		this.loadAppUpdateBehaviour(rootEventBus)
 		this.doExtensionCompatibilityChecks()
 		this.createChannelSession()
+	}
+
+	loadAppUpdateBehaviour(rootEventBus: Publisher) {
+		rootEventBus.subscribe('ntv.app.update', () => {
+			info('Extension update has been requested, reloading extension..')
+
+			browser.runtime
+				.sendMessage({
+					action: 'runtime.reload'
+				})
+				.then(() => {
+					info('Reloading page after runtime reload..')
+					location.reload()
+				})
+				.catch(err => {
+					error('Failed to reload extension.', err)
+					location.reload()
+				})
+		})
 	}
 
 	async loadExtensions() {
@@ -202,7 +238,7 @@ class NipahClient {
 		if (!rootContext) throw new Error('Root context is not initialized.')
 		const { announcementService, eventBus: rootEventBus } = rootContext
 
-		waitForElements(['#seventv-site-hosted', '#seventv-stylesheet'], 6000).then(() => {
+		waitForElements(['#seventv-site-hosted'], 6000).then(() => {
 			log('Detected SevenTV extension')
 			const platformName = PLATFORM[0].toUpperCase() + PLATFORM.slice(1)
 
@@ -491,6 +527,7 @@ class NipahClient {
 			prevSession.isDestroyed = true
 			prevSession.eventBus.publish('ntv.session.destroy')
 			this.rootContext?.eventBus.publish('ntv.session.destroy', prevSession)
+			// TODO after session is destroyed, all session event listeners attached to rootEventBus should be removed as well
 		} else {
 			log(`No session to clean up for ${oldLocation}..`)
 		}

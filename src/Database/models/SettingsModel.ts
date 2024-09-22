@@ -25,7 +25,7 @@ export default class SettingsModel {
 		return this.db.settings.get(id)
 	}
 
-	async putRecord(setting: any) {
+	async putRecord(setting: SettingDocument) {
 		return this.db.settings.put(setting)
 	}
 

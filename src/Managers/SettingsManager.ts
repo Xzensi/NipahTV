@@ -707,7 +707,8 @@ export default class SettingsManager {
 	]
 
 	private settingsMap: Map<string, any> = new Map([
-		['global.shared.app.version', '1.0.0'],
+		['global.shared.app.version', null],
+		['global.shared.app.update_available', null],
 		['global.shared.app.announcements', {}]
 	] as [string, any][])
 
@@ -802,6 +803,17 @@ export default class SettingsManager {
 		this.settingsMap.set(id, value)
 	}
 
+	setGlobalSetting(key: string, value: any) {
+		const id = `global.shared.${key}`
+		if (!this.settingsMap.has(id)) return error('Setting not registered:', id)
+
+		this.database.settings
+			.putRecord({ id, platformId: 'global', channelId: 'shared', key, value })
+			.catch((err: Error) => error('Failed to save global setting to database.', err.message))
+
+		this.settingsMap.set(id, value)
+	}
+
 	getSetting(channelId: SettingDocument['channelId'], key: string, bubbleChannel = true, bubblePlatform = true) {
 		const platformId = PLATFORM
 		const id = `${platformId}.${channelId}.${key}`
@@ -815,6 +827,11 @@ export default class SettingsManager {
 			return this.settingsMap.get(`global.shared.${key}`)
 
 		return error('Setting not registered:', id)
+	}
+
+	getGlobalSetting(key: string) {
+		if (this.settingsMap.has(`global.shared.${key}`)) return this.settingsMap.get(`global.shared.${key}`)
+		return error('Setting not registered:', key)
 	}
 
 	// getSettingsForPlatform(platformId: SettingDocument['platformId']) {}

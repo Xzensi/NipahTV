@@ -224,6 +224,10 @@ export class ContentEditableEditor {
 			}
 		})
 
+		inputNode.addEventListener('cut', evt => {
+			this.hasUnprocessedContentChanges = true
+		})
+
 		// Hook the event into a PriorityTargetEvent so that it can handle stopPropagation calls
 		//  for callbacks that want to intercept and cancel the event.
 		this.eventTarget.addEventListener('keydown', 10, this.handleKeydown.bind(this))
