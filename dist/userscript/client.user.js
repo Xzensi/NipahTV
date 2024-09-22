@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.25
+// @version 1.5.26
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-e63e21f4.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-5b7a076c.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10702,7 +10702,12 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         return;
       }
       const target = evt.target;
-      if (target.tagName !== "IMG" || target.classList.contains("ntv__emote-box--unavailable")) return;
+      const emoteBoxEl = target.parentElement;
+      if (!emoteBoxEl) {
+        return error("Invalid emote box element");
+      }
+      if (target.tagName !== "IMG" || emoteBoxEl.classList.contains("ntv__emote-box--unavailable") || emoteBoxEl.classList.contains("ntv__emote-box--locked"))
+        return;
       const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid) return error("Invalid emote hid");
       this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
@@ -10710,15 +10715,17 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     this.favoritesEl?.addEventListener(
       "mousedown",
       (evt) => {
-        if (evt.target instanceof HTMLElement && evt.target.classList.contains("ntv__emote")) {
+        const targetEl = evt.target;
+        if (targetEl instanceof HTMLElement && targetEl.parentElement && targetEl.parentElement.classList.contains("ntv__emote-box")) {
           if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-          const emoteHid = evt.target.getAttribute("data-emote-hid");
+          const emoteHid = targetEl.getAttribute("data-emote-hid");
           if (!emoteHid) return error("Unable to start dragging emote, invalid emote hid");
+          const emoteBoxEl = targetEl.parentElement;
           mouseDownTimeout = setTimeout(() => {
-            if (!evt.target.isConnected) return;
-            this.startDragFavoriteEmote(evt, evt.target);
+            if (!emoteBoxEl.isConnected) return;
+            this.startDragFavoriteEmote(evt, emoteBoxEl);
           }, 500);
-          evt.target.addEventListener(
+          emoteBoxEl.addEventListener(
             "mouseleave",
             () => {
               if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
@@ -10730,7 +10737,7 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
             () => {
               if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
               if (this.isDraggingEmote) {
-                this.stopDragFavoriteEmote(evt.target, emoteHid);
+                this.stopDragFavoriteEmote(emoteBoxEl, emoteHid);
                 skipClickEvent = true;
               }
             },
@@ -10782,22 +10789,21 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
   }
   handleEmoteClick(emoteHid, sendImmediately = false) {
     assertArgDefined(emoteHid);
-    const emote = this.session.emotesManager.getEmote(emoteHid);
+    const { eventBus, emotesManager, channelData } = this.session;
+    const emote = emotesManager.getEmote(emoteHid);
     if (!emote) return error("Invalid emote");
-    const channelId = this.session.channelData.channelId;
+    const channelId = channelData.channelId;
     if (this.rootContext.settingsManager.getSetting(channelId, "chat.quick_emote_holder.send_immediately")) {
       sendImmediately = true;
     }
-    this.session.eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
+    eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
   }
-  startDragFavoriteEmote(event, emoteEl) {
-    const emoteHid = emoteEl?.getAttribute("data-emote-hid");
-    if (!emoteHid) return error("Unable to drag emote, emote does not exist..");
+  startDragFavoriteEmote(event, emoteBoxEl) {
     log("Starting emote drag mode..");
     this.isDraggingEmote = true;
     this.element.classList.add("ntv__quick-emotes-holder--dragging-emote");
-    const dragHandleEmoteEl = this.dragHandleEmoteEl = emoteEl.cloneNode(true);
-    dragHandleEmoteEl.classList.add("ntv__emote--dragging");
+    const dragHandleEmoteEl = this.dragHandleEmoteEl = emoteBoxEl.cloneNode(true);
+    dragHandleEmoteEl.classList.add("ntv__emote-box--dragging");
     document.body.appendChild(dragHandleEmoteEl);
     dragHandleEmoteEl.style.left = `${event.clientX}px`;
     dragHandleEmoteEl.style.top = `${event.clientY}px`;
@@ -10810,23 +10816,23 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         const rect = el.getBoundingClientRect();
         return evt.clientX > rect.left && evt.clientX < rect.right && evt.clientY > rect.top && evt.clientY < rect.bottom;
       });
-      if (hoveredEmote && hoveredEmote !== emoteEl) {
+      if (hoveredEmote && hoveredEmote !== emoteBoxEl) {
         const hoveredEmoteIndex = favoriteEmotes.indexOf(hoveredEmote);
-        const emoteIndex = favoriteEmotes.indexOf(emoteEl);
+        const emoteIndex = favoriteEmotes.indexOf(emoteBoxEl);
         this.dragEmoteNewIndex = hoveredEmoteIndex;
         if (hoveredEmoteIndex > emoteIndex) {
-          hoveredEmote.after(emoteEl);
+          hoveredEmote.after(emoteBoxEl);
         } else {
-          hoveredEmote.before(emoteEl);
+          hoveredEmote.before(emoteBoxEl);
         }
       }
     };
     window.addEventListener("mousemove", mouseMoveCb);
   }
-  stopDragFavoriteEmote(emoteEl, emoteHid) {
+  stopDragFavoriteEmote(emoteBoxEl, emoteHid) {
     log("Stopped emote drag mode");
     this.element.classList.remove("ntv__quick-emotes-holder--dragging-emote");
-    emoteEl?.classList.remove("ntv__emote--dragging");
+    emoteBoxEl?.classList.remove("ntv__emote-box--dragging");
     this.isDraggingEmote = false;
     this.dragHandleEmoteEl?.remove();
     this.dragHandleEmoteEl = null;
@@ -10849,13 +10855,18 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       channelId,
       "quick_emote_holder.show_non_cross_channel_favorites"
     );
+    const isSubscribed = channelData.me.isSubscribed;
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
-      const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
-      if (!emoteIsLoaded && !showNonCrossChannelEmotes) continue;
-      const emoteClasses = emoteIsLoaded ? "ntv__emote" : "ntv__emote ntv__emote-box--unavailable";
-      this.favoritesEl.appendChild(
+      const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
+      if (!emote && !showNonCrossChannelEmotes) continue;
+      let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
+      emoteBoxClasses += !isSubscribed && emote?.subscribersOnly ? "ntv__emote-box--locked" : "";
+      this.favoritesEl.append(
         parseHTML(
-          emotesManager.getRenderableEmoteByEmote(emoteIsLoaded || favoriteEmoteDoc.emote, emoteClasses)
+          `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
+            emote || favoriteEmoteDoc.emote,
+            "ntv__emote"
+          )}</div>`
         )
       );
     }
@@ -10883,12 +10894,16 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       error("Unable to reorder favorited emote, emote does not exist..");
       return;
     }
-    emoteEl.remove();
+    const emoteBoxEl = emoteEl.parentElement;
+    if (!emoteBoxEl?.classList.contains("ntv__emote-box")) {
+      return error("Invalid emote box element");
+    }
+    emoteBoxEl.remove();
     const insertBeforeEl = this.favoritesEl.children[emoteIndex];
     if (insertBeforeEl) {
-      insertBeforeEl.before(emoteEl);
+      insertBeforeEl.before(emoteBoxEl);
     } else {
-      this.favoritesEl.appendChild(emoteEl);
+      this.favoritesEl.appendChild(emoteBoxEl);
     }
   }
   renderCommonlyUsedEmotes() {
@@ -10904,7 +10919,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         emoteUsageCounts.splice(index, 1);
       }
     }
+    const isSubscribed = this.session.channelData.me.isSubscribed;
     for (const [emoteHid] of emoteUsageCounts) {
+      if (!isSubscribed && emotesManager.getEmote(emoteHid)?.subscribersOnly) continue;
       const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
       if (!emoteRender) continue;
       this.commonlyUsedEl.appendChild(parseHTML(emoteRender));
@@ -11079,7 +11096,9 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { settingsManager } = this.rootContext;
     const channelId = this.session.channelData.channelId;
     const showSearchBox = settingsManager.getSetting(channelId, "chat.emote_menu.search_box");
+    const hasUpdateAvailable = settingsManager.getGlobalSetting("app.update_available");
     const showSidebar = true;
+    const highlightSettingsBtn = !!hasUpdateAvailable;
     Array.from(document.getElementsByClassName("ntv__emote-menu")).forEach((element) => {
       element.remove();
     });
@@ -11107,7 +11126,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
 										<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M22 3h7v7m-1.5-5.5L20 12m-3-7H8a3 3 0 0 0-3 3v16a3 3 0 0 0 3 3h16a3 3 0 0 0 3-3v-9" />
 									</svg>
 								</a>
-								<div class="ntv__emote-menu__sidebar-btn ntv__emote-menu__sidebar-btn--settings">
+								<div class="ntv__emote-menu__sidebar-btn ntv__emote-menu__sidebar-btn--settings ${highlightSettingsBtn ? "ntv__emote-menu__sidebar-btn--highlighted" : ""}">
 									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
 										<path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
 									</svg>
@@ -11146,7 +11165,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.scrollableEl?.addEventListener("click", (evt) => {
       const isHoldingCtrl = evt.ctrlKey;
       const target = evt.target;
-      if (target.tagName !== "IMG" || target.parentElement?.classList.contains("ntv__emote-box--locked")) return;
+      if (!target.parentElement?.classList.contains("ntv__emote-box")) return;
+      const emoteBoxEl = target.parentElement;
       const emoteHid = target.getAttribute("data-emote-hid");
       if (!emoteHid) return error("Invalid emote hid");
       if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
@@ -11154,40 +11174,40 @@ var EmoteMenuComponent = class extends AbstractComponent {
         skipClickEvent = false;
         return;
       }
-      this.handleEmoteClick(target, emoteHid, isHoldingCtrl);
+      this.handleEmoteClick(emoteBoxEl, emoteHid, isHoldingCtrl);
     });
     this.favoritesEmoteSetEl?.addEventListener(
       "mousedown",
       (evt) => {
-        const emoteEl = evt.target;
-        if (!(emoteEl instanceof HTMLElement) || emoteEl.tagName !== "IMG" || !emoteEl.classList.contains("ntv__emote"))
-          return;
-        if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-        const emoteHid = emoteEl.getAttribute("data-emote-hid");
-        if (!emoteHid) return error("Unable to start dragging emote, invalid emote hid");
-        const emoteBoxEl = emoteEl.parentElement;
-        mouseDownTimeout = setTimeout(() => {
-          if (!emoteEl.isConnected) return;
-          this.startDragFavoriteEmote(evt, emoteBoxEl, emoteEl);
-        }, 500);
-        emoteBoxEl.addEventListener(
-          "mouseleave",
-          () => {
-            if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-          },
-          { once: true, passive: true }
-        );
-        window.addEventListener(
-          "mouseup",
-          () => {
-            if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-            if (this.isDraggingEmote) {
-              this.stopDragFavoriteEmote(emoteBoxEl, emoteHid);
-              skipClickEvent = true;
-            }
-          },
-          { once: true, passive: true }
-        );
+        const targetEl = evt.target;
+        if (targetEl instanceof HTMLElement && targetEl.parentElement && targetEl.parentElement.classList.contains("ntv__emote-box")) {
+          if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
+          const emoteHid = targetEl.getAttribute("data-emote-hid");
+          if (!emoteHid) return error("Unable to start dragging emote, invalid emote hid");
+          const emoteBoxEl = targetEl.parentElement;
+          mouseDownTimeout = setTimeout(() => {
+            if (!emoteBoxEl.isConnected) return;
+            this.startDragFavoriteEmote(evt, emoteBoxEl);
+          }, 500);
+          emoteBoxEl.addEventListener(
+            "mouseleave",
+            () => {
+              if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
+            },
+            { once: true, passive: true }
+          );
+          window.addEventListener(
+            "mouseup",
+            () => {
+              if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
+              if (this.isDraggingEmote) {
+                this.stopDragFavoriteEmote(emoteBoxEl, emoteHid);
+                skipClickEvent = true;
+              }
+            },
+            { once: true, passive: true }
+          );
+        }
       },
       { passive: true }
     );
@@ -11380,15 +11400,17 @@ var EmoteMenuComponent = class extends AbstractComponent {
       (a, b) => b.orderIndex - a.orderIndex
     );
     const showUnavailableEmotes = settingsManager.getSetting(channelId, "emote_menu.show_unavailable_favorites");
+    const isSubscribed = this.session.channelData.me.isSubscribed;
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
-      const emoteIsLoaded = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
-      if (!emoteIsLoaded && !showUnavailableEmotes) continue;
-      const unavailableClass = emoteIsLoaded ? "" : "ntv__emote-box--unavailable";
+      const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
+      if (!emote && !showUnavailableEmotes) continue;
+      let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
+      emoteBoxClasses += !isSubscribed && emote?.subscribersOnly ? "ntv__emote-box--locked" : "";
       emotesEl.append(
         parseHTML(
-          `<div class="ntv__emote-box ${unavailableClass}">${emotesManager.getRenderableEmote(
-            favoriteEmoteDoc.emote,
-            "ntv__emote ntv__emote-set__emote"
+          `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
+            emote || favoriteEmoteDoc.emote,
+            "ntv__emote"
           )}</div>`
         )
       );
@@ -11504,16 +11526,18 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const emoteSetEls = emotesPanelEl.querySelectorAll(".ntv__emote-set");
     for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl);
   }
-  handleEmoteClick(target, emoteHid, isHoldingCtrl) {
+  handleEmoteClick(emoteBoxEl, emoteHid, isHoldingCtrl) {
     const { settingsManager } = this.rootContext;
     const { emotesManager, eventBus, channelData } = this.session;
     const channelId = channelData.channelId;
+    const isUnavailable = emoteBoxEl.classList.contains("ntv__emote-box--unavailable");
+    const isLocked = emoteBoxEl.classList.contains("ntv__emote-box--locked");
     if (isHoldingCtrl) {
       const isFavorited = emotesManager.isEmoteFavorited(emoteHid);
       if (isFavorited) emotesManager.removeEmoteFromFavorites(emoteHid);
-      else emotesManager.addEmoteToFavorites(emoteHid);
+      else if (!isLocked && !isUnavailable) emotesManager.addEmoteToFavorites(emoteHid);
     } else {
-      if (target.parentElement?.classList.contains("ntv__emote-box--unavailable")) return;
+      if (isUnavailable || isLocked) return;
       const emote = emotesManager.getEmote(emoteHid);
       if (!emote) return error("Emote not found");
       eventBus.publish("ntv.ui.emote.click", { emoteHid });
@@ -11527,16 +11551,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const withinComposedPath = evt.composedPath().includes(containerEl);
     if (!withinComposedPath) this.toggleShow(false);
   }
-  startDragFavoriteEmote(event, emoteBoxEl, emoteEl) {
-    const emoteHid = emoteEl?.getAttribute("data-emote-hid");
-    if (!emoteHid) return error("Unable to drag emote, emote hid attribute does not exist..");
+  startDragFavoriteEmote(event, emoteBoxEl) {
     if (!this.favoritesEmoteSetEl) return error("Unable to drag emote, favorites emote set does not exist..");
     log("Starting emote drag mode..");
     this.isDraggingEmote = true;
     this.favoritesEmoteSetEl.classList.add("ntv__emote-set--dragging-emote");
     const favoriteEmotesSetBodyEl = this.favoritesEmoteSetEl.querySelector(".ntv__emote-set__emotes");
-    const dragHandleEmoteEl = this.dragHandleEmoteEl = emoteEl.cloneNode(true);
-    dragHandleEmoteEl.classList.add("ntv__emote--dragging");
+    const dragHandleEmoteEl = this.dragHandleEmoteEl = emoteBoxEl.cloneNode(true);
+    dragHandleEmoteEl.classList.add("ntv__emote-box--dragging");
     document.body.appendChild(dragHandleEmoteEl);
     dragHandleEmoteEl.style.left = `${event.clientX}px`;
     dragHandleEmoteEl.style.top = `${event.clientY}px`;
@@ -11567,7 +11589,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       return error("Unable to stop dragging emote, favorites emote set does not exist..");
     log("Stopped emote drag mode");
     this.favoritesEmoteSetEl.classList.remove("ntv__emote-set--dragging-emote");
-    emoteBoxEl?.classList.remove("ntv__emote--dragging");
+    emoteBoxEl?.classList.remove("ntv__emote-box--dragging");
     this.isDraggingEmote = false;
     this.dragHandleEmoteEl?.remove();
     this.dragHandleEmoteEl = null;
@@ -15111,6 +15133,9 @@ var ContentEditableEditor = class {
         this.inputEmpty = isNotEmpty;
         this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
       }
+    });
+    inputNode.addEventListener("cut", (evt) => {
+      this.hasUnprocessedContentChanges = true;
     });
     this.eventTarget.addEventListener("keydown", 10, this.handleKeydown.bind(this));
     inputNode.addEventListener("keydown", this.eventTarget.dispatchEvent.bind(this.eventTarget));
@@ -20300,6 +20325,19 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.26",
+    date: "2024-09-22",
+    description: `
+                  Feat: Settings modal now shows update info and button to trigger manual update
+                  Fix: Firefox add-on updates automatically triggers reload of everything resulting in double message rendering when sending messages #153
+                  Fix: ContentEditableEditor not reprocessing input on clipboard cut events #158
+                  Fix: Expired faved sub emotes not showing as locked
+                  Fix: Unability to unfavorite expired faved sub emotes
+                  Fix: Recently used emotes showing expired sub emotes
+                  Fix: Not being able to drag and reorder locked faved emotes
+            `
+  },
+  {
     version: "1.5.25",
     date: "2024-09-20",
     description: `
@@ -21190,12 +21228,12 @@ var CHANGELOG = [
 
 // src/UserInterface/Modals/SettingsModal.ts
 var SettingsModal = class extends AbstractModal {
-  constructor(eventBus, settingsOpts) {
+  constructor(rootEventBus, settingsOpts) {
     const geometry = {
       position: "center"
     };
     super("settings", geometry);
-    this.eventBus = eventBus;
+    this.rootEventBus = rootEventBus;
     this.settingsOpts = settingsOpts;
   }
   panelsEl;
@@ -21212,12 +21250,20 @@ var SettingsModal = class extends AbstractModal {
     const settingsMap = this.settingsOpts.settingsMap;
     const modalBodyEl = this.modalBodyEl;
     const windowWidth = window.innerWidth;
+    const hasUpdateAvailable = settingsMap.get("global.shared.app.update_available");
     const modalHeaderEl = this.modalHeaderBodyEl;
+    if (hasUpdateAvailable) {
+      modalHeaderEl.prepend(
+        parseHTML(
+          `<span class="ntv__modal__version">v${NTV_APP_VERSION}</span><span>|</span><span class="ntv__modal__update-available">Update available</span><button class="ntv__modal__update-btn ntv__button">Update now</button>`
+        )
+      );
+    } else {
+      modalHeaderEl.prepend(parseHTML(`<span class="ntv__modal__version">v${NTV_APP_VERSION}</span>`));
+    }
     modalHeaderEl.prepend(
       parseHTML(
-        cleanupHTML(`
-					<svg class="ntv__modal__logo" alt="NipahTV" width="32" height="32" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0230583" d="M 0.2512317,15.995848 0.2531577,6.8477328 C 0.24943124,6.3032776 0.7989812,5.104041 1.8304975,4.5520217 2.4476507,4.2217505 2.9962666,4.1106784 4.0212875,4.0887637 5.0105274,4.067611 5.5052433,4.2710769 5.6829817,4.3608374 c 0.4879421,0.2263549 0.995257,0.7009925 1.134824,0.9054343 l 4.4137403,6.8270373 c 0.262057,0.343592 0.582941,0.565754 0.919866,0.529874 0.284783,-0.0234 0.4358,-0.268186 0.437049,-0.491242 l 0.003,-9.2749904 L 0.25,2.8575985 0.25004315,0 15.747898,2.1455645e-4 15.747791,13.08679 c -0.0055,0.149056 -0.09606,1.191174 -1.033875,2.026391 -0.839525,0.807902 -2.269442,0.879196 -2.269442,0.879196 -0.601658,0.0088 -1.057295,0.02361 -1.397155,-0.04695 -0.563514,-0.148465 -0.807905,-0.274059 -1.274522,-0.607992 -0.4091245,-0.311857 -0.6818768,-0.678904 -0.9118424,-0.98799 0,0 -1.0856521,-1.86285 -1.8718165,-3.044031 C 6.3863506,10.352753 5.3651096,8.7805786 4.8659674,8.1123589 4.4859461,7.5666062 4.2214229,7.4478431 4.0798053,7.3975803 3.9287117,7.3478681 3.7624996,7.39252 3.6345251,7.4474753 3.5213234,7.5006891 3.4249644,7.5987165 3.4078407,7.7314301 l 7.632e-4,8.2653999 z"/></svg>
-					<span class="ntv__modal__version">v${NTV_APP_VERSION}</span>`)
+        `<svg class="ntv__modal__logo" alt="NipahTV" width="32" height="32" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0230583" d="M 0.2512317,15.995848 0.2531577,6.8477328 C 0.24943124,6.3032776 0.7989812,5.104041 1.8304975,4.5520217 2.4476507,4.2217505 2.9962666,4.1106784 4.0212875,4.0887637 5.0105274,4.067611 5.5052433,4.2710769 5.6829817,4.3608374 c 0.4879421,0.2263549 0.995257,0.7009925 1.134824,0.9054343 l 4.4137403,6.8270373 c 0.262057,0.343592 0.582941,0.565754 0.919866,0.529874 0.284783,-0.0234 0.4358,-0.268186 0.437049,-0.491242 l 0.003,-9.2749904 L 0.25,2.8575985 0.25004315,0 15.747898,2.1455645e-4 15.747791,13.08679 c -0.0055,0.149056 -0.09606,1.191174 -1.033875,2.026391 -0.839525,0.807902 -2.269442,0.879196 -2.269442,0.879196 -0.601658,0.0088 -1.057295,0.02361 -1.397155,-0.04695 -0.563514,-0.148465 -0.807905,-0.274059 -1.274522,-0.607992 -0.4091245,-0.311857 -0.6818768,-0.678904 -0.9118424,-0.98799 0,0 -1.0856521,-1.86285 -1.8718165,-3.044031 C 6.3863506,10.352753 5.3651096,8.7805786 4.8659674,8.1123589 4.4859461,7.5666062 4.2214229,7.4478431 4.0798053,7.3975803 3.9287117,7.3478681 3.7624996,7.39252 3.6345251,7.4474753 3.5213234,7.5006891 3.4249644,7.5987165 3.4078407,7.7314301 l 7.632e-4,8.2653999 z"/></svg>`
       )
     );
     this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true);
@@ -21381,6 +21427,9 @@ var SettingsModal = class extends AbstractModal {
     });
     this.sidebarBtnEl.addEventListener("click", () => {
       this.sidebarEl.classList.toggle("ntv__settings-modal__sidebar--open");
+    });
+    this.modalHeaderBodyEl.querySelector(".ntv__modal__update-btn")?.addEventListener("click", () => {
+      this.rootEventBus.publish("ntv.app.update");
     });
   }
 };
@@ -22038,7 +22087,8 @@ var SettingsManager = class {
     }
   ];
   settingsMap = /* @__PURE__ */ new Map([
-    ["global.shared.app.version", "1.0.0"],
+    ["global.shared.app.version", null],
+    ["global.shared.app.update_available", null],
     ["global.shared.app.announcements", {}]
   ]);
   isShowingModal = false;
@@ -22086,6 +22136,12 @@ var SettingsManager = class {
     this.database.settings.putRecord({ id, platformId, channelId, key, value }).catch((err) => error("Failed to save setting to database.", err.message));
     this.settingsMap.set(id, value);
   }
+  setGlobalSetting(key, value) {
+    const id = `global.shared.${key}`;
+    if (!this.settingsMap.has(id)) return error("Setting not registered:", id);
+    this.database.settings.putRecord({ id, platformId: "global", channelId: "shared", key, value }).catch((err) => error("Failed to save global setting to database.", err.message));
+    this.settingsMap.set(id, value);
+  }
   getSetting(channelId, key, bubbleChannel = true, bubblePlatform = true) {
     const platformId = NTV_PLATFORM;
     const id = `${platformId}.${channelId}.${key}`;
@@ -22097,6 +22153,10 @@ var SettingsManager = class {
     else if (bubblePlatform && bubbleChannel && this.settingsMap.has(`global.shared.${key}`))
       return this.settingsMap.get(`global.shared.${key}`);
     return error("Setting not registered:", id);
+  }
+  getGlobalSetting(key) {
+    if (this.settingsMap.has(`global.shared.${key}`)) return this.settingsMap.get(`global.shared.${key}`);
+    return error("Setting not registered:", key);
   }
   // getSettingsForPlatform(platformId: SettingDocument['platformId']) {}
   // getSettingsForChannel(platformId: SettingDocument['platformId'], channelId: SettingDocument['channelId']) {}
@@ -23011,7 +23071,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.25";
+  VERSION = "1.5.26";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23105,11 +23165,36 @@ var NipahClient = class {
       announcementService: new AnnouncementService(rootEventBus, settingsManager)
     };
     this.loadExtensions();
-    this.loadSettingsManagerPromise = settingsManager.loadSettings().catch((err) => {
+    this.loadSettingsManagerPromise = settingsManager.loadSettings().then(() => {
+      log("Settings loaded successfully.");
+      const appVersion = settingsManager.getGlobalSetting("app.version");
+      if (!appVersion || appVersion !== this.VERSION) {
+        settingsManager.setGlobalSetting("app.version", this.VERSION);
+      }
+      const updateAvailableVersion = settingsManager.getGlobalSetting("app.update_available");
+      if (updateAvailableVersion && updateAvailableVersion <= this.VERSION) {
+        settingsManager.setGlobalSetting("app.update_available", null);
+      }
+    }).catch((err) => {
       throw new Error(`Couldn't load settings because: ${err}`);
     });
+    this.loadAppUpdateBehaviour(rootEventBus);
     this.doExtensionCompatibilityChecks();
     this.createChannelSession();
+  }
+  loadAppUpdateBehaviour(rootEventBus) {
+    rootEventBus.subscribe("ntv.app.update", () => {
+      info("Extension update has been requested, reloading extension..");
+      browser.runtime.sendMessage({
+        action: "runtime.reload"
+      }).then(() => {
+        info("Reloading page after runtime reload..");
+        location.reload();
+      }).catch((err) => {
+        error("Failed to reload extension.", err);
+        location.reload();
+      });
+    });
   }
   async loadExtensions() {
     const rootContext = this.rootContext;
@@ -23126,7 +23211,7 @@ var NipahClient = class {
     const rootContext = this.rootContext;
     if (!rootContext) throw new Error("Root context is not initialized.");
     const { announcementService, eventBus: rootEventBus } = rootContext;
-    waitForElements(["#seventv-site-hosted", "#seventv-stylesheet"], 6e3).then(() => {
+    waitForElements(["#seventv-site-hosted"], 6e3).then(() => {
       log("Detected SevenTV extension");
       const platformName = NTV_PLATFORM[0].toUpperCase() + NTV_PLATFORM.slice(1);
       announcementService.registerAnnouncement({

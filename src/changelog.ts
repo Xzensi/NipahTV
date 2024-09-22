@@ -4,6 +4,19 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.26',
+		date: '2024-09-22',
+		description: `
+                  Feat: Settings modal now shows update info and button to trigger manual update
+                  Fix: Firefox add-on updates automatically triggers reload of everything resulting in double message rendering when sending messages #153
+                  Fix: ContentEditableEditor not reprocessing input on clipboard cut events #158
+                  Fix: Expired faved sub emotes not showing as locked
+                  Fix: Unability to unfavorite expired faved sub emotes
+                  Fix: Recently used emotes showing expired sub emotes
+                  Fix: Not being able to drag and reorder locked faved emotes
+            `
+	},
+	{
 		version: '1.5.25',
 		date: '2024-09-20',
 		description: `
