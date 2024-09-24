@@ -159,7 +159,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 	}
 
 	getRenderableEmote(emote: Emote, classes = '') {
-		const ext = (SUPPORTS_AVIF && 'avif') || 'webp'
+		const ext = (SUPPORTS_AVIF && BROWSER !== BROWSER_ENUM.SAFARI && 'avif') || 'webp'
 		const srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`
 
 		return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`
