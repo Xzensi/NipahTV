@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.29',
+		date: '2024-09-24',
+		description: `
+                  Fix: Safari seems to have partial support for Avif causing issues
+            `
+	},
+	{
 		version: '1.5.28',
 		date: '2024-09-24',
 		description: `

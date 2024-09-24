@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.28
+// @version 1.5.29
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10115,14 +10115,14 @@ var Logger = class {
 };
 
 // src/constants.ts
-var BROWSER_ENUM = /* @__PURE__ */ ((BROWSER_ENUM3) => {
-  BROWSER_ENUM3[BROWSER_ENUM3["NULL"] = 0] = "NULL";
-  BROWSER_ENUM3[BROWSER_ENUM3["CHROME"] = 1] = "CHROME";
-  BROWSER_ENUM3[BROWSER_ENUM3["FIREFOX"] = 2] = "FIREFOX";
-  BROWSER_ENUM3[BROWSER_ENUM3["OPERAGX"] = 3] = "OPERAGX";
-  BROWSER_ENUM3[BROWSER_ENUM3["EDGE"] = 4] = "EDGE";
-  BROWSER_ENUM3[BROWSER_ENUM3["SAFARI"] = 5] = "SAFARI";
-  return BROWSER_ENUM3;
+var BROWSER_ENUM = /* @__PURE__ */ ((BROWSER_ENUM2) => {
+  BROWSER_ENUM2[BROWSER_ENUM2["NULL"] = 0] = "NULL";
+  BROWSER_ENUM2[BROWSER_ENUM2["CHROME"] = 1] = "CHROME";
+  BROWSER_ENUM2[BROWSER_ENUM2["FIREFOX"] = 2] = "FIREFOX";
+  BROWSER_ENUM2[BROWSER_ENUM2["OPERAGX"] = 3] = "OPERAGX";
+  BROWSER_ENUM2[BROWSER_ENUM2["EDGE"] = 4] = "EDGE";
+  BROWSER_ENUM2[BROWSER_ENUM2["SAFARI"] = 5] = "SAFARI";
+  return BROWSER_ENUM2;
 })(BROWSER_ENUM || {});
 var U_TAG_LATIN_A = String.fromCodePoint(917569);
 var U_TAG_LATIN_B = String.fromCodePoint(917570);
@@ -19612,7 +19612,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
     ];
   }
   getRenderableEmote(emote, classes = "") {
-    const ext = NTV_SUPPORTS_AVIF && "avif" || "webp";
+    const ext = NTV_SUPPORTS_AVIF && NTV_BROWSER !== 5 /* SAFARI */ && "avif" || "webp";
     const srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`;
     return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`;
   }
@@ -20377,6 +20377,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.29",
+    date: "2024-09-24",
+    description: `
+                  Fix: Safari seems to have partial support for Avif causing issues
+            `
+  },
   {
     version: "1.5.28",
     date: "2024-09-24",
@@ -23138,7 +23145,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.28";
+  VERSION = "1.5.29";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
