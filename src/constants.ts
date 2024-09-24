@@ -11,6 +11,21 @@ export enum PROVIDER_ENUM {
 	SEVENTV
 }
 
+export enum BROWSER_ENUM {
+	NULL,
+	CHROME,
+	FIREFOX,
+	OPERAGX,
+	EDGE,
+	SAFARI
+}
+
+export enum DEVICE_ENUM {
+	NULL,
+	DESKTOP,
+	MOBILE_OR_TABLET
+}
+
 export const U_TAG_LATIN_A = String.fromCodePoint(0xe0041)
 export const U_TAG_LATIN_B = String.fromCodePoint(0xe0042)
 export const U_TAG_LATIN_C = String.fromCodePoint(0xe0043)

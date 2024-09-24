@@ -9,7 +9,7 @@ import type { IBadgeProvider } from '../Providers/BadgeProvider'
 import type SettingsManager from '../Managers/SettingsManager'
 import type EmotesManager from '../Managers/EmotesManager'
 import type UsersManager from '../Managers/UsersManager'
-import type { PLATFORM_ENUM } from '../constants'
+import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from '../constants'
 import type Publisher from '../Classes/Publisher'
 import type Database from '../Database/Database'
 import type { RESTFromMain } from '../utils'
@@ -40,6 +40,9 @@ declare global {
 	const PLATFORM: PlatformId
 	const RESOURCE_ROOT: string
 	const APP_VERSION: string
+	const BROWSER: BROWSER_ENUM
+	const DEVICE: DEVICE_ENUM
+	const SUPPORTS_AVIF: boolean
 
 	interface Window {
 		navigation: any
