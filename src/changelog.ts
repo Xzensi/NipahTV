@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.28',
+		date: '2024-09-24',
+		description: `
+                  Fix: Added WebP fallback support for browsers that do not support the modern AVIF standard
+            `
+	},
+	{
 		version: '1.5.27',
 		date: '2024-09-22',
 		description: `

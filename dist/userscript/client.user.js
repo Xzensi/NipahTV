@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.27
+// @version 1.5.28
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10115,6 +10115,15 @@ var Logger = class {
 };
 
 // src/constants.ts
+var BROWSER_ENUM = /* @__PURE__ */ ((BROWSER_ENUM3) => {
+  BROWSER_ENUM3[BROWSER_ENUM3["NULL"] = 0] = "NULL";
+  BROWSER_ENUM3[BROWSER_ENUM3["CHROME"] = 1] = "CHROME";
+  BROWSER_ENUM3[BROWSER_ENUM3["FIREFOX"] = 2] = "FIREFOX";
+  BROWSER_ENUM3[BROWSER_ENUM3["OPERAGX"] = 3] = "OPERAGX";
+  BROWSER_ENUM3[BROWSER_ENUM3["EDGE"] = 4] = "EDGE";
+  BROWSER_ENUM3[BROWSER_ENUM3["SAFARI"] = 5] = "SAFARI";
+  return BROWSER_ENUM3;
+})(BROWSER_ENUM || {});
 var U_TAG_LATIN_A = String.fromCodePoint(917569);
 var U_TAG_LATIN_B = String.fromCodePoint(917570);
 var U_TAG_LATIN_C = String.fromCodePoint(917571);
@@ -10462,6 +10471,46 @@ function countStringOccurrences(str, substr) {
     post = str.indexOf(substr, post + sl);
   }
   return count;
+}
+async function getBrowser() {
+  return async function(agent) {
+    if (navigator.brave && await navigator.brave.isBrave() || false) return BROWSER_ENUM.BRAVE;
+    switch (true) {
+      case agent.indexOf("edge") > -1:
+        return 4 /* EDGE */;
+      case agent.indexOf("edg") > -1:
+        return 4 /* EDGE */;
+      case (agent.indexOf("opr") > -1 && !!window.opr):
+        return 3 /* OPERAGX */;
+      case (agent.indexOf("chrome") > -1 && !!window.chrome):
+        return 1 /* CHROME */;
+      case agent.indexOf("firefox") > -1:
+        return 2 /* FIREFOX */;
+      case agent.indexOf("safari") > -1:
+        return 5 /* SAFARI */;
+      default:
+        return 0 /* NULL */;
+    }
+  }(window.navigator.userAgent.toLowerCase());
+}
+function getDevice() {
+  if (typeof screen.orientation !== "undefined") return 2 /* MOBILE_OR_TABLET */;
+  const navString = navigator.userAgent || navigator.vendor || window.opera;
+  const check = /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(
+    navString
+  ) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(
+    navString.substr(0, 4)
+  );
+  if (check) return 2 /* MOBILE_OR_TABLET */;
+  return 1 /* DESKTOP */;
+}
+function hasSupportForAvif() {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = "data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAD5bWV0YQAAAAAAAAAvaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAFBpY3R1cmVIYW5kbGVyAAAAAA5waXRtAAAAAAABAAAAHmlsb2MAAAAARAAAAQABAAAAAQAAASEAAAAlAAAAKGlpbmYAAAAAAAEAAAAaaW5mZQIAAAAAAQAAYXYwMUNvbG9yAAAAAGppcHJwAAAAS2lwY28AAAAUaXNwZQAAAAAAAAAQAAAAEAAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EgAAAAAAATY29scm5jbHgAAQANAACAAAAAF2lwbWEAAAAAAAAAAQABBAECgwQAAAAtbWRhdAoMIAAAAZ/5//NAQ0AIMhUQAIAAABS5uMDf00UXignEqOuPKGo=";
+    img.onload = () => resolve(img.width === 16 && img.height === 16);
+    img.onerror = () => resolve(false);
+  });
 }
 function splitEmoteName(name, minPartLength) {
   if (name.length < minPartLength || name === name.toLowerCase() || name === name.toUpperCase()) {
@@ -19563,8 +19612,9 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
     ];
   }
   getRenderableEmote(emote, classes = "") {
-    const srcset = `https://cdn.7tv.app/emote/${emote.id}/1x.avif 1x, https://cdn.7tv.app/emote/${emote.id}/2x.avif 2x, https://cdn.7tv.app/emote/${emote.id}/3x.avif 3x, https://cdn.7tv.app/emote/${emote.id}/4x.avif 4x`;
-    return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+    const ext = NTV_SUPPORTS_AVIF && "avif" || "webp";
+    const srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`;
+    return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`;
   }
   getEmbeddableEmote(emote) {
     return emote.name;
@@ -20327,6 +20377,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.28",
+    date: "2024-09-24",
+    description: `
+                  Fix: Added WebP fallback support for browsers that do not support the modern AVIF standard
+            `
+  },
   {
     version: "1.5.27",
     date: "2024-09-22",
@@ -23081,7 +23138,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.27";
+  VERSION = "1.5.28";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23096,7 +23153,7 @@ var NipahClient = class {
   loadSettingsManagerPromise = null;
   database = null;
   sessions = [];
-  initialize() {
+  async initialize() {
     const { ENV_VARS } = this;
     info(`Initializing Nipah client [${this.VERSION}]..`);
     let resourceRoot;
@@ -23124,14 +23181,23 @@ var NipahClient = class {
       window.NTV_APP_VERSION = this.VERSION;
       window.NTV_PLATFORM = platform;
       window.NTV_RESOURCE_ROOT = resourceRoot;
+      window.NTV_BROWSER = await getBrowser();
+      window.NTV_DEVICE = getDevice();
+      window.NTV_SUPPORTS_AVIF = await hasSupportForAvif();
     } else {
       window.PLATFORM = platform;
       window.RESOURCE_ROOT = resourceRoot;
       window.APP_VERSION = this.VERSION;
+      window.BROWSER = await getBrowser();
+      window.DEVICE = getDevice();
+      window.SUPPORTS_AVIF = await hasSupportForAvif();
     }
     Object.freeze(NTV_APP_VERSION);
     Object.freeze(NTV_PLATFORM);
     Object.freeze(NTV_RESOURCE_ROOT);
+    Object.freeze(NTV_BROWSER);
+    Object.freeze(NTV_DEVICE);
+    Object.freeze(NTV_SUPPORTS_AVIF);
     this.attachPageNavigationListener();
     this.setupDatabase().then(async () => {
       window.RESTFromMainService = new RESTFromMain();
