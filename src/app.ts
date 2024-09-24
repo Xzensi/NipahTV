@@ -11,7 +11,18 @@ import KickEmoteProvider from './Providers/KickEmoteProvider'
 import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
 import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
 import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
-import { log, info, error, RESTFromMain, debounce, getPlatformId, waitForElements } from './utils'
+import {
+	log,
+	info,
+	error,
+	RESTFromMain,
+	debounce,
+	getPlatformId,
+	waitForElements,
+	getBrowser,
+	getDevice,
+	hasSupportForAvif
+} from './utils'
 import KickBadgeProvider from './Providers/KickBadgeProvider'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
 import SettingsManager from './Managers/SettingsManager'
@@ -30,7 +41,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.27'
+	VERSION = '1.5.28'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -49,7 +60,7 @@ class NipahClient {
 	private database: DatabaseProxy | null = null
 	private sessions: Session[] = []
 
-	initialize() {
+	async initialize() {
 		const { ENV_VARS } = this
 
 		info(`Initializing Nipah client [${this.VERSION}]..`)
@@ -87,6 +98,12 @@ class NipahClient {
 			window.NTV_PLATFORM = platform
 			// @ts-expect-error
 			window.NTV_RESOURCE_ROOT = resourceRoot
+			// @ts-expect-error
+			window.NTV_BROWSER = await getBrowser()
+			// @ts-expect-error
+			window.NTV_DEVICE = getDevice()
+			// @ts-expect-error
+			window.NTV_SUPPORTS_AVIF = await hasSupportForAvif()
 		} else {
 			// @ts-expect-error
 			window.PLATFORM = platform
@@ -94,11 +111,20 @@ class NipahClient {
 			window.RESOURCE_ROOT = resourceRoot
 			// @ts-expect-error
 			window.APP_VERSION = this.VERSION
+			// @ts-expect-error
+			window.BROWSER = await getBrowser()
+			// @ts-expect-error
+			window.DEVICE = getDevice()
+			// @ts-expect-error
+			window.SUPPORTS_AVIF = await hasSupportForAvif()
 		}
 
 		Object.freeze(APP_VERSION)
 		Object.freeze(PLATFORM)
 		Object.freeze(RESOURCE_ROOT)
+		Object.freeze(BROWSER)
+		Object.freeze(DEVICE)
+		Object.freeze(SUPPORTS_AVIF)
 
 		this.attachPageNavigationListener()
 		this.setupDatabase().then(async () => {
