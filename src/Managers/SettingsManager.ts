@@ -77,15 +77,16 @@ export default class SettingsManager {
 					- Seperators (dropdown)
 					- Messages spacing (dropdown)
 					- Messages style (dropdown
-			= Badges
-				(Badges)
-					- Show the NipahTV badge for NTV users
-            = Behavior
+			= Behavior
                 (General)
+					- Enable chat message rendering
                     - Enable chat smooth scrolling
                 (Search)
                     - Add bias to emotes of channels you are subscribed to
                     - Add extra bias to emotes of the current channel you are watching the stream of
+			= Badges
+				(Badges)
+					- Show the NipahTV badge for NTV users
             = Emotes
                 (Appearance)
                     - Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them
@@ -129,6 +130,10 @@ export default class SettingsManager {
 					- Show recently used emotes in the quick emote holder
                 (Behavior)
                     - Send emotes to chat immediately on click
+		= Moderators
+			= Behavior
+				(General)
+					- Completely disable NipahTV for moderator and creator dashboard
 	*/
 
 	private uiSettings: UISettingsGroup[] = [
@@ -351,27 +356,17 @@ export default class SettingsManager {
 					]
 				},
 				{
-					label: 'Badges',
-					children: [
-						{
-							label: 'Badges',
-							children: [
-								{
-									label: 'Show the NipahTV badge for NTV users',
-									key: 'chat.badges.show_ntv_badge',
-									default: true,
-									type: 'checkbox'
-								}
-							]
-						}
-					]
-				},
-				{
 					label: 'Behavior',
 					children: [
 						{
 							label: 'General',
 							children: [
+								{
+									label: 'Enable chat message rendering',
+									key: 'chat.behavior.enable_chat_rendering',
+									default: true,
+									type: 'checkbox'
+								},
 								{
 									label: 'Enable chat smooth scrolling (currently broken after Kick update!)',
 									key: 'chat.behavior.smooth_scrolling',
@@ -393,6 +388,22 @@ export default class SettingsManager {
 								{
 									label: 'Add extra bias to emotes of the current channel you are watching the stream of',
 									key: 'chat.behavior.search_bias_current_channels',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Badges',
+					children: [
+						{
+							label: 'Badges',
+							children: [
+								{
+									label: 'Show the NipahTV badge for NTV users',
+									key: 'chat.badges.show_ntv_badge',
 									default: true,
 									type: 'checkbox'
 								}
@@ -633,23 +644,6 @@ export default class SettingsManager {
 					]
 				},
 				{
-					label: 'Moderators',
-					children: [
-						{
-							label: 'Messages',
-							description: 'These settings are only applicable to moderators.',
-							children: [
-								{
-									label: 'Show quick actions (delete, timeout, ban)',
-									key: 'chat.moderators.show_quick_actions',
-									default: true,
-									type: 'checkbox'
-								}
-							]
-						}
-					]
-				},
-				{
 					label: 'Quick Emote Holder',
 					children: [
 						{
@@ -697,6 +691,44 @@ export default class SettingsManager {
 									key: 'chat.quick_emote_holder.send_immediately',
 									type: 'checkbox',
 									default: false
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			label: 'Moderators',
+			children: [
+				{
+					label: 'Behavior',
+					children: [
+						{
+							label: 'General',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Completely disable NipahTV for moderator and creator dashboard pages. WARNING: This will COMPLETELY disable NipahTV for these pages! (You can undo this setting by accessing the settings again on any frontend stream page)',
+									key: 'moderators.mod_creator_view.disable_ntv',
+									default: false,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Chat',
+					children: [
+						{
+							label: 'Messages',
+							children: [
+								{
+									label: 'Show quick actions (delete, timeout, ban)',
+									key: 'moderators.chat.show_quick_actions',
+									default: true,
+									type: 'checkbox'
 								}
 							]
 						}
@@ -752,15 +784,15 @@ export default class SettingsManager {
 		}
 
 		//! Temporary migration code
-		// ;[['shared.chat.input.tab_completion.tooltip', 'shared.chat.input.completion.tooltip']].forEach(
-		// 	([oldKey, newKey]) => {
-		// 		if (this.settingsMap.has(oldKey)) {
-		// 			const val = this.settingsMap.get(oldKey)
-		// 			this.setSetting(newKey, val)
-		// 			database.settings.deleteRecord(oldKey)
-		// 		}
-		// 	}
-		// )
+		;[['chat.moderators.show_quick_actions', 'moderators.chat.show_quick_actions']].forEach(
+			async ([oldKey, newKey]) => {
+				if (this.settingsMap.has('global.shared.' + oldKey)) {
+					const val = this.settingsMap.get('global.shared.' + oldKey)
+					await database.settings.deleteRecord('global.shared.' + oldKey)
+					this.setSetting('global', 'shared', newKey, val)
+				}
+			}
+		)
 
 		//! Temporary delete old settings records
 		// ;['shared.chat.input.tab_completion.multiple_entries'].forEach(key => {

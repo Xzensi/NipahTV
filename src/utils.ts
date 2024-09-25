@@ -135,11 +135,21 @@ export class REST {
 
 			xhr.onload = function () {
 				if (xhr.status >= 200 && xhr.status < 300) {
-					if (xhr.responseText) resolve(JSON.parse(xhr.responseText))
-					else resolve(void 0)
+					if (xhr.responseText) {
+						try {
+							resolve(JSON.parse(xhr.responseText))
+						} catch (e) {
+							reject()
+						}
+					} else resolve(void 0)
 				} else {
-					if (xhr.responseText) reject(JSON.parse(xhr.responseText))
-					else reject('Request failed with status code ' + xhr.status)
+					if (xhr.responseText) {
+						try {
+							reject(JSON.parse(xhr.responseText))
+						} catch (e) {
+							reject()
+						}
+					} else reject('Request failed with status code ' + xhr.status)
 				}
 			}
 			xhr.onerror = function () {
@@ -176,11 +186,21 @@ export class RESTFromMain {
 				this.promiseMap.delete(rID)
 
 				if (xhr.status >= 200 && xhr.status < 300) {
-					if (xhr.text) resolve(JSON.parse(xhr.text))
-					else resolve(void 0)
+					if (xhr.text) {
+						try {
+							resolve(JSON.parse(xhr.text))
+						} catch (e) {
+							reject()
+						}
+					} else resolve(void 0)
 				} else {
-					if (xhr.text) reject(JSON.parse(xhr.text))
-					else reject('Request failed with status code ' + xhr.status)
+					if (xhr.text) {
+						try {
+							reject(JSON.parse(xhr.text))
+						} catch (e) {
+							reject()
+						}
+					} else reject('Request failed with status code ' + xhr.status)
 				}
 			})
 		}

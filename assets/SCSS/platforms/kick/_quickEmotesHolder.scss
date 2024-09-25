@@ -7,6 +7,12 @@
 		// Force hide the Kick quick emote holder
 		display: none !important;
 	}
+
+	// For moderator / creator view
+	& + div.quick-emotes-holder {
+		// Show the new quick emote holder
+		display: none !important;
+	}
 }
 
 #channel-chatroom > div > div > .z-common:not(.absolute) {
