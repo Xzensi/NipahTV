@@ -1932,10 +1932,18 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			for (const badgeWrapperEl of badgesEl?.children || []) {
 				const subWrapperEl = badgeWrapperEl.firstElementChild as HTMLElement
-				const svgEl = subWrapperEl.firstElementChild!.firstElementChild?.cloneNode(true) as SVGElement
-				svgEl.setAttribute('class', 'ntv__badge')
+
+				let imgOrSvgEl = subWrapperEl.firstElementChild
+				if (imgOrSvgEl && imgOrSvgEl.tagName !== 'IMG') imgOrSvgEl = imgOrSvgEl.firstElementChild
+				if (!imgOrSvgEl || (imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')) {
+					error('Badge image or svg element not found', imgOrSvgEl)
+					continue
+				}
+
+				const ntvBadgeEl = imgOrSvgEl?.cloneNode(true) as HTMLElement
+				ntvBadgeEl.setAttribute('class', 'ntv__badge')
 				// subWrapperEl.setAttribute('class', 'ntv__chat-message__badge')
-				ntvBadgesEl.append(svgEl)
+				ntvBadgesEl.append(ntvBadgeEl)
 			}
 
 			if (chatMessageIdentityEl) {
