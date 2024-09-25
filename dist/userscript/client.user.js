@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.30
+// @version 1.5.31
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -17593,9 +17593,15 @@ var KickUserInterface = class extends AbstractUserInterface {
       ntvBadgesEl.className = "ntv__chat-message__badges";
       for (const badgeWrapperEl of badgesEl?.children || []) {
         const subWrapperEl = badgeWrapperEl.firstElementChild;
-        const svgEl = subWrapperEl.firstElementChild.firstElementChild?.cloneNode(true);
-        svgEl.setAttribute("class", "ntv__badge");
-        ntvBadgesEl.append(svgEl);
+        let imgOrSvgEl = subWrapperEl.firstElementChild;
+        if (imgOrSvgEl && imgOrSvgEl.tagName !== "IMG") imgOrSvgEl = imgOrSvgEl.firstElementChild;
+        if (!imgOrSvgEl || imgOrSvgEl.tagName !== "IMG" && imgOrSvgEl.tagName !== "svg") {
+          error("Badge image or svg element not found", imgOrSvgEl);
+          continue;
+        }
+        const ntvBadgeEl = imgOrSvgEl?.cloneNode(true);
+        ntvBadgeEl.setAttribute("class", "ntv__badge");
+        ntvBadgesEl.append(ntvBadgeEl);
       }
       if (chatMessageIdentityEl) {
         if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
@@ -20709,6 +20715,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.31",
+    date: "2024-09-25",
+    description: `
+                  Fix: Inconsistent badge element structure in old Kick website structure causing chat rendering to crash
+            `
+  },
+  {
     version: "1.5.30",
     date: "2024-09-25",
     description: `
@@ -23535,7 +23548,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.30";
+  VERSION = "1.5.31";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
