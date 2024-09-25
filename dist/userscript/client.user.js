@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.29
+// @version 1.5.30
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-5b7a076c.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-913a6f87.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10258,11 +10258,21 @@ var REST = class {
       }
       xhr.onload = function() {
         if (xhr.status >= 200 && xhr.status < 300) {
-          if (xhr.responseText) resolve(JSON.parse(xhr.responseText));
-          else resolve(void 0);
+          if (xhr.responseText) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject();
+            }
+          } else resolve(void 0);
         } else {
-          if (xhr.responseText) reject(JSON.parse(xhr.responseText));
-          else reject("Request failed with status code " + xhr.status);
+          if (xhr.responseText) {
+            try {
+              reject(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject();
+            }
+          } else reject("Request failed with status code " + xhr.status);
         }
       };
       xhr.onerror = function() {
@@ -10291,11 +10301,21 @@ var RESTFromMain = class {
         const { resolve, reject } = this.promiseMap.get(rID);
         this.promiseMap.delete(rID);
         if (xhr.status >= 200 && xhr.status < 300) {
-          if (xhr.text) resolve(JSON.parse(xhr.text));
-          else resolve(void 0);
+          if (xhr.text) {
+            try {
+              resolve(JSON.parse(xhr.text));
+            } catch (e) {
+              reject();
+            }
+          } else resolve(void 0);
         } else {
-          if (xhr.text) reject(JSON.parse(xhr.text));
-          else reject("Request failed with status code " + xhr.status);
+          if (xhr.text) {
+            try {
+              reject(JSON.parse(xhr.text));
+            } catch (e) {
+              reject();
+            }
+          } else reject("Request failed with status code " + xhr.status);
         }
       });
     }
@@ -16271,77 +16291,130 @@ var KickUserInterface = class extends AbstractUserInterface {
     const abortSignal = abortController.signal;
     this.loadAnnouncements();
     this.loadSettings();
-    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
-    waitForElements(
-      [
-        '#channel-chatroom .editor-input[contenteditable="true"]',
-        `${footerSelector} button.select-none.bg-green-500.rounded`
-      ],
-      1e4,
-      abortSignal
-    ).then((foundElements) => {
-      if (this.session.isDestroyed) return;
-      const [textFieldEl, submitButtonEl] = foundElements;
-      this.loadInputBehaviour(textFieldEl, submitButtonEl);
-      this.loadEmoteMenu();
-    }).catch(() => {
-    });
-    waitForElements([`${footerSelector}`], 1e4, abortSignal).then((foundElements) => {
-      if (this.session.isDestroyed) return;
-      const [footerEl] = foundElements;
-      footerEl.classList.add("kick__chat-footer");
-      const timersContainer = document.createElement("div");
-      timersContainer.id = "ntv__timers-container";
-      footerEl.append(timersContainer);
-      this.elm.timersContainer = timersContainer;
-      waitForElements([`${footerSelector}`], 1e4, abortSignal).then((foundElements2) => {
+    if (channelData.isModView || channelData.isCreatorView) {
+      waitForElements(["#message-input", "#chatroom-footer .send-row > button"], 1e4, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
-        const [footerEl2] = foundElements2;
-        const quickEmotesHolderEl = footerEl2.querySelector("& > .overflow-hidden");
-        this.loadQuickEmotesHolder(footerEl2, quickEmotesHolderEl);
+        const [textFieldEl, submitButtonEl] = foundElements;
+        this.loadInputBehaviour(textFieldEl, submitButtonEl);
+        this.loadEmoteMenu();
       }).catch(() => {
       });
-      waitForElements([`${footerSelector} > div.flex > .flex.items-center`], 1e4, abortSignal).then((foundElements2) => {
+      waitForElements(["#chatroom-footer"], 1e4, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
-        const [footerBottomBarEl] = foundElements2;
-        this.loadEmoteMenuButton(footerBottomBarEl);
+        const [footerEl] = foundElements;
+        footerEl.classList.add("kick__chat-footer");
+        const timersContainer = document.createElement("div");
+        timersContainer.id = "ntv__timers-container";
+        footerEl.append(timersContainer);
+        this.elm.timersContainer = timersContainer;
+        const quickEmotesHolderEl = footerEl.querySelector("& > .quick-emotes-holder");
+        this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
+        waitForElements(["#chatroom-footer .send-row"], 1e4, abortSignal).then((foundElements2) => {
+          if (this.session.isDestroyed) return;
+          const [footerBottomBarEl] = foundElements2;
+          this.loadEmoteMenuButton(footerBottomBarEl);
+        }).catch(() => {
+        });
       }).catch(() => {
       });
-    }).catch(() => {
-    });
-    const chatMessagesContainerSelector = "#chatroom-messages > .no-scrollbar";
-    waitForElements([chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
-      if (this.session.isDestroyed) return;
-      const [chatMessagesContainerEl] = foundElements;
-      chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
-      this.elm.chatMessagesContainer = chatMessagesContainerEl;
-      if (settingsManager.getSetting(channelId, "chat.appearance.show_timestamps")) {
-        chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
-      }
-      if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
-        chatMessagesContainerEl.classList.add("ntv__alternating-background");
-      }
-      if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
-        chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
-      }
-      chatMessagesContainerEl.addEventListener("copy", (evt) => {
-        this.clipboard.handleCopyEvent(evt);
+      waitForElements(["#chatroom-top + div.overflow-hidden > .overflow-x-hidden"], 1e4, abortSignal).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        const [chatMessagesContainerEl] = foundElements;
+        chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
+        this.elm.chatMessagesContainer = chatMessagesContainerEl;
+        if (settingsManager.getSetting(channelId, "chat.appearance.show_timestamps")) {
+          chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
+        }
+        if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
+          chatMessagesContainerEl.classList.add("ntv__alternating-background");
+        }
+        if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
+          chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
+        }
+        chatMessagesContainerEl.addEventListener("copy", (evt) => {
+          this.clipboard.handleCopyEvent(evt);
+        });
+        eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
+        this.observeChatMessages(chatMessagesContainerEl);
+        if (channelData.isVod) {
+          this.loadVodBehaviour();
+        } else {
+          this.observeChatEntriesForDeletionEvents();
+        }
+      }).catch(() => {
       });
-      eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
-      this.observeChatMessages(chatMessagesContainerEl);
-      if (channelData.isVod) {
-        this.loadVodBehaviour();
-      } else {
-        this.observePinnedMessage();
-        this.observeChatEntriesForDeletionEvents();
-      }
-    }).catch(() => {
-    });
-    waitForElements(["#video-player", chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
-      if (this.session.isDestroyed) return;
-      this.loadTheatreModeBehaviour();
-    }).catch(() => {
-    });
+    } else {
+      const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+      waitForElements(
+        [
+          '#channel-chatroom .editor-input[contenteditable="true"]',
+          `${footerSelector} button.select-none.bg-green-500.rounded`
+        ],
+        1e4,
+        abortSignal
+      ).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        const [textFieldEl, submitButtonEl] = foundElements;
+        this.loadInputBehaviour(textFieldEl, submitButtonEl);
+        this.loadEmoteMenu();
+      }).catch(() => {
+      });
+      waitForElements([`${footerSelector}`], 1e4, abortSignal).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        const [footerEl] = foundElements;
+        footerEl.classList.add("kick__chat-footer");
+        const timersContainer = document.createElement("div");
+        timersContainer.id = "ntv__timers-container";
+        footerEl.append(timersContainer);
+        this.elm.timersContainer = timersContainer;
+        const quickEmotesHolderEl = footerEl.querySelector("& > .overflow-hidden");
+        this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
+        waitForElements(
+          [`${footerSelector} > div.flex > .flex.items-center > .items-center`],
+          1e4,
+          abortSignal
+        ).then((foundElements2) => {
+          if (this.session.isDestroyed) return;
+          const [footerBottomBarEl] = foundElements2;
+          this.loadEmoteMenuButton(footerBottomBarEl);
+        }).catch(() => {
+        });
+      }).catch(() => {
+      });
+      const chatMessagesContainerSelector = "#chatroom-messages > .no-scrollbar";
+      waitForElements([chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        const [chatMessagesContainerEl] = foundElements;
+        chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
+        this.elm.chatMessagesContainer = chatMessagesContainerEl;
+        if (settingsManager.getSetting(channelId, "chat.appearance.show_timestamps")) {
+          chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
+        }
+        if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
+          chatMessagesContainerEl.classList.add("ntv__alternating-background");
+        }
+        if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
+          chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
+        }
+        chatMessagesContainerEl.addEventListener("copy", (evt) => {
+          this.clipboard.handleCopyEvent(evt);
+        });
+        eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
+        this.observeChatMessages(chatMessagesContainerEl);
+        if (channelData.isVod) {
+          this.loadVodBehaviour();
+        } else {
+          this.observePinnedMessage();
+          this.observeChatEntriesForDeletionEvents();
+        }
+      }).catch(() => {
+      });
+      waitForElements(["#video-player", chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        this.loadTheatreModeBehaviour();
+      }).catch(() => {
+      });
+    }
     eventBus.subscribe(
       "ntv.ui.emote.click",
       ({ emoteHid, sendImmediately }) => {
@@ -16355,7 +16428,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     );
     eventBus.subscribe("ntv.input_controller.submit", (data) => this.submitInput(false, data?.dontClearInput));
     rootEventBus.subscribe(
-      "ntv.settings.change.chat.moderators.show_quick_actions",
+      "ntv.settings.change.moderators.chat.show_quick_actions",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
           el.classList.toggle("ntv__chat-message--show-quick-actions", !!value);
@@ -16375,7 +16448,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.chat.moderators.show_quick_actions",
+      "ntv.settings.change.moderators.chat.show_quick_actions",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__alternating-background", !!value);
       }
@@ -16428,7 +16501,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   async loadEmoteMenuButton(kickFooterBottomBarEl) {
     const placeholder = document.createElement("div");
-    const footerSubmitButtonWrapper = kickFooterBottomBarEl.lastElementChild;
+    const footerSubmitButtonWrapper = kickFooterBottomBarEl;
     if (!footerSubmitButtonWrapper) return error("Footer submit button wrapper not found for emote menu button");
     footerSubmitButtonWrapper.prepend(placeholder);
     this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init();
@@ -16510,8 +16583,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     submitButtonEl.classList.add("ntv__submit-button", "disabled");
     submitButtonEl.textContent = "Chat";
     this.elm.originalSubmitButton = kickSubmitButtonEl;
-    kickSubmitButtonEl.style.setProperty("display", "none", "important");
-    kickSubmitButtonEl.after(submitButtonEl);
+    kickSubmitButtonEl.before(submitButtonEl);
     submitButtonEl.addEventListener("click", (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event));
     this.submitButtonPriorityEventTarget.addEventListener("click", 10, () => this.submitInput(false));
     Array.from(document.getElementsByClassName("ntv__message-input__wrapper")).forEach((el) => el.remove());
@@ -16531,9 +16603,14 @@ var KickUserInterface = class extends AbstractUserInterface {
       true
     );
     textFieldWrapperEl.append(textFieldEl);
-    kickTextFieldEl.parentElement.before(textFieldWrapperEl);
-    if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
-    kickTextFieldEl?.parentElement?.style.setProperty("display", "none", "important");
+    const { isModView, isCreatorView } = this.session.channelData;
+    if (isModView || isCreatorView) {
+      kickTextFieldEl.before(textFieldWrapperEl);
+      if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
+    } else {
+      kickTextFieldEl.parentElement.before(textFieldWrapperEl);
+      if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
+    }
     const inputController = this.inputController = new InputController(
       this.rootContext,
       this.session,
@@ -16614,14 +16691,19 @@ var KickUserInterface = class extends AbstractUserInterface {
       Pause: true,
       NumLock: true
     };
-    const hasStealFocus = () => this.rootContext.settingsManager.getSetting(this.session.channelData.channelId, "chat.input.steal_focus");
-    document.body.addEventListener("keydown", (evt) => {
-      if (evt.ctrlKey || evt.altKey || evt.metaKey || ignoredKeys[evt.key] || !hasStealFocus() || inputController.isShowingInputCompletorNavListWindow() || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus") || !inputController.contentEditableEditor.isEnabled() || document.getElementById("modal-content")) {
-        return;
-      }
-      textFieldEl.focus();
-      this.inputController?.contentEditableEditor.forwardEvent(evt);
-    });
+    if (!this.session.channelData.isVod) {
+      const hasStealFocus = () => this.rootContext.settingsManager.getSetting(
+        this.session.channelData.channelId,
+        "chat.input.steal_focus"
+      );
+      document.body.addEventListener("keydown", (evt) => {
+        if (evt.ctrlKey || evt.altKey || evt.metaKey || ignoredKeys[evt.key] || !hasStealFocus() || inputController.isShowingInputCompletorNavListWindow() || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus") || !inputController.contentEditableEditor.isEnabled() || document.getElementById("modal-content")) {
+          return;
+        }
+        textFieldEl.focus();
+        this.inputController?.contentEditableEditor.forwardEvent(evt);
+      });
+    }
   }
   loadScrollingBehaviour() {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
@@ -16883,6 +16965,11 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.addExistingMessagesToQueue();
   }
   addExistingMessagesToQueue() {
+    const enableChatRendering = this.rootContext.settingsManager.getSetting(
+      this.session.channelData.channelId,
+      "chat.behavior.enable_chat_rendering"
+    );
+    if (!enableChatRendering) return;
     const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || []);
     if (chatMessageEls.length) {
       for (const chatMessageEl of chatMessageEls) {
@@ -16893,25 +16980,37 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   observeChatMessages(chatMessagesContainerEl) {
     const channelId = this.session.channelData.channelId;
+    const settingsManager = this.rootContext.settingsManager;
+    const channelData = this.session.channelData;
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
-    this.session.eventBus.subscribe(
-      "ntv.providers.loaded",
-      () => {
-        const observer = this.chatObserver = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            if (mutation.addedNodes.length) {
-              for (const messageNode of mutation.addedNodes) {
-                if (messageNode instanceof HTMLElement) {
-                  this.prepareMessageForRendering(messageNode);
-                  this.queuedChatMessages.push(messageNode);
-                }
+    const loadObserver = () => {
+      const observer = this.chatObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes.length) {
+            for (const messageNode of mutation.addedNodes) {
+              if (messageNode instanceof HTMLElement) {
+                this.prepareMessageForRendering(messageNode);
+                this.queuedChatMessages.push(messageNode);
               }
             }
-          });
+          }
         });
-        observer.observe(chatMessagesContainerEl, { childList: true });
-      },
-      true
+      });
+      observer.observe(chatMessagesContainerEl, { childList: true });
+    };
+    const enableChatRendering = settingsManager.getSetting(channelId, "chat.behavior.enable_chat_rendering");
+    if (enableChatRendering) {
+      this.session.eventBus.subscribe("ntv.providers.loaded", () => loadObserver(), true);
+    }
+    this.rootContext.eventBus.subscribe(
+      "ntv.settings.change.chat.behavior.enable_chat_rendering",
+      ({ value }) => {
+        if (this.chatObserver) {
+          this.chatObserver.disconnect();
+          this.chatObserver = null;
+        }
+        if (value) loadObserver();
+      }
     );
     const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, "chat.tooltips.images");
     chatMessagesContainerEl.addEventListener(
@@ -16953,6 +17052,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       } else if (target.tagName === "SPAN") {
         evt.stopPropagation();
         if (!target.classList.contains("ntv__chat-message__username")) return;
+        if (channelData.isModView || channelData.isCreatorView) return;
         const usernameEl = target;
         const username = usernameEl?.textContent;
         const rect = usernameEl.getBoundingClientRect();
@@ -16968,37 +17068,65 @@ var KickUserInterface = class extends AbstractUserInterface {
    * TODO eventually replace this completely by a new funnel where receive message deletion events over websocket.
    */
   observeChatEntriesForDeletionEvents() {
-    this.deletedChatEntryObserver = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
-          const addedNode = mutation.addedNodes[0];
-          const chatMessageElement = addedNode.closest(".ntv__chat-message");
-          if (!chatMessageElement || chatMessageElement.classList.contains("ntv__chat-message--deleted"))
-            return;
-          chatMessageElement.classList.add("ntv__chat-message--deleted");
-          const chatMessageInnerEl = chatMessageElement.querySelector("& > .ntv__chat-message__inner");
-          if (addedNode.className === "line-through") {
-            chatMessageInnerEl.append(
-              parseHTML(
-                `<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
-                true
-              )
-            );
-          } else {
-            Array.from(chatMessageElement.getElementsByClassName("ntv__chat-message__part")).forEach(
-              (node) => node.remove()
-            );
-            const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
-            chatMessageInnerEl.append(
-              parseHTML(
-                `<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
-                true
-              )
-            );
+    const channelData = this.session.channelData;
+    if (!channelData.isModView && !channelData.isCreatorView) {
+      this.deletedChatEntryObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
+            const addedNode = mutation.addedNodes[0];
+            const chatMessageElement = addedNode.closest(".ntv__chat-message");
+            if (!chatMessageElement || chatMessageElement.classList.contains("ntv__chat-message--deleted"))
+              return;
+            chatMessageElement.classList.add("ntv__chat-message--deleted");
+            const chatMessageInnerEl = chatMessageElement.querySelector("& > .ntv__chat-message__inner");
+            if (addedNode.className === "line-through") {
+              chatMessageInnerEl.append(
+                parseHTML(
+                  `<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
+                  true
+                )
+              );
+            } else {
+              Array.from(chatMessageElement.getElementsByClassName("ntv__chat-message__part")).forEach(
+                (node) => node.remove()
+              );
+              const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
+              chatMessageInnerEl.append(
+                parseHTML(
+                  `<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
+                  true
+                )
+              );
+            }
           }
-        }
+        });
       });
-    });
+    } else {
+      this.deletedChatEntryObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
+            const addedNode = mutation.addedNodes[0];
+            const chatEntryNode = addedNode.closest(".chat-entry");
+            if (!chatEntryNode.classList.contains("deleted-message-admin")) return;
+            chatEntryNode.parentElement.classList.add("ntv__chat-message--deleted");
+            const innerWrapperEl = chatEntryNode.querySelector(".ntv__chat-message__inner");
+            if (!innerWrapperEl) return error("Inner wrapper element not found");
+            const channelDataMe = this.session.channelData.me;
+            if (channelDataMe.isBroadcaster || channelDataMe.isModerator || channelDataMe.isSuperAdmin) {
+              innerWrapperEl.append(parseHTML(`<span class="ntv__chat-message__part"> (Deleted)</span>`));
+            } else {
+              Array.from(chatEntryNode.getElementsByClassName("ntv__chat-message__part")).forEach(
+                (node) => node.remove()
+              );
+              const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
+              innerWrapperEl.append(
+                parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`)
+              );
+            }
+          }
+        });
+      });
+    }
   }
   loadVodBehaviour() {
     log("Loading VOD behaviour..");
@@ -17140,7 +17268,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
       const settingModeratorQuickAction = settingsManager.getSetting(
         channelId,
-        "chat.moderators.show_quick_actions"
+        "moderators.chat.show_quick_actions"
       );
       if (settingModeratorQuickAction) {
         messageEl.classList.add("ntv__chat-message--show-quick-actions");
@@ -17153,311 +17281,518 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { emotesManager, usersManager } = this.session;
     const { channelData } = this.session;
     const channelId = channelData.channelId;
-    if (!messageNode.children || !messageNode.firstElementChild.classList.contains("group")) {
+    const isOldWebsiteLayout = channelData.isModView || channelData.isCreatorView;
+    if (!isOldWebsiteLayout) {
+      if (!messageNode.children || !messageNode.firstElementChild.classList.contains("group")) {
+        messageNode.classList.add("ntv__chat-message");
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        if (messageNode.firstElementChild?.classList.contains("items-center")) {
+          messageNode.classList.add("ntv__chat-message--history-breaker");
+        } else {
+          messageNode.classList.add("ntv__chat-message--history-breaker");
+        }
+        return;
+      }
+      const ntvMessageInnerEl = document.createElement("div");
+      const ntvIdentityWrapperEl = document.createElement("div");
+      ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
+      let groupElementNode = messageNode.firstElementChild;
+      if (!groupElementNode?.classList.contains("group")) groupElementNode = groupElementNode?.nextElementSibling;
+      if (!groupElementNode?.classList.contains("group")) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message content wrapper node not found", messageNode);
+        return;
+      }
+      const betterHoverEl = groupElementNode.firstElementChild;
+      if (!betterHoverEl) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Better hover element not found");
+        return;
+      }
+      const messageHasMentionedMe = betterHoverEl.classList.contains("border-green-500");
+      if (messageHasMentionedMe) {
+        messageNode.classList.add("ntv__chat-message--mentioned-me");
+      }
+      let isReply = false;
+      let isReplyToMe = false;
+      if (betterHoverEl.firstElementChild?.classList.contains("w-full")) {
+        isReply = true;
+        if (betterHoverEl.classList.contains("border-green-500")) {
+          isReplyToMe = true;
+          messageNode.classList.add("ntv__chat-message--reply-to-me");
+        }
+        const replyMessageAttachmentEl = betterHoverEl.firstElementChild;
+        if (!replyMessageAttachmentEl) {
+          messageNode.classList.remove("ntv__chat-message--unrendered");
+          error("Reply message attachment element not found", messageNode);
+          return;
+        }
+        const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
+        ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
+        ntvMessageInnerEl.append(ntvMessageAttachmentEl);
+        replyMessageAttachmentEl.style.setProperty("display", "none", "important");
+        const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
+        ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
+        messageNode.append(ntvReplyMessageAttachmentEl);
+      }
+      const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl;
+      if (!messageBodyWrapper) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message body wrapper node not found", messageNode);
+        return;
+      }
+      let ntvModBtnsWrapperEl = null;
+      if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
+        const modBtnsWrapperEl = messageBodyWrapper.firstElementChild;
+        if (modBtnsWrapperEl?.classList.contains("inline-flex")) {
+          ntvModBtnsWrapperEl = document.createElement("div");
+          ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
+          const modDeleteBtnEl = modBtnsWrapperEl.children[0];
+          const modTimeoutBtnEl = modBtnsWrapperEl.children[1];
+          const modBanBtnEl = modBtnsWrapperEl.children[2];
+          const ntvModDeleteBtnEl = modDeleteBtnEl.cloneNode(true);
+          const ntvModTimeoutBtnEl = modTimeoutBtnEl.cloneNode(true);
+          const ntvModBanBtnEl = modBanBtnEl.cloneNode(true);
+          ntvModBtnsWrapperEl.append(ntvModDeleteBtnEl, ntvModTimeoutBtnEl, ntvModBanBtnEl);
+          ntvModDeleteBtnEl.addEventListener("click", () => {
+            const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+            Object.defineProperty(mEvent, "target", { value: modDeleteBtnEl, enumerable: true });
+            modDeleteBtnEl.dispatchEvent(mEvent);
+          });
+          ntvModTimeoutBtnEl.addEventListener("click", () => {
+            const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+            Object.defineProperty(mEvent, "target", { value: modTimeoutBtnEl, enumerable: true });
+            modTimeoutBtnEl.dispatchEvent(mEvent);
+          });
+          ntvModBanBtnEl.addEventListener("click", () => {
+            const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+            Object.defineProperty(mEvent, "target", { value: modBanBtnEl, enumerable: true });
+            modBanBtnEl.dispatchEvent(mEvent);
+          });
+        }
+      }
+      const contentWrapperNode = messageBodyWrapper.lastElementChild;
+      if (!contentWrapperNode) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message content wrapper node not found", messageNode);
+        return;
+      }
+      let timestampEl = messageBodyWrapper.firstElementChild;
+      while (timestampEl && timestampEl.tagName !== "SPAN") timestampEl = timestampEl.nextElementSibling;
+      if (!timestampEl) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message timestamp node not found", messageNode);
+        return;
+      }
+      const ntvTimestampEl = document.createElement("span");
+      ntvTimestampEl.className = "ntv__chat-message__timestamp";
+      ntvTimestampEl.textContent = timestampEl.textContent || "00:00 AM";
+      const identityEl = timestampEl?.nextElementSibling;
+      if (!identityEl) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message identity node not found", messageNode);
+        return;
+      }
+      const ntvBadgesEl = document.createElement("span");
+      ntvBadgesEl.className = "ntv__chat-message__badges";
+      const badgesEl = identityEl.firstElementChild;
+      if (badgesEl && badgesEl.tagName !== "BUTTON") {
+        if (badgesEl.firstElementChild)
+          ntvBadgesEl.append(
+            ...Array.from(badgesEl.children).map((badgeWrapperEl) => {
+              const subWrapperEl = badgeWrapperEl.firstElementChild;
+              const svgEl = subWrapperEl?.firstElementChild;
+              svgEl?.setAttribute("class", "ntv__badge");
+              subWrapperEl?.setAttribute("class", "ntv__chat-message__badge");
+              return subWrapperEl || badgeWrapperEl;
+            })
+          );
+      }
+      let usernameEl = identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild;
+      while (usernameEl && usernameEl.tagName !== "BUTTON")
+        usernameEl = usernameEl.nextElementSibling;
+      if (!usernameEl) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message username node not found", messageNode);
+        return;
+      }
+      const username = usernameEl.title;
+      const ntvUsernameEl = document.createElement("span");
+      ntvUsernameEl.className = "ntv__chat-message__username";
+      ntvUsernameEl.title = username;
+      ntvUsernameEl.textContent = usernameEl.textContent || "Unknown user";
+      ntvUsernameEl.style.color = usernameEl.style.color;
+      if (!channelData.isVod && username) {
+        if (usersManager.hasMutedUser(username)) {
+          return;
+        }
+        if (!usersManager.hasSeenUser(username)) {
+          const enableFirstMessageHighlight = settingsManager.getSetting(
+            channelId,
+            "chat.appearance.highlight_first_message"
+          );
+          const highlightWhenModeratorOnly = settingsManager.getSetting(
+            channelId,
+            "chat.appearance.highlight_first_message_moderator"
+          );
+          if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
+            messageNode.classList.add("ntv__chat-message--first-message");
+          }
+          usersManager.registerUser(username, username);
+        }
+      }
+      const separatorEl = identityEl?.nextElementSibling;
+      if (!separatorEl || !separatorEl.hasAttribute("aria-hidden")) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message separator node not found", separatorEl);
+        return;
+      }
+      const ntvSeparatorEl = document.createElement("span");
+      ntvSeparatorEl.className = "ntv__chat-message__separator";
+      ntvSeparatorEl.textContent = ":";
+      if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
+        const lastChildNode = contentWrapperNode.lastChild;
+        if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
+          const badgeEl = parseHTML(
+            this.session.badgeProvider.getBadge({ type: "nipahtv" }),
+            true
+          );
+          ntvBadgesEl.append(badgeEl);
+        }
+      }
+      if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
+      ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
+      const messagePartNodes = [];
+      for (const contentNode of contentWrapperNode.childNodes) {
+        if (contentNode.nodeType === Node.TEXT_NODE) {
+          const parsedEmoteNotes = this.renderEmotesInString(contentNode.textContent || "");
+          messagePartNodes.push(...parsedEmoteNotes);
+        } else if (contentNode instanceof HTMLElement && contentNode.tagName === "SPAN") {
+          const imgEl = contentNode.firstElementChild?.firstElementChild;
+          if (!imgEl || imgEl instanceof HTMLImageElement === false) {
+            error("Emote image element not found", imgEl);
+            continue;
+          }
+          const ntvImgEl = document.createElement("img");
+          ntvImgEl.src = imgEl.src;
+          const emoteId = contentNode.getAttribute("data-emote-id");
+          const emoteName = contentNode.getAttribute("data-emote-name");
+          if (!emoteId || !emoteName) {
+            error("Emote ID or name not found", contentNode);
+            continue;
+          }
+          ntvImgEl.setAttribute("data-emote-name", emoteName);
+          const emote = emotesManager.getEmoteById(emoteId);
+          if (emote) {
+            ntvImgEl.setAttribute("data-emote-hid", emote.hid);
+          }
+          const newContentNode = document.createElement("span");
+          newContentNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
+          newContentNode.setAttribute("contenteditable", "false");
+          newContentNode.appendChild(ntvImgEl);
+          messagePartNodes.push(newContentNode);
+        } else {
+          const newContentNode = document.createElement("span");
+          newContentNode.classList.add("ntv__chat-message__part");
+          newContentNode.appendChild(contentNode.cloneNode(true));
+          messagePartNodes.push(newContentNode);
+        }
+      }
+      ;
+      groupElementNode.style.display = "none";
+      ntvMessageInnerEl.className = "ntv__chat-message__inner";
+      ntvMessageInnerEl.append(ntvIdentityWrapperEl);
+      ntvMessageInnerEl.append(...messagePartNodes);
+      messageNode.append(ntvMessageInnerEl);
       messageNode.classList.add("ntv__chat-message");
       messageNode.classList.remove("ntv__chat-message--unrendered");
-      if (messageNode.firstElementChild?.classList.contains("items-center")) {
-        messageNode.classList.add("ntv__chat-message--history-breaker");
-      } else {
-        messageNode.classList.add("ntv__chat-message--history-breaker");
+      let chatMessageActionsEl = groupElementNode.lastElementChild;
+      while (chatMessageActionsEl && chatMessageActionsEl.id !== "chat-message-actions")
+        chatMessageActionsEl = chatMessageActionsEl.previousElementSibling;
+      if (chatMessageActionsEl) {
+        const ntvChatMessageActionsEl = document.createElement("div");
+        ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
+        ntvChatMessageActionsEl.classList.add("kick__chat-message__actions");
+        ntvChatMessageActionsEl.classList.remove("hidden");
+        const replyButtonEl = chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement;
+        if (replyButtonEl) replyButtonEl.classList.add("kick__reply-button");
+        for (const buttonEl of chatMessageActionsEl.children) {
+          const ntvBtnEl = buttonEl.cloneNode(true);
+          ntvBtnEl.addEventListener("click", (evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            evt.stopImmediatePropagation();
+            if (evt.target instanceof HTMLElement && evt.target.classList.contains("kick__reply-button")) {
+              log("Reply button clicked", evt.target, ntvBtnEl);
+              this.handleUglyTemporaryReplyBehaviour();
+            }
+            const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+            Object.defineProperty(event, "target", { writable: false, value: buttonEl });
+            buttonEl.dispatchEvent(event);
+          });
+          ntvChatMessageActionsEl.append(ntvBtnEl);
+        }
+        messageNode.append(ntvChatMessageActionsEl);
       }
-      return;
-    }
-    const ntvMessageInnerEl = document.createElement("div");
-    const ntvIdentityWrapperEl = document.createElement("div");
-    ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
-    let groupElementNode = messageNode.firstElementChild;
-    if (!groupElementNode?.classList.contains("group")) groupElementNode = groupElementNode?.nextElementSibling;
-    if (!groupElementNode?.classList.contains("group")) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Chat message content wrapper node not found", messageNode);
-      return;
-    }
-    const betterHoverEl = groupElementNode.firstElementChild;
-    if (!betterHoverEl) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Better hover element not found");
-      return;
-    }
-    const messageHasMentionedMe = betterHoverEl.classList.contains("border-green-500");
-    if (messageHasMentionedMe) {
-      messageNode.classList.add("ntv__chat-message--mentioned-me");
-    }
-    let isReply = false;
-    let isReplyToMe = false;
-    if (betterHoverEl.firstElementChild?.classList.contains("w-full")) {
-      isReply = true;
-      if (betterHoverEl.classList.contains("border-green-500")) {
-        isReplyToMe = true;
-        messageNode.classList.add("ntv__chat-message--reply-to-me");
-      }
-      const replyMessageAttachmentEl = betterHoverEl.firstElementChild;
-      if (!replyMessageAttachmentEl) {
+      ntvUsernameEl.addEventListener("click", (evt) => {
+        const event = new MouseEvent("click", { bubbles: true, cancelable: false });
+        Object.defineProperty(event, "target", { value: usernameEl, enumerable: true });
+        usernameEl.dispatchEvent(event);
+      });
+      this.deletedChatEntryObserver?.observe(contentWrapperNode, {
+        childList: true,
+        attributes: false,
+        subtree: false
+      });
+    } else {
+      if (messageNode.children && messageNode.children[0]?.classList.contains("chatroom-history-breaker")) {
+        messageNode.classList.add("ntv__chat-message--history-breaker");
         messageNode.classList.remove("ntv__chat-message--unrendered");
-        error("Reply message attachment element not found", messageNode);
         return;
       }
-      const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
-      ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
-      ntvMessageInnerEl.append(ntvMessageAttachmentEl);
-      replyMessageAttachmentEl.style.setProperty("display", "none", "important");
-      const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
-      ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
-      messageNode.append(ntvReplyMessageAttachmentEl);
-    }
-    const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl;
-    if (!messageBodyWrapper) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Chat message body wrapper node not found", messageNode);
-      return;
-    }
-    let ntvModBtnsWrapperEl = null;
-    if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
-      const modBtnsWrapperEl = messageBodyWrapper.firstElementChild;
-      if (modBtnsWrapperEl?.classList.contains("inline-flex")) {
-        ntvModBtnsWrapperEl = document.createElement("div");
-        ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
-        const modDeleteBtnEl = modBtnsWrapperEl.children[0];
-        const modTimeoutBtnEl = modBtnsWrapperEl.children[1];
-        const modBanBtnEl = modBtnsWrapperEl.children[2];
-        const ntvModDeleteBtnEl = modDeleteBtnEl.cloneNode(true);
-        const ntvModTimeoutBtnEl = modTimeoutBtnEl.cloneNode(true);
-        const ntvModBanBtnEl = modBanBtnEl.cloneNode(true);
-        ntvModBtnsWrapperEl.append(ntvModDeleteBtnEl, ntvModTimeoutBtnEl, ntvModBanBtnEl);
-        ntvModDeleteBtnEl.addEventListener("click", () => {
-          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
-          Object.defineProperty(mEvent, "target", { value: modDeleteBtnEl, enumerable: true });
-          modDeleteBtnEl.dispatchEvent(mEvent);
-        });
-        ntvModTimeoutBtnEl.addEventListener("click", () => {
-          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
-          Object.defineProperty(mEvent, "target", { value: modTimeoutBtnEl, enumerable: true });
-          modTimeoutBtnEl.dispatchEvent(mEvent);
-        });
-        ntvModBanBtnEl.addEventListener("click", () => {
-          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
-          Object.defineProperty(mEvent, "target", { value: modBanBtnEl, enumerable: true });
-          modBanBtnEl.dispatchEvent(mEvent);
-        });
+      const chatEntryEl = messageNode.querySelector(".chat-entry");
+      if (!chatEntryEl) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        return error("Unable to render message, message has no content loaded..");
       }
-    }
-    const contentWrapperNode = messageBodyWrapper.lastElementChild;
-    if (!contentWrapperNode) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Chat message content wrapper node not found", messageNode);
-      return;
-    }
-    let timestampEl = messageBodyWrapper.firstElementChild;
-    while (timestampEl && timestampEl.tagName !== "SPAN") timestampEl = timestampEl.nextElementSibling;
-    if (!timestampEl) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Chat message timestamp node not found", messageNode);
-      return;
-    }
-    const ntvTimestampEl = document.createElement("span");
-    ntvTimestampEl.className = "ntv__chat-message__timestamp";
-    ntvTimestampEl.textContent = timestampEl.textContent || "00:00 AM";
-    const identityEl = timestampEl?.nextElementSibling;
-    if (!identityEl) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Chat message identity node not found", messageNode);
-      return;
-    }
-    const ntvBadgesEl = document.createElement("span");
-    ntvBadgesEl.className = "ntv__chat-message__badges";
-    const badgesEl = identityEl.firstElementChild;
-    if (badgesEl && badgesEl.tagName !== "BUTTON") {
-      if (badgesEl.firstElementChild)
-        ntvBadgesEl.append(
-          ...Array.from(badgesEl.children).map((badgeWrapperEl) => {
-            const subWrapperEl = badgeWrapperEl.firstElementChild;
-            const svgEl = subWrapperEl?.firstElementChild;
-            svgEl?.setAttribute("class", "ntv__badge");
-            subWrapperEl?.setAttribute("class", "ntv__chat-message__badge");
-            return subWrapperEl || badgeWrapperEl;
-          })
-        );
-    }
-    let usernameEl = identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild;
-    while (usernameEl && usernameEl.tagName !== "BUTTON") usernameEl = usernameEl.nextElementSibling;
-    if (!usernameEl) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Chat message username node not found", messageNode);
-      return;
-    }
-    const username = usernameEl.title;
-    const ntvUsernameEl = document.createElement("span");
-    ntvUsernameEl.className = "ntv__chat-message__username";
-    ntvUsernameEl.title = username;
-    ntvUsernameEl.textContent = usernameEl.textContent || "Unknown user";
-    ntvUsernameEl.style.color = usernameEl.style.color;
-    if (!channelData.isVod && username) {
-      if (usersManager.hasMutedUser(username)) {
-        return;
+      if (chatEntryEl.classList.contains("border-primary")) {
+        messageNode.classList.add("ntv__chat-message--mentioned-me");
       }
-      if (!usersManager.hasSeenUser(username)) {
-        const enableFirstMessageHighlight = settingsManager.getSetting(
-          channelId,
-          "chat.appearance.highlight_first_message"
-        );
-        const highlightWhenModeratorOnly = settingsManager.getSetting(
-          channelId,
-          "chat.appearance.highlight_first_message_moderator"
-        );
-        if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
-          messageNode.classList.add("ntv__chat-message--first-message");
-        }
-        usersManager.registerUser(username, username);
-      }
-    }
-    const separatorEl = identityEl?.nextElementSibling;
-    if (!separatorEl || !separatorEl.hasAttribute("aria-hidden")) {
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      error("Chat message separator node not found", separatorEl);
-      return;
-    }
-    const ntvSeparatorEl = document.createElement("span");
-    ntvSeparatorEl.className = "ntv__chat-message__separator";
-    ntvSeparatorEl.textContent = ":";
-    if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
-      const lastChildNode = contentWrapperNode.lastChild;
-      if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
-        const badgeEl = parseHTML(
-          this.session.badgeProvider.getBadge({ type: "nipahtv" }),
-          true
-        );
-        ntvBadgesEl.append(badgeEl);
-      }
-    }
-    if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
-    ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
-    const messagePartNodes = [];
-    for (const contentNode of contentWrapperNode.childNodes) {
-      if (contentNode.nodeType === Node.TEXT_NODE) {
-        const parsedEmoteNotes = this.renderEmotesInString(contentNode.textContent || "");
-        messagePartNodes.push(...parsedEmoteNotes);
-      } else if (contentNode instanceof HTMLElement && contentNode.tagName === "SPAN") {
-        const imgEl = contentNode.firstElementChild?.firstElementChild;
-        if (!imgEl || imgEl instanceof HTMLImageElement === false) {
-          error("Emote image element not found", imgEl);
-          continue;
-        }
-        const ntvImgEl = document.createElement("img");
-        ntvImgEl.src = imgEl.src;
-        const emoteId = contentNode.getAttribute("data-emote-id");
-        const emoteName = contentNode.getAttribute("data-emote-name");
-        if (!emoteId || !emoteName) {
-          error("Emote ID or name not found", contentNode);
-          continue;
-        }
-        ntvImgEl.setAttribute("data-emote-name", emoteName);
-        const emote = emotesManager.getEmoteById(emoteId);
-        if (emote) {
-          ntvImgEl.setAttribute("data-emote-hid", emote.hid);
-        }
-        const newContentNode = document.createElement("span");
-        newContentNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
-        newContentNode.setAttribute("contenteditable", "false");
-        newContentNode.appendChild(ntvImgEl);
-        messagePartNodes.push(newContentNode);
+      let messageBodyNode;
+      let messageReplyAttachmentBodyNode = null;
+      if (messageNode.querySelector('[title*="Replying to"]')) {
+        messageReplyAttachmentBodyNode = chatEntryEl.children[0];
+        messageBodyNode = chatEntryEl.children[1];
       } else {
-        const newContentNode = document.createElement("span");
-        newContentNode.classList.add("ntv__chat-message__part");
-        newContentNode.appendChild(contentNode.cloneNode(true));
-        messagePartNodes.push(newContentNode);
+        messageBodyNode = chatEntryEl.children[0];
       }
-    }
-    ;
-    groupElementNode.style.display = "none";
-    ntvMessageInnerEl.className = "ntv__chat-message__inner";
-    ntvMessageInnerEl.append(ntvIdentityWrapperEl);
-    ntvMessageInnerEl.append(...messagePartNodes);
-    messageNode.append(ntvMessageInnerEl);
-    messageNode.classList.add("ntv__chat-message");
-    messageNode.classList.remove("ntv__chat-message--unrendered");
-    let chatMessageActionsEl = groupElementNode.lastElementChild;
-    while (chatMessageActionsEl && chatMessageActionsEl.id !== "chat-message-actions")
-      chatMessageActionsEl = chatMessageActionsEl.previousElementSibling;
-    if (chatMessageActionsEl) {
-      const ntvChatMessageActionsEl = document.createElement("div");
-      ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
-      ntvChatMessageActionsEl.classList.add("kick__chat-message__actions");
-      ntvChatMessageActionsEl.classList.remove("hidden");
-      const replyButtonEl = chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement;
-      if (replyButtonEl) replyButtonEl.classList.add("kick__reply-button");
-      for (const buttonEl of chatMessageActionsEl.children) {
-        const ntvBtnEl = buttonEl.cloneNode(true);
-        ntvBtnEl.addEventListener("click", (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          evt.stopImmediatePropagation();
-          if (evt.target instanceof HTMLElement && evt.target.classList.contains("kick__reply-button")) {
-            log("Reply button clicked", evt.target, ntvBtnEl);
-            this.handleUglyTemporaryReplyBehaviour();
+      const chatMessageIdentityEl = messageNode.querySelector(".chat-message-identity");
+      if (!chatMessageIdentityEl) {
+        messageNode.classList.remove("ntv__chat-message--unrendered");
+        error("Chat message identity node not found", messageNode);
+        return;
+      }
+      const chatMessageWrapper = chatMessageIdentityEl.parentElement;
+      const timestampEl = chatMessageWrapper?.firstElementChild;
+      const modActionsEl = timestampEl?.nextElementSibling;
+      const messageContentEl = chatMessageWrapper.lastElementChild;
+      let ntvModBtnsWrapperEl = null;
+      if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
+        if (modActionsEl?.classList.contains("stroke-gray-600")) {
+          ntvModBtnsWrapperEl = document.createElement("div");
+          ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
+          const modDeleteBtnEl = modActionsEl.children[0];
+          const modTimeoutBtnEl = modActionsEl.children[1];
+          const modBanBtnEl = modActionsEl.children[2];
+          ntvModBtnsWrapperEl.append(modDeleteBtnEl, modTimeoutBtnEl, modBanBtnEl);
+        }
+      }
+      const badgesEl = chatMessageIdentityEl.firstElementChild;
+      const usernameEl = badgesEl?.nextElementSibling;
+      const ntvBadgesEl = document.createElement("span");
+      ntvBadgesEl.className = "ntv__chat-message__badges";
+      for (const badgeWrapperEl of badgesEl?.children || []) {
+        const subWrapperEl = badgeWrapperEl.firstElementChild;
+        const svgEl = subWrapperEl.firstElementChild.firstElementChild?.cloneNode(true);
+        svgEl.setAttribute("class", "ntv__badge");
+        ntvBadgesEl.append(svgEl);
+      }
+      if (chatMessageIdentityEl) {
+        if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
+          const lastElChild = messageBodyNode.lastElementChild;
+          if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
+            const badgesContainer = chatMessageIdentityEl.getElementsByClassName("items-center")[0];
+            if (badgesContainer) {
+              if (!badgesContainer.children.length) badgesContainer.classList.add("mr-1");
+              const ntvBadgeEl = parseHTML(
+                this.session.badgeProvider.getBadge({ type: "nipahtv" }),
+                true
+              );
+              ntvBadgeEl.setAttribute("class", "ntv__badge");
+              ntvBadgesEl.append(ntvBadgeEl);
+            }
           }
-          const event = new MouseEvent("click", { bubbles: true, cancelable: true });
-          Object.defineProperty(event, "target", { writable: false, value: buttonEl });
-          buttonEl.dispatchEvent(event);
-        });
-        ntvChatMessageActionsEl.append(ntvBtnEl);
+        }
       }
-      messageNode.append(ntvChatMessageActionsEl);
+      const messageParts = [];
+      const messageContentNodes = Array.from(messageContentEl.children);
+      for (let i = 0; i < messageContentNodes.length; i++) {
+        const contentNode = messageContentNodes[i];
+        const componentNode = contentNode.children[0];
+        if (!componentNode) {
+          continue;
+        }
+        switch (componentNode.className) {
+          case "chat-entry-content":
+            if (!componentNode.textContent) continue;
+            if (!(componentNode instanceof Element)) {
+              error("Chat message content node not an Element?", componentNode);
+              continue;
+            }
+            const nodes = this.renderEmotesInString(componentNode.textContent || "");
+            messageParts.push(...nodes);
+            break;
+          case "chat-emote-container":
+            const imgEl = componentNode.querySelector("img");
+            if (!imgEl) continue;
+            imgEl.removeAttribute("class");
+            for (const attr in imgEl.dataset) {
+              if (attr.startsWith("v-")) {
+                imgEl.removeAttribute("data-" + attr);
+              } else if (attr === "emoteId") {
+                const emoteId = imgEl.getAttribute("data-emote-id");
+                if (emoteId) {
+                  const emote = emotesManager.getEmoteById(emoteId);
+                  if (!emote) {
+                    log(
+                      `Skipping missing emote ${emoteId}, probably subscriber emote of channel you're not subscribed to.`
+                    );
+                    continue;
+                  }
+                  imgEl.setAttribute("data-emote-hid", emote.hid);
+                  imgEl.setAttribute("data-emote-name", emote.name);
+                }
+              }
+            }
+            const newContentNode = document.createElement("span");
+            newContentNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
+            newContentNode.setAttribute("contenteditable", "false");
+            newContentNode.appendChild(imgEl);
+            messageParts.push(newContentNode);
+            break;
+          default:
+            if (componentNode.childNodes.length) messageParts.push(...componentNode.childNodes);
+            else error("Unknown chat message component", componentNode);
+        }
+      }
+      const ntvMessageInnerEl = document.createElement("div");
+      ntvMessageInnerEl.className = "ntv__chat-message__inner";
+      const ntvIdentityWrapperEl = document.createElement("div");
+      ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
+      const ntvTimestampEl = document.createElement("span");
+      ntvTimestampEl.className = "ntv__chat-message__timestamp";
+      ntvTimestampEl.textContent = timestampEl?.textContent || "00:00 AM";
+      if (badgesEl && badgesEl.tagName === "DIV") {
+        if (badgesEl.firstElementChild)
+          ntvBadgesEl.append(
+            ...Array.from(badgesEl.children).map((badgeWrapperEl) => {
+              const subWrapperEl = badgeWrapperEl.firstElementChild;
+              const svgEl = subWrapperEl?.firstElementChild;
+              svgEl?.setAttribute("class", "ntv__badge");
+              subWrapperEl?.setAttribute("class", "ntv__chat-message__badge");
+              return subWrapperEl || badgeWrapperEl;
+            })
+          );
+      }
+      const username = usernameEl.textContent || "Unknown user";
+      const ntvUsernameEl = document.createElement("span");
+      ntvUsernameEl.className = "ntv__chat-message__username";
+      ntvUsernameEl.title = username || "Unknown user";
+      ntvUsernameEl.textContent = username || "Unknown user";
+      ntvUsernameEl.style.color = usernameEl.style.color || "inherit";
+      ntvUsernameEl.addEventListener("click", (evt) => {
+        const event = new MouseEvent("click", { bubbles: true, cancelable: false });
+        Object.defineProperty(event, "target", { value: usernameEl, enumerable: true });
+        usernameEl.dispatchEvent(event);
+      });
+      if (!channelData.isVod && username) {
+        if (usersManager.hasMutedUser(username)) {
+          return;
+        }
+        if (!usersManager.hasSeenUser(username)) {
+          const enableFirstMessageHighlight = settingsManager.getSetting(
+            channelId,
+            "chat.appearance.highlight_first_message"
+          );
+          const highlightWhenModeratorOnly = settingsManager.getSetting(
+            channelId,
+            "chat.appearance.highlight_first_message_moderator"
+          );
+          if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
+            messageNode.classList.add("ntv__chat-message--first-message");
+          }
+          usersManager.registerUser(username, username);
+        }
+      }
+      const ntvSeparatorEl = document.createElement("span");
+      ntvSeparatorEl.className = "ntv__chat-message__separator";
+      ntvSeparatorEl.textContent = ":";
+      if (messageReplyAttachmentBodyNode) {
+        const ntvMessageAttachmentEl = document.createElement("div");
+        ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
+        ntvMessageInnerEl.append(messageReplyAttachmentBodyNode.cloneNode(true));
+      }
+      if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
+      ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
+      ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...messageParts);
+      this.deletedChatEntryObserver?.observe(messageBodyNode, {
+        childList: true,
+        attributes: false,
+        subtree: false
+      });
+      messageNode.classList.add("ntv__chat-message", "kick__chat-message--old-format");
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      chatEntryEl.prepend(ntvMessageInnerEl);
     }
-    ntvUsernameEl.addEventListener("click", (evt) => {
-      const event = new MouseEvent("click", { bubbles: true, cancelable: false });
-      Object.defineProperty(event, "target", { value: usernameEl, enumerable: true });
-      usernameEl.dispatchEvent(event);
-    });
-    this.deletedChatEntryObserver?.observe(contentWrapperNode, {
-      childList: true,
-      attributes: false,
-      subtree: false
-    });
   }
   async handleUglyTemporaryReplyBehaviour() {
-    const textFieldEl = this.elm.textField;
-    const originalTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]');
-    textFieldEl.parentElement.style.display = "none";
-    originalTextFieldEl?.parentElement?.style.removeProperty("display");
-    this.elm.submitButton.style.setProperty("display", "none", "important");
-    this.elm.originalSubmitButton.style.removeProperty("display");
-    document.querySelector(".ntv__quick-emotes-holder")?.style.setProperty(
-      "display",
-      "none",
-      "important"
-    );
-    await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2e3);
-    const closeReplyButton = document.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')?.closest("button");
-    const replyPreviewWrapperEl = closeReplyButton.closest(".flex.flex-col")?.parentElement;
-    if (!replyPreviewWrapperEl) return error("Reply preview wrapper element not found");
-    const restoreTextField = () => {
-      originalTextFieldEl.parentElement.style.display = "none";
-      textFieldEl.parentElement.style.removeProperty("display");
-      this.elm.submitButton.style.removeProperty("display");
-      this.elm.originalSubmitButton.style.setProperty("display", "none", "important");
-      document.querySelector(".ntv__quick-emotes-holder")?.style.removeProperty("display");
-    };
-    if (!isElementInDOM(replyPreviewWrapperEl)) restoreTextField();
-    else {
-      const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.removedNodes.length) {
-            restoreTextField();
-            observer.disconnect();
-          }
+    const channelData = this.session.channelData;
+    if (!channelData.isModView && !channelData.isCreatorView) {
+      const textFieldEl = this.elm.textField;
+      const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]');
+      textFieldEl.parentElement.style.display = "none";
+      kickTextFieldEl?.parentElement?.style.setProperty("display", "block", "important");
+      const kickEmoteButtonEl = kickTextFieldEl?.parentElement?.nextElementSibling;
+      if (kickEmoteButtonEl) kickEmoteButtonEl.style.setProperty("display", "flex", "important");
+      this.elm.submitButton.style.setProperty("display", "none", "important");
+      this.elm.originalSubmitButton.style.setProperty("display", "flex", "important");
+      document.querySelector(".ntv__emote-menu-button")?.style.setProperty(
+        "display",
+        "none",
+        "important"
+      );
+      document.querySelector(".ntv__quick-emotes-holder")?.style.setProperty(
+        "display",
+        "none",
+        "important"
+      );
+      await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2e3);
+      const closeReplyButton = document.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')?.closest("button");
+      const replyPreviewWrapperEl = closeReplyButton.closest(".flex.flex-col")?.parentElement;
+      if (!replyPreviewWrapperEl) return error("Reply preview wrapper element not found");
+      const restoreFields = () => {
+        kickTextFieldEl.parentElement.style.removeProperty("display");
+        textFieldEl.parentElement.style.removeProperty("display");
+        this.elm.submitButton.style.removeProperty("display");
+        this.elm.originalSubmitButton.style.removeProperty("display");
+        document.querySelector(".ntv__quick-emotes-holder")?.style.removeProperty("display");
+        document.querySelector(".ntv__emote-menu-button")?.style.removeProperty("display");
+        const kickEmoteButtonEl2 = kickTextFieldEl?.parentElement?.nextElementSibling;
+        if (kickEmoteButtonEl2) kickEmoteButtonEl2.style.removeProperty("display");
+      };
+      if (!isElementInDOM(replyPreviewWrapperEl)) restoreFields();
+      else {
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.removedNodes.length) {
+              restoreFields();
+              observer.disconnect();
+            }
+          });
         });
-      });
-      observer.observe(replyPreviewWrapperEl, { childList: true });
-    }
-    const footerEl = document.querySelector(".kick__chat-footer");
-    if (!footerEl) return error("Footer element not found");
-    const textFieldParent = textFieldEl.parentElement;
-    setInterval(() => {
-      const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]');
-      if (!closeReplyBtnEl && textFieldParent.style.display === "none") {
-        restoreTextField();
+        observer.observe(replyPreviewWrapperEl, { childList: true });
       }
-    }, 400);
+      const footerEl = document.querySelector(".kick__chat-footer");
+      if (!footerEl) return error("Footer element not found");
+      const textFieldParent = textFieldEl.parentElement;
+      setInterval(() => {
+        const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]');
+        if (!closeReplyBtnEl && textFieldParent.style.display === "none") {
+          restoreFields();
+        }
+      }, 400);
+    } else {
+    }
   }
   renderPinnedMessageContent(contentBodyEl) {
     log("Rendering pinned message..", contentBodyEl);
@@ -17538,6 +17873,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   destroy() {
     if (this.abortController) this.abortController.abort();
     if (this.chatObserver) this.chatObserver.disconnect();
+    if (this.deletedChatEntryObserver) this.deletedChatEntryObserver.disconnect();
     if (this.replyObserver) this.replyObserver.disconnect();
     if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect();
     if (this.inputController) this.inputController.destroy();
@@ -19789,43 +20125,20 @@ var KickNetworkInterface = class {
     return pathArr[1] === "videos";
   }
   async loadMeData() {
-    const veryLongString = Array.from(document.querySelectorAll("body script:not(:empty)"), (x) => {
-      let s = x.textContent || "";
-      if (s.startsWith('self.__next_f.push([0,"') || s.startsWith('self.__next_f.push([1,"') || s.startsWith('self.__next_f.push([2,"'))
-        s = s.substring(23);
-      if (s.endsWith('"])')) s = s.substring(0, s.length - 3);
-      return s;
-    }).reduce((acc, curr) => acc += curr);
-    const sessionIndex = veryLongString.indexOf('\\"session\\"');
-    const shorterString = veryLongString.substring(sessionIndex, sessionIndex + 500).replaceAll('\\"', '"');
-    const accountDataMatches = shorterString.matchAll(
-      /"id":\s?(?<user_id>\d+?)[,\]}]|"username":\s?"(?<username>.+?)"|"slug":\s?"(?<slug>.+?)"/g
-    );
-    const namedCapturedGroups = {};
-    for (const x of accountDataMatches) {
-      if (x["groups"])
-        Object.keys(x["groups"]).forEach(
-          (key) => namedCapturedGroups[key] = x["groups"][key] ? x["groups"][key] : namedCapturedGroups[key]
-        );
-    }
-    if (!namedCapturedGroups["user_id"] || !namedCapturedGroups["slug"] || !namedCapturedGroups["username"])
-      throw new Error("Failed to read account data from page.");
+    const userData = await RESTFromMainService.get("https://kick.com/api/v1/user").catch(() => {
+    });
+    if (!userData) throw new Error("Failed to fetch user data");
+    if (!userData.streamer_channel) throw new Error('Invalid user data, missing property "streamer_channel"');
+    const { id, user_id, slug } = userData.streamer_channel;
+    if (!id) throw new Error('Invalid user data, missing property "id"');
+    if (!user_id) throw new Error('Invalid user data, missing property "user_id"');
+    if (!slug) throw new Error('Invalid user data, missing property "slug"');
     this.session.meData = {
-      channelId: "",
-      userId: "" + namedCapturedGroups.user_id,
-      slug: "" + namedCapturedGroups.slug,
-      username: "" + namedCapturedGroups.username
+      channelId: "" + id,
+      userId: "" + user_id,
+      username: userData.username,
+      slug
     };
-    const responseChannelData = await RESTFromMainService.get(
-      `https://kick.com/api/v2/channels/${this.session.meData.slug}`
-    );
-    if (!responseChannelData) {
-      throw new Error("Failed to fetch channel data");
-    }
-    if (!responseChannelData.id) {
-      throw new Error('Invalid channel data, missing property "id"');
-    }
-    this.session.meData.channelId = "" + responseChannelData.id;
     log("LOADED ME DATA", this.session.meData);
   }
   async loadChannelData() {
@@ -19866,9 +20179,23 @@ var KickNetworkInterface = class {
       if (pathArr[0] === "popout") {
         pathArr.shift();
       }
-      const channelName2 = pathArr[0];
+      let channelName2 = pathArr[0];
       if (!channelName2) throw new Error("Failed to extract channel name from URL");
-      const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v2/channels/${channelName2}`);
+      let isCreatorView = false;
+      if (channelName2 === "dashboard") {
+        const userData = await RESTFromMainService.get("https://kick.com/api/v1/user");
+        if (!userData) throw new Error("Failed to fetch user data");
+        if (!userData.streamer_channel)
+          throw new Error('Invalid user data, missing property "streamer_channel"');
+        const slug = userData.streamer_channel?.slug;
+        if (!slug) throw new Error('Invalid user data, missing property "slug"');
+        channelName2 = slug;
+        isCreatorView = true;
+      }
+      const responseChannelData = await RESTFromMainService.get(
+        `https://kick.com/api/v2/channels/${channelName2}`
+      ).catch(() => {
+      });
       if (!responseChannelData) {
         throw new Error("Failed to fetch channel data");
       }
@@ -19885,6 +20212,9 @@ var KickNetworkInterface = class {
         userId: "" + responseChannelData.user_id,
         channelId: "" + responseChannelData.id,
         channelName: channelName2,
+        isVod: false,
+        isCreatorView,
+        isModView: pathArr[pathArr.length - 1].toLowerCase() === "moderator",
         chatroom: {
           id: "" + responseChannelData.chatroom.id,
           emotesMode: {
@@ -19915,12 +20245,13 @@ var KickNetworkInterface = class {
           isLoggedIn: true,
           isSubscribed: !!responseChannelMeData.subscription,
           isFollowing: !!responseChannelMeData.is_following,
-          followingSince: responseChannelMeData.following_since,
           isSuperAdmin: !!responseChannelMeData.is_super_admin,
           isBroadcaster: !!responseChannelMeData.is_broadcaster,
           isModerator: !!responseChannelMeData.is_moderator
         }
       });
+      if (responseChannelMeData.following_since)
+        channelData.me.followingSince = responseChannelMeData.following_since;
       if (responseChannelMeData.banned) {
         channelData.me.isBanned = {
           bannedAt: responseChannelMeData.banned.created_at,
@@ -19942,8 +20273,8 @@ var KickNetworkInterface = class {
     const chatroomId = this.session.channelData.chatroom.id;
     return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
       content: message + (noUtag ? "" : U_TAG_NTV_AFFIX),
-      type: "message",
-      metadata: {}
+      type: "message"
+      // metadata: {} // Pinned messages break if we send metadata
     }).then((res) => {
       const parsedError = tryParseErrorMessage(res);
       if (parsedError) throw new Error(parsedError);
@@ -20377,6 +20708,23 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.30",
+    date: "2024-09-25",
+    description: `
+                  NipahTV now works again on the moderator & creators dashboard pages! If you have any issues here, please do report them. It's now also possible to completely disable NTV on moderator dashboard & creator pages for those that want this.
+
+                  Feat: Added settings option whether to render chat messages
+                  Feat: Added moderator setting to disable NTV on moderator & creator dashboard pages
+                  Fix: NTV no longer loading for moderator & creator dashboard pages after Kick website update
+                  Fix: Metadata in API calls causing Kick servers to shit themselves for no reason making messages broken when pinned
+                  Fix: Disable steal focus feature for VODs
+                  Fix: REST requests not return data correctly
+                  Refactor: Reworked native Kick chat input fallback mechanism for reply behaviour
+                  Chore: Moved settings to new moderator category
+                  Chore: Conducted a full-scale rescue mission for my missing socks
+            `
+  },
   {
     version: "1.5.29",
     date: "2024-09-24",
@@ -21533,15 +21881,16 @@ var SettingsManager = class {
   				- Seperators (dropdown)
   				- Messages spacing (dropdown)
   				- Messages style (dropdown
-  		= Badges
-  			(Badges)
-  				- Show the NipahTV badge for NTV users
-             = Behavior
+  		= Behavior
                  (General)
+  				- Enable chat message rendering
                      - Enable chat smooth scrolling
                  (Search)
                      - Add bias to emotes of channels you are subscribed to
                      - Add extra bias to emotes of the current channel you are watching the stream of
+  		= Badges
+  			(Badges)
+  				- Show the NipahTV badge for NTV users
              = Emotes
                  (Appearance)
                      - Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them
@@ -21585,6 +21934,10 @@ var SettingsManager = class {
   				- Show recently used emotes in the quick emote holder
                  (Behavior)
                      - Send emotes to chat immediately on click
+  	= Moderators
+  		= Behavior
+  			(General)
+  				- Completely disable NipahTV for moderator and creator dashboard
   */
   uiSettings = [
     {
@@ -21806,27 +22159,17 @@ var SettingsManager = class {
           ]
         },
         {
-          label: "Badges",
-          children: [
-            {
-              label: "Badges",
-              children: [
-                {
-                  label: "Show the NipahTV badge for NTV users",
-                  key: "chat.badges.show_ntv_badge",
-                  default: true,
-                  type: "checkbox"
-                }
-              ]
-            }
-          ]
-        },
-        {
           label: "Behavior",
           children: [
             {
               label: "General",
               children: [
+                {
+                  label: "Enable chat message rendering",
+                  key: "chat.behavior.enable_chat_rendering",
+                  default: true,
+                  type: "checkbox"
+                },
                 {
                   label: "Enable chat smooth scrolling (currently broken after Kick update!)",
                   key: "chat.behavior.smooth_scrolling",
@@ -21848,6 +22191,22 @@ var SettingsManager = class {
                 {
                   label: "Add extra bias to emotes of the current channel you are watching the stream of",
                   key: "chat.behavior.search_bias_current_channels",
+                  default: true,
+                  type: "checkbox"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          label: "Badges",
+          children: [
+            {
+              label: "Badges",
+              children: [
+                {
+                  label: "Show the NipahTV badge for NTV users",
+                  key: "chat.badges.show_ntv_badge",
                   default: true,
                   type: "checkbox"
                 }
@@ -22088,23 +22447,6 @@ var SettingsManager = class {
           ]
         },
         {
-          label: "Moderators",
-          children: [
-            {
-              label: "Messages",
-              description: "These settings are only applicable to moderators.",
-              children: [
-                {
-                  label: "Show quick actions (delete, timeout, ban)",
-                  key: "chat.moderators.show_quick_actions",
-                  default: true,
-                  type: "checkbox"
-                }
-              ]
-            }
-          ]
-        },
-        {
           label: "Quick Emote Holder",
           children: [
             {
@@ -22158,6 +22500,44 @@ var SettingsManager = class {
           ]
         }
       ]
+    },
+    {
+      label: "Moderators",
+      children: [
+        {
+          label: "Behavior",
+          children: [
+            {
+              label: "General",
+              description: "These settings require a page refresh to take effect.",
+              children: [
+                {
+                  label: "Completely disable NipahTV for moderator and creator dashboard pages. WARNING: This will COMPLETELY disable NipahTV for these pages! (You can undo this setting by accessing the settings again on any frontend stream page)",
+                  key: "moderators.mod_creator_view.disable_ntv",
+                  default: false,
+                  type: "checkbox"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          label: "Chat",
+          children: [
+            {
+              label: "Messages",
+              children: [
+                {
+                  label: "Show quick actions (delete, timeout, ban)",
+                  key: "moderators.chat.show_quick_actions",
+                  default: true,
+                  type: "checkbox"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ];
   settingsMap = /* @__PURE__ */ new Map([
@@ -22194,6 +22574,16 @@ var SettingsManager = class {
       const { id, value } = setting;
       this.settingsMap.set(id, value);
     }
+    ;
+    [["chat.moderators.show_quick_actions", "moderators.chat.show_quick_actions"]].forEach(
+      async ([oldKey, newKey]) => {
+        if (this.settingsMap.has("global.shared." + oldKey)) {
+          const val = this.settingsMap.get("global.shared." + oldKey);
+          await database.settings.deleteRecord("global.shared." + oldKey);
+          this.setSetting("global", "shared", newKey, val);
+        }
+      }
+    );
     this.isLoaded = true;
     eventBus.publish("ntv.settings.loaded");
   }
@@ -23145,7 +23535,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.29";
+  VERSION = "1.5.30";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23338,18 +23728,29 @@ var NipahClient = class {
     const networkInterface = session.networkInterface;
     this.sessions.push(session);
     if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName);
-    await Promise.allSettled([
+    const promiseRes = await Promise.allSettled([
       this.loadSettingsManagerPromise,
       networkInterface.loadMeData().catch((err) => {
-        throw new Error(`Couldn't load me data because: ${err}`);
+        throw new Error(`Couldn't load me data because: ${err.message}`);
       }),
       networkInterface.loadChannelData().catch((err) => {
-        throw new Error(`Couldn't load channel data because: ${err}`);
+        throw new Error(`Couldn't load channel data because: ${err.message}`);
       })
     ]);
+    promiseRes.forEach((res) => {
+      if (res.status === "rejected") throw res.reason;
+    });
     if (!session.meData) throw new Error("Failed to load me user data.");
     if (!session.channelData) throw new Error("Failed to load channel data.");
     const channelData = session.channelData;
+    const disableModCreatorView = await settingsManager.getSetting(
+      channelData.channelId,
+      "moderators.mod_creator_view.disable_ntv"
+    );
+    if (disableModCreatorView && (channelData.isModView || channelData.isCreatorView)) {
+      info("NipahTV is disabled for this channel in mod/creator view.");
+      return;
+    }
     this.attachEventServiceListeners(rootContext, session);
     session.badgeProvider = new KickBadgeProvider(rootContext, channelData);
     session.badgeProvider.initialize();
