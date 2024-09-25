@@ -104,57 +104,74 @@ export default class KickNetworkInterface implements NetworkInterface {
 		// 	}
 		// })
 
-		// Try to extract account data from the page by reading the react hydrated script tags
-		const veryLongString = Array.from(document.querySelectorAll('body script:not(:empty)'), x => {
-			let s = x.textContent || ''
-			if (
-				s.startsWith('self.__next_f.push([0,"') ||
-				s.startsWith('self.__next_f.push([1,"') ||
-				s.startsWith('self.__next_f.push([2,"')
-			)
-				s = s.substring(23)
-			if (s.endsWith('"])')) s = s.substring(0, s.length - 3)
-			return s
-		}).reduce((acc, curr) => (acc += curr))
+		// // Try to extract account data from the page by reading the react hydrated script tags
+		// const veryLongString = Array.from(document.querySelectorAll('body script:not(:empty)'), x => {
+		// 	let s = x.textContent || ''
+		// 	if (
+		// 		s.startsWith('self.__next_f.push([0,"') ||
+		// 		s.startsWith('self.__next_f.push([1,"') ||
+		// 		s.startsWith('self.__next_f.push([2,"')
+		// 	)
+		// 		s = s.substring(23)
+		// 	if (s.endsWith('"])')) s = s.substring(0, s.length - 3)
+		// 	return s
+		// }).reduce((acc, curr) => (acc += curr))
 
-		const sessionIndex = veryLongString.indexOf('\\"session\\"')
-		const shorterString = veryLongString.substring(sessionIndex, sessionIndex + 500).replaceAll('\\"', '"')
+		// const sessionIndex = veryLongString.indexOf('\\"session\\"')
+		// const shorterString = veryLongString.substring(sessionIndex, sessionIndex + 500).replaceAll('\\"', '"')
 
-		// Has string {"account": {"id": 012345, "username": "John Smith", "slug": "john_smith", ...}, ...}
-		const accountDataMatches = shorterString.matchAll(
-			/"id":\s?(?<user_id>\d+?)[,\]}]|"username":\s?"(?<username>.+?)"|"slug":\s?"(?<slug>.+?)"/g
-		)
+		// // Has string {"account": {"id": 012345, "username": "John Smith", "slug": "john_smith", ...}, ...}
+		// const accountDataMatches = shorterString.matchAll(
+		// 	/"id":\s?(?<user_id>\d+?)[,\]}]|"username":\s?"(?<username>.+?)"|"slug":\s?"(?<slug>.+?)"/g
+		// )
 
-		// Extract named captured groups from the account data matches
-		const namedCapturedGroups: { [key: string]: string } = {}
-		for (const x of accountDataMatches) {
-			if (x['groups'])
-				Object.keys(x['groups']).forEach(
-					key => (namedCapturedGroups[key] = x['groups']![key] ? x['groups']![key] : namedCapturedGroups[key])
-				)
-		}
+		// // Extract named captured groups from the account data matches
+		// const namedCapturedGroups: { [key: string]: string } = {}
+		// for (const x of accountDataMatches) {
+		// 	if (x['groups'])
+		// 		Object.keys(x['groups']).forEach(
+		// 			key => (namedCapturedGroups[key] = x['groups']![key] ? x['groups']![key] : namedCapturedGroups[key])
+		// 		)
+		// }
 
-		if (!namedCapturedGroups['user_id'] || !namedCapturedGroups['slug'] || !namedCapturedGroups['username'])
-			throw new Error('Failed to read account data from page.')
+		// if (!namedCapturedGroups['user_id'] || !namedCapturedGroups['slug'] || !namedCapturedGroups['username'])
+		// 	throw new Error('Failed to read account data from page.')
+
+		// this.session.meData = {
+		// 	channelId: '',
+		// 	userId: '' + namedCapturedGroups.user_id,
+		// 	slug: '' + namedCapturedGroups.slug,
+		// 	username: '' + namedCapturedGroups.username
+		// }
+
+		// const responseChannelData = await RESTFromMainService.get(
+		// 	`https://kick.com/api/v2/channels/${this.session.meData.slug}`
+		// )
+		// if (!responseChannelData) {
+		// 	throw new Error('Failed to fetch channel data')
+		// }
+		// if (!responseChannelData.id) {
+		// 	throw new Error('Invalid channel data, missing property "id"')
+		// }
+
+		// this.session.meData.channelId = '' + responseChannelData.id
+
+		const userData = await RESTFromMainService.get('https://kick.com/api/v1/user').catch(() => {})
+		if (!userData) throw new Error('Failed to fetch user data')
+
+		if (!userData.streamer_channel) throw new Error('Invalid user data, missing property "streamer_channel"')
+
+		const { id, user_id, slug } = userData.streamer_channel
+		if (!id) throw new Error('Invalid user data, missing property "id"')
+		if (!user_id) throw new Error('Invalid user data, missing property "user_id"')
+		if (!slug) throw new Error('Invalid user data, missing property "slug"')
 
 		this.session.meData = {
-			channelId: '',
-			userId: '' + namedCapturedGroups.user_id,
-			slug: '' + namedCapturedGroups.slug,
-			username: '' + namedCapturedGroups.username
+			channelId: '' + id,
+			userId: '' + user_id,
+			username: userData.username,
+			slug: slug
 		}
-
-		const responseChannelData = await RESTFromMainService.get(
-			`https://kick.com/api/v2/channels/${this.session.meData.slug}`
-		)
-		if (!responseChannelData) {
-			throw new Error('Failed to fetch channel data')
-		}
-		if (!responseChannelData.id) {
-			throw new Error('Invalid channel data, missing property "id"')
-		}
-
-		this.session.meData.channelId = '' + responseChannelData.id
 
 		log('LOADED ME DATA', this.session.meData)
 	}
@@ -205,11 +222,29 @@ export default class KickNetworkInterface implements NetworkInterface {
 			}
 
 			// We extract channel name from the URL
-			const channelName = pathArr[0]
+			let channelName = pathArr[0]
 			if (!channelName) throw new Error('Failed to extract channel name from URL')
 
+			let isCreatorView = false
+			if (channelName === 'dashboard') {
+				const userData = await RESTFromMainService.get('https://kick.com/api/v1/user')
+				if (!userData) throw new Error('Failed to fetch user data')
+
+				if (!userData.streamer_channel)
+					throw new Error('Invalid user data, missing property "streamer_channel"')
+
+				const slug = userData.streamer_channel?.slug
+				if (!slug) throw new Error('Invalid user data, missing property "slug"')
+
+				channelName = slug
+				isCreatorView = true
+			}
+
 			// We extract channel data from the Kick API
-			const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v2/channels/${channelName}`)
+			const responseChannelData = await RESTFromMainService.get(
+				`https://kick.com/api/v2/channels/${channelName}`
+			).catch(() => {})
+
 			if (!responseChannelData) {
 				throw new Error('Failed to fetch channel data')
 			}
@@ -227,6 +262,9 @@ export default class KickNetworkInterface implements NetworkInterface {
 				userId: '' + responseChannelData.user_id,
 				channelId: '' + responseChannelData.id,
 				channelName: channelName,
+				isVod: false,
+				isCreatorView,
+				isModView: pathArr[pathArr.length - 1].toLowerCase() === 'moderator',
 				chatroom: <ChatroomData>{
 					id: '' + responseChannelData.chatroom.id,
 					emotesMode: {
@@ -259,12 +297,14 @@ export default class KickNetworkInterface implements NetworkInterface {
 					isLoggedIn: true,
 					isSubscribed: !!responseChannelMeData.subscription,
 					isFollowing: !!responseChannelMeData.is_following,
-					followingSince: responseChannelMeData.following_since,
 					isSuperAdmin: !!responseChannelMeData.is_super_admin,
 					isBroadcaster: !!responseChannelMeData.is_broadcaster,
 					isModerator: !!responseChannelMeData.is_moderator
 				}
 			})
+
+			if (responseChannelMeData.following_since)
+				channelData.me.followingSince = responseChannelMeData.following_since
 
 			if (responseChannelMeData.banned) {
 				channelData.me.isBanned = {
@@ -302,8 +342,8 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const chatroomId = this.session.channelData.chatroom.id
 		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
 			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
-			type: 'message',
-			metadata: {}
+			type: 'message'
+			// metadata: {} // Pinned messages break if we send metadata
 		})
 			.then(res => {
 				const parsedError = tryParseErrorMessage(res)

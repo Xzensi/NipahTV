@@ -87,6 +87,8 @@ declare global {
 		channelName: ChannelName
 		userId: UserId
 		isVod?: boolean
+		isModView?: boolean
+		isCreatorView?: boolean
 		chatroom?: ChatroomData
 		me: {
 			isLoggedIn: boolean

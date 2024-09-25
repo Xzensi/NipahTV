@@ -4,6 +4,10 @@
 	}
 }
 
+#message-input {
+	display: none;
+}
+
 #ntv__message-input {
 	outline: 2px solid transparent;
 	border-color: transparent;
@@ -16,6 +20,13 @@
 	&:focus-visible {
 		outline: 2px solid transparent;
 		outline-offset: 2px;
+	}
+}
+
+.ntv__message-input__wrapper {
+	// Hide the original Kick input
+	& + div[dir] {
+		display: none;
 	}
 }
 
@@ -38,6 +49,10 @@
 		background-color: #21650a;
 		cursor: default;
 	}
+
+	& + button {
+		display: none !important;
+	}
 }
 
 .kick__chat-footer {
@@ -45,5 +60,60 @@
 
 	> div {
 		position: relative;
+	}
+}
+
+////////////////////////////////////////////////////////////
+/// For moderator & creator view still using old design
+#chatroom-footer {
+	gap: 0 !important;
+
+	// Emote menu button
+	#message-input + .disabled\:pointer-events-none {
+		display: none !important;
+	}
+
+	// When reply mode is detected
+	&:has(> .flex > .chat-mode.text-mode > .text-sm:first-child) {
+		// Hide the NTV emote menu button
+		.ntv__emote-menu-button {
+			display: none !important;
+		}
+
+		// Hide the NTV submit button
+		.chat-mode.text-mode + .send-row {
+			.ntv__submit-button {
+				display: none !important;
+
+				& + button {
+					display: flex !important;
+				}
+			}
+		}
+
+		// Hide the NTV input and show the Kick input
+		.chat-input-wrapper {
+			.ntv__message-input__wrapper {
+				display: none !important;
+			}
+
+			#message-input {
+				display: flex !important;
+			}
+
+			#message-input + .disabled\:pointer-events-none {
+				display: flex !important;
+			}
+		}
+
+		// Hide the quick emotes holder
+		.ntv__quick-emotes-holder {
+			display: none !important;
+		}
+
+		// Show the native Kick emote menu button
+		#message-input + .disabled\:pointer-events-none {
+			display: block !important;
+		}
 	}
 }

@@ -4,6 +4,23 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.30',
+		date: '2024-09-25',
+		description: `
+                  NipahTV now works again on the moderator & creators dashboard pages! If you have any issues here, please do report them. It's now also possible to completely disable NTV on moderator dashboard & creator pages for those that want this.
+
+                  Feat: Added settings option whether to render chat messages
+                  Feat: Added moderator setting to disable NTV on moderator & creator dashboard pages
+                  Fix: NTV no longer loading for moderator & creator dashboard pages after Kick website update
+                  Fix: Metadata in API calls causing Kick servers to shit themselves for no reason making messages broken when pinned
+                  Fix: Disable steal focus feature for VODs
+                  Fix: REST requests not return data correctly
+                  Refactor: Reworked native Kick chat input fallback mechanism for reply behaviour
+                  Chore: Moved settings to new moderator category
+                  Chore: Conducted a full-scale rescue mission for my missing socks
+            `
+	},
+	{
 		version: '1.5.29',
 		date: '2024-09-24',
 		description: `

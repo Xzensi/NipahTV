@@ -31,6 +31,18 @@
 	}
 }
 
+.kick__chat-message--old-format {
+	.chat-entry {
+		border: none;
+		padding: 0;
+		margin: 0;
+
+		& > .ntv__chat-message__inner ~ div {
+			display: none !important;
+		}
+	}
+}
+
 .ntv__pinned-message {
 	&__content {
 		font-size: $root_font_size;

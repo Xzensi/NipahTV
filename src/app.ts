@@ -41,7 +41,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.29'
+	VERSION = '1.5.30'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -319,19 +319,33 @@ class NipahClient {
 
 		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 
-		await Promise.allSettled([
+		const promiseRes = await Promise.allSettled([
 			this.loadSettingsManagerPromise,
 			networkInterface.loadMeData().catch(err => {
-				throw new Error(`Couldn't load me data because: ${err}`)
+				throw new Error(`Couldn't load me data because: ${err.message}`)
 			}),
 			networkInterface.loadChannelData().catch(err => {
-				throw new Error(`Couldn't load channel data because: ${err}`)
+				throw new Error(`Couldn't load channel data because: ${err.message}`)
 			})
 		])
+
+		// Check if any of these promises failed and bubble up the error
+		promiseRes.forEach(res => {
+			if (res.status === 'rejected') throw res.reason
+		})
 
 		if (!session.meData) throw new Error('Failed to load me user data.')
 		if (!session.channelData) throw new Error('Failed to load channel data.')
 		const channelData = session.channelData
+
+		const disableModCreatorView = await settingsManager.getSetting(
+			channelData.channelId,
+			'moderators.mod_creator_view.disable_ntv'
+		)
+		if (disableModCreatorView && (channelData.isModView || channelData.isCreatorView)) {
+			info('NipahTV is disabled for this channel in mod/creator view.')
+			return
+		}
 
 		this.attachEventServiceListeners(rootContext, session)
 
