@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.31
+// @version 1.5.32
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -16341,6 +16341,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         } else {
           this.observeChatEntriesForDeletionEvents();
         }
+        this.applyModViewFixes();
       }).catch(() => {
       });
     } else {
@@ -17593,14 +17594,17 @@ var KickUserInterface = class extends AbstractUserInterface {
       ntvBadgesEl.className = "ntv__chat-message__badges";
       for (const badgeWrapperEl of badgesEl?.children || []) {
         const subWrapperEl = badgeWrapperEl.firstElementChild;
-        let imgOrSvgEl = subWrapperEl.firstElementChild;
-        if (imgOrSvgEl && imgOrSvgEl.tagName !== "IMG") imgOrSvgEl = imgOrSvgEl.firstElementChild;
+        let imgOrSvgEl = subWrapperEl;
+        if (imgOrSvgEl && imgOrSvgEl.tagName !== "IMG" && imgOrSvgEl.tagName !== "svg")
+          imgOrSvgEl = imgOrSvgEl.firstElementChild;
+        if (imgOrSvgEl && imgOrSvgEl.tagName !== "IMG" && imgOrSvgEl.tagName !== "svg")
+          imgOrSvgEl = imgOrSvgEl.firstElementChild;
         if (!imgOrSvgEl || imgOrSvgEl.tagName !== "IMG" && imgOrSvgEl.tagName !== "svg") {
-          error("Badge image or svg element not found", imgOrSvgEl);
+          error("Badge image or svg element not found", imgOrSvgEl, subWrapperEl);
           continue;
         }
         const ntvBadgeEl = imgOrSvgEl?.cloneNode(true);
-        ntvBadgeEl.setAttribute("class", "ntv__badge");
+        ntvBadgeEl.classList.add("ntv__badge");
         ntvBadgesEl.append(ntvBadgeEl);
       }
       if (chatMessageIdentityEl) {
@@ -17798,6 +17802,13 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }, 400);
     } else {
+    }
+  }
+  applyModViewFixes() {
+    const chatroomEl = document.getElementById("chatroom");
+    if (chatroomEl) {
+      const chatroomParentEl = chatroomEl.parentElement;
+      chatroomParentEl.style.setProperty("overflow-x", "hidden");
     }
   }
   renderPinnedMessageContent(contentBodyEl) {
@@ -20715,6 +20726,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.32",
+    date: "2024-09-26",
+    description: `
+                  Fix: Verified badge not showing in moderator dashboard view
+                  Fix: Kick bug where hiding pinned message cause horizontal scrollbar to show
+            `
+  },
+  {
     version: "1.5.31",
     date: "2024-09-25",
     description: `
@@ -23548,7 +23567,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.31";
+  VERSION = "1.5.32";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

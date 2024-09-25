@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.32',
+		date: '2024-09-26',
+		description: `
+                  Fix: Verified badge not showing in moderator dashboard view
+                  Fix: Kick bug where hiding pinned message cause horizontal scrollbar to show
+            `
+	},
+	{
 		version: '1.5.31',
 		date: '2024-09-25',
 		description: `

@@ -151,6 +151,8 @@ export class KickUserInterface extends AbstractUserInterface {
 						this.observeChatEntriesForDeletionEvents()
 					}
 
+					this.applyModViewFixes()
+
 					// 		// TODO refactor this, it depends on the chat messages container and inputController but load timing might be off
 					// 		this.loadReplyBehaviour()
 				})
@@ -1933,15 +1935,19 @@ export class KickUserInterface extends AbstractUserInterface {
 			for (const badgeWrapperEl of badgesEl?.children || []) {
 				const subWrapperEl = badgeWrapperEl.firstElementChild as HTMLElement
 
-				let imgOrSvgEl = subWrapperEl.firstElementChild
-				if (imgOrSvgEl && imgOrSvgEl.tagName !== 'IMG') imgOrSvgEl = imgOrSvgEl.firstElementChild
+				let imgOrSvgEl: Element | null = subWrapperEl
+				if (imgOrSvgEl && imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')
+					imgOrSvgEl = imgOrSvgEl.firstElementChild
+				if (imgOrSvgEl && imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')
+					imgOrSvgEl = imgOrSvgEl.firstElementChild
 				if (!imgOrSvgEl || (imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')) {
-					error('Badge image or svg element not found', imgOrSvgEl)
+					error('Badge image or svg element not found', imgOrSvgEl, subWrapperEl)
 					continue
 				}
 
 				const ntvBadgeEl = imgOrSvgEl?.cloneNode(true) as HTMLElement
-				ntvBadgeEl.setAttribute('class', 'ntv__badge')
+				// ntvBadgeEl.setAttribute('class', 'ntv__badge')
+				ntvBadgeEl.classList.add('ntv__badge')
 				// subWrapperEl.setAttribute('class', 'ntv__chat-message__badge')
 				ntvBadgesEl.append(ntvBadgeEl)
 			}
@@ -2207,6 +2213,14 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 		// Chatroom is old Kick design in mod or creator view
 		else {
+		}
+	}
+
+	applyModViewFixes() {
+		const chatroomEl = document.getElementById('chatroom')
+		if (chatroomEl) {
+			const chatroomParentEl = chatroomEl.parentElement! as HTMLElement
+			chatroomParentEl.style.setProperty('overflow-x', 'hidden')
 		}
 	}
 
