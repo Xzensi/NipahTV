@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.31',
+		date: '2024-09-25',
+		description: `
+                  Fix: Inconsistent badge element structure in old Kick website structure causing chat rendering to crash
+            `
+	},
+	{
 		version: '1.5.30',
 		date: '2024-09-25',
 		description: `
