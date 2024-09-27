@@ -32,6 +32,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	private emoteMenu: EmoteMenuComponent | null = null
 	private emoteMenuButton: EmoteMenuButtonComponent | null = null
 	private quickEmotesHolder: QuickEmotesHolderComponent | null = null
+	private clearQueuedChatMessagesInterval: NodeJS.Timeout | null = null
 
 	protected elm: {
 		chatMessagesContainer: HTMLElement | null
@@ -1010,7 +1011,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Additional cleanup loop to keep the queue size in check
 		//  when inactive tab and requestAnimationFrame never fires.
-		setInterval(() => {
+		this.clearQueuedChatMessagesInterval = setInterval(() => {
 			const queue = this.queuedChatMessages
 			if (queue.length > 150) {
 				log('Chat message queue is too large, discarding overhead..', queue.length)
@@ -2217,10 +2218,11 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!footerEl) return error('Footer element not found')
 
 			const textFieldParent = textFieldEl.parentElement!
-			setInterval(() => {
+			const intervalId = setInterval(() => {
 				const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]')
-				if (!closeReplyBtnEl && textFieldParent.style.display === 'none') {
-					restoreFields()
+				if (!closeReplyBtnEl) {
+					if (textFieldParent.style.display === 'none') restoreFields()
+					clearInterval(intervalId)
 				}
 			}, 400)
 		}
@@ -2352,6 +2354,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
+		if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval)
 
 		this.domEventManager.removeAllEventListeners()
 
