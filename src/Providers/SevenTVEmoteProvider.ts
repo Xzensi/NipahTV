@@ -122,10 +122,12 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				default:
 					size = 1
 			}
+
+			const sanitizedEmoteName = emote.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
 			return {
 				id: '' + emote.id,
 				hid: md5(emote.name),
-				name: emote.name,
+				name: sanitizedEmoteName,
 				provider: this.id,
 				subscribersOnly: false,
 				spacing: true,

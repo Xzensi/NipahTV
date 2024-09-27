@@ -26,10 +26,11 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 		const emoteSets = []
 		for (const dataSet of dataSets) {
 			const emotesMapped = dataSet.emotes.map((emote: any) => {
+				const sanitizedEmoteName = emote.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
 				return {
 					id: '' + emote.id,
 					hid: md5(emote.name),
-					name: emote.name,
+					name: sanitizedEmoteName,
 					subscribersOnly: emote.subscribers_only,
 					provider: this.id,
 					width: 32,
