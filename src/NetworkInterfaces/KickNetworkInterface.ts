@@ -180,7 +180,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const pathArr = window.location.pathname.substring(1).split('/')
 		const channelData = {} as ChannelData
 
-		if (pathArr[1] === 'videos') {
+		if (pathArr[1] === 'videos' && pathArr[2]) {
 			info('VOD video detected..')
 
 			// We are on a VOD page

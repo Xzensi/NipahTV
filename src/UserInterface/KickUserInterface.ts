@@ -14,14 +14,16 @@ import QuickEmotesHolderComponent from './Components/QuickEmotesHolderComponent'
 import EmoteMenuButtonComponent from './Components/EmoteMenuButtonComponent'
 import EmoteMenuComponent from './Components/EmoteMenuComponent'
 import AbstractUserInterface from './AbstractUserInterface'
+import DOMEventManager from '../Managers/DOMEventManager'
 import InputController from '../Classes/InputController'
 import type UserInfoModal from './Modals/UserInfoModal'
 import type { Badge } from '../Providers/BadgeProvider'
-import { Caret } from './Caret'
 import { U_TAG_NTV_AFFIX } from '../constants'
+import { Caret } from './Caret'
 
 export class KickUserInterface extends AbstractUserInterface {
 	private abortController = new AbortController()
+	private domEventManager = new DOMEventManager()
 
 	private chatObserver: MutationObserver | null = null
 	private deletedChatEntryObserver: MutationObserver | null = null
@@ -133,8 +135,8 @@ export class KickUserInterface extends AbstractUserInterface {
 						chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
 					}
 
-					chatMessagesContainerEl.addEventListener('copy', evt => {
-						this.clipboard.handleCopyEvent(evt)
+					this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
+						this.clipboard.handleCopyEvent(evt as ClipboardEvent)
 					})
 
 					// Render emotes in chat when providers are loaded
@@ -235,8 +237,8 @@ export class KickUserInterface extends AbstractUserInterface {
 						chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
 					}
 
-					chatMessagesContainerEl.addEventListener('copy', evt => {
-						this.clipboard.handleCopyEvent(evt)
+					this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
+						this.clipboard.handleCopyEvent(evt as ClipboardEvent)
 					})
 
 					// Render emotes in chat when providers are loaded
@@ -660,7 +662,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					'chat.input.steal_focus'
 				)
 
-			document.body.addEventListener('keydown', evt => {
+			this.domEventManager.addEventListener(document.body, 'keydown', (evt: KeyboardEvent) => {
 				if (
 					evt.ctrlKey ||
 					evt.altKey ||
@@ -691,10 +693,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.stickyScroll) chatMessagesContainerEl.parentElement?.classList.add('ntv__sticky-scroll')
 
 		// Enable sticky scroll when user scrolls to bottom
-		chatMessagesContainerEl.addEventListener(
+		this.domEventManager.addEventListener(
+			chatMessagesContainerEl,
 			'scroll',
 			evt => {
-				log('Scroll event', evt)
+				// log('Scroll event', evt)
 				if (!this.stickyScroll) {
 					// Calculate if user has scrolled to bottom and set sticky scroll to true
 					const target = evt.target as HTMLElement
@@ -711,10 +714,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Disable sticky scroll when user scrolls up
-		chatMessagesContainerEl.addEventListener(
+		this.domEventManager.addEventListener(
+			chatMessagesContainerEl,
 			'wheel',
 			evt => {
-				log('Wheel event', evt)
+				// log('Wheel event', evt)
 				if (this.stickyScroll && evt.deltaY < 0) {
 					chatMessagesContainerEl.parentElement?.classList.remove('ntv__sticky-scroll')
 					this.stickyScroll = false
@@ -913,6 +917,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	// 						const newButtonEl = replyBtnEl.cloneNode(true)
 	// 						replyBtnEl.replaceWith(newButtonEl)
 
+	//						this.domEventManager.addEventListener( //! Register event listeners
 	// 						newButtonEl.addEventListener('click', replyMessageButtonCallback)
 	// 					}
 	// 				}
@@ -1027,6 +1032,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || [])
 		if (chatMessageEls.length) {
 			for (const chatMessageEl of chatMessageEls) {
+				// if (
+				// 	chatMessageEl.classList.contains('ntv__chat-message') ||
+				// 	chatMessageEl.classList.contains('ntv__chat-message--unrendered')
+				// )
+				// 	continue
 				this.prepareMessageForRendering(chatMessageEl as HTMLElement)
 				this.queuedChatMessages.push(chatMessageEl as HTMLElement)
 			}
@@ -1080,9 +1090,10 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Show emote tooltip with emote name, remove when mouse leaves
 		const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, 'chat.tooltips.images')
-		chatMessagesContainerEl.addEventListener(
+		this.domEventManager.addEventListener(
+			chatMessagesContainerEl,
 			'mouseover',
-			evt => {
+			(evt: MouseEvent) => {
 				const target = evt.target as HTMLElement
 				if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box'))
 					return
@@ -1117,7 +1128,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			{ passive: true }
 		)
 
-		chatMessagesContainerEl.addEventListener('click', evt => {
+		this.domEventManager.addEventListener(chatMessagesContainerEl, 'click', (evt: MouseEvent) => {
 			const target = evt.target as HTMLElement
 
 			// Insert emote in chat input when clicked
@@ -1349,7 +1360,9 @@ export class KickUserInterface extends AbstractUserInterface {
 	observePinnedMessage() {
 		const pinnedMessageContainerEl = document
 			.getElementById('channel-chatroom')
-			?.querySelector('& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden')
+			?.querySelector(
+				'& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden'
+			) as HTMLElement
 		if (!pinnedMessageContainerEl) return error('Pinned message container not found for observation')
 
 		const renderPinnedMessageBody = (contentBodyEl: HTMLElement) => {
@@ -1398,7 +1411,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 
 		// Clicking on emotes in pinned message
-		pinnedMessageContainerEl.addEventListener('click', evt => {
+		this.domEventManager.addEventListener(pinnedMessageContainerEl, 'click', evt => {
 			const target = evt.target as HTMLElement
 			if (target.tagName === 'IMG' && target?.parentElement?.classList.contains('ntv__inline-emote-box')) {
 				const emoteHid = target.getAttribute('data-emote-hid')
@@ -2339,5 +2352,23 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
+
+		this.domEventManager.removeAllEventListeners()
+
+		// Remove inserted elements
+		Array.from(document.querySelectorAll('.ntv__chat-message, .ntv__chat-message--unrendered')).forEach(node => {
+			const el = node as HTMLElement
+			el.querySelectorAll('.ntv__chat-message__inner').forEach(innerNode => innerNode.remove())
+
+			// Remove all classes starting with ntv__ from the element
+			Array.from(el.classList).forEach(className => {
+				if (className.startsWith('ntv__')) el.classList.remove(className)
+			})
+		})
+
+		// Remove classes from everything
+		;['ntv__emote-menu-button', 'ntv__submit-button disabled', 'ntv__quick-emotes-holder'].forEach(className => {
+			Array.from(document.querySelectorAll(`.${className}`)).forEach(node => node.classList.remove(className))
+		})
 	}
 }

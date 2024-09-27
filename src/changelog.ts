@@ -29,7 +29,7 @@ export const CHANGELOG: {
                   Fix: NTV no longer loading for moderator & creator dashboard pages after Kick website update
                   Fix: Metadata in API calls causing Kick servers to shit themselves for no reason making messages broken when pinned
                   Fix: Disable steal focus feature for VODs
-                  Fix: REST requests not return data correctly
+                  Fix: REST requests not returning data correctly
                   Refactor: Reworked native Kick chat input fallback mechanism for reply behaviour
                   Chore: Moved settings to new moderator category
                   Chore: Conducted a full-scale rescue mission for my missing socks
