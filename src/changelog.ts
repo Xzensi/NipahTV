@@ -18,6 +18,7 @@ export const CHANGELOG: {
                   Fix: Kick showing elements in certain chat states
                   Fix: Ordering favorites not working correctly
                   Fix: Unloading session not clearing render message cleanup interval
+                  Fix: Broken SVG markup
                   Refactor: Reworked message content rendering
                   Refactor: Solidified structure of emotes
                   Refactor: Minor relabeling of stuff
