@@ -1,7 +1,11 @@
 import { AbstractEmoteProvider } from '../Providers/AbstractEmoteProvider'
 import { EmoteDatastore } from '../Datastores/EmoteDatastore'
 import { log, info, error, splitEmoteName } from '../utils'
+import { parse as twemojiParse } from '@twemoji/parser'
 import type SettingsManager from './SettingsManager'
+import { U_TAG_NTV_AFFIX } from '../constants'
+
+const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
 export default class EmotesManager {
 	private providers: Map<number, AbstractEmoteProvider> = new Map()
@@ -99,6 +103,10 @@ export default class EmotesManager {
 		return this.datastore.getEmote('' + emoteHid)
 	}
 
+	getEmoteByName(emoteName: string) {
+		return this.datastore.getEmoteByName(emoteName)
+	}
+
 	getAllEmotes() {
 		return this.datastore.getAllEmotes()
 	}
@@ -152,8 +160,6 @@ export default class EmotesManager {
 	}
 
 	getRenderableEmote(emote: Emote, classes = '') {
-		if (!emote) return error('No emote provided')
-
 		const provider = this.providers.get(emote.provider)
 		if (!provider) return error('Provider not found for emote', emote)
 
@@ -215,6 +221,124 @@ export default class EmotesManager {
 
 	removeEmoteUsage(emoteHid: string) {
 		this.datastore.removeEmoteUsage(emoteHid)
+	}
+
+	parseEmoteText(
+		text: string
+	): Array<string | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }> {
+		if (text.endsWith(U_TAG_NTV_AFFIX)) {
+			text = text.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1)
+		}
+
+		text = text.trim()
+		if (!text.length) return []
+
+		const result = []
+		const unprocessed = []
+
+		// Split the text into parts of emojis and text
+		const emojiEntries = twemojiParse(text)
+		if (emojiEntries.length) {
+			let lastIndex = 0
+			const totalEmojis = emojiEntries.length
+			for (let i = 0; i < totalEmojis; i++) {
+				const emojiData = emojiEntries[i]
+
+				// Get the string before the current emoji based on the last index processed
+				const stringStart = text.slice(lastIndex, emojiData.indices[0]).trim()
+				if (stringStart.length) unprocessed.push(stringStart)
+
+				unprocessed.push({
+					type: 'emoji',
+					url: emojiData.url,
+					alt: emojiData.text
+				})
+
+				// Update lastIndex to the end of the current emoji
+				lastIndex = emojiData.indices[1]
+			}
+
+			// Get the string after the last emoji
+			if (lastIndex < text.length) {
+				const stringEnd = text.slice(lastIndex).trim()
+				if (stringEnd.length) unprocessed.push(stringEnd)
+			}
+		} else {
+			unprocessed.push(text)
+		}
+
+		// Process the unprocessed parts and search for emotes in the strings
+		for (const part of unprocessed) {
+			if (typeof part === 'string') {
+				result.push(...this.parseEmoteTextPart(part))
+			} else {
+				result.push(part)
+			}
+		}
+
+		return result as any
+	}
+
+	/**
+	 * Assumes input is never an empty string.
+	 */
+	private parseEmoteTextPart(partString: string) {
+		const result = []
+
+		let match,
+			lastMatchedIndex = 0
+		while ((match = emoteMatcherRegex.exec(partString)) !== null) {
+			/**
+			 * Kick emote format is like [emote:1234567:name]
+			 * MaybeTextEmote is just a word like "vibee"
+			 */
+			const [matchedText, kickEmoteFormatMatch, maybeTextEmote] = match
+
+			if (kickEmoteFormatMatch) {
+				if (lastMatchedIndex < match.index) {
+					const text = partString.slice(lastMatchedIndex, match.index).trim()
+					if (text.length) result.push(text)
+					lastMatchedIndex = emoteMatcherRegex.lastIndex
+				}
+
+				const emote = this.getEmoteById(kickEmoteFormatMatch)
+				if (emote) {
+					result.push({
+						type: 'emote',
+						emote: emote
+					})
+				}
+
+				// This should never happen, but just in case
+				else result.push(matchedText)
+			} else if (maybeTextEmote) {
+				const emote = this.getEmoteByName(maybeTextEmote)
+
+				if (emote) {
+					if (lastMatchedIndex < match.index) {
+						const text = partString.slice(lastMatchedIndex, match.index).trim()
+						if (text.length) result.push(text)
+						lastMatchedIndex = emoteMatcherRegex.lastIndex
+					}
+
+					result.push({
+						type: 'emote',
+						emote: emote
+					})
+				}
+			}
+		}
+
+		// Technically should never produce any text because the regex should match all text
+		//  so its only possible for ignored characters to be left over, like spaces and ][ brackets.
+		if (result.length === 0 && lastMatchedIndex !== 0) {
+			result.push(partString.trim())
+		} else if (lastMatchedIndex < partString.length) {
+			const text = partString.slice(lastMatchedIndex).trim()
+			if (text.length) result.push(text)
+		}
+
+		return result
 	}
 
 	searchEmotes(search: string, limit = 0) {

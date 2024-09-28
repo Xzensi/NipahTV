@@ -327,16 +327,6 @@ export default class KickNetworkInterface implements NetworkInterface {
 		if (!this.session.channelData) throw new Error('Channel data is not loaded yet.')
 		if (!this.session.channelData.chatroom) throw new Error('Chatroom data is not loaded yet.')
 
-		// let randomSpamFilterBustingTag = ''
-		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0)) +
-		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0))
-		// const count = (Math.random() * 40 + 1) << 0
-		// for (let i = 0; i < count; i++) {
-		// 	randomSpamFilterBustingTag += String.fromCodePoint(0x0030 + ((Math.random() * 10) << 0))
-		// }
-
-		// log(`Random spam filter busting tag: "${randomSpamFilterBustingTag}"`)
-
 		if (!noUtag) message[message.length - 1] === ' ' || (message += ' ')
 
 		const chatroomId = this.session.channelData.chatroom.id

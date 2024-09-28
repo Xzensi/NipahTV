@@ -13,8 +13,6 @@ import PollModal from './Modals/PollModal'
 import { Toaster } from '../Classes/Toaster'
 import Clipboard2 from '../Classes/Clipboard'
 
-const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
-
 export default abstract class AbstractUserInterface {
 	protected rootContext: RootContext
 	protected session: Session
@@ -105,125 +103,45 @@ export default abstract class AbstractUserInterface {
 	}
 
 	renderEmotesInString(textContent: string) {
-		const { emotesManager } = this.session
-		const newNodes: Array<Text | HTMLElement> = []
+		const emotesManager = this.session.emotesManager
+		const parsedMessageParts = emotesManager.parseEmoteText(textContent)
 
-		if (textContent.endsWith(U_TAG_NTV_AFFIX)) {
-			textContent = textContent.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1)
-		}
-
-		textContent = textContent.trim()
-		if (!textContent.length) return newNodes
-
-		// TODO create abstraction layer for kick emote matching and rendering
-		let match,
-			lastIndex = 0,
-			textBuffer = ''
-		while ((match = emoteMatcherRegex.exec(textContent)) !== null) {
-			/**
-			 * Kick emote format is like [emote:1234567:name]
-			 * Plaintext emote is just a word like "vibee"
-			 */
-			const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match
-
-			if (kickEmoteFormatMatch) {
-				if (textBuffer.length && textBuffer.trim()) {
-					this.parseEmojisInString(textBuffer, newNodes)
-					textBuffer = ''
-				}
-
-				// Handle new emote format: Extract ID and name
-				const emote = emotesManager.getEmoteById(kickEmoteFormatMatch)
-				if (emote) {
-					const emoteRender = emotesManager.getRenderableEmote(emote)!
-					newNodes.push(this.createEmoteMessagePartElement(emoteRender, emote.hid))
-				} else {
-					const kickProvider = emotesManager.getProvider(PROVIDER_ENUM.KICK) as KickEmoteProvider
-					const emoteRender = kickProvider.getRenderableEmoteById(kickEmoteFormatMatch)
-					newNodes.push(this.createEmoteMessagePartElement(emoteRender, ''))
-				}
-			} else if (plainTextEmote) {
-				// Check if word is plain text emote
-				const emoteHid = emotesManager.getEmoteHidByName(plainTextEmote)
-				if (emoteHid) {
-					const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid)
-					if (emoteRender) {
-						if (textBuffer.length && textBuffer.trim()) {
-							this.parseEmojisInString(textBuffer, newNodes)
-							textBuffer = ''
-						}
-
-						newNodes.push(this.createEmoteMessagePartElement(emoteRender, emoteHid))
-					}
-				} else {
-					// Plain text emote not found, treat as text node
-					textBuffer += textContent.slice(lastIndex, match.index + plainTextEmote.length)
-				}
-			}
-
-			lastIndex = emoteMatcherRegex.lastIndex
-		}
-
-		if (lastIndex > 0 && lastIndex < textContent.length) {
-			this.parseEmojisInString(textBuffer + textContent.slice(lastIndex), newNodes)
-		} else if (textBuffer.length && textBuffer.trim()) {
-			this.parseEmojisInString(textBuffer, newNodes)
-		} else if (lastIndex === 0) {
-			this.parseEmojisInString(textContent, newNodes)
-		}
-
-		return newNodes
-	}
-
-	private parseEmojisInString(textContent: string, resultArray: Array<Text | HTMLElement> = []) {
-		textContent = textContent.trim()
-
-		const emojiEntries = twemojiParse(textContent)
-		if (emojiEntries.length) {
-			const totalEmojis = emojiEntries.length
-			let lastIndex = 0
-
-			for (let i = 0; i < totalEmojis; i++) {
-				const emojiData = emojiEntries[i]
+		const result = []
+		for (const part of parsedMessageParts) {
+			if (typeof part === 'string') {
+				result.push(this.createPlainTextMessagePartNode(part))
+			} else if (part.type === 'emote') {
+				result.push(this.createEmoteMessagePartElement(part.emote))
+			} else if (part.type === 'emoji') {
 				const emojiNode = document.createElement('img')
 				emojiNode.className = 'ntv__chat-message__part ntv__inline-emoji'
-				emojiNode.src = emojiData.url
-				emojiNode.alt = emojiData.text
-
-				// Get the string before the current emoji based on the last index processed
-				const stringStart = textContent.slice(lastIndex, emojiData.indices[0])
-
-				if (stringStart) {
-					resultArray.push(this.createPlainTextMessagePartNode(stringStart))
-				}
-				resultArray.push(emojiNode)
-
-				// Update lastIndex to the end of the current emoji
-				lastIndex = emojiData.indices[1]
+				emojiNode.src = part.url
+				emojiNode.alt = part.alt
+				result.push(emojiNode)
+			} else {
+				error('Unknown message part type', part)
 			}
-
-			// After the loop, add any remaining text that comes after the last emoji
-			const remainingText = textContent.slice(lastIndex)
-			if (remainingText.length && remainingText.trim()) {
-				resultArray.push(this.createPlainTextMessagePartNode(remainingText))
-			}
-		} else if (textContent.length) {
-			resultArray.push(this.createPlainTextMessagePartNode(textContent))
 		}
 
-		return resultArray
+		return result
 	}
 
-	createEmoteMessagePartElement(emoteRender: string, emoteHid: string) {
+	createEmoteMessagePartElement(emote: Emote) {
 		const node = document.createElement('span')
-		node.appendChild(parseHTML(emoteRender, true))
 		node.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
-		node.setAttribute('data-emote-hid', emoteHid)
+		node.setAttribute('data-emote-hid', emote.hid)
 		node.setAttribute('contenteditable', 'false')
+
+		const emoteRender = this.session.emotesManager.getRenderableEmote(emote)
+		if (!emoteRender) {
+			error('Failed to create emote message part element, emote render not found.', emote)
+			return node
+		}
+		node.appendChild(parseHTML(emoteRender))
 		return node
 	}
 
-	private createPlainTextMessagePartNode(textContent: string) {
+	createPlainTextMessagePartNode(textContent: string) {
 		if (textContent === ' ') {
 			error('Attempted to create a text node with a single space character.')
 			return document.createTextNode(' ')

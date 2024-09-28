@@ -31,7 +31,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 					id: '' + emote.id,
 					hid: md5(emote.name),
 					name: sanitizedEmoteName,
-					subscribersOnly: emote.subscribers_only,
+					isSubscribersOnly: emote.subscribers_only,
 					provider: this.id,
 					width: 32,
 					size: 1

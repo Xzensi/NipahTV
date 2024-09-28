@@ -343,7 +343,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				continue
 			}
 
-			if (emote.subscribersOnly && !emoteSet.isSubscribed) {
+			if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
 				if (hideSubscribersEmotes) continue
 
 				this.panels.search?.append(
@@ -444,7 +444,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid)
 
 			let emoteBoxClasses = emote ? '' : ' ntv__emote-box--unavailable'
-			emoteBoxClasses += !emoteSet?.isSubscribed && emote?.subscribersOnly ? 'ntv__emote-box--locked' : ''
+			emoteBoxClasses += !emoteSet?.isSubscribed && emote?.isSubscribersOnly ? 'ntv__emote-box--locked' : ''
 
 			emotesEl.append(
 				parseHTML(
@@ -515,7 +515,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 			const newEmoteSetEmotesEl = newEmoteSetEl.querySelector('.ntv__emote-set__emotes')!
 			for (const emote of sortedEmotes) {
-				if (emote.subscribersOnly && !emoteSet.isSubscribed) {
+				if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
 					if (hideSubscribersEmotes) continue
 
 					newEmoteSetEmotesEl.append(

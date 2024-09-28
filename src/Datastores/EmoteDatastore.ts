@@ -270,6 +270,10 @@ export class EmoteDatastore {
 		return this.emoteMap.get(emoteHid)
 	}
 
+	getEmoteByName(emoteName: string) {
+		return this.emoteNameMap.get(emoteName)
+	}
+
 	getAllEmotes() {
 		return Array.from(this.emoteMap.values())
 	}

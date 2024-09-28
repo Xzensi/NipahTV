@@ -1512,9 +1512,13 @@ export class KickUserInterface extends AbstractUserInterface {
 			</div>
 
 		  * We unpack the chat message components and render them in our format:
-			<div data-chat-entry="...">
-				<div class="chat-entry"> <---|| Can't get rid of this, because Kick hooks into it with buttons ||
+			<div class="ntv__chat-message">
+				<div class="group relative">
+					<--|| Content remains the same ||-->
+				</div>
+				<div class="ntv__chat-message__inner">
 					<div class="ntv__chat-message">
+						<span class="ntv__chat-message__identity">...</span>
 						<span class="ntv__chat-message__part">Foobar</span>
 						<span class="ntv__chat-message__part ntv__inline-emote-box">
 							<img>
@@ -1740,9 +1744,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				// Check if message has been signed by NTV
 				const lastChildNode = contentWrapperNode.lastChild
 				if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
-					// Kick normally adds a margin-right tailwind class when container is no longer empty so we simulate it
-					// if (!badgesContainer.children.length) badgesContainer.classList.add('mr-1')
-
 					const badgeEl = parseHTML(
 						this.session.badgeProvider.getBadge({ type: 'nipahtv' } as Badge) as string,
 						true
@@ -1760,12 +1761,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			// const messageBodyChildren = Array.from(contentWrapperNode.childNodes)
 			for (const contentNode of contentWrapperNode.childNodes) {
 				if (contentNode.nodeType === Node.TEXT_NODE) {
-					const parsedEmoteNotes = this.renderEmotesInString(contentNode.textContent || '')
-					messagePartNodes.push(...parsedEmoteNotes)
-					// ntvChatMessageEl.append(...parsedEmoteNotes)
-				}
-				// @ts-ignore
-				else if (contentNode instanceof HTMLElement && contentNode!.tagName === 'SPAN') {
+					messagePartNodes.push(...this.renderEmotesInString(contentNode.textContent || ''))
+				} else if (contentNode instanceof HTMLElement && contentNode!.tagName === 'SPAN') {
 					// Unwrap and clean up native Kick emotes
 					const imgEl = contentNode.firstElementChild?.firstElementChild
 					if (!imgEl || imgEl instanceof HTMLImageElement === false) {
@@ -2013,8 +2010,7 @@ export class KickUserInterface extends AbstractUserInterface {
 							error('Chat message content node not an Element?', componentNode)
 							continue
 						}
-						const nodes = this.renderEmotesInString(componentNode.textContent || '')
-						messageParts.push(...nodes)
+						messageParts.push(...this.renderEmotesInString(componentNode.textContent || ''))
 						break
 
 					case 'chat-emote-container':
@@ -2258,11 +2254,10 @@ export class KickUserInterface extends AbstractUserInterface {
 					continue
 				}
 
-				const emoteHid = this.session.emotesManager.getEmoteHidByName(emoteName)
-				if (!emoteHid) continue
+				const emote = this.session.emotesManager.getEmoteByName(emoteName)
+				if (!emote) continue
 
-				const emoteRender = this.session.emotesManager.getRenderableEmoteByHid(emoteHid)!
-				ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emoteRender, emoteHid))
+				ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emote))
 			} else {
 				error('Unknown node found for pinned message', childNode)
 				const newNode = childNode.cloneNode(true) as HTMLElement

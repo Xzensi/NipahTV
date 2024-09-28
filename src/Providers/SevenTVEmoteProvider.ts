@@ -70,7 +70,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				hid: md5(emote.name),
 				name: emote.name,
 				provider: this.id,
-				subscribersOnly: false,
+				isZeroWidth: (emote.flags & 1) !== 0,
 				spacing: true,
 				width: file.width,
 				size
@@ -129,7 +129,6 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				hid: md5(emote.name),
 				name: sanitizedEmoteName,
 				provider: this.id,
-				subscribersOnly: false,
 				spacing: true,
 				width: file.width,
 				size

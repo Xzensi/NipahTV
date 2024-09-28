@@ -281,7 +281,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 			let emoteBoxClasses = emote ? '' : ' ntv__emote-box--unavailable'
 
-			if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.subscribersOnly)
+			if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.isSubscribersOnly)
 				emoteBoxClasses += ' ntv__emote-box--locked'
 
 			this.favoritesEl.append(
@@ -369,7 +369,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed
 
 			// Don't show subscribers only emotes if user is not subscribed
-			if (!isSubscribed && emotesManager.getEmote(emoteHid)?.subscribersOnly) continue
+			if (!isSubscribed && emotesManager.getEmote(emoteHid)?.isSubscribersOnly) continue
 
 			const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, 'ntv__emote')
 			if (!emoteRender) continue
