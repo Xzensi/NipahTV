@@ -107,7 +107,9 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 	getRenderableEmote(emote: Emote, classes = '') {
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
-		return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
+		return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name || ''}" data-emote-hid="${
+			emote.hid || ''
+		}" alt="${emote.name || ''}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getRenderableEmoteById(emoteId: string, classes = '') {

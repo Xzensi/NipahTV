@@ -224,7 +224,8 @@ export default class EmotesManager {
 	}
 
 	parseEmoteText(
-		text: string
+		text: string,
+		resultArray: any[] = []
 	): Array<string | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }> {
 		if (text.endsWith(U_TAG_NTV_AFFIX)) {
 			text = text.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1)
@@ -233,7 +234,6 @@ export default class EmotesManager {
 		text = text.trim()
 		if (!text.length) return []
 
-		const result = []
 		const unprocessed = []
 
 		// Split the text into parts of emojis and text
@@ -270,13 +270,13 @@ export default class EmotesManager {
 		// Process the unprocessed parts and search for emotes in the strings
 		for (const part of unprocessed) {
 			if (typeof part === 'string') {
-				result.push(...this.parseEmoteTextPart(part))
+				resultArray.push(...this.parseEmoteTextPart(part))
 			} else {
-				result.push(part)
+				resultArray.push(part)
 			}
 		}
 
-		return result as any
+		return resultArray
 	}
 
 	/**

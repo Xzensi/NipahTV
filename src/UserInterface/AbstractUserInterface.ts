@@ -102,14 +102,20 @@ export default abstract class AbstractUserInterface {
 		this.toaster.addToast(message.replaceAll('<', '&lt;'), 6_000, 'error')
 	}
 
-	renderEmotesInString(textContent: string) {
-		const emotesManager = this.session.emotesManager
-		const parsedMessageParts = emotesManager.parseEmoteText(textContent)
-
+	renderMessageParts(
+		parsedMessageParts: Array<
+			string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
+		>
+	) {
 		const result = []
 		for (const part of parsedMessageParts) {
 			if (typeof part === 'string') {
 				result.push(this.createPlainTextMessagePartNode(part))
+			} else if (part instanceof Node) {
+				const newContentNode = document.createElement('span')
+				newContentNode.classList.add('ntv__chat-message__part')
+				newContentNode.appendChild(part)
+				result.push(newContentNode)
 			} else if (part.type === 'emote') {
 				result.push(this.createEmoteMessagePartElement(part.emote))
 			} else if (part.type === 'emoji') {
@@ -129,7 +135,9 @@ export default abstract class AbstractUserInterface {
 	createEmoteMessagePartElement(emote: Emote) {
 		const node = document.createElement('span')
 		node.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
-		node.setAttribute('data-emote-hid', emote.hid)
+		if (emote.hid) node.setAttribute('data-emote-hid', emote.hid)
+		if (emote.id) node.setAttribute('data-emote-id', emote.id)
+		if (emote.name) node.setAttribute('data-emote-name', emote.name)
 		node.setAttribute('contenteditable', 'false')
 
 		const emoteRender = this.session.emotesManager.getRenderableEmote(emote)

@@ -18,7 +18,7 @@ import DOMEventManager from '../Managers/DOMEventManager'
 import InputController from '../Classes/InputController'
 import type UserInfoModal from './Modals/UserInfoModal'
 import type { Badge } from '../Providers/BadgeProvider'
-import { U_TAG_NTV_AFFIX } from '../constants'
+import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../constants'
 import { Caret } from './Caret'
 
 export class KickUserInterface extends AbstractUserInterface {
@@ -1756,12 +1756,10 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl)
 			ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
 
-			const messagePartNodes = []
-
-			// const messageBodyChildren = Array.from(contentWrapperNode.childNodes)
+			const messageParts = []
 			for (const contentNode of contentWrapperNode.childNodes) {
 				if (contentNode.nodeType === Node.TEXT_NODE) {
-					messagePartNodes.push(...this.renderEmotesInString(contentNode.textContent || ''))
+					emotesManager.parseEmoteText(contentNode.textContent || '', messageParts)
 				} else if (contentNode instanceof HTMLElement && contentNode!.tagName === 'SPAN') {
 					// Unwrap and clean up native Kick emotes
 					const imgEl = contentNode.firstElementChild?.firstElementChild
@@ -1769,8 +1767,6 @@ export class KickUserInterface extends AbstractUserInterface {
 						error('Emote image element not found', imgEl)
 						continue
 					}
-					const ntvImgEl = document.createElement('img')
-					ntvImgEl.src = imgEl.src
 
 					const emoteId = contentNode.getAttribute('data-emote-id')
 					const emoteName = contentNode.getAttribute('data-emote-name')
@@ -1779,24 +1775,24 @@ export class KickUserInterface extends AbstractUserInterface {
 						continue
 					}
 
-					// imgEl.removeAttribute('class')
-					ntvImgEl.setAttribute('data-emote-name', emoteName)
+					// Will not return anything for subscriber emotes that are not loaded
+					let emote = emotesManager.getEmoteByName(emoteName)
 
-					const emote = emotesManager.getEmoteById(emoteId)
-					if (emote) {
-						ntvImgEl.setAttribute('data-emote-hid', emote.hid)
+					if (!emote) {
+						emote = {
+							id: emoteId,
+							name: emoteName,
+							isSubscribersOnly: true,
+							provider: PROVIDER_ENUM.KICK
+						} as Emote
 					}
 
-					const newContentNode = document.createElement('span')
-					newContentNode.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
-					newContentNode.setAttribute('contenteditable', 'false')
-					newContentNode.appendChild(ntvImgEl)
-					messagePartNodes.push(newContentNode)
+					messageParts.push({
+						type: 'emote' as const,
+						emote
+					})
 				} else {
-					const newContentNode = document.createElement('span')
-					newContentNode.classList.add('ntv__chat-message__part')
-					newContentNode.appendChild(contentNode.cloneNode(true))
-					messagePartNodes.push(newContentNode)
+					messageParts.push(contentNode.cloneNode(true))
 				}
 			}
 
@@ -1808,7 +1804,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			ntvMessageInnerEl.className = 'ntv__chat-message__inner'
 			ntvMessageInnerEl.append(ntvIdentityWrapperEl)
-			ntvMessageInnerEl.append(...messagePartNodes)
+			ntvMessageInnerEl.append(...this.renderMessageParts(messageParts))
 
 			// Append all the nodes to our own chat message container
 			// We do this late so checks can be done and bailout early
@@ -1987,7 +1983,9 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}
 
-			const messageParts = []
+			const messageParts: Array<
+				string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
+			> = []
 			const messageContentNodes = Array.from(messageContentEl.children)
 
 			for (let i = 0; i < messageContentNodes.length; i++) {
@@ -2010,7 +2008,7 @@ export class KickUserInterface extends AbstractUserInterface {
 							error('Chat message content node not an Element?', componentNode)
 							continue
 						}
-						messageParts.push(...this.renderEmotesInString(componentNode.textContent || ''))
+						emotesManager.parseEmoteText(componentNode.textContent || '', messageParts)
 						break
 
 					case 'chat-emote-container':
@@ -2018,33 +2016,29 @@ export class KickUserInterface extends AbstractUserInterface {
 						const imgEl = componentNode.querySelector('img')
 						if (!imgEl) continue
 
-						imgEl.removeAttribute('class')
-						for (const attr in imgEl.dataset) {
-							if (attr.startsWith('v-')) {
-								imgEl.removeAttribute('data-' + attr)
-							} else if (attr === 'emoteId') {
-								const emoteId = imgEl.getAttribute('data-emote-id')
-
-								if (emoteId) {
-									const emote = emotesManager.getEmoteById(emoteId)
-									if (!emote) {
-										// error('Emote not found', emoteId, imgEl)
-										log(
-											`Skipping missing emote ${emoteId}, probably subscriber emote of channel you're not subscribed to.`
-										)
-										continue
-									}
-									imgEl.setAttribute('data-emote-hid', emote.hid)
-									imgEl.setAttribute('data-emote-name', emote.name)
-								}
-							}
+						const emoteId = contentNode.getAttribute('data-emote-id')
+						const emoteName = contentNode.getAttribute('data-emote-name')
+						if (!emoteId || !emoteName) {
+							error('Emote ID or name not found', contentNode)
+							continue
 						}
 
-						const newContentNode = document.createElement('span')
-						newContentNode.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
-						newContentNode.setAttribute('contenteditable', 'false')
-						newContentNode.appendChild(imgEl)
-						messageParts.push(newContentNode)
+						// Will not return anything for subscriber emotes that are not loaded
+						let emote = emotesManager.getEmoteByName(emoteName)
+
+						if (!emote) {
+							emote = {
+								id: emoteId,
+								name: emoteName,
+								isSubscribersOnly: true,
+								provider: PROVIDER_ENUM.KICK
+							} as Emote
+						}
+
+						messageParts.push({
+							type: 'emote' as const,
+							emote
+						})
 						break
 
 					default:
@@ -2127,7 +2121,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl)
 			ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
-			ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...messageParts)
+			ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...this.renderMessageParts(messageParts))
 
 			// Observe changes to detect when message is deleted
 			this.deletedChatEntryObserver?.observe(messageBodyNode, {
@@ -2240,32 +2234,45 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const ntvPinnedMessageBodyEl = document.createElement('div')
 		ntvPinnedMessageBodyEl.className = 'ntv__pinned-message__content'
+		const emotesManager = this.session.emotesManager
 
+		const parsedEmoteParts: Array<
+			string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
+		> = []
 		for (const childNode of Array.from(contentBodyEl.childNodes)) {
 			if (childNode.nodeType === Node.TEXT_NODE) {
-				const parsedEmoteNotes = this.renderEmotesInString(childNode.textContent || '')
-				ntvPinnedMessageBodyEl.append(...parsedEmoteNotes)
+				emotesManager.parseEmoteText(childNode.textContent || '', parsedEmoteParts)
 			} else if (childNode.nodeType === Node.ELEMENT_NODE) {
 				const emoteName = (childNode as HTMLElement).getAttribute('data-emote-name')
-				if (!emoteName) {
-					const newNode = childNode.cloneNode(true) as HTMLElement
-					newNode?.classList.add('ntv__chat-message__part')
-					ntvPinnedMessageBodyEl.append(newNode)
+				const emoteId = (childNode as HTMLElement).getAttribute('data-emote-id')
+
+				if (!emoteId || !emoteName) {
+					error('Emote ID or name not found', childNode)
+					parsedEmoteParts.push(childNode.cloneNode(true))
 					continue
 				}
 
-				const emote = this.session.emotesManager.getEmoteByName(emoteName)
-				if (!emote) continue
+				let emote = emotesManager.getEmoteByName(emoteName)
+				if (!emote) {
+					emote = {
+						id: emoteId,
+						name: emoteName,
+						isSubscribersOnly: true,
+						provider: PROVIDER_ENUM.KICK
+					} as Emote
+				}
 
-				ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emote))
+				parsedEmoteParts.push({
+					type: 'emote',
+					emote
+				})
 			} else {
 				error('Unknown node found for pinned message', childNode)
-				const newNode = childNode.cloneNode(true) as HTMLElement
-				newNode?.classList.add('ntv__chat-message__part')
-				ntvPinnedMessageBodyEl.append(newNode)
+				parsedEmoteParts.push(childNode.cloneNode(true))
 			}
 		}
 
+		ntvPinnedMessageBodyEl.append(...this.renderMessageParts(parsedEmoteParts))
 		contentBodyEl.before(ntvPinnedMessageBodyEl)
 	}
 
