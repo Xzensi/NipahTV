@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.32
+// @version 1.5.33
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-913a6f87.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-78f22fe2.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10750,9 +10750,13 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const channelId = this.session.channelData.channelId;
     const oldEls = document.getElementsByClassName("ntv__quick-emotes-holder");
     for (const el of oldEls) el.remove();
+    const showUnavailableEmotes = this.rootContext.settingsManager.getSetting(
+      channelId,
+      "quick_emote_holder.show_non_cross_channel_favorites"
+    );
     const rows = this.rootContext.settingsManager.getSetting(channelId, "quick_emote_holder.rows") || 2;
     this.element = parseHTML(
-      `<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
+      `<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites ${showUnavailableEmotes && "ntv__quick-emotes-holder__favorites--show-unavailable" || ""}"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
       true
     );
     this.favoritesEl = this.element.querySelector(".ntv__quick-emotes-holder__favorites");
@@ -10770,14 +10774,14 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         skipClickEvent = false;
         return;
       }
-      const target = evt.target;
-      const emoteBoxEl = target.parentElement;
+      const targetEl = evt.target;
+      const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
       if (!emoteBoxEl) {
         return error("Invalid emote box element");
       }
-      if (target.tagName !== "IMG" || emoteBoxEl.classList.contains("ntv__emote-box--unavailable") || emoteBoxEl.classList.contains("ntv__emote-box--locked"))
+      if (emoteBoxEl.classList.contains("ntv__emote-box--unavailable") || emoteBoxEl.classList.contains("ntv__emote-box--locked"))
         return;
-      const emoteHid = target.getAttribute("data-emote-hid");
+      const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
       if (!emoteHid) return error("Invalid emote hid");
       this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
     });
@@ -10785,11 +10789,11 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       "mousedown",
       (evt) => {
         const targetEl = evt.target;
-        if (targetEl instanceof HTMLElement && targetEl.parentElement && targetEl.parentElement.classList.contains("ntv__emote-box")) {
+        const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
+        if (emoteBoxEl) {
           if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-          const emoteHid = targetEl.getAttribute("data-emote-hid");
+          const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
           if (!emoteHid) return error("Unable to start dragging emote, invalid emote hid");
-          const emoteBoxEl = targetEl.parentElement;
           mouseDownTimeout = setTimeout(() => {
             if (!emoteBoxEl.isConnected) return;
             this.startDragFavoriteEmote(evt, emoteBoxEl);
@@ -10854,6 +10858,13 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     rootEventBus.subscribe(
       "ntv.settings.change.quick_emote_holder.show_recently_used",
       this.renderCommonlyUsedEmotes.bind(this)
+    );
+    rootEventBus.subscribe(
+      // TODO rename to show_unavailable_emotes, do same for setting under > emote menu
+      "ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites",
+      ({ value }) => {
+        this.favoritesEl.classList.toggle("ntv__quick-emotes-holder__favorites--show-unavailable", value);
+      }
     );
   }
   handleEmoteClick(emoteHid, sendImmediately = false) {
@@ -10920,23 +10931,18 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
       (a, b) => b.orderIndex - a.orderIndex
     );
-    const showNonCrossChannelEmotes = settingsManager.getSetting(
-      channelId,
-      "quick_emote_holder.show_non_cross_channel_favorites"
-    );
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
-      if (!emote && !showNonCrossChannelEmotes) continue;
       const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
       const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
       let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
-      if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.subscribersOnly)
+      if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.isSubscribersOnly)
         emoteBoxClasses += " ntv__emote-box--locked";
       this.favoritesEl.append(
         parseHTML(
-          `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
+          `<div class="ntv__emote-box ntv__emote-box--favorite${emoteBoxClasses}" size="${maybeFavoriteEmote.size}">${emotesManager.getRenderableEmote(
             maybeFavoriteEmote,
-            "ntv__emote"
+            maybeFavoriteEmote.isZeroWidth && "ntv__emote--zero-width" || ""
           )}</div>`
         )
       );
@@ -10992,10 +10998,23 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     }
     for (const [emoteHid] of emoteUsageCounts) {
       const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed;
-      if (!isSubscribed && emotesManager.getEmote(emoteHid)?.subscribersOnly) continue;
-      const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote");
+      const emote = emotesManager.getEmote(emoteHid);
+      if (!emote) {
+        error("Unable to render commonly used emote, unkown emote hid:", emoteHid);
+        continue;
+      }
+      if (!isSubscribed && emote?.isSubscribersOnly) continue;
+      const emoteRender = emotesManager.getRenderableEmote(
+        emote,
+        emote.isZeroWidth && "ntv__emote--zero-width" || ""
+      );
       if (!emoteRender) continue;
-      this.commonlyUsedEl.appendChild(parseHTML(emoteRender));
+      const emoteBoxEl = document.createElement("div");
+      emoteBoxEl.className = "ntv__emote-box";
+      emoteBoxEl.setAttribute("size", "" + emote.size);
+      emoteBoxEl.setAttribute("data-emote-hid", emoteHid);
+      emoteBoxEl.appendChild(parseHTML(emoteRender));
+      this.commonlyUsedEl.appendChild(emoteBoxEl);
     }
   }
   /**
@@ -11018,9 +11037,14 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       return;
     }
     if (!emoteEl) {
-      this.commonlyUsedEl.appendChild(
-        parseHTML(emotesManager.getRenderableEmoteByHid(emoteHid, "ntv__emote"))
+      const emote = emotesManager.getEmote(emoteHid);
+      if (!emote) return error("Unable to render commonly used emote:", emoteHid);
+      const emoteHTML = emotesManager.getRenderableEmote(
+        emote,
+        emote.isZeroWidth && "ntv__emote--zero-width" || ""
       );
+      if (!emoteHTML) return error("Unable to render commonly used emote:", emoteHid);
+      this.commonlyUsedEl.appendChild(parseHTML(emoteHTML));
       return;
     }
     const insertBeforeEl = this.commonlyUsedEl.children[emoteIndex];
@@ -11228,17 +11252,17 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + "px";
   }
   attachEventHandlers() {
-    const { settingsManager } = this.rootContext;
+    const { eventBus: rootEventBus, settingsManager } = this.rootContext;
     const { eventBus, emotesManager, channelData } = this.session;
     const channelId = channelData.channelId;
     let mouseDownTimeout = null;
     let skipClickEvent = false;
     this.scrollableEl?.addEventListener("click", (evt) => {
       const isHoldingCtrl = evt.ctrlKey;
-      const target = evt.target;
-      if (!target.parentElement?.classList.contains("ntv__emote-box")) return;
-      const emoteBoxEl = target.parentElement;
-      const emoteHid = target.getAttribute("data-emote-hid");
+      const targetEl = evt.target;
+      const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
+      if (!emoteBoxEl) return;
+      const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
       if (!emoteHid) return error("Invalid emote hid");
       if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
       if (skipClickEvent) {
@@ -11251,11 +11275,11 @@ var EmoteMenuComponent = class extends AbstractComponent {
       "mousedown",
       (evt) => {
         const targetEl = evt.target;
-        if (targetEl instanceof HTMLElement && targetEl.parentElement && targetEl.parentElement.classList.contains("ntv__emote-box")) {
+        const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
+        if (emoteBoxEl) {
           if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-          const emoteHid = targetEl.getAttribute("data-emote-hid");
+          const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
           if (!emoteHid) return error("Unable to start dragging emote, invalid emote hid");
-          const emoteBoxEl = targetEl.parentElement;
           mouseDownTimeout = setTimeout(() => {
             if (!emoteBoxEl.isConnected) return;
             this.startDragFavoriteEmote(evt, emoteBoxEl);
@@ -11282,37 +11306,45 @@ var EmoteMenuComponent = class extends AbstractComponent {
       },
       { passive: true }
     );
-    let lastEnteredElement = null;
+    let prevEnteredEmoteBoxEl = null;
     this.scrollableEl?.addEventListener(
       "mouseover",
       (evt) => {
-        const target = evt.target;
-        if (target === lastEnteredElement || target.tagName !== "IMG") return;
+        const targetEl = evt.target;
+        const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
+        if (!emoteBoxEl || emoteBoxEl === prevEnteredEmoteBoxEl) return;
         if (this.tooltipEl) this.tooltipEl.remove();
-        lastEnteredElement = target;
-        const emoteHid = target.getAttribute("data-emote-hid");
+        prevEnteredEmoteBoxEl = emoteBoxEl;
+        const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
         if (!emoteHid) return;
         const emote = emotesManager.getEmote(emoteHid);
         if (!emote) return;
         const imageInTooltop = settingsManager.getSetting(channelId, "chat.tooltips.images");
         const tooltipEl = parseHTML(
-          cleanupHTML(`
-				<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
-					${imageInTooltop ? emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
-					<span>${emote.name}</span>
-				</div>`),
+          cleanupHTML(
+            `<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
+									${imageInTooltop ? emotesManager.getRenderableEmote(emote, "ntv__emote") : ""}
+									<span class="ntv__emote-tooltip__title">${emote.name}</span>
+								</div>`
+          ),
           true
         );
+        if (emote.isZeroWidth) {
+          const span = document.createElement("span");
+          span.className = "ntv__emote-tooltip__zero-width";
+          span.textContent = "Zero Width";
+          tooltipEl.appendChild(span);
+        }
         this.tooltipEl = tooltipEl;
         document.body.appendChild(tooltipEl);
-        const rect = target.getBoundingClientRect();
+        const rect = targetEl.getBoundingClientRect();
         tooltipEl.style.left = rect.left + rect.width / 2 + "px";
         tooltipEl.style.top = rect.top + "px";
-        target.addEventListener(
+        targetEl.addEventListener(
           "mouseleave",
           () => {
             if (this.tooltipEl) this.tooltipEl.remove();
-            lastEnteredElement = null;
+            prevEnteredEmoteBoxEl = null;
           },
           { once: true, passive: true }
         );
@@ -11348,6 +11380,12 @@ var EmoteMenuComponent = class extends AbstractComponent {
       }
     );
     eventBus.subscribe("ntv.ui.footer.click", this.toggleShow.bind(this));
+    rootEventBus.subscribe(
+      "ntv.settings.change.emote_menu.show_unavailable_favorites",
+      ({ value }) => {
+        this.favoritesEmoteSetEl?.querySelector(".ntv__emote-set__emotes")?.classList.toggle("ntv__emote-set--show-unavailable", value);
+      }
+    );
     document.addEventListener("keydown", (evt) => {
       if (evt.key === "Escape") this.toggleShow(false);
     });
@@ -11395,7 +11433,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         error("Emote set not found for emote", emote.name);
         continue;
       }
-      if (emote.subscribersOnly && !emoteSet.isSubscribed) {
+      if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
         if (hideSubscribersEmotes) continue;
         this.panels.search?.append(
           parseHTML(
@@ -11441,6 +11479,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     );
     sidebarSetsEl.appendChild(sidebarFavoritesBtn);
     this.sidebarMap.set("favorites", sidebarFavoritesBtn);
+    const showUnavailableEmotes = settingsManager.getSetting(channelId, "emote_menu.show_unavailable_favorites");
     this.favoritesEmoteSetEl = parseHTML(
       cleanupHTML(
         `<div class="ntv__emote-set" data-id="favorites">
@@ -11451,7 +11490,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
 							<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
 						</div>
 					</div>
-					<div class="ntv__emote-set__emotes"></div>
+					<div class="ntv__emote-set__emotes ${showUnavailableEmotes && "ntv__emote-set--show-unavailable" || ""}"></div>
 				</div>`
       ),
       true
@@ -11470,19 +11509,17 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
       (a, b) => b.orderIndex - a.orderIndex
     );
-    const showUnavailableEmotes = settingsManager.getSetting(channelId, "emote_menu.show_unavailable_favorites");
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
-      if (!emote && !showUnavailableEmotes) continue;
       const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
       const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
       let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
-      emoteBoxClasses += !emoteSet?.isSubscribed && emote?.subscribersOnly ? "ntv__emote-box--locked" : "";
+      emoteBoxClasses += !emoteSet?.isSubscribed && emote?.isSubscribersOnly ? "ntv__emote-box--locked" : "";
       emotesEl.append(
         parseHTML(
-          `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
+          `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmote(
             maybeFavoriteEmote,
-            "ntv__emote"
+            maybeFavoriteEmote.isZeroWidth && "ntv__emote--zero-width" || ""
           )}</div>`
         )
       );
@@ -11535,23 +11572,18 @@ var EmoteMenuComponent = class extends AbstractComponent {
       emotesPanelEl.append(newEmoteSetEl);
       const newEmoteSetEmotesEl = newEmoteSetEl.querySelector(".ntv__emote-set__emotes");
       for (const emote of sortedEmotes) {
-        if (emote.subscribersOnly && !emoteSet.isSubscribed) {
+        const zeroWidthClass = emote.isZeroWidth && " ntv__emote-box--zero-width" || "";
+        if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
           if (hideSubscribersEmotes) continue;
           newEmoteSetEmotesEl.append(
             parseHTML(
-              `<div class="ntv__emote-box ntv__emote-box--locked">${emotesManager.getRenderableEmote(
-                emote,
-                "ntv__emote ntv__emote-set__emote"
-              )}</div>`
+              `<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
             )
           );
         } else {
           newEmoteSetEmotesEl.append(
             parseHTML(
-              `<div class="ntv__emote-box">${emotesManager.getRenderableEmote(
-                emote,
-                "ntv__emote ntv__emote-set__emote"
-              )}</div>`
+              `<div class="ntv__emote-box${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
             )
           );
         }
@@ -11638,19 +11670,19 @@ var EmoteMenuComponent = class extends AbstractComponent {
       if (!this.isDraggingEmote) return window.removeEventListener("mousemove", mouseMoveCb);
       dragHandleEmoteEl.style.left = `${evt.clientX}px`;
       dragHandleEmoteEl.style.top = `${evt.clientY}px`;
-      const favoriteEmotes = Array.from(favoriteEmotesSetBodyEl.children);
-      const hoveredEmote = favoriteEmotes.find((el) => {
+      const favoriteEmotesEls = Array.from(favoriteEmotesSetBodyEl.children);
+      const hoveredEmoteEl = favoriteEmotesEls.find((el) => {
         const rect = el.getBoundingClientRect();
         return evt.clientX > rect.left && evt.clientX < rect.right && evt.clientY > rect.top && evt.clientY < rect.bottom;
       });
-      if (hoveredEmote && hoveredEmote !== emoteBoxEl) {
-        const hoveredEmoteIndex = favoriteEmotes.indexOf(hoveredEmote);
-        const emoteIndex = favoriteEmotes.indexOf(emoteBoxEl);
+      if (hoveredEmoteEl && hoveredEmoteEl !== emoteBoxEl) {
+        const hoveredEmoteIndex = favoriteEmotesEls.indexOf(hoveredEmoteEl);
+        const emoteIndex = favoriteEmotesEls.indexOf(emoteBoxEl);
         this.dragEmoteNewIndex = hoveredEmoteIndex;
         if (hoveredEmoteIndex > emoteIndex) {
-          hoveredEmote.after(emoteBoxEl);
+          hoveredEmoteEl.after(emoteBoxEl);
         } else {
-          hoveredEmote.before(emoteBoxEl);
+          hoveredEmoteEl.before(emoteBoxEl);
         }
       }
     };
@@ -11687,7 +11719,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     if (this.containerEl) {
       if (this.isShowing) {
         const parentContainerPosition = this.parentContainer.getBoundingClientRect();
-        this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + "px";
+        this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + 10 + "px";
         this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + "px";
       }
       this.containerEl.style.display = this.isShowing ? "" : "none";
@@ -11711,7 +11743,7 @@ var ReplyMessageComponent = class extends AbstractComponent {
       cleanupHTML(`
 			<div class="ntv__reply-message">
 				<div class="ntv__reply-message__header">
-					<svg x<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+					<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
 						<path fill="currentColor" d="m12.281 5.281l-8 8l-.687.719l.687.719l8 8l1.438-1.438L7.438 15H21c2.773 0 5 2.227 5 5s-2.227 5-5 5v2c3.855 0 7-3.145 7-7s-3.145-7-7-7H7.437l6.282-6.281z" />
 					</svg>
 					<span>Replying to:</span>
@@ -11976,9 +12008,6 @@ var MessagesHistory = class {
     this.cursorIndex = -1;
   }
 };
-
-// src/UserInterface/AbstractUserInterface.ts
-var import_parser = __toESM(require_dist());
 
 // src/UserInterface/Components/SteppedInputSliderComponent.ts
 var SteppedInputSliderComponent = class extends AbstractComponent {
@@ -12674,8 +12703,7 @@ var UserInfoModal = class extends AbstractModal {
     messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
   }
   async loadMoreMessagesHistory() {
-    const { networkInterface } = this.session;
-    const { channelData, userInterface } = this.session;
+    const { networkInterface, emotesManager, userInterface, channelData } = this.session;
     const { userInfo, modLogsPageEl, messagesHistoryEl } = this;
     if (!userInfo || !modLogsPageEl || !messagesHistoryEl) return;
     const cursor = this.messagesHistoryCursor;
@@ -12738,7 +12766,8 @@ var UserInfoModal = class extends AbstractModal {
     messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
     messagesHistoryEl.querySelectorAll(".ntv__chat-message[unrendered]").forEach((messageEl) => {
       messageEl.querySelectorAll(".ntv__chat-message__part").forEach((messagePartEl) => {
-        const nodes = userInterface.renderEmotesInString(messagePartEl.textContent || "");
+        const parsedMessageParts = emotesManager.parseEmoteText(messagePartEl.textContent || "");
+        const nodes = userInterface.renderMessageParts(parsedMessageParts);
         messagePartEl.after(...nodes);
         messagePartEl.remove();
       });
@@ -13324,7 +13353,6 @@ var Clipboard2 = class {
 };
 
 // src/UserInterface/AbstractUserInterface.ts
-var emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g;
 var AbstractUserInterface = class {
   rootContext;
   session;
@@ -13385,92 +13413,70 @@ var AbstractUserInterface = class {
     error(message);
     this.toaster.addToast(message.replaceAll("<", "&lt;"), 6e3, "error");
   }
-  renderEmotesInString(textContent) {
-    const { emotesManager } = this.session;
-    const newNodes = [];
-    if (textContent.endsWith(U_TAG_NTV_AFFIX)) {
-      textContent = textContent.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1);
-    }
-    textContent = textContent.trim();
-    if (!textContent.length) return newNodes;
-    let match, lastIndex = 0, textBuffer = "";
-    while ((match = emoteMatcherRegex.exec(textContent)) !== null) {
-      const [matchedText, kickEmoteFormatMatch, plainTextEmote] = match;
-      if (kickEmoteFormatMatch) {
-        if (textBuffer.length && textBuffer.trim()) {
-          this.parseEmojisInString(textBuffer, newNodes);
-          textBuffer = "";
-        }
-        const emote = emotesManager.getEmoteById(kickEmoteFormatMatch);
-        if (emote) {
-          const emoteRender = emotesManager.getRenderableEmote(emote);
-          newNodes.push(this.createEmoteMessagePartElement(emoteRender, emote.hid));
+  renderMessageParts(parsedMessageParts) {
+    const result = [];
+    let prevPart = null;
+    for (let index = 0; index < parsedMessageParts.length; index++) {
+      const part = parsedMessageParts[index];
+      if (typeof part === "string") {
+        result.push(this.createPlainTextMessagePartNode(part));
+      } else if (part instanceof Node) {
+        const newContentNode = document.createElement("span");
+        newContentNode.classList.add("ntv__chat-message__part");
+        newContentNode.appendChild(part);
+        result.push(newContentNode);
+      } else if (part.type === "emote") {
+        const prevPartWasEmote = prevPart && typeof prevPart !== "string" && !(prevPart instanceof Node) && prevPart.type === "emote";
+        if (prevPartWasEmote && part.emote.isZeroWidth) {
+          const prevElement = result[result.length - 1];
+          this.insertZeroWidthEmotePart(part.emote, prevElement);
         } else {
-          const kickProvider = emotesManager.getProvider(1 /* KICK */);
-          const emoteRender = kickProvider.getRenderableEmoteById(kickEmoteFormatMatch);
-          newNodes.push(this.createEmoteMessagePartElement(emoteRender, ""));
+          result.push(this.createEmoteMessagePartElement(part.emote));
         }
-      } else if (plainTextEmote) {
-        const emoteHid = emotesManager.getEmoteHidByName(plainTextEmote);
-        if (emoteHid) {
-          const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid);
-          if (emoteRender) {
-            if (textBuffer.length && textBuffer.trim()) {
-              this.parseEmojisInString(textBuffer, newNodes);
-              textBuffer = "";
-            }
-            newNodes.push(this.createEmoteMessagePartElement(emoteRender, emoteHid));
-          }
-        } else {
-          textBuffer += textContent.slice(lastIndex, match.index + plainTextEmote.length);
-        }
-      }
-      lastIndex = emoteMatcherRegex.lastIndex;
-    }
-    if (lastIndex > 0 && lastIndex < textContent.length) {
-      this.parseEmojisInString(textBuffer + textContent.slice(lastIndex), newNodes);
-    } else if (textBuffer.length && textBuffer.trim()) {
-      this.parseEmojisInString(textBuffer, newNodes);
-    } else if (lastIndex === 0) {
-      this.parseEmojisInString(textContent, newNodes);
-    }
-    return newNodes;
-  }
-  parseEmojisInString(textContent, resultArray = []) {
-    textContent = textContent.trim();
-    const emojiEntries = (0, import_parser.parse)(textContent);
-    if (emojiEntries.length) {
-      const totalEmojis = emojiEntries.length;
-      let lastIndex = 0;
-      for (let i = 0; i < totalEmojis; i++) {
-        const emojiData = emojiEntries[i];
+      } else if (part.type === "emoji") {
+        const spanEl = document.createElement("span");
+        spanEl.className = "ntv__chat-message__part";
         const emojiNode = document.createElement("img");
-        emojiNode.className = "ntv__chat-message__part ntv__inline-emoji";
-        emojiNode.src = emojiData.url;
-        emojiNode.alt = emojiData.text;
-        const stringStart = textContent.slice(lastIndex, emojiData.indices[0]);
-        if (stringStart) {
-          resultArray.push(this.createPlainTextMessagePartNode(stringStart));
-        }
-        resultArray.push(emojiNode);
-        lastIndex = emojiData.indices[1];
+        emojiNode.className = "ntv__inline-emoji";
+        emojiNode.src = part.url;
+        emojiNode.alt = part.alt;
+        spanEl.appendChild(emojiNode);
+        result.push(spanEl);
+      } else {
+        error("Unknown message part type", part);
       }
-      const remainingText = textContent.slice(lastIndex);
-      if (remainingText.length && remainingText.trim()) {
-        resultArray.push(this.createPlainTextMessagePartNode(remainingText));
-      }
-    } else if (textContent.length) {
-      resultArray.push(this.createPlainTextMessagePartNode(textContent));
+      prevPart = part;
     }
-    return resultArray;
+    return result;
   }
-  createEmoteMessagePartElement(emoteRender, emoteHid) {
-    const node = document.createElement("span");
-    node.appendChild(parseHTML(emoteRender, true));
-    node.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
-    node.setAttribute("data-emote-hid", emoteHid);
-    node.setAttribute("contenteditable", "false");
-    return node;
+  createEmoteMessagePartElement(emote) {
+    const spanEl = document.createElement("span");
+    spanEl.className = "ntv__chat-message__part";
+    spanEl.setAttribute("contenteditable", "false");
+    const emoteBoxEl = document.createElement("div");
+    emoteBoxEl.className = "ntv__inline-emote-box";
+    spanEl.appendChild(emoteBoxEl);
+    const emoteRender = this.session.emotesManager.getRenderableEmote(emote);
+    if (!emoteRender) {
+      error(
+        "Failed to create emote message part element, emote render not found.",
+        emote,
+        emote.isZeroWidth && "ntv__emote--zero-width" || ""
+      );
+      return spanEl;
+    }
+    emoteBoxEl.appendChild(parseHTML(emoteRender));
+    return spanEl;
+  }
+  insertZeroWidthEmotePart(emote, messagePartEl) {
+    const emoteRender = this.session.emotesManager.getRenderableEmote(emote, "ntv__emote--zero-width");
+    if (!emoteRender) {
+      error("Failed to insert zero width emote part, emote render not found.", emote);
+      return;
+    }
+    const emoteBoxEl = messagePartEl.firstElementChild;
+    if (!emoteBoxEl) return error("Failed to insert zero width emote part, target does not have child element.");
+    emoteBoxEl.appendChild(parseHTML(emoteRender));
   }
   createPlainTextMessagePartNode(textContent) {
     if (textContent === " ") {
@@ -13479,7 +13485,7 @@ var AbstractUserInterface = class {
     }
     const newNode = document.createElement("span");
     newNode.append(document.createTextNode(textContent));
-    newNode.className = "ntv__chat-message__part ntv__chat-message__part--text";
+    newNode.className = "ntv__chat-message__part";
     return newNode;
   }
   changeInputStatus(status, reason) {
@@ -13720,6 +13726,21 @@ var AbstractUserInterface = class {
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor) return false;
     return !isElementInDOM(contentEditableEditor.getInputNode());
+  }
+};
+
+// src/Managers/DOMEventManager.ts
+var DOMEventManager = class {
+  listeners = [];
+  addEventListener(element, type, listener, options) {
+    element.addEventListener(type, listener, options);
+    this.listeners.push({ element, type, listener, options });
+  }
+  removeAllEventListeners() {
+    for (const { element, type, listener, options } of this.listeners) {
+      element.removeEventListener(type, listener, options);
+    }
+    this.listeners = [];
   }
 };
 
@@ -15184,9 +15205,12 @@ var ContentEditableEditor = class {
           const token = tokens[j];
           const emoteHid = emotesManager.getEmoteHidByName(token);
           if (emoteHid) {
-            newNodes.push(
-              this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid))
-            );
+            const emoteEmbed = this.createEmoteComponent(emoteHid);
+            if (!emoteEmbed) {
+              error("Failed to create emote component for", token);
+              continue;
+            }
+            newNodes.push(emoteEmbed);
           } else if (i === 0 && j === 0) {
             newNodes.push(document.createTextNode(token));
           } else {
@@ -15401,7 +15425,12 @@ var ContentEditableEditor = class {
       }
     }
   }
-  createEmoteComponent(emoteHID, emoteHTML) {
+  createEmoteComponent(emoteHID) {
+    const emotesManager = this.session.emotesManager;
+    const emote = emotesManager.getEmote(emoteHID);
+    if (!emote) return error("Emote not found for HID", emoteHID);
+    const emoteHTML = emotesManager.getRenderableEmote(emote, emote.isZeroWidth && "ntv__emote--zero-width" || "");
+    if (!emoteHTML) return error("Failed to get renderable emote for HID", emoteHID);
     const component = document.createElement("span");
     component.className = "ntv__input-component";
     component.appendChild(document.createTextNode(CHAR_ZWSP));
@@ -15411,7 +15440,7 @@ var ContentEditableEditor = class {
     const inlineEmoteBox = document.createElement("span");
     inlineEmoteBox.className = "ntv__inline-emote-box";
     inlineEmoteBox.setAttribute("data-emote-hid", emoteHID);
-    inlineEmoteBox.innerHTML = emoteHTML;
+    inlineEmoteBox.appendChild(parseHTML(emoteHTML, true));
     componentBody.appendChild(inlineEmoteBox);
     component.appendChild(componentBody);
     component.appendChild(document.createTextNode(CHAR_ZWSP));
@@ -15822,12 +15851,11 @@ var ContentEditableEditor = class {
     const { emotesManager } = this.session;
     if (!this.isInputEnabled) return null;
     messageHistory.resetCursor();
-    const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
-    if (!emoteHTML) {
+    const emoteComponent = this.createEmoteComponent(emoteHid);
+    if (!emoteComponent) {
       error("Invalid emote embed");
       return null;
     }
-    const emoteComponent = this.createEmoteComponent(emoteHid, emoteHTML);
     this.insertComponent(emoteComponent);
     const wasNotEmpty = this.inputEmpty;
     if (wasNotEmpty) this.inputEmpty = false;
@@ -16260,6 +16288,7 @@ var InputController = class {
 // src/UserInterface/KickUserInterface.ts
 var KickUserInterface = class extends AbstractUserInterface {
   abortController = new AbortController();
+  domEventManager = new DOMEventManager();
   chatObserver = null;
   deletedChatEntryObserver = null;
   replyObserver = null;
@@ -16267,6 +16296,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   emoteMenu = null;
   emoteMenuButton = null;
   quickEmotesHolder = null;
+  clearQueuedChatMessagesInterval = null;
   elm = {
     chatMessagesContainer: null,
     replyMessageWrapper: null,
@@ -16331,7 +16361,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
           chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
         }
-        chatMessagesContainerEl.addEventListener("copy", (evt) => {
+        this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
           this.clipboard.handleCopyEvent(evt);
         });
         eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
@@ -16397,7 +16427,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
           chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
         }
-        chatMessagesContainerEl.addEventListener("copy", (evt) => {
+        this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
           this.clipboard.handleCopyEvent(evt);
         });
         eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
@@ -16697,7 +16727,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.session.channelData.channelId,
         "chat.input.steal_focus"
       );
-      document.body.addEventListener("keydown", (evt) => {
+      this.domEventManager.addEventListener(document.body, "keydown", (evt) => {
         if (evt.ctrlKey || evt.altKey || evt.metaKey || ignoredKeys[evt.key] || !hasStealFocus() || inputController.isShowingInputCompletorNavListWindow() || document.activeElement?.tagName === "INPUT" || document.activeElement?.getAttribute("contenteditable") || evt.target?.hasAttribute("capture-focus") || !inputController.contentEditableEditor.isEnabled() || document.getElementById("modal-content")) {
           return;
         }
@@ -16710,10 +16740,10 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
     if (!chatMessagesContainerEl) return error("Chat messages container not loaded for scrolling behaviour");
     if (this.stickyScroll) chatMessagesContainerEl.parentElement?.classList.add("ntv__sticky-scroll");
-    chatMessagesContainerEl.addEventListener(
+    this.domEventManager.addEventListener(
+      chatMessagesContainerEl,
       "scroll",
       (evt) => {
-        log("Scroll event", evt);
         if (!this.stickyScroll) {
           const target = evt.target;
           const isAtBottom = (target.scrollHeight || 0) - target.scrollTop <= target.clientHeight + 15;
@@ -16726,10 +16756,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       },
       { passive: true }
     );
-    chatMessagesContainerEl.addEventListener(
+    this.domEventManager.addEventListener(
+      chatMessagesContainerEl,
       "wheel",
       (evt) => {
-        log("Wheel event", evt);
         if (this.stickyScroll && evt.deltaY < 0) {
           chatMessagesContainerEl.parentElement?.classList.remove("ntv__sticky-scroll");
           this.stickyScroll = false;
@@ -16892,6 +16922,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   // 						// The only way to remove Kick's event listeners from the button is to replace it with a new button
   // 						const newButtonEl = replyBtnEl.cloneNode(true)
   // 						replyBtnEl.replaceWith(newButtonEl)
+  //						this.domEventManager.addEventListener( //! Register event listeners
   // 						newButtonEl.addEventListener('click', replyMessageButtonCallback)
   // 					}
   // 				}
@@ -16937,9 +16968,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
         let messageChunkSize = 10;
         if (queueLength > 100) {
-          messageChunkSize = 1;
+          messageChunkSize = 3;
         } else if (queueLength > 50) {
-          messageChunkSize = 5;
+          messageChunkSize = 6;
         }
         for (let i = queue.length - 1; i >= 0; i--) {
           const msgEl = queue[i];
@@ -16956,7 +16987,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       setTimeout(() => requestAnimationFrame(renderChatMessagesLoop), 1e3 / tps);
     };
     renderChatMessagesLoop();
-    setInterval(() => {
+    this.clearQueuedChatMessagesInterval = setInterval(() => {
       const queue2 = this.queuedChatMessages;
       if (queue2.length > 150) {
         log("Chat message queue is too large, discarding overhead..", queue2.length);
@@ -17014,7 +17045,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, "chat.tooltips.images");
-    chatMessagesContainerEl.addEventListener(
+    this.domEventManager.addEventListener(
+      chatMessagesContainerEl,
       "mouseover",
       (evt) => {
         const target = evt.target;
@@ -17023,9 +17055,16 @@ var KickUserInterface = class extends AbstractUserInterface {
         const emoteName = target.getAttribute("data-emote-name");
         if (!emoteName) return;
         const tooltipEl = parseHTML(
-          `<div class="ntv__emote-tooltip"><span>${emoteName}</span></div>`,
+          `<div class="ntv__emote-tooltip"><span class="ntv__emote-tooltip__title">${emoteName}</span></div>`,
           true
         );
+        const emote = this.session.emotesManager.getEmoteByName(emoteName);
+        if (emote && emote.isZeroWidth) {
+          const span = document.createElement("span");
+          span.className = "ntv__emote-tooltip__zero-width";
+          span.textContent = "Zero Width";
+          tooltipEl.appendChild(span);
+        }
         if (showTooltipImage) {
           const imageNode = target.cloneNode(true);
           imageNode.className = "ntv__emote";
@@ -17045,7 +17084,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       },
       { passive: true }
     );
-    chatMessagesContainerEl.addEventListener("click", (evt) => {
+    this.domEventManager.addEventListener(chatMessagesContainerEl, "click", (evt) => {
       const target = evt.target;
       if (target.tagName === "IMG" && target?.parentElement?.classList.contains("ntv__inline-emote-box")) {
         const emoteHid = target.getAttribute("data-emote-hid");
@@ -17082,10 +17121,7 @@ var KickUserInterface = class extends AbstractUserInterface {
             const chatMessageInnerEl = chatMessageElement.querySelector("& > .ntv__chat-message__inner");
             if (addedNode.className === "line-through") {
               chatMessageInnerEl.append(
-                parseHTML(
-                  `<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
-                  true
-                )
+                parseHTML(`<span class="ntv__chat-message__part">(Deleted)</span>`, true)
               );
             } else {
               Array.from(chatMessageElement.getElementsByClassName("ntv__chat-message__part")).forEach(
@@ -17093,10 +17129,7 @@ var KickUserInterface = class extends AbstractUserInterface {
               );
               const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
               chatMessageInnerEl.append(
-                parseHTML(
-                  `<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
-                  true
-                )
+                parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
               );
             }
           }
@@ -17209,7 +17242,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
   }
   observePinnedMessage() {
-    const pinnedMessageContainerEl = document.getElementById("channel-chatroom")?.querySelector("& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden");
+    const pinnedMessageContainerEl = document.getElementById("channel-chatroom")?.querySelector(
+      "& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden"
+    );
     if (!pinnedMessageContainerEl) return error("Pinned message container not found for observation");
     const renderPinnedMessageBody = (contentBodyEl) => {
       Array.from(document.getElementsByClassName("ntv__pinned-message__content")).forEach((node) => {
@@ -17247,7 +17282,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       );
       if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent);
     });
-    pinnedMessageContainerEl.addEventListener("click", (evt) => {
+    this.domEventManager.addEventListener(pinnedMessageContainerEl, "click", (evt) => {
       const target = evt.target;
       if (target.tagName === "IMG" && target?.parentElement?.classList.contains("ntv__inline-emote-box")) {
         const emoteHid = target.getAttribute("data-emote-hid");
@@ -17463,47 +17498,44 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
       if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
       ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
-      const messagePartNodes = [];
+      const messageParts = [];
       for (const contentNode of contentWrapperNode.childNodes) {
         if (contentNode.nodeType === Node.TEXT_NODE) {
-          const parsedEmoteNotes = this.renderEmotesInString(contentNode.textContent || "");
-          messagePartNodes.push(...parsedEmoteNotes);
+          emotesManager.parseEmoteText(contentNode.textContent || "", messageParts);
         } else if (contentNode instanceof HTMLElement && contentNode.tagName === "SPAN") {
           const imgEl = contentNode.firstElementChild?.firstElementChild;
           if (!imgEl || imgEl instanceof HTMLImageElement === false) {
             error("Emote image element not found", imgEl);
             continue;
           }
-          const ntvImgEl = document.createElement("img");
-          ntvImgEl.src = imgEl.src;
           const emoteId = contentNode.getAttribute("data-emote-id");
           const emoteName = contentNode.getAttribute("data-emote-name");
           if (!emoteId || !emoteName) {
             error("Emote ID or name not found", contentNode);
             continue;
           }
-          ntvImgEl.setAttribute("data-emote-name", emoteName);
-          const emote = emotesManager.getEmoteById(emoteId);
-          if (emote) {
-            ntvImgEl.setAttribute("data-emote-hid", emote.hid);
+          let emote = emotesManager.getEmoteByName(emoteName);
+          if (!emote) {
+            emote = {
+              id: emoteId,
+              name: emoteName,
+              isSubscribersOnly: true,
+              provider: 1 /* KICK */
+            };
           }
-          const newContentNode = document.createElement("span");
-          newContentNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
-          newContentNode.setAttribute("contenteditable", "false");
-          newContentNode.appendChild(ntvImgEl);
-          messagePartNodes.push(newContentNode);
+          messageParts.push({
+            type: "emote",
+            emote
+          });
         } else {
-          const newContentNode = document.createElement("span");
-          newContentNode.classList.add("ntv__chat-message__part");
-          newContentNode.appendChild(contentNode.cloneNode(true));
-          messagePartNodes.push(newContentNode);
+          messageParts.push(contentNode.cloneNode(true));
         }
       }
       ;
       groupElementNode.style.display = "none";
       ntvMessageInnerEl.className = "ntv__chat-message__inner";
       ntvMessageInnerEl.append(ntvIdentityWrapperEl);
-      ntvMessageInnerEl.append(...messagePartNodes);
+      ntvMessageInnerEl.append(...this.renderMessageParts(messageParts));
       messageNode.append(ntvMessageInnerEl);
       messageNode.classList.add("ntv__chat-message");
       messageNode.classList.remove("ntv__chat-message--unrendered");
@@ -17639,36 +17671,30 @@ var KickUserInterface = class extends AbstractUserInterface {
               error("Chat message content node not an Element?", componentNode);
               continue;
             }
-            const nodes = this.renderEmotesInString(componentNode.textContent || "");
-            messageParts.push(...nodes);
+            emotesManager.parseEmoteText(componentNode.textContent || "", messageParts);
             break;
           case "chat-emote-container":
             const imgEl = componentNode.querySelector("img");
             if (!imgEl) continue;
-            imgEl.removeAttribute("class");
-            for (const attr in imgEl.dataset) {
-              if (attr.startsWith("v-")) {
-                imgEl.removeAttribute("data-" + attr);
-              } else if (attr === "emoteId") {
-                const emoteId = imgEl.getAttribute("data-emote-id");
-                if (emoteId) {
-                  const emote = emotesManager.getEmoteById(emoteId);
-                  if (!emote) {
-                    log(
-                      `Skipping missing emote ${emoteId}, probably subscriber emote of channel you're not subscribed to.`
-                    );
-                    continue;
-                  }
-                  imgEl.setAttribute("data-emote-hid", emote.hid);
-                  imgEl.setAttribute("data-emote-name", emote.name);
-                }
-              }
+            const emoteId = contentNode.getAttribute("data-emote-id");
+            const emoteName = contentNode.getAttribute("data-emote-name");
+            if (!emoteId || !emoteName) {
+              error("Emote ID or name not found", contentNode);
+              continue;
             }
-            const newContentNode = document.createElement("span");
-            newContentNode.classList.add("ntv__chat-message__part", "ntv__inline-emote-box");
-            newContentNode.setAttribute("contenteditable", "false");
-            newContentNode.appendChild(imgEl);
-            messageParts.push(newContentNode);
+            let emote = emotesManager.getEmoteByName(emoteName);
+            if (!emote) {
+              emote = {
+                id: emoteId,
+                name: emoteName,
+                isSubscribersOnly: true,
+                provider: 1 /* KICK */
+              };
+            }
+            messageParts.push({
+              type: "emote",
+              emote
+            });
             break;
           default:
             if (componentNode.childNodes.length) messageParts.push(...componentNode.childNodes);
@@ -17734,7 +17760,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
       if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
       ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
-      ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...messageParts);
+      ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...this.renderMessageParts(messageParts));
       this.deletedChatEntryObserver?.observe(messageBodyNode, {
         childList: true,
         attributes: false,
@@ -17795,10 +17821,11 @@ var KickUserInterface = class extends AbstractUserInterface {
       const footerEl = document.querySelector(".kick__chat-footer");
       if (!footerEl) return error("Footer element not found");
       const textFieldParent = textFieldEl.parentElement;
-      setInterval(() => {
+      const intervalId = setInterval(() => {
         const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]');
-        if (!closeReplyBtnEl && textFieldParent.style.display === "none") {
-          restoreFields();
+        if (!closeReplyBtnEl) {
+          if (textFieldParent.style.display === "none") restoreFields();
+          clearInterval(intervalId);
         }
       }, 400);
     } else {
@@ -17815,29 +17842,38 @@ var KickUserInterface = class extends AbstractUserInterface {
     log("Rendering pinned message..", contentBodyEl);
     const ntvPinnedMessageBodyEl = document.createElement("div");
     ntvPinnedMessageBodyEl.className = "ntv__pinned-message__content";
+    const emotesManager = this.session.emotesManager;
+    const parsedEmoteParts = [];
     for (const childNode of Array.from(contentBodyEl.childNodes)) {
       if (childNode.nodeType === Node.TEXT_NODE) {
-        const parsedEmoteNotes = this.renderEmotesInString(childNode.textContent || "");
-        ntvPinnedMessageBodyEl.append(...parsedEmoteNotes);
+        emotesManager.parseEmoteText(childNode.textContent || "", parsedEmoteParts);
       } else if (childNode.nodeType === Node.ELEMENT_NODE) {
         const emoteName = childNode.getAttribute("data-emote-name");
-        if (!emoteName) {
-          const newNode = childNode.cloneNode(true);
-          newNode?.classList.add("ntv__chat-message__part");
-          ntvPinnedMessageBodyEl.append(newNode);
+        const emoteId = childNode.getAttribute("data-emote-id");
+        if (!emoteId || !emoteName) {
+          error("Emote ID or name not found", childNode);
+          parsedEmoteParts.push(childNode.cloneNode(true));
           continue;
         }
-        const emoteHid = this.session.emotesManager.getEmoteHidByName(emoteName);
-        if (!emoteHid) continue;
-        const emoteRender = this.session.emotesManager.getRenderableEmoteByHid(emoteHid);
-        ntvPinnedMessageBodyEl.append(this.createEmoteMessagePartElement(emoteRender, emoteHid));
+        let emote = emotesManager.getEmoteByName(emoteName);
+        if (!emote) {
+          emote = {
+            id: emoteId,
+            name: emoteName,
+            isSubscribersOnly: true,
+            provider: 1 /* KICK */
+          };
+        }
+        parsedEmoteParts.push({
+          type: "emote",
+          emote
+        });
       } else {
         error("Unknown node found for pinned message", childNode);
-        const newNode = childNode.cloneNode(true);
-        newNode?.classList.add("ntv__chat-message__part");
-        ntvPinnedMessageBodyEl.append(newNode);
+        parsedEmoteParts.push(childNode.cloneNode(true));
       }
     }
+    ntvPinnedMessageBodyEl.append(...this.renderMessageParts(parsedEmoteParts));
     contentBodyEl.before(ntvPinnedMessageBodyEl);
   }
   insertNodesInChat(embedNodes) {
@@ -17897,6 +17933,18 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.emoteMenu) this.emoteMenu.destroy();
     if (this.emoteMenuButton) this.emoteMenuButton.destroy();
     if (this.quickEmotesHolder) this.quickEmotesHolder.destroy();
+    if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval);
+    this.domEventManager.removeAllEventListeners();
+    Array.from(document.querySelectorAll(".ntv__chat-message, .ntv__chat-message--unrendered")).forEach((node) => {
+      const el = node;
+      el.querySelectorAll(".ntv__chat-message__inner").forEach((innerNode) => innerNode.remove());
+      Array.from(el.classList).forEach((className) => {
+        if (className.startsWith("ntv__")) el.classList.remove(className);
+      });
+    });
+    ["ntv__emote-menu-button", "ntv__submit-button disabled", "ntv__quick-emotes-holder"].forEach((className) => {
+      Array.from(document.querySelectorAll(`.${className}`)).forEach((node) => node.classList.remove(className));
+    });
   }
 };
 
@@ -19375,6 +19423,9 @@ var EmoteDatastore = class {
   getEmote(emoteHid) {
     return this.emoteMap.get(emoteHid);
   }
+  getEmoteByName(emoteName) {
+    return this.emoteNameMap.get(emoteName);
+  }
   getAllEmotes() {
     return Array.from(this.emoteMap.values());
   }
@@ -19526,6 +19577,8 @@ var EmoteDatastore = class {
 };
 
 // src/Managers/EmotesManager.ts
+var import_parser = __toESM(require_dist());
+var emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g;
 var EmotesManager = class {
   providers = /* @__PURE__ */ new Map();
   loaded = false;
@@ -19599,6 +19652,9 @@ var EmotesManager = class {
   getEmote(emoteHid) {
     return this.datastore.getEmote("" + emoteHid);
   }
+  getEmoteByName(emoteName) {
+    return this.datastore.getEmoteByName(emoteName);
+  }
   getAllEmotes() {
     return this.datastore.getAllEmotes();
   }
@@ -19639,7 +19695,6 @@ var EmotesManager = class {
     return this.providers.get(id);
   }
   getRenderableEmote(emote, classes = "") {
-    if (!emote) return error("No emote provided");
     const provider = this.providers.get(emote.provider);
     if (!provider) return error("Provider not found for emote", emote);
     return provider.getRenderableEmote(emote, classes);
@@ -19648,11 +19703,6 @@ var EmotesManager = class {
     const emote = this.getEmote(emoteHid);
     if (!emote) return error("Emote not found");
     const provider = this.providers.get(emote.provider);
-    return provider.getRenderableEmote(emote, classes);
-  }
-  getRenderableEmoteByEmote(emote, classes = "") {
-    const provider = this.providers.get(emote.provider);
-    if (!provider) return error("Provider not found for emote", emote);
     return provider.getRenderableEmote(emote, classes);
   }
   getEmoteEmbeddable(emoteHid, spacingBefore = false) {
@@ -19687,6 +19737,88 @@ var EmotesManager = class {
   }
   removeEmoteUsage(emoteHid) {
     this.datastore.removeEmoteUsage(emoteHid);
+  }
+  parseEmoteText(text, resultArray = []) {
+    if (text.endsWith(U_TAG_NTV_AFFIX)) {
+      text = text.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1);
+    }
+    text = text.trim();
+    if (!text.length) return [];
+    const unprocessed = [];
+    const emojiEntries = (0, import_parser.parse)(text);
+    if (emojiEntries.length) {
+      let lastIndex = 0;
+      const totalEmojis = emojiEntries.length;
+      for (let i = 0; i < totalEmojis; i++) {
+        const emojiData = emojiEntries[i];
+        const stringStart = text.slice(lastIndex, emojiData.indices[0]).trim();
+        if (stringStart.length) unprocessed.push(stringStart);
+        unprocessed.push({
+          type: "emoji",
+          url: emojiData.url,
+          alt: emojiData.text
+        });
+        lastIndex = emojiData.indices[1];
+      }
+      if (lastIndex < text.length) {
+        const stringEnd = text.slice(lastIndex).trim();
+        if (stringEnd.length) unprocessed.push(stringEnd);
+      }
+    } else {
+      unprocessed.push(text);
+    }
+    for (const part of unprocessed) {
+      if (typeof part === "string") {
+        resultArray.push(...this.parseEmoteTextPart(part));
+      } else {
+        resultArray.push(part);
+      }
+    }
+    return resultArray;
+  }
+  /**
+   * Assumes input is never an empty string.
+   */
+  parseEmoteTextPart(partString) {
+    const result = [];
+    let match, lastMatchedIndex = 0;
+    while ((match = emoteMatcherRegex.exec(partString)) !== null) {
+      const [matchedText, kickEmoteFormatMatch, maybeTextEmote] = match;
+      if (kickEmoteFormatMatch) {
+        if (lastMatchedIndex < emoteMatcherRegex.lastIndex) {
+          const text = partString.slice(lastMatchedIndex, match.index).trim();
+          if (text.length) result.push(text);
+          lastMatchedIndex = emoteMatcherRegex.lastIndex;
+        }
+        const emote = this.getEmoteById(kickEmoteFormatMatch);
+        if (emote) {
+          result.push({
+            type: "emote",
+            emote
+          });
+        } else result.push(matchedText);
+      } else if (maybeTextEmote) {
+        const emote = this.getEmoteByName(maybeTextEmote);
+        if (emote) {
+          if (lastMatchedIndex < emoteMatcherRegex.lastIndex) {
+            const text = partString.slice(lastMatchedIndex, match.index).trim();
+            if (text.length) result.push(text);
+            lastMatchedIndex = emoteMatcherRegex.lastIndex;
+          }
+          result.push({
+            type: "emote",
+            emote
+          });
+        }
+      }
+    }
+    if (result.length === 0 && lastMatchedIndex !== 0) {
+      result.push(partString.trim());
+    } else if (lastMatchedIndex < partString.length) {
+      const text = partString.slice(lastMatchedIndex).trim();
+      if (text.length) result.push(text);
+    }
+    return result;
   }
   searchEmotes(search2, limit = 0) {
     const { settingsManager } = this.rootContext;
@@ -19886,7 +20018,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         hid: md5(emote.name),
         name: emote.name,
         provider: this.id,
-        subscribersOnly: false,
+        isZeroWidth: (emote.flags & 1) !== 0,
         spacing: true,
         width: file.width,
         size
@@ -19918,26 +20050,13 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
     }
     const emotesMapped = userData.emote_set.emotes.map((emote) => {
       const file = emote.data.host.files[0];
-      let size;
-      switch (true) {
-        case file.width > 74:
-          size = 4;
-          break;
-        case file.width > 53:
-          size = 3;
-          break;
-        case file.width > 32:
-          size = 2;
-          break;
-        default:
-          size = 1;
-      }
+      const size = file.width / 24 + 0.5 << 0;
+      const sanitizedEmoteName = emote.name.replaceAll("<", "&lt;").replaceAll('"', "&quot;");
       return {
         id: "" + emote.id,
         hid: md5(emote.name),
-        name: emote.name,
+        name: sanitizedEmoteName,
         provider: this.id,
-        subscribersOnly: false,
         spacing: true,
         width: file.width,
         size
@@ -19967,7 +20086,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
   getRenderableEmote(emote, classes = "") {
     const ext = NTV_SUPPORTS_AVIF && NTV_BROWSER !== 5 /* SAFARI */ && "avif" || "webp";
     const srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`;
-    return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`;
+    return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ""}" data-emote-hid="${emote.hid || ""}" alt="${emote.name || ""}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`;
   }
   getEmbeddableEmote(emote) {
     return emote.name;
@@ -19995,11 +20114,12 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
     const emoteSets = [];
     for (const dataSet of dataSets) {
       const emotesMapped = dataSet.emotes.map((emote) => {
+        const sanitizedEmoteName = emote.name.replaceAll("<", "&lt;").replaceAll('"', "&quot;");
         return {
           id: "" + emote.id,
           hid: md5(emote.name),
-          name: emote.name,
-          subscribersOnly: emote.subscribers_only,
+          name: sanitizedEmoteName,
+          isSubscribersOnly: emote.subscribers_only,
           provider: this.id,
           width: 32,
           size: 1
@@ -20064,11 +20184,11 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
   }
   getRenderableEmote(emote, classes = "") {
     const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`;
-    return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+    return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ""}" data-emote-hid="${emote.hid || ""}" alt="${emote.name || ""}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
   }
   getRenderableEmoteById(emoteId, classes = "") {
     const srcset = `https://files.kick.com/emotes/${emoteId}/fullsize 1x`;
-    return `<img class="${classes}" tabindex="0" size="1" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+    return `<img class="ntv__emote ${classes}" tabindex="0" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
   }
   getEmbeddableEmote(emote) {
     return `[emote:${emote.id}:${emote.name}]`;
@@ -20161,7 +20281,7 @@ var KickNetworkInterface = class {
   async loadChannelData() {
     const pathArr = window.location.pathname.substring(1).split("/");
     const channelData = {};
-    if (pathArr[1] === "videos") {
+    if (pathArr[1] === "videos" && pathArr[2]) {
       info("VOD video detected..");
       const videoId = pathArr[2];
       if (!videoId) throw new Error("Failed to extract video ID from URL");
@@ -20726,6 +20846,29 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.33",
+    date: "2024-09-28",
+    description: `
+                  A hot new update introducing support for Zero-Width emotes! Along with bug fixes, quite a lot changed under the hood. If I missed any new bugs, as always please do report them so I can fix it.
+
+                  Feat: Added support for Zero-Width emotes
+                  Fix: Sanitize emote names to prevent potential XSS injections
+                  Fix: Clicking on videos tab on channel unloads NTV #165
+                  Fix: User info card showing on top of sub gifting modal
+                  Fix: Partial page reloads causing double message behaviour
+                  Fix: Ugly temporary reply behaviour not clearing its state correctly
+                  Fix: Kick showing elements in certain chat states
+                  Fix: Ordering favorites not working correctly
+                  Fix: Unloading session not clearing render message cleanup interval
+                  Fix: Broken SVG markup
+                  Refactor: Reworked message content rendering
+                  Refactor: Solidified structure of emotes
+                  Refactor: Minor relabeling of stuff
+                  Chore: Replaced my floorboards with chocolate bars
+                  Chore: Finetuned chat message rendering performance
+            `
+  },
+  {
     version: "1.5.32",
     date: "2024-09-26",
     description: `
@@ -20751,7 +20894,7 @@ var CHANGELOG = [
                   Fix: NTV no longer loading for moderator & creator dashboard pages after Kick website update
                   Fix: Metadata in API calls causing Kick servers to shit themselves for no reason making messages broken when pinned
                   Fix: Disable steal focus feature for VODs
-                  Fix: REST requests not return data correctly
+                  Fix: REST requests not returning data correctly
                   Refactor: Reworked native Kick chat input fallback mechanism for reply behaviour
                   Chore: Moved settings to new moderator category
                   Chore: Conducted a full-scale rescue mission for my missing socks
@@ -23567,7 +23710,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.32";
+  VERSION = "1.5.33";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
