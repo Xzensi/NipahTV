@@ -32,8 +32,8 @@
 }
 
 .ntv__emote-tooltip {
-	outline: 0.1em solid var(--ntv-border-transparent-2);
 	background-color: var(--ntv-background-color-tint-1);
+	outline: 1px solid var(--ntv-border-transparent-3);
 	padding: 0.618em 0.618em 0.333em 0.618em;
 	transform: translate(-50%, -108%);
 	font-size: $root_font_size;
@@ -65,7 +65,6 @@
 	span {
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-size: 1.2em;
 		overflow: hidden;
 		display: block;
 		width: 100%;
@@ -82,5 +81,14 @@
 		height: 0;
 		left: 50%;
 		width: 0;
+	}
+
+	&__title {
+		font-size: 1.2em;
+	}
+
+	&__zero-width {
+		color: #ffc400e8;
+		font-size: 0.86em;
 	}
 }

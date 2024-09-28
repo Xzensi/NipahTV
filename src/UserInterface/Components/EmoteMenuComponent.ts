@@ -119,7 +119,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	}
 
 	attachEventHandlers() {
-		const { settingsManager } = this.rootContext
+		const { eventBus: rootEventBus, settingsManager } = this.rootContext
 		const { eventBus, emotesManager, channelData } = this.session
 		const channelId = channelData.channelId
 
@@ -132,11 +132,15 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		this.scrollableEl?.addEventListener('click', evt => {
 			const isHoldingCtrl = evt.ctrlKey
 
-			const target = evt.target as HTMLElement
-			if (!target.parentElement?.classList.contains('ntv__emote-box')) return
-			const emoteBoxEl = target.parentElement
+			const targetEl = evt.target as HTMLElement
 
-			const emoteHid = target.getAttribute('data-emote-hid')
+			const emoteBoxEl =
+				(targetEl.classList.contains('ntv__emote-box') && targetEl) ||
+				(targetEl.parentElement!.classList.contains('ntv__emote-box') && targetEl.parentElement) ||
+				null
+			if (!emoteBoxEl) return
+
+			const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
 			if (!emoteHid) return error('Invalid emote hid')
 
 			if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
@@ -153,17 +157,16 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			(evt: MouseEvent) => {
 				const targetEl = evt.target as HTMLElement
 
-				if (
-					targetEl instanceof HTMLElement &&
-					targetEl.parentElement &&
-					targetEl.parentElement.classList.contains('ntv__emote-box')
-				) {
+				const emoteBoxEl =
+					(targetEl.classList.contains('ntv__emote-box') && targetEl) ||
+					(targetEl.parentElement!.classList.contains('ntv__emote-box') && targetEl.parentElement) ||
+					null
+
+				if (emoteBoxEl) {
 					if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
 
-					const emoteHid = targetEl.getAttribute('data-emote-hid')
+					const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
 					if (!emoteHid) return error('Unable to start dragging emote, invalid emote hid')
-
-					const emoteBoxEl = targetEl.parentElement
 
 					mouseDownTimeout = setTimeout(() => {
 						// Double check that emote still exists
@@ -197,16 +200,23 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		)
 
 		// Tooltip for emotes
-		let lastEnteredElement: HTMLElement | null = null
+		let prevEnteredEmoteBoxEl: HTMLElement | null = null
 		this.scrollableEl?.addEventListener(
 			'mouseover',
 			evt => {
-				const target = evt.target as HTMLElement
-				if (target === lastEnteredElement || target.tagName !== 'IMG') return
-				if (this.tooltipEl) this.tooltipEl.remove()
-				lastEnteredElement = target
+				const targetEl = evt.target as HTMLElement
 
-				const emoteHid = target.getAttribute('data-emote-hid')
+				const emoteBoxEl =
+					(targetEl.classList.contains('ntv__emote-box') && targetEl) ||
+					(targetEl.parentElement!.classList.contains('ntv__emote-box') && targetEl.parentElement) ||
+					null
+
+				if (!emoteBoxEl || emoteBoxEl === prevEnteredEmoteBoxEl) return
+				if (this.tooltipEl) this.tooltipEl.remove()
+
+				prevEnteredEmoteBoxEl = emoteBoxEl
+
+				const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
 				if (!emoteHid) return
 
 				const emote = emotesManager.getEmote(emoteHid)
@@ -214,26 +224,34 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 				const imageInTooltop = settingsManager.getSetting(channelId, 'chat.tooltips.images')
 				const tooltipEl = parseHTML(
-					cleanupHTML(`
-				<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
-					${imageInTooltop ? emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
-					<span>${emote.name}</span>
-				</div>`),
+					cleanupHTML(
+						`<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
+									${imageInTooltop ? emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
+									<span class="ntv__emote-tooltip__title">${emote.name}</span>
+								</div>`
+					),
 					true
 				) as HTMLElement
+
+				if (emote.isZeroWidth) {
+					const span = document.createElement('span')
+					span.className = 'ntv__emote-tooltip__zero-width'
+					span.textContent = 'Zero Width'
+					tooltipEl.appendChild(span)
+				}
 
 				this.tooltipEl = tooltipEl
 				document.body.appendChild(tooltipEl)
 
-				const rect = target.getBoundingClientRect()
+				const rect = targetEl.getBoundingClientRect()
 				tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
 				tooltipEl.style.top = rect.top + 'px'
 
-				target.addEventListener(
+				targetEl.addEventListener(
 					'mouseleave',
 					() => {
 						if (this.tooltipEl) this.tooltipEl.remove()
-						lastEnteredElement = null
+						prevEnteredEmoteBoxEl = null
 					},
 					{ once: true, passive: true }
 				)
@@ -278,6 +296,15 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			}
 		)
 		eventBus.subscribe('ntv.ui.footer.click', this.toggleShow.bind(this))
+
+		rootEventBus.subscribe(
+			'ntv.settings.change.emote_menu.show_unavailable_favorites',
+			({ value }: { value: boolean }) => {
+				this.favoritesEmoteSetEl
+					?.querySelector('.ntv__emote-set__emotes')
+					?.classList.toggle('ntv__emote-set--show-unavailable', value)
+			}
+		)
 
 		// On escape key, close the modal
 		document.addEventListener('keydown', evt => {
@@ -399,6 +426,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		sidebarSetsEl.appendChild(sidebarFavoritesBtn)
 		this.sidebarMap.set('favorites', sidebarFavoritesBtn)
 
+		const showUnavailableEmotes = settingsManager.getSetting(channelId, 'emote_menu.show_unavailable_favorites')
+
 		this.favoritesEmoteSetEl = parseHTML(
 			cleanupHTML(
 				`<div class="ntv__emote-set" data-id="favorites">
@@ -409,7 +438,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 							<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
 						</div>
 					</div>
-					<div class="ntv__emote-set__emotes"></div>
+					<div class="ntv__emote-set__emotes ${(showUnavailableEmotes && 'ntv__emote-set--show-unavailable') || ''}"></div>
 				</div>`
 			),
 			true
@@ -434,11 +463,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			(a, b) => b.orderIndex - a.orderIndex
 		)
 
-		const showUnavailableEmotes = settingsManager.getSetting(channelId, 'emote_menu.show_unavailable_favorites')
-
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
 			const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
-			if (!emote && !showUnavailableEmotes) continue
 
 			const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote
 			const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid)
@@ -448,9 +474,9 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 			emotesEl.append(
 				parseHTML(
-					`<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmoteByEmote(
+					`<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmote(
 						maybeFavoriteEmote,
-						'ntv__emote'
+						(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
 					)}</div>`
 				)
 			)
@@ -515,24 +541,23 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 			const newEmoteSetEmotesEl = newEmoteSetEl.querySelector('.ntv__emote-set__emotes')!
 			for (const emote of sortedEmotes) {
+				const zeroWidthClass = (emote.isZeroWidth && ' ntv__emote-box--zero-width') || ''
 				if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
 					if (hideSubscribersEmotes) continue
 
 					newEmoteSetEmotesEl.append(
 						parseHTML(
-							`<div class="ntv__emote-box ntv__emote-box--locked">${emotesManager.getRenderableEmote(
-								emote,
-								'ntv__emote ntv__emote-set__emote'
-							)}</div>`
+							`<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${
+								emote.size
+							}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
 						)
 					)
 				} else {
 					newEmoteSetEmotesEl.append(
 						parseHTML(
-							`<div class="ntv__emote-box">${emotesManager.getRenderableEmote(
-								emote,
-								'ntv__emote ntv__emote-set__emote'
-							)}</div>`
+							`<div class="ntv__emote-box${zeroWidthClass}" size="${
+								emote.size
+							}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
 						)
 					)
 				}
@@ -652,8 +677,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			dragHandleEmoteEl.style.top = `${evt.clientY}px`
 
 			// When dragging emote over another emote, set new index to index of the hovered emote
-			const favoriteEmotes = Array.from(favoriteEmotesSetBodyEl.children)
-			const hoveredEmote = favoriteEmotes.find(el => {
+			const favoriteEmotesEls = Array.from(favoriteEmotesSetBodyEl.children)
+			const hoveredEmoteEl = favoriteEmotesEls.find(el => {
 				const rect = el.getBoundingClientRect()
 				return (
 					evt.clientX > rect.left &&
@@ -663,16 +688,16 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				)
 			}) as HTMLElement | undefined
 
-			if (hoveredEmote && hoveredEmote !== emoteBoxEl) {
-				const hoveredEmoteIndex = favoriteEmotes.indexOf(hoveredEmote)
-				const emoteIndex = favoriteEmotes.indexOf(emoteBoxEl)
+			if (hoveredEmoteEl && hoveredEmoteEl !== emoteBoxEl) {
+				const hoveredEmoteIndex = favoriteEmotesEls.indexOf(hoveredEmoteEl)
+				const emoteIndex = favoriteEmotesEls.indexOf(emoteBoxEl)
 
 				this.dragEmoteNewIndex = hoveredEmoteIndex
 
 				if (hoveredEmoteIndex > emoteIndex) {
-					hoveredEmote.after(emoteBoxEl)
+					hoveredEmoteEl.after(emoteBoxEl)
 				} else {
-					hoveredEmote.before(emoteBoxEl)
+					hoveredEmoteEl.before(emoteBoxEl)
 				}
 			}
 		}
@@ -723,7 +748,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			if (this.isShowing) {
 				// Adjust the position of the emote menu based on the parent container
 				const parentContainerPosition = this.parentContainer.getBoundingClientRect()
-				this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + 'px'
+				this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + 10 + 'px'
 				this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + 'px'
 			}
 

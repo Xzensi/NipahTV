@@ -1,6 +1,8 @@
 @use 'animations' as *;
 @use 'variables' as *;
 
+$emotes_gap: 0.15em;
+
 .ntv__quick-emotes-holder {
 	max-height: $emote_size * 2;
 	font-size: $root_font_size;
@@ -13,48 +15,14 @@
 	margin: $hoverScalePadding;
 	box-sizing: content-box;
 
-	> div {
-		box-sizing: border-box;
+	@for $i from 1 through 14 {
+		&[data-rows='#{$i}'] {
+			max-height: $emote_size * $i + $emotes_gap * $i * 2;
+		}
 	}
 
-	&[data-rows='1'] {
-		max-height: $emote_size * 1;
-	}
-
-	&[data-rows='2'] {
-		max-height: $emote_size * 2;
-	}
-
-	&[data-rows='3'] {
-		max-height: $emote_size * 3;
-	}
-
-	&[data-rows='4'] {
-		max-height: $emote_size * 4;
-	}
-
-	&[data-rows='5'] {
-		max-height: $emote_size * 5;
-	}
-
-	&[data-rows='6'] {
-		max-height: $emote_size * 6;
-	}
-
-	&[data-rows='7'] {
-		max-height: $emote_size * 7;
-	}
-
-	&[data-rows='8'] {
-		max-height: $emote_size * 8;
-	}
-
-	&[data-rows='9'] {
-		max-height: $emote_size * 9;
-	}
-
-	&[data-rows='10'] {
-		max-height: $emote_size * 10;
+	.ntv__emote-box {
+		margin: $emotes_gap;
 	}
 
 	&--dragging-emote {
@@ -80,11 +48,21 @@
 		padding: 0 0.209em;
 		font-size: 1.2em;
 		opacity: 0.36;
+
+		display: none;
 	}
 
 	// Hide the spacer if either favorites or commonly-used sections are empty
-	&__favorites:empty + &__spacer,
-	&__favorites:has(~ &__commonly-used:empty) + &__spacer {
-		display: none;
+	// &__favorites:empty + &__spacer,
+	// &__favorites:has(~ &__commonly-used:empty) + &__spacer {
+	// 	display: none;
+	// }
+
+	&__favorites {
+		&:not(.ntv__quick-emotes-holder__favorites--show-unavailable) {
+			.ntv__emote-box--unavailable {
+				display: none;
+			}
+		}
 	}
 }

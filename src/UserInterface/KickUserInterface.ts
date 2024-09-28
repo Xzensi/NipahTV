@@ -975,9 +975,9 @@ export class KickUserInterface extends AbstractUserInterface {
 				// Don't try to render many messages at once when chat is moving fast
 				let messageChunkSize = 10
 				if (queueLength > 100) {
-					messageChunkSize = 1
+					messageChunkSize = 3
 				} else if (queueLength > 50) {
-					messageChunkSize = 5
+					messageChunkSize = 6
 				}
 
 				// Remove any messages that no longer exist in the DOM
@@ -1103,9 +1103,17 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (!emoteName) return
 
 				const tooltipEl = parseHTML(
-					`<div class="ntv__emote-tooltip"><span>${emoteName}</span></div>`,
+					`<div class="ntv__emote-tooltip"><span class="ntv__emote-tooltip__title">${emoteName}</span></div>`,
 					true
 				) as HTMLElement
+
+				const emote = this.session.emotesManager.getEmoteByName(emoteName)
+				if (emote && emote.isZeroWidth) {
+					const span = document.createElement('span')
+					span.className = 'ntv__emote-tooltip__zero-width'
+					span.textContent = 'Zero Width'
+					tooltipEl.appendChild(span)
+				}
 
 				if (showTooltipImage) {
 					const imageNode = target.cloneNode(true) as HTMLImageElement
@@ -1183,10 +1191,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						// For moderators Kick appends "(Deleted)"
 						if (addedNode.className === 'line-through') {
 							chatMessageInnerEl.append(
-								parseHTML(
-									`<span class="ntv__chat-message__part ntv__chat-message__part--text">(Deleted)</span>`,
-									true
-								)
+								parseHTML(`<span class="ntv__chat-message__part">(Deleted)</span>`, true)
 							)
 						}
 						// For regular viewers we need to remove the message content and replace it with "Deleted by a moderator"
@@ -1198,10 +1203,7 @@ export class KickUserInterface extends AbstractUserInterface {
 							const deletedMessageContent = addedNode.textContent || 'Deleted by a moderator'
 
 							chatMessageInnerEl.append(
-								parseHTML(
-									`<span class="ntv__chat-message__part ntv__chat-message__part--text">${deletedMessageContent}</span>`,
-									true
-								)
+								parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
 							)
 						}
 					}

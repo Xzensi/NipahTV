@@ -1,4 +1,5 @@
 @use 'functions' as *;
+@use 'sass:math';
 @use 'sass:color';
 
 $golden_ratio: 1.61803398875;
@@ -6,9 +7,15 @@ $golden_ratio_inverse: 0.61803398875;
 $golden_ratio_inverse_half: $golden_ratio_inverse * $golden_ratio_inverse;
 
 $root_font_size: 14px;
-$emote_size: 2.8em;
-$emote_row_size: 6;
-$sidebar_width: $emote_size;
+
+$menu_emoteset_gap: 0.5em;
+$menu_emoteset_padding: 0.85em;
+$menu_emoteset_columns: 6;
+$menu_scrollable_width: 19em;
+$emote_size: math.div(
+	$menu_scrollable_width - $menu_emoteset_padding - $menu_emoteset_gap * ($menu_emoteset_columns - 1),
+	$menu_emoteset_columns
+);
 
 // Opacity Scale
 $opacity-1: 0.05;
@@ -50,6 +57,7 @@ $dark-theme-background-color: #1b1b1d;
 
 	--ntv-border-transparent-1: #ffffff0e;
 	--ntv-border-transparent-2: #ffffff1a;
+	--ntv-border-transparent-3: #ffffff2a;
 
 	--ntv-text-color: rgba(255, 255, 255, 0.87);
 	--ntv-text-color-medium-emphasis: rgba(255, 255, 255, 0.6);

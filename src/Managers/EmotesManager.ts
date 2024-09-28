@@ -174,13 +174,6 @@ export default class EmotesManager {
 		return provider.getRenderableEmote(emote, classes)
 	}
 
-	getRenderableEmoteByEmote(emote: Emote, classes = '') {
-		const provider = this.providers.get(emote.provider)
-		if (!provider) return error('Provider not found for emote', emote)
-
-		return provider.getRenderableEmote(emote, classes)
-	}
-
 	getEmoteEmbeddable(emoteHid: string, spacingBefore = false) {
 		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('Emote not found')
@@ -295,7 +288,7 @@ export default class EmotesManager {
 			const [matchedText, kickEmoteFormatMatch, maybeTextEmote] = match
 
 			if (kickEmoteFormatMatch) {
-				if (lastMatchedIndex < match.index) {
+				if (lastMatchedIndex < emoteMatcherRegex.lastIndex) {
 					const text = partString.slice(lastMatchedIndex, match.index).trim()
 					if (text.length) result.push(text)
 					lastMatchedIndex = emoteMatcherRegex.lastIndex
@@ -315,7 +308,7 @@ export default class EmotesManager {
 				const emote = this.getEmoteByName(maybeTextEmote)
 
 				if (emote) {
-					if (lastMatchedIndex < match.index) {
+					if (lastMatchedIndex < emoteMatcherRegex.lastIndex) {
 						const text = partString.slice(lastMatchedIndex, match.index).trim()
 						if (text.length) result.push(text)
 						lastMatchedIndex = emoteMatcherRegex.lastIndex

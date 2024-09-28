@@ -1,4 +1,12 @@
-import { log, error, assertArgDefined, CHAR_ZWSP, debounce, eventKeyIsLetterDigitPuncSpaceChar } from '../utils'
+import {
+	log,
+	error,
+	assertArgDefined,
+	CHAR_ZWSP,
+	debounce,
+	eventKeyIsLetterDigitPuncSpaceChar,
+	parseHTML
+} from '../utils'
 import { PriorityEventTarget } from './PriorityEventTarget'
 import MessagesHistory from './MessagesHistory'
 import { Caret } from '../UserInterface/Caret'
@@ -199,9 +207,12 @@ export class ContentEditableEditor {
 					const token = tokens[j]
 					const emoteHid = emotesManager.getEmoteHidByName(token)
 					if (emoteHid) {
-						newNodes.push(
-							this.createEmoteComponent(emoteHid, emotesManager.getRenderableEmoteByHid(emoteHid)!)
-						)
+						const emoteEmbed = this.createEmoteComponent(emoteHid)
+						if (!emoteEmbed) {
+							error('Failed to create emote component for', token)
+							continue
+						}
+						newNodes.push(emoteEmbed)
 					} else if (i === 0 && j === 0) {
 						newNodes.push(document.createTextNode(token))
 					} else {
@@ -509,20 +520,32 @@ export class ContentEditableEditor {
 		}
 	}
 
-	createEmoteComponent(emoteHID: string, emoteHTML: string) {
+	createEmoteComponent(emoteHID: string) {
+		const emotesManager = this.session.emotesManager
+
+		const emote = emotesManager.getEmote(emoteHID)
+		if (!emote) return error('Emote not found for HID', emoteHID)
+
+		const emoteHTML = emotesManager.getRenderableEmote(emote, (emote.isZeroWidth && 'ntv__emote--zero-width') || '')
+		if (!emoteHTML) return error('Failed to get renderable emote for HID', emoteHID)
+
 		const component = document.createElement('span')
 		component.className = 'ntv__input-component'
 		component.appendChild(document.createTextNode(CHAR_ZWSP))
+
 		const componentBody = document.createElement('span')
 		componentBody.className = 'ntv__input-component__body'
 		componentBody.setAttribute('contenteditable', 'false')
+
 		const inlineEmoteBox = document.createElement('span')
 		inlineEmoteBox.className = 'ntv__inline-emote-box'
 		inlineEmoteBox.setAttribute('data-emote-hid', emoteHID)
-		inlineEmoteBox.innerHTML = emoteHTML
+		inlineEmoteBox.appendChild(parseHTML(emoteHTML, true))
+
 		componentBody.appendChild(inlineEmoteBox)
 		component.appendChild(componentBody)
 		component.appendChild(document.createTextNode(CHAR_ZWSP))
+
 		return component
 	}
 
@@ -1057,13 +1080,11 @@ export class ContentEditableEditor {
 		// Inserting emote means you chose the history entry, so we reset the cursor
 		messageHistory.resetCursor()
 
-		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
-		if (!emoteHTML) {
+		const emoteComponent = this.createEmoteComponent(emoteHid)
+		if (!emoteComponent) {
 			error('Invalid emote embed')
 			return null
 		}
-
-		const emoteComponent = this.createEmoteComponent(emoteHid, emoteHTML)
 
 		this.insertComponent(emoteComponent)
 

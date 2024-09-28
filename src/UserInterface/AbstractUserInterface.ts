@@ -108,7 +108,10 @@ export default abstract class AbstractUserInterface {
 		>
 	) {
 		const result = []
-		for (const part of parsedMessageParts) {
+		let prevPart = null
+		for (let index = 0; index < parsedMessageParts.length; index++) {
+			const part = parsedMessageParts[index]
+
 			if (typeof part === 'string') {
 				result.push(this.createPlainTextMessagePartNode(part))
 			} else if (part instanceof Node) {
@@ -117,36 +120,75 @@ export default abstract class AbstractUserInterface {
 				newContentNode.appendChild(part)
 				result.push(newContentNode)
 			} else if (part.type === 'emote') {
-				result.push(this.createEmoteMessagePartElement(part.emote))
+				const prevPartWasEmote =
+					prevPart && typeof prevPart !== 'string' && !(prevPart instanceof Node) && prevPart.type === 'emote'
+
+				if (prevPartWasEmote && part.emote.isZeroWidth) {
+					const prevElement = result[result.length - 1]
+					this.insertZeroWidthEmotePart(part.emote, prevElement as HTMLElement)
+				} else {
+					result.push(this.createEmoteMessagePartElement(part.emote))
+				}
 			} else if (part.type === 'emoji') {
+				const spanEl = document.createElement('span')
+				spanEl.className = 'ntv__chat-message__part'
+
 				const emojiNode = document.createElement('img')
-				emojiNode.className = 'ntv__chat-message__part ntv__inline-emoji'
+				emojiNode.className = 'ntv__inline-emoji'
 				emojiNode.src = part.url
 				emojiNode.alt = part.alt
-				result.push(emojiNode)
+
+				spanEl.appendChild(emojiNode)
+				result.push(spanEl)
 			} else {
 				error('Unknown message part type', part)
 			}
+
+			prevPart = part
 		}
 
 		return result
 	}
 
 	createEmoteMessagePartElement(emote: Emote) {
-		const node = document.createElement('span')
-		node.classList.add('ntv__chat-message__part', 'ntv__inline-emote-box')
-		if (emote.hid) node.setAttribute('data-emote-hid', emote.hid)
-		if (emote.id) node.setAttribute('data-emote-id', emote.id)
-		if (emote.name) node.setAttribute('data-emote-name', emote.name)
-		node.setAttribute('contenteditable', 'false')
+		const spanEl = document.createElement('span')
+		spanEl.className = 'ntv__chat-message__part'
+		spanEl.setAttribute('contenteditable', 'false')
+
+		const emoteBoxEl = document.createElement('div')
+		emoteBoxEl.className = 'ntv__inline-emote-box'
+		spanEl.appendChild(emoteBoxEl)
+
+		// if (emote.hid) node.setAttribute('data-emote-hid', emote.hid)
+		// if (emote.id) node.setAttribute('data-emote-id', emote.id)
+		// if (emote.name) node.setAttribute('data-emote-name', emote.name)
 
 		const emoteRender = this.session.emotesManager.getRenderableEmote(emote)
 		if (!emoteRender) {
-			error('Failed to create emote message part element, emote render not found.', emote)
-			return node
+			error(
+				'Failed to create emote message part element, emote render not found.',
+				emote,
+				(emote.isZeroWidth && 'ntv__emote--zero-width') || ''
+			)
+			// TODO insert a placeholder emote
+			return spanEl
 		}
-		node.appendChild(parseHTML(emoteRender))
-		return node
+
+		emoteBoxEl.appendChild(parseHTML(emoteRender))
+		return spanEl
+	}
+
+	insertZeroWidthEmotePart(emote: Emote, messagePartEl: HTMLElement) {
+		const emoteRender = this.session.emotesManager.getRenderableEmote(emote, 'ntv__emote--zero-width')
+		if (!emoteRender) {
+			error('Failed to insert zero width emote part, emote render not found.', emote)
+			return
+		}
+
+		const emoteBoxEl = messagePartEl.firstElementChild
+		if (!emoteBoxEl) return error('Failed to insert zero width emote part, target does not have child element.')
+
+		emoteBoxEl.appendChild(parseHTML(emoteRender))
 	}
 
 	createPlainTextMessagePartNode(textContent: string) {
@@ -156,7 +198,7 @@ export default abstract class AbstractUserInterface {
 		}
 		const newNode = document.createElement('span')
 		newNode.append(document.createTextNode(textContent))
-		newNode.className = 'ntv__chat-message__part ntv__chat-message__part--text'
+		newNode.className = 'ntv__chat-message__part'
 		return newNode
 	}
 
