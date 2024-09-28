@@ -70,7 +70,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				hid: md5(emote.name),
 				name: emote.name,
 				provider: this.id,
-				subscribersOnly: false,
+				isZeroWidth: (emote.flags & 1) !== 0,
 				spacing: true,
 				width: file.width,
 				size
@@ -104,36 +104,21 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			return []
 		}
 
-		// const test = new Set()
 		const emotesMapped = userData.emote_set.emotes.map((emote: any) => {
 			const file = emote.data.host.files[0]
-			// test.add(file.width)
-			let size
-			switch (true) {
-				case file.width > 74:
-					size = 4
-					break
-				case file.width > 53:
-					size = 3
-					break
-				case file.width > 32:
-					size = 2
-					break
-				default:
-					size = 1
-			}
+			const size = (file.width / 24 + 0.5) << 0
+
+			const sanitizedEmoteName = emote.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
 			return {
 				id: '' + emote.id,
 				hid: md5(emote.name),
-				name: emote.name,
+				name: sanitizedEmoteName,
 				provider: this.id,
-				subscribersOnly: false,
 				spacing: true,
 				width: file.width,
 				size
 			} as Emote
 		})
-		// log('SIZES:', Array.from(test).sort())
 
 		const isMenuEnabled = !!this.settingsManager.getSetting(
 			channelId,
@@ -162,7 +147,9 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		const ext = (SUPPORTS_AVIF && BROWSER !== BROWSER_ENUM.SAFARI && 'avif') || 'webp'
 		const srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`
 
-		return `<img class="${classes}" tabindex="0" size="${emote.size}" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`
+		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ''}" data-emote-hid="${
+			emote.hid || ''
+		}" alt="${emote.name || ''}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getEmbeddableEmote(emote: Emote) {

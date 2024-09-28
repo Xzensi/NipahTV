@@ -25,7 +25,8 @@
 
 .ntv__message-input__wrapper {
 	// Hide the original Kick input
-	& + div[dir] {
+	& ~ div[dir],
+	& ~ svg {
 		display: none;
 	}
 }

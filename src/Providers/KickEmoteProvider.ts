@@ -26,11 +26,12 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 		const emoteSets = []
 		for (const dataSet of dataSets) {
 			const emotesMapped = dataSet.emotes.map((emote: any) => {
+				const sanitizedEmoteName = emote.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
 				return {
 					id: '' + emote.id,
 					hid: md5(emote.name),
-					name: emote.name,
-					subscribersOnly: emote.subscribers_only,
+					name: sanitizedEmoteName,
+					isSubscribersOnly: emote.subscribers_only,
 					provider: this.id,
 					width: 32,
 					size: 1
@@ -106,13 +107,15 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 	getRenderableEmote(emote: Emote, classes = '') {
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
-		return `<img class="${classes}" tabindex="0" size="1" data-emote-name="${emote.name}" data-emote-hid="${emote.hid}" alt="${emote.name}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
+		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ''}" data-emote-hid="${
+			emote.hid || ''
+		}" alt="${emote.name || ''}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getRenderableEmoteById(emoteId: string, classes = '') {
 		const srcset = `https://files.kick.com/emotes/${emoteId}/fullsize 1x`
 
-		return `<img class="${classes}" tabindex="0" size="1" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
+		return `<img class="ntv__emote ${classes}" tabindex="0" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getEmbeddableEmote(emote: Emote) {

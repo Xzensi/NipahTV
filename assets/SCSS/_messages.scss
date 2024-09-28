@@ -92,11 +92,9 @@
 		word-break: break-word;
 		margin-right: 0.333em;
 		white-space: normal;
+		display: inline;
 		// line-height: 1.5em;
 		// line-height: 2em;
-
-		&--text {
-		}
 
 		&:last-child {
 			margin-right: 0;

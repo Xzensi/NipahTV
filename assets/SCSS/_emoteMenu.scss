@@ -22,7 +22,7 @@
 	border-radius: 0.25em;
 	position: absolute;
 	max-height: 61.8vh;
-	flex-wrap: wrap;
+	// flex-wrap: wrap;
 	right: 0.618em;
 	display: flex;
 	z-index: 1001;
@@ -89,9 +89,10 @@
 	}
 
 	&__body {
-		overflow: auto;
+		flex-direction: row;
+		max-height: 100%;
+		overflow-y: auto;
 		display: flex;
-		flex: 1 1 3em;
 	}
 
 	&__sidebar {
@@ -99,10 +100,10 @@
 		background-color: var(--ntv-background-color-tint-1);
 		// background: hsla(0, 0%, 50%, 0.06);
 		justify-content: space-between;
-		flex: 0 0 $sidebar_width;
 		flex-direction: column;
 		align-items: center;
 		overflow: hidden;
+		min-width: 3em;
 		display: flex;
 
 		&__sets {
@@ -205,15 +206,13 @@
 	&__scrollable {
 		scrollbar-color: var(--ntv-background-color-tint-3) transparent;
 		scroll-behavior: smooth;
-		flex: 1 1 $emote_size;
 		scrollbar-width: thin;
-		padding-right: 8px;
+		// padding-right: 20px;
 		overflow-x: hidden;
 		overflow-y: scroll;
-		height: 100%;
 
 		&::-webkit-scrollbar {
-			// width: 10px;
+			// width: 19px;
 			// height: 10px;
 		}
 		&::-webkit-scrollbar-thumb {
@@ -227,7 +226,8 @@
 	&__panel {
 		&__emotes,
 		&__search {
-			width: $emote_size * $emote_row_size + 0.6em + 0.25em;
+			// width: $emote_size * $emote_row_size + 0.6em + 0.25em;
+			width: $menu_scrollable_width;
 		}
 	}
 }
@@ -264,10 +264,16 @@
 		}
 	}
 
+	.ntv__emote-box {
+		border-radius: 0.2em;
+		overflow: clip;
+	}
+
 	&__emotes {
 		// transition: max-height 0.1s ease-in-out;
 		// max-height: 99999px;
 		padding: 0.5em 0.6em 0.5em 0.25em;
+		gap: $menu_emoteset_gap;
 		overflow: hidden;
 		flex-wrap: wrap;
 		display: flex;
@@ -292,6 +298,12 @@
 				font-size: 0.95em;
 				margin: 0.5em;
 				padding: 1em;
+			}
+		}
+
+		.ntv__emote-set__emotes:not(.ntv__emote-set--show-unavailable) {
+			.ntv__emote-box--unavailable {
+				display: none;
 			}
 		}
 	}

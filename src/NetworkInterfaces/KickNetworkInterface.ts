@@ -180,7 +180,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const pathArr = window.location.pathname.substring(1).split('/')
 		const channelData = {} as ChannelData
 
-		if (pathArr[1] === 'videos') {
+		if (pathArr[1] === 'videos' && pathArr[2]) {
 			info('VOD video detected..')
 
 			// We are on a VOD page
@@ -326,16 +326,6 @@ export default class KickNetworkInterface implements NetworkInterface {
 	async sendMessage(message: string, noUtag = false) {
 		if (!this.session.channelData) throw new Error('Channel data is not loaded yet.')
 		if (!this.session.channelData.chatroom) throw new Error('Chatroom data is not loaded yet.')
-
-		// let randomSpamFilterBustingTag = ''
-		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0)) +
-		// String.fromCodePoint(0xe0030 + ((Math.random() * 10) << 0))
-		// const count = (Math.random() * 40 + 1) << 0
-		// for (let i = 0; i < count; i++) {
-		// 	randomSpamFilterBustingTag += String.fromCodePoint(0x0030 + ((Math.random() * 10) << 0))
-		// }
-
-		// log(`Random spam filter busting tag: "${randomSpamFilterBustingTag}"`)
 
 		if (!noUtag) message[message.length - 1] === ' ' || (message += ' ')
 

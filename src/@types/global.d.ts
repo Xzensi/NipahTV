@@ -147,7 +147,8 @@ declare global {
 		hid: EmoteHid
 		name: string
 		provider: number
-		subscribersOnly: boolean
+		isSubscribersOnly?: boolean
+		isZeroWidth?: boolean
 		spacing?: boolean
 		parts: string[]
 		width: number

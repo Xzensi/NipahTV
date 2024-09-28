@@ -653,8 +653,7 @@ export default class UserInfoModal extends AbstractModal {
 	}
 
 	async loadMoreMessagesHistory() {
-		const { networkInterface } = this.session
-		const { channelData, userInterface } = this.session
+		const { networkInterface, emotesManager, userInterface, channelData } = this.session
 
 		const { userInfo, modLogsPageEl, messagesHistoryEl } = this
 		if (!userInfo || !modLogsPageEl || !messagesHistoryEl) return
@@ -733,7 +732,8 @@ export default class UserInfoModal extends AbstractModal {
 
 		messagesHistoryEl.querySelectorAll('.ntv__chat-message[unrendered]').forEach((messageEl: Element) => {
 			messageEl.querySelectorAll('.ntv__chat-message__part').forEach((messagePartEl: Element) => {
-				const nodes = userInterface!.renderEmotesInString(messagePartEl.textContent || '')
+				const parsedMessageParts = emotesManager.parseEmoteText(messagePartEl.textContent || '')
+				const nodes = userInterface!.renderMessageParts(parsedMessageParts)
 				messagePartEl.after(...nodes)
 				messagePartEl.remove()
 			})
