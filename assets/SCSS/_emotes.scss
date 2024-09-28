@@ -27,6 +27,7 @@ $emote_half_size: math.div($emote_size, 2);
 	background: rgba(255, 255, 255, 0.034);
 
 	vertical-align: middle;
+	position: relative;
 	display: inline-grid;
 	cursor: pointer;
 	// padding: 0.2em;
