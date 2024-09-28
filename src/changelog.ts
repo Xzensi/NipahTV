@@ -4,6 +4,28 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.33',
+		date: '2024-09-28',
+		description: `
+                  A hot new update introducing support for Zero-Width emotes! Along with bug fixes, quite a lot changed under the hood. If I missed any new bugs, as always please do report them so I can fix it.
+
+                  Feat: Added support for Zero-Width emotes
+                  Fix: Sanitize emote names to prevent potential XSS injections
+                  Fix: Clicking on videos tab on channel unloads NTV #165
+                  Fix: User info card showing on top of sub gifting modal
+                  Fix: Partial page reloads causing double message behaviour
+                  Fix: Ugly temporary reply behaviour not clearing its state correctly
+                  Fix: Kick showing elements in certain chat states
+                  Fix: Ordering favorites not working correctly
+                  Fix: Unloading session not clearing render message cleanup interval
+                  Refactor: Reworked message content rendering
+                  Refactor: Solidified structure of emotes
+                  Refactor: Minor relabeling of stuff
+                  Chore: Replaced my floorboards with chocolate bars
+                  Chore: Finetuned chat message rendering performance
+            `
+	},
+	{
 		version: '1.5.32',
 		date: '2024-09-26',
 		description: `
