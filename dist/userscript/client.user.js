@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.34
+// @version 1.5.35
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -17681,8 +17681,8 @@ var KickUserInterface = class extends AbstractUserInterface {
           case "chat-emote-container":
             const imgEl = componentNode.querySelector("img");
             if (!imgEl) continue;
-            const emoteId = contentNode.getAttribute("data-emote-id");
-            const emoteName = contentNode.getAttribute("data-emote-name");
+            const emoteId = imgEl.getAttribute("data-emote-id");
+            const emoteName = imgEl.getAttribute("data-emote-name");
             if (!emoteId || !emoteName) {
               error("Emote ID or name not found", contentNode);
               continue;
@@ -20851,6 +20851,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.35",
+    date: "2024-09-29",
+    description: `
+                  Fix: Kick emotes not rendering in moderator dashboard view
+            `
+  },
+  {
     version: "1.5.34",
     date: "2024-09-28",
     description: `
@@ -23715,7 +23722,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.34";
+  VERSION = "1.5.35";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
