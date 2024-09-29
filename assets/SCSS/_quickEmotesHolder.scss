@@ -1,7 +1,7 @@
 @use 'animations' as *;
 @use 'variables' as *;
 
-$emotes_gap: 0.15em;
+$emotes_gap: 0.2em;
 
 .ntv__quick-emotes-holder {
 	max-height: $emote_size * 2;

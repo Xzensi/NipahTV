@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.33
+// @version 1.5.34
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-78f22fe2.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7df0eaf5.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11044,7 +11044,12 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         emote.isZeroWidth && "ntv__emote--zero-width" || ""
       );
       if (!emoteHTML) return error("Unable to render commonly used emote:", emoteHid);
-      this.commonlyUsedEl.appendChild(parseHTML(emoteHTML));
+      const emoteBoxEl = document.createElement("div");
+      emoteBoxEl.className = "ntv__emote-box";
+      emoteBoxEl.setAttribute("size", "" + emote.size);
+      emoteBoxEl.setAttribute("data-emote-hid", emoteHid);
+      emoteBoxEl.appendChild(parseHTML(emoteHTML));
+      this.commonlyUsedEl.appendChild(emoteBoxEl);
       return;
     }
     const insertBeforeEl = this.commonlyUsedEl.children[emoteIndex];
@@ -20846,7 +20851,7 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
-    version: "1.5.33",
+    version: "1.5.34",
     date: "2024-09-28",
     description: `
                   A hot new update introducing support for Zero-Width emotes! Along with bug fixes, quite a lot changed under the hood. If I missed any new bugs, as always please do report them so I can fix it.
@@ -23710,7 +23715,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.33";
+  VERSION = "1.5.34";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

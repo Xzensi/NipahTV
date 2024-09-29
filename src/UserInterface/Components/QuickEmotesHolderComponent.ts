@@ -439,7 +439,13 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			)
 			if (!emoteHTML) return error('Unable to render commonly used emote:', emoteHid)
 
-			this.commonlyUsedEl.appendChild(parseHTML(emoteHTML))
+			const emoteBoxEl = document.createElement('div')
+			emoteBoxEl.className = 'ntv__emote-box'
+			emoteBoxEl.setAttribute('size', '' + emote.size)
+			emoteBoxEl.setAttribute('data-emote-hid', emoteHid)
+			emoteBoxEl.appendChild(parseHTML(emoteHTML))
+
+			this.commonlyUsedEl.appendChild(emoteBoxEl)
 			return
 		}
 
