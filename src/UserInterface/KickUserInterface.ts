@@ -2018,8 +2018,8 @@ export class KickUserInterface extends AbstractUserInterface {
 						const imgEl = componentNode.querySelector('img')
 						if (!imgEl) continue
 
-						const emoteId = contentNode.getAttribute('data-emote-id')
-						const emoteName = contentNode.getAttribute('data-emote-name')
+						const emoteId = imgEl.getAttribute('data-emote-id')
+						const emoteName = imgEl.getAttribute('data-emote-name')
 						if (!emoteId || !emoteName) {
 							error('Emote ID or name not found', contentNode)
 							continue
