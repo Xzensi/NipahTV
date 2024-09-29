@@ -4,7 +4,7 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
-		version: '1.5.33',
+		version: '1.5.34',
 		date: '2024-09-28',
 		description: `
                   A hot new update introducing support for Zero-Width emotes! Along with bug fixes, quite a lot changed under the hood. If I missed any new bugs, as always please do report them so I can fix it.
