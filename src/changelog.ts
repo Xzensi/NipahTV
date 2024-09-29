@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.35',
+		date: '2024-09-29',
+		description: `
+                  Fix: Kick emotes not rendering in moderator dashboard view
+            `
+	},
+	{
 		version: '1.5.34',
 		date: '2024-09-28',
 		description: `
