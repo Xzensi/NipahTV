@@ -5,7 +5,7 @@
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/{{BRANCH}}/dist/css/kick-7df0eaf5.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/{{BRANCH}}/dist/css/kick-3b3b0ffc.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/{{BRANCH}}/dist/userscript/client.user.js

@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.35
+// @version 1.5.36
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-7df0eaf5.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-3b3b0ffc.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11072,6 +11072,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     this.session = session;
     this.placeholder = placeholder;
   }
+  // Not private because of reloadUIhackInterval
   element;
   footerLogoBtnEl;
   render() {
@@ -11522,7 +11523,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       emoteBoxClasses += !emoteSet?.isSubscribed && emote?.isSubscribersOnly ? "ntv__emote-box--locked" : "";
       emotesEl.append(
         parseHTML(
-          `<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmote(
+          `<div class="ntv__emote-box ${emoteBoxClasses}" size="${maybeFavoriteEmote.size}">${emotesManager.getRenderableEmote(
             maybeFavoriteEmote,
             maybeFavoriteEmote.isZeroWidth && "ntv__emote--zero-width" || ""
           )}</div>`
@@ -16302,6 +16303,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   emoteMenuButton = null;
   quickEmotesHolder = null;
   clearQueuedChatMessagesInterval = null;
+  reloadUIhackInterval = null;
   elm = {
     chatMessagesContainer: null,
     replyMessageWrapper: null,
@@ -16541,6 +16543,13 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (!footerSubmitButtonWrapper) return error("Footer submit button wrapper not found for emote menu button");
     footerSubmitButtonWrapper.prepend(placeholder);
     this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init();
+    this.reloadUIhackInterval = setInterval(() => {
+      if (!this.emoteMenuButton.element.isConnected) {
+        info("Emote menu button got removed. Reloading session to reinitialize UI.");
+        this.destroy();
+        this.rootContext.eventBus.publish("ntv.reload_sessions");
+      }
+    }, 700);
   }
   async loadQuickEmotesHolder(kickFooterEl, kickQuickEmotesHolderEl) {
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
@@ -17844,7 +17853,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
   }
   renderPinnedMessageContent(contentBodyEl) {
-    log("Rendering pinned message..", contentBodyEl);
+    log("Rendering pinned message..");
     const ntvPinnedMessageBodyEl = document.createElement("div");
     ntvPinnedMessageBodyEl.className = "ntv__pinned-message__content";
     const emotesManager = this.session.emotesManager;
@@ -17939,6 +17948,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.emoteMenuButton) this.emoteMenuButton.destroy();
     if (this.quickEmotesHolder) this.quickEmotesHolder.destroy();
     if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval);
+    if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval);
     this.domEventManager.removeAllEventListeners();
     Array.from(document.querySelectorAll(".ntv__chat-message, .ntv__chat-message--unrendered")).forEach((node) => {
       const el = node;
@@ -17946,6 +17956,9 @@ var KickUserInterface = class extends AbstractUserInterface {
       Array.from(el.classList).forEach((className) => {
         if (className.startsWith("ntv__")) el.classList.remove(className);
       });
+    });
+    ["ntv__pinned-message__content"].forEach((className) => {
+      Array.from(document.querySelectorAll(`.${className}`)).forEach((node) => node.remove());
     });
     ["ntv__emote-menu-button", "ntv__submit-button disabled", "ntv__quick-emotes-holder"].forEach((className) => {
       Array.from(document.querySelectorAll(`.${className}`)).forEach((node) => node.classList.remove(className));
@@ -20062,6 +20075,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         hid: md5(emote.name),
         name: sanitizedEmoteName,
         provider: this.id,
+        isZeroWidth: (emote.flags & 1) !== 0,
         spacing: true,
         width: file.width,
         size
@@ -20850,6 +20864,17 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.36",
+    date: "2024-09-30",
+    description: `
+                  Fix: Channel Zero-Width emotes not working
+                  Fix: Favorited emotes not sizing correctly in emote menu
+                  Fix: Regression of issue #131
+                  Fix: Temporary fix to reload UI when components get nuked by Kick
+                  Chore: Adjusted emote menu emotes row and column gap distance
+            `
+  },
   {
     version: "1.5.35",
     date: "2024-09-29",
@@ -23722,7 +23747,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.35";
+  VERSION = "1.5.36";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23841,6 +23866,7 @@ var NipahClient = class {
     this.loadAppUpdateBehaviour(rootEventBus);
     this.doExtensionCompatibilityChecks();
     this.createChannelSession();
+    this.loadReloadUIHack();
   }
   loadAppUpdateBehaviour(rootEventBus) {
     rootEventBus.subscribe("ntv.app.update", () => {
@@ -23967,6 +23993,18 @@ var NipahClient = class {
     emotesManager.loadProviderEmotes(channelData, providerOverrideOrder);
     rootEventBus.publish("ntv.session.create", session);
     if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName);
+  }
+  loadReloadUIHack() {
+    const rootContext = this.rootContext;
+    if (!rootContext) throw new Error("Root context is not initialized.");
+    rootContext.eventBus.subscribe("ntv.reload_sessions", () => {
+      this.sessions.forEach((session) => {
+        session.isDestroyed = true;
+        session.eventBus.publish("ntv.session.destroy");
+      });
+      this.sessions = [];
+      this.createChannelSession();
+    });
   }
   attachEventServiceListeners(rootContext, session) {
     const { eventBus, channelData, meData } = session;
@@ -24121,6 +24159,7 @@ var NipahClient = class {
   const nipahClient = new NipahClient();
   nipahClient.initialize();
 })();
+//! Does not respect multiple sessions framework structure
 //! Temporary migration code
 //! Temporary delete old settings records
 /*! Bundled license information:

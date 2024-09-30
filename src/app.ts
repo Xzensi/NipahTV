@@ -41,7 +41,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.35'
+	VERSION = '1.5.36'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -222,6 +222,7 @@ class NipahClient {
 		this.loadAppUpdateBehaviour(rootEventBus)
 		this.doExtensionCompatibilityChecks()
 		this.createChannelSession()
+		this.loadReloadUIHack()
 	}
 
 	loadAppUpdateBehaviour(rootEventBus: Publisher) {
@@ -390,6 +391,21 @@ class NipahClient {
 		rootEventBus.publish('ntv.session.create', session)
 
 		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
+	}
+
+	loadReloadUIHack() {
+		const rootContext = this.rootContext
+		if (!rootContext) throw new Error('Root context is not initialized.')
+
+		rootContext.eventBus.subscribe('ntv.reload_sessions', () => {
+			// Destroy all sessions and recreate them
+			this.sessions.forEach(session => {
+				session.isDestroyed = true
+				session.eventBus.publish('ntv.session.destroy')
+			})
+			this.sessions = []
+			this.createChannelSession()
+		})
 	}
 
 	attachEventServiceListeners(rootContext: RootContext, session: Session) {
