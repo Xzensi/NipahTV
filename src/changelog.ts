@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.36',
+		date: '2024-09-30',
+		description: `
+                  Fix: Channel Zero-Width emotes not working
+                  Fix: Favorited emotes not sizing correctly in emote menu
+                  Fix: Regression of issue #131
+                  Fix: Temporary fix to reload UI when components get nuked by Kick
+                  Chore: Adjusted emote menu emotes row and column gap distance
+            `
+	},
+	{
 		version: '1.5.35',
 		date: '2024-09-29',
 		description: `

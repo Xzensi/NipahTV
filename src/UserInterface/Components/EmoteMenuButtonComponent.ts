@@ -2,7 +2,8 @@ import { AbstractComponent } from './AbstractComponent'
 import { error, cleanupHTML, parseHTML, log } from '../../utils'
 
 export default class EmoteMenuButtonComponent extends AbstractComponent {
-	private element?: HTMLElement
+	// Not private because of reloadUIhackInterval
+	element!: HTMLElement
 	private footerLogoBtnEl?: HTMLElement
 
 	constructor(private rootContext: RootContext, private session: Session, private placeholder: HTMLElement) {
