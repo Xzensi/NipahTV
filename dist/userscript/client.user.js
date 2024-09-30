@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.36
+// @version 1.5.37
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-3b3b0ffc.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-31ec6698.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -20865,6 +20865,16 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.37",
+    date: "2024-09-30",
+    description: `
+                  Fix: Correct emote sizes after restructure
+                  Fix: Adjust chat message line spacing
+                  Fix: Emote menu sidebar collapses in height when searching for emotes #173
+                  Style: Reduced Kick footer padding on top of quick emote holder
+            `
+  },
+  {
     version: "1.5.36",
     date: "2024-09-30",
     description: `
@@ -23747,7 +23757,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.36";
+  VERSION = "1.5.37";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23916,6 +23926,7 @@ var NipahClient = class {
 				`
       });
       announcementService.displayAnnouncement("seventv_conflict");
+    }).catch(() => {
     });
   }
   async createChannelSession() {
