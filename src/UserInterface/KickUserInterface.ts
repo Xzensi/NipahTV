@@ -2372,6 +2372,9 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (className.startsWith('ntv__')) el.classList.remove(className)
 			})
 		})
+		;['ntv__pinned-message__content'].forEach(className => {
+			Array.from(document.querySelectorAll(`.${className}`)).forEach(node => node.remove())
+		})
 
 		// Remove classes from everything
 		;['ntv__emote-menu-button', 'ntv__submit-button disabled', 'ntv__quick-emotes-holder'].forEach(className => {
