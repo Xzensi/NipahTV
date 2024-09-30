@@ -12,7 +12,7 @@ $menu_emoteset_gap: 0.3em;
 $menu_emoteset_padding: 0.85em;
 $menu_emoteset_columns: 6;
 $menu_scrollable_width: 19em;
-$emote_size: math.div(
+$menu_and_holder_emote_size: math.div(
 	$menu_scrollable_width - $menu_emoteset_padding - $menu_emoteset_gap * ($menu_emoteset_columns - 1),
 	$menu_emoteset_columns
 );
