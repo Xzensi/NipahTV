@@ -33,6 +33,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	private emoteMenuButton: EmoteMenuButtonComponent | null = null
 	private quickEmotesHolder: QuickEmotesHolderComponent | null = null
 	private clearQueuedChatMessagesInterval: NodeJS.Timeout | null = null
+	private reloadUIhackInterval: NodeJS.Timeout | null = null
 
 	protected elm: {
 		chatMessagesContainer: HTMLElement | null
@@ -400,6 +401,17 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		footerSubmitButtonWrapper.prepend(placeholder)
 		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init()
+
+		// Temporary hack to detect when our elements got removed
+		//  so we can reload the session to reinitialize the UI.
+		this.reloadUIhackInterval = setInterval(() => {
+			if (!this.emoteMenuButton!.element.isConnected) {
+				info('Emote menu button got removed. Reloading session to reinitialize UI.')
+				this.destroy()
+				//! Does not respect multiple sessions framework structure
+				this.rootContext.eventBus.publish('ntv.reload_sessions')
+			}
+		}, 700)
 	}
 
 	async loadQuickEmotesHolder(kickFooterEl: HTMLElement, kickQuickEmotesHolderEl?: HTMLElement) {
@@ -2232,7 +2244,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderPinnedMessageContent(contentBodyEl: HTMLElement) {
-		log('Rendering pinned message..', contentBodyEl)
+		log('Rendering pinned message..')
 
 		const ntvPinnedMessageBodyEl = document.createElement('div')
 		ntvPinnedMessageBodyEl.className = 'ntv__pinned-message__content'
@@ -2359,6 +2371,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
 		if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval)
+		if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval)
 
 		this.domEventManager.removeAllEventListeners()
 
