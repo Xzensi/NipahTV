@@ -52,7 +52,7 @@ Key Features:
 
 Releases are available at [NipahTV.com](https://nipahtv.com)
 
-Or come say hi at our [Discord Community server](https://discord.gg/KZZZYM6ESs)
+Get help at or vote for new features at our [Discord Community server](https://discord.gg/KZZZYM6ESs)
 
 <br />
 
