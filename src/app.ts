@@ -41,7 +41,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.36'
+	VERSION = '1.5.37'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -265,16 +265,17 @@ class NipahClient {
 		if (!rootContext) throw new Error('Root context is not initialized.')
 		const { announcementService, eventBus: rootEventBus } = rootContext
 
-		waitForElements(['#seventv-site-hosted'], 6000).then(() => {
-			log('Detected SevenTV extension')
-			const platformName = PLATFORM[0].toUpperCase() + PLATFORM.slice(1)
+		waitForElements(['#seventv-site-hosted'], 6000)
+			.then(() => {
+				log('Detected SevenTV extension')
+				const platformName = PLATFORM[0].toUpperCase() + PLATFORM.slice(1)
 
-			announcementService.registerAnnouncement({
-				id: 'seventv_conflict',
-				title: 'NipahTV Compatibility Warning',
-				showDontShowAgainButton: true,
-				showCloseButton: true,
-				message: `
+				announcementService.registerAnnouncement({
+					id: 'seventv_conflict',
+					title: 'NipahTV Compatibility Warning',
+					showDontShowAgainButton: true,
+					showCloseButton: true,
+					message: `
 					<h2>💥 <strong>7TV Extension Conflict!</strong> 💥</h2>
 					<p>The 7TV extension has been found to be enabled on ${platformName}. 7TV is not compatible with NipahTV and will cause issues if both are enabled at the same time. It is possible to keep the 7TV extension for <b>other</b> streaming websites if you want, by disabling the extension for only ${platformName}.</p>
 					<h4>How to disable 7TV extension <i>only</i> just for ${platformName}?</h4>
@@ -283,9 +284,10 @@ class NipahClient {
 					<br>
 					<p>You can ignore this warning if you want, but expect weird issues such as blank and empty messages.</p>
 				`
+				})
+				announcementService.displayAnnouncement('seventv_conflict')
 			})
-			announcementService.displayAnnouncement('seventv_conflict')
-		})
+			.catch(() => {})
 	}
 
 	async createChannelSession() {

@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.37',
+		date: '2024-09-30',
+		description: `
+                  Fix: Correct emote sizes after restructure
+                  Fix: Adjust chat message line spacing
+                  Fix: Emote menu sidebar collapses in height when searching for emotes #173
+                  Style: Reduced Kick footer padding on top of quick emote holder
+            `
+	},
+	{
 		version: '1.5.36',
 		date: '2024-09-30',
 		description: `

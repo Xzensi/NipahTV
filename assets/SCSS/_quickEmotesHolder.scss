@@ -4,7 +4,7 @@
 $emotes_gap: 0.2em;
 
 .ntv__quick-emotes-holder {
-	max-height: $emote_size * 2;
+	max-height: $menu_and_holder_emote_size * 2;
 	font-size: $root_font_size;
 	align-items: center;
 	width: 100%;
@@ -17,7 +17,7 @@ $emotes_gap: 0.2em;
 
 	@for $i from 1 through 14 {
 		&[data-rows='#{$i}'] {
-			max-height: $emote_size * $i + $emotes_gap * $i * 2;
+			max-height: $menu_and_holder_emote_size * $i + $emotes_gap * $i * 2;
 		}
 	}
 
@@ -38,8 +38,8 @@ $emotes_gap: 0.2em;
 	}
 
 	&__spacer {
-		// width: calc($emote_size / 1.2);
-		height: $emote_size * 0.618;
+		// width: calc($menu_and_holder_emote_size / 1.2);
+		height: $menu_and_holder_emote_size * 0.618;
 		vertical-align: middle;
 		display: inline-block;
 		pointer-events: none;

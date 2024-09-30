@@ -2,14 +2,14 @@
 @use 'mixins' as *;
 @use 'sass:math';
 
-$emote_half_size: math.div($emote_size, 2);
+$chat_emote_size: 2.3em;
 
 .ntv__emote {
 	content-visibility: auto;
 	display: inline-block;
 	object-fit: contain;
 
-	max-height: $emote_size;
+	max-height: $chat_emote_size;
 	grid-column: 1;
 	grid-row: 1;
 
@@ -32,8 +32,8 @@ $emote_half_size: math.div($emote_size, 2);
 	cursor: pointer;
 	// padding: 0.2em;
 
-	width: $emote_size;
-	height: $emote_size;
+	width: $menu_and_holder_emote_size;
+	height: $menu_and_holder_emote_size;
 
 	justify-content: center;
 	align-items: center;
@@ -44,7 +44,7 @@ $emote_half_size: math.div($emote_size, 2);
 
 	@for $i from 2 through 14 {
 		&[size='#{$i}'] {
-			width: $emote_size + $emote_half_size * ($i - 1);
+			width: $menu_and_holder_emote_size + math.div($menu_and_holder_emote_size, 2) * ($i - 1);
 		}
 	}
 
@@ -101,11 +101,11 @@ $emote_half_size: math.div($emote_size, 2);
 }
 
 .ntv__inline-emote-box {
-	max-height: $emote_size;
+	max-height: $chat_emote_size;
 	vertical-align: middle;
 	display: inline-grid;
 	object-fit: contain;
-	margin: -0.4em 0;
+	margin: -0.25em 0;
 
 	justify-content: center;
 	align-items: center;
