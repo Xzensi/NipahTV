@@ -474,7 +474,9 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 			emotesEl.append(
 				parseHTML(
-					`<div class="ntv__emote-box ${emoteBoxClasses}">${emotesManager.getRenderableEmote(
+					`<div class="ntv__emote-box ${emoteBoxClasses}" size="${
+						maybeFavoriteEmote.size
+					}">${emotesManager.getRenderableEmote(
 						maybeFavoriteEmote,
 						(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
 					)}</div>`
