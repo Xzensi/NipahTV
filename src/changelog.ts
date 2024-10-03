@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.38',
+		date: '2024-10-03',
+		description: `
+                  Finally fixed the reply message behaviour that got broken due to the Kick website update. For now it only has effect on channel chatrooms, and not yet the creator & moderator dashboard pages. I'm still waiting for when Kick will actually finish the update for the creator & moderator dashboard pages. But if they don't, I'll make it work with the old layout that still gets loaded on those pages as well.
+
+                  Fix: Broken reply message behaviour due to Kick website update
+                  Style: Removed background color on quick emote holder emotes
+            `
+	},
+	{
 		version: '1.5.37',
 		date: '2024-09-30',
 		description: `

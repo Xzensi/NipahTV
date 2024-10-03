@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.37
+// @version 1.5.38
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-31ec6698.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-4e69ac85.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -7003,8 +7003,8 @@ var require_pusher = __commonJS({
                 if (core_pusher.log) {
                   core_pusher.log(message);
                 } else if (core_pusher.logToConsole) {
-                  const log15 = defaultLoggingFunction.bind(this);
-                  log15(message);
+                  const log14 = defaultLoggingFunction.bind(this);
+                  log14(message);
                 }
               }
             }
@@ -13707,16 +13707,16 @@ var AbstractUserInterface = class {
       else this.toastError("Failed to send emote to chat. Reason unknown.");
     });
   }
-  replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername) {
-    log(`Replying to message ${chatEntryId} of user ${chatEntryUsername} with ID ${chatEntryUserId}..`);
+  replyMessage(messageNodes, chatEntryId, chatEntryContent, chatEntrySenderId, chatEntrySenderUsername) {
+    log(`Replying to message ${chatEntryId} of user ${chatEntrySenderUsername} with ID ${chatEntrySenderId}..`);
     if (!this.inputController) return error("Input controller not loaded for reply behaviour");
     if (!this.elm.replyMessageWrapper) return error("Unable to load reply message, reply message wrapper not found");
     if (this.replyMessageData) this.destroyReplyMessageContext();
     this.replyMessageData = {
       chatEntryId,
-      chatEntryContentString,
-      chatEntryUsername,
-      chatEntryUserId
+      chatEntryContentString: chatEntryContent,
+      chatEntryUsername: chatEntrySenderUsername,
+      chatEntryUserId: chatEntrySenderId
     };
     this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init();
     this.replyMessageComponent.addEventListener("close", () => {
@@ -16879,97 +16879,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
     return messageContent.join(" ");
   }
-  // loadReplyBehaviour() {
-  // 	const { inputController } = this
-  // 	const { channelData } = this.session
-  // 	if (!channelData.me.isLoggedIn) return
-  // 	if (!inputController) return error('Input controller not loaded for reply behaviour')
-  // 	const chatMessagesContainerEl = this.elm.chatMessagesContainer
-  // 	if (!chatMessagesContainerEl) return error('Chat messages container not loaded for reply behaviour')
-  // 	const chatMessagesContainerWrapperEl = chatMessagesContainerEl.parentElement!
-  // 	const replyMessageWrapperEl = document.createElement('div')
-  // 	replyMessageWrapperEl.classList.add('ntv__reply-message__wrapper')
-  // 	document.querySelector('#chatroom-footer .chat-mode')?.parentElement?.prepend(replyMessageWrapperEl)
-  // 	this.elm.replyMessageWrapper = replyMessageWrapperEl
-  // 	const replyMessageButtonCallback = (event: Event) => {
-  // 		event.preventDefault()
-  // 		event.stopPropagation()
-  // 		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
-  // 		const targetMessage = chatMessagesContainerEl.querySelector(
-  // 			'.chat-entry.bg-secondary-lighter'
-  // 		)?.parentElement
-  // 		if (!targetMessage) return this.toastError('Reply target message not found')
-  // 		const messageNodes = Array.from(
-  // 			// targetMessage.querySelectorAll('& .chat-entry > span:nth-child(2) ~ span :is(span, img)')
-  // 			targetMessage.classList.contains('ntv__chat-message')
-  // 				? targetMessage.querySelectorAll('.chat-entry > span')
-  // 				: targetMessage.querySelectorAll('.chat-message-identity, .chat-message-identity ~ span')
-  // 		)
-  // 		if (!messageNodes.length)
-  // 			return this.toastError('Unable to reply to message, target message content not found')
-  // 		const chatEntryContentString = this.getMessageContentString(targetMessage)
-  // 		const chatEntryId = targetMessage.getAttribute('data-chat-entry')
-  // 		if (!chatEntryId) return this.toastError('Unable to reply to message, target message ID not found')
-  // 		const chatEntryUsernameEl = targetMessage.querySelector('.chat-entry-username')
-  // 		const chatEntryUserId = chatEntryUsernameEl?.getAttribute('data-chat-entry-user-id')
-  // 		if (!chatEntryUserId) return this.toastError('Unable to reply to message, target message user ID not found')
-  // 		const chatEntryUsername = chatEntryUsernameEl?.textContent
-  // 		if (!chatEntryUsername)
-  // 			return this.toastError('Unable to reply to message, target message username not found')
-  // 		this.replyMessage(messageNodes, chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername)
-  // 	}
-  // 	const observer = (this.replyObserver = new MutationObserver(mutations => {
-  // 		mutations.forEach(mutation => {
-  // 			if (mutation.addedNodes.length) {
-  // 				for (const messageNode of mutation.addedNodes) {
-  // 					if (
-  // 						messageNode instanceof HTMLElement &&
-  // 						messageNode.classList.contains('fixed') &&
-  // 						messageNode.classList.contains('z-10')
-  // 					) {
-  // 						messageNode.querySelector
-  // 						// It's painful, but this seems to be the only reliable way to get the reply button element
-  // 						const replyBtnEl = messageNode.querySelector(
-  // 							'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
-  // 						)?.parentElement?.parentElement?.parentElement
-  // 						if (!replyBtnEl) return //error('Reply button element not found', messageNode)
-  // 						// The only way to remove Kick's event listeners from the button is to replace it with a new button
-  // 						const newButtonEl = replyBtnEl.cloneNode(true)
-  // 						replyBtnEl.replaceWith(newButtonEl)
-  //						this.domEventManager.addEventListener( //! Register event listeners
-  // 						newButtonEl.addEventListener('click', replyMessageButtonCallback)
-  // 					}
-  // 				}
-  // 			} else if (mutation.removedNodes.length) {
-  // 				for (const messageNode of mutation.removedNodes) {
-  // 					if (messageNode instanceof HTMLElement) {
-  // 						if (
-  // 							messageNode instanceof HTMLElement &&
-  // 							messageNode.classList.contains('fixed') &&
-  // 							messageNode.classList.contains('z-10')
-  // 						) {
-  // 							const replyBtnEl = messageNode.querySelector(
-  // 								'[d*="M9.32004 4.41501H7.51004V1.29001L1.41504"]'
-  // 							)?.parentElement?.parentElement?.parentElement
-  // 							replyBtnEl?.removeEventListener('click', replyMessageButtonCallback)
-  // 						}
-  // 					}
-  // 				}
-  // 			}
-  // 		})
-  // 	}))
-  // 	observer.observe(chatMessagesContainerWrapperEl, { childList: true })
-  // 	inputController.addEventListener('keydown', 9, (event: KeyboardEvent) => {
-  // 		if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
-  // 			this.destroyReplyMessageContext()
-  // 		}
-  // 	})
-  // 	document.addEventListener('keydown', (event: KeyboardEvent) => {
-  // 		if (event.key === 'Escape' && (this.replyMessageData || this.replyMessageComponent)) {
-  // 			this.destroyReplyMessageContext()
-  // 		}
-  // 	})
-  // }
   loadChatMesssageRenderingBehaviour() {
     const tps = 60;
     const queue = this.queuedChatMessages;
@@ -17570,12 +17479,12 @@ var KickUserInterface = class extends AbstractUserInterface {
             evt.stopPropagation();
             evt.stopImmediatePropagation();
             if (evt.target instanceof HTMLElement && evt.target.classList.contains("kick__reply-button")) {
-              log("Reply button clicked", evt.target, ntvBtnEl);
-              this.handleUglyTemporaryReplyBehaviour();
+              this.handleMessageReplyBtnClick(messageNode, buttonEl);
+            } else {
+              const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+              Object.defineProperty(event, "target", { writable: false, value: buttonEl });
+              buttonEl.dispatchEvent(event);
             }
-            const event = new MouseEvent("click", { bubbles: true, cancelable: true });
-            Object.defineProperty(event, "target", { writable: false, value: buttonEl });
-            buttonEl.dispatchEvent(event);
           });
           ntvChatMessageActionsEl.append(ntvBtnEl);
         }
@@ -17785,8 +17694,11 @@ var KickUserInterface = class extends AbstractUserInterface {
       chatEntryEl.prepend(ntvMessageInnerEl);
     }
   }
-  async handleUglyTemporaryReplyBehaviour() {
+  async loadNativeKickFallbackReplyBehaviour(fallbackButtonEl) {
     const channelData = this.session.channelData;
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { writable: false, value: fallbackButtonEl });
+    fallbackButtonEl.dispatchEvent(event);
     if (!channelData.isModView && !channelData.isCreatorView) {
       const textFieldEl = this.elm.textField;
       const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]');
@@ -17844,6 +17756,45 @@ var KickUserInterface = class extends AbstractUserInterface {
       }, 400);
     } else {
     }
+  }
+  handleMessageReplyBtnClick(messageNode, fallbackButtonEl) {
+    const { inputController } = this;
+    const { channelData } = this.session;
+    if (!channelData.me.isLoggedIn) return;
+    if (channelData.isCreatorView || channelData.isModView)
+      return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
+    const reactivePropsKey = Object.keys(messageNode).find((key) => key.startsWith("__reactProps$"));
+    if (!reactivePropsKey) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
+    const reactiveProps = messageNode[reactivePropsKey];
+    const messageProps = reactiveProps.children?.props;
+    if (!messageProps) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
+    const chatEntry = messageProps.chatEntry;
+    if (!chatEntry) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
+    const { chat_id, content: messageContent, created_at, id: messageId, user_id, sender } = chatEntry.data;
+    if (!sender) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
+    const { id: senderId, slug: senderSlug, username: senderUsername } = sender;
+    if (!senderId || !senderUsername) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
+    if (!inputController) return error("Input controller not loaded for reply behaviour");
+    const replyMessageWrapperEl = document.createElement("div");
+    replyMessageWrapperEl.classList.add("ntv__reply-message__wrapper");
+    document.querySelector("#chat-input-wrapper")?.parentElement?.prepend(replyMessageWrapperEl);
+    this.elm.replyMessageWrapper = replyMessageWrapperEl;
+    const msgInnerEl = messageNode.querySelector(".ntv__chat-message__inner");
+    if (!msgInnerEl) {
+      error("Message inner element not found", messageNode);
+      return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
+    }
+    this.replyMessage(Array.from(msgInnerEl.children), messageId, messageContent, senderId, senderUsername);
+    inputController.addEventListener("keydown", 9, (event) => {
+      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
+        this.destroyReplyMessageContext();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && (this.replyMessageData || this.replyMessageComponent)) {
+        this.destroyReplyMessageContext();
+      }
+    });
   }
   applyModViewFixes() {
     const chatroomEl = document.getElementById("chatroom");
@@ -20865,6 +20816,16 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.38",
+    date: "2024-10-03",
+    description: `
+                  Finally fixed the reply message behaviour that got broken due to the Kick website update. For now it only has effect on channel chatrooms, and not yet the creator & moderator dashboard pages. I'm still waiting for when Kick will actually finish the update for the creator & moderator dashboard pages. But if they don't, I'll make it work with the old layout that still gets loaded on those pages as well.
+
+                  Fix: Broken reply message behaviour due to Kick website update
+                  Style: Removed background color on quick emote holder emotes
+            `
+  },
+  {
     version: "1.5.37",
     date: "2024-09-30",
     description: `
@@ -23531,10 +23492,14 @@ var KickEventService = class {
   connect(channelData) {
   }
   subToChatroomEvents(channelData) {
-    const { chatroom } = channelData;
-    if (!chatroom) return error("Chatroom data is missing from channelData");
-    const channelId = chatroom.id;
-    this.chatroomChannelsMap.set(channelId, this.pusher.subscribe(`chatrooms.${channelId}.v2`));
+    const { chatroom, channelId } = channelData;
+    if (!chatroom || !channelId) return error("Chatroom data is missing from channelData");
+    const chatroomId = chatroom.id;
+    const channel = this.pusher.subscribe(`chatrooms.${chatroomId}.v2`);
+    this.chatroomChannelsMap.set(channelId, channel);
+    channel.bind_global((event, data) => {
+      log("EventService event received", event, data);
+    });
   }
   addEventListener(channelData, event, callback) {
     const { chatroom } = channelData;
@@ -23757,7 +23722,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.37";
+  VERSION = "1.5.38";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
