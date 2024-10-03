@@ -508,6 +508,7 @@ export default abstract class AbstractUserInterface {
 
 	destroyReplyMessageContext() {
 		this.replyMessageComponent?.destroy()
+		this.elm.replyMessageWrapper?.remove()
 		delete this.replyMessageComponent
 		delete this.replyMessageData
 	}
