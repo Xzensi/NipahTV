@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.39
+// @version 1.5.41
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -23740,7 +23740,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.39";
+  VERSION = "1.5.41";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23809,13 +23809,17 @@ var NipahClient = class {
     });
   }
   injectPageScript() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (false) {
         const s = document.createElement("script");
-        s.src = browser.runtime.getURL("Page.js");
+        s.src = browser.runtime.getURL("page.js");
         s.onload = function() {
           s.remove();
           resolve(void 0);
+        };
+        s.onerror = function() {
+          error("Failed to load page script..");
+          reject(void 0);
         };
         (document.head || document.documentElement).appendChild(s);
       } else {
