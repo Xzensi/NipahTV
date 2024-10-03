@@ -22,7 +22,12 @@ $emotes_gap: 0.2em;
 	}
 
 	.ntv__emote-box {
+		border-radius: 0.2em;
 		margin: $emotes_gap;
+
+		&:not(:hover) {
+			background: none;
+		}
 	}
 
 	&--dragging-emote {

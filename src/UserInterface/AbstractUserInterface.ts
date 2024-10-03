@@ -483,11 +483,11 @@ export default abstract class AbstractUserInterface {
 	replyMessage(
 		messageNodes: Element[],
 		chatEntryId: string,
-		chatEntryContentString: string,
-		chatEntryUserId: string,
-		chatEntryUsername: string
+		chatEntryContent: string,
+		chatEntrySenderId: string,
+		chatEntrySenderUsername: string
 	) {
-		log(`Replying to message ${chatEntryId} of user ${chatEntryUsername} with ID ${chatEntryUserId}..`)
+		log(`Replying to message ${chatEntryId} of user ${chatEntrySenderUsername} with ID ${chatEntrySenderId}..`)
 
 		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
 		if (!this.elm.replyMessageWrapper) return error('Unable to load reply message, reply message wrapper not found')
@@ -495,9 +495,9 @@ export default abstract class AbstractUserInterface {
 
 		this.replyMessageData = {
 			chatEntryId,
-			chatEntryContentString,
-			chatEntryUsername,
-			chatEntryUserId
+			chatEntryContentString: chatEntryContent,
+			chatEntryUsername: chatEntrySenderUsername,
+			chatEntryUserId: chatEntrySenderId
 		}
 
 		this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init()
