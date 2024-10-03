@@ -21,7 +21,8 @@ import {
 	waitForElements,
 	getBrowser,
 	getDevice,
-	hasSupportForAvif
+	hasSupportForAvif,
+	ReactivePropsFromMain
 } from './utils'
 import KickBadgeProvider from './Providers/KickBadgeProvider'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
@@ -41,7 +42,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.38'
+	VERSION = '1.5.39'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -131,9 +132,28 @@ class NipahClient {
 			// Initialize the RESTFromMainService because it needs to
 			//  inject page script for Firefox extension.
 			window.RESTFromMainService = new RESTFromMain()
-			await RESTFromMainService.initialize()
+			window.ReactivePropsFromMain = new ReactivePropsFromMain()
+			await this.injectPageScript()
 
 			this.setupClientEnvironment().catch(err => error('Failed to setup client environment.\n\n', err.message))
+		})
+	}
+
+	injectPageScript() {
+		return new Promise(resolve => {
+			// Firefox Manifest V2 does not support content script in execution context MAIN
+			//  So we need to inject the page script manually
+			if (__FIREFOX_MV2__) {
+				const s = document.createElement('script')
+				s.src = browser.runtime.getURL('Page.js')
+				s.onload = function () {
+					s.remove()
+					resolve(void 0)
+				}
+				;(document.head || document.documentElement).appendChild(s)
+			} else {
+				resolve(void 0)
+			}
 		})
 	}
 

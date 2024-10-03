@@ -171,7 +171,6 @@ export class REST {
 
 /**
  * REST class that sends requests from the main thread to the page context.
- * Uses XMLHttpRequest for Kick because Kasada anti-bot WAF intercepts and decorates it.
  */
 export class RESTFromMain {
 	requestID = 0
@@ -204,24 +203,6 @@ export class RESTFromMain {
 				}
 			})
 		}
-	}
-
-	async initialize() {
-		return new Promise(resolve => {
-			// Firefox Manifest V2 does not support content script in execution context MAIN
-			//  So we need to inject the page script manually
-			if (__FIREFOX_MV2__) {
-				const s = document.createElement('script')
-				s.src = browser.runtime.getURL('page.js')
-				s.onload = function () {
-					s.remove()
-					resolve(void 0)
-				}
-				;(document.head || document.documentElement).appendChild(s)
-			} else {
-				resolve(void 0)
-			}
-		})
 	}
 
 	get(url: string) {
@@ -262,6 +243,54 @@ export class RESTFromMain {
 		} else {
 			return REST.fetch(url, options)
 		}
+	}
+}
+
+export class ReactivePropsFromMain {
+	requestID = 0
+	promiseMap = new Map()
+
+	constructor() {
+		if (__EXTENSION__) {
+			document.addEventListener('ntv_upstream_reactive_props', (evt: Event) => {
+				const data = JSON.parse((evt as CustomEvent).detail)
+				const { rID, props } = data
+				const { resolve, reject } = this.promiseMap.get(rID)
+				this.promiseMap.delete(rID)
+
+				if (props) resolve(props)
+				else reject()
+			})
+		}
+	}
+
+	getByClassName(className: string) {
+		return new Promise((resolve, reject) => {
+			if (__EXTENSION__) {
+				const rID = ++this.requestID
+				this.promiseMap.set(rID, { resolve, reject })
+				document.dispatchEvent(
+					new CustomEvent('ntv_downstream_reactive_props', { detail: JSON.stringify({ rID, className }) })
+				)
+			} else {
+				const els = document.getElementsByClassName(className)
+				if (els.length === 0 || els.length > 1) return reject()
+
+				const el = els[0]
+				el.classList.remove(className)
+
+				const reactivePropsKey = Object.keys(el).find(key => key.startsWith('__reactProps$'))
+				if (!reactivePropsKey) return reject()
+
+				// @ts-expect-error
+				const reactivePropsHandle = el[reactivePropsKey]
+
+				const reactiveProps = reactivePropsHandle.children?.props
+				if (!reactiveProps) return reject()
+
+				resolve(reactiveProps)
+			}
+		}) as Promise<any | void>
 	}
 }
 

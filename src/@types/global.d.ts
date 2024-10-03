@@ -12,7 +12,7 @@ import type UsersManager from '../Managers/UsersManager'
 import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from '../constants'
 import type Publisher from '../Classes/Publisher'
 import type Database from '../Database/Database'
-import type { RESTFromMain } from '../utils'
+import type { ReactivePropsFromMain, RESTFromMain } from '../utils'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -30,6 +30,7 @@ declare global {
 	var GM_addStyle: Function
 	var GM_getResourceText: Function
 	var RESTFromMainService: RESTFromMain
+	var ReactivePropsFromMain: ReactivePropsFromMain
 
 	type PlatformId = PLATFORM_ENUM // ValueOf<typeof PLATFORM_ENUM> // `${PLATFORM_ENUM}`
 	type ChannelId = string

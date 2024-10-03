@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.38
+// @version 1.5.39
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -7003,8 +7003,8 @@ var require_pusher = __commonJS({
                 if (core_pusher.log) {
                   core_pusher.log(message);
                 } else if (core_pusher.logToConsole) {
-                  const log14 = defaultLoggingFunction.bind(this);
-                  log14(message);
+                  const log15 = defaultLoggingFunction.bind(this);
+                  log15(message);
                 }
               }
             }
@@ -10320,21 +10320,6 @@ var RESTFromMain = class {
       });
     }
   }
-  async initialize() {
-    return new Promise((resolve) => {
-      if (false) {
-        const s = document.createElement("script");
-        s.src = browser.runtime.getURL("page.js");
-        s.onload = function() {
-          s.remove();
-          resolve(void 0);
-        };
-        (document.head || document.documentElement).appendChild(s);
-      } else {
-        resolve(void 0);
-      }
-    });
-  }
   get(url) {
     return this.fetch(url);
   }
@@ -10373,6 +10358,44 @@ var RESTFromMain = class {
     } else {
       return REST.fetch(url, options);
     }
+  }
+};
+var ReactivePropsFromMain2 = class {
+  requestID = 0;
+  promiseMap = /* @__PURE__ */ new Map();
+  constructor() {
+    if (false) {
+      document.addEventListener("ntv_upstream_reactive_props", (evt) => {
+        const data = JSON.parse(evt.detail);
+        const { rID, props } = data;
+        const { resolve, reject } = this.promiseMap.get(rID);
+        this.promiseMap.delete(rID);
+        if (props) resolve(props);
+        else reject();
+      });
+    }
+  }
+  getByClassName(className) {
+    return new Promise((resolve, reject) => {
+      if (false) {
+        const rID = ++this.requestID;
+        this.promiseMap.set(rID, { resolve, reject });
+        document.dispatchEvent(
+          new CustomEvent("ntv_downstream_reactive_props", { detail: JSON.stringify({ rID, className }) })
+        );
+      } else {
+        const els = document.getElementsByClassName(className);
+        if (els.length === 0 || els.length > 1) return reject();
+        const el = els[0];
+        el.classList.remove(className);
+        const reactivePropsKey = Object.keys(el).find((key) => key.startsWith("__reactProps$"));
+        if (!reactivePropsKey) return reject();
+        const reactivePropsHandle = el[reactivePropsKey];
+        const reactiveProps = reactivePropsHandle.children?.props;
+        if (!reactiveProps) return reject();
+        resolve(reactiveProps);
+      }
+    });
   }
 };
 function isStringNumber(value) {
@@ -17757,16 +17780,15 @@ var KickUserInterface = class extends AbstractUserInterface {
     } else {
     }
   }
-  handleMessageReplyBtnClick(messageNode, fallbackButtonEl) {
+  async handleMessageReplyBtnClick(messageNode, fallbackButtonEl) {
     const { inputController } = this;
     const { channelData } = this.session;
     if (!channelData.me.isLoggedIn) return;
     if (channelData.isCreatorView || channelData.isModView)
       return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
-    const reactivePropsKey = Object.keys(messageNode).find((key) => key.startsWith("__reactProps$"));
-    if (!reactivePropsKey) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
-    const reactiveProps = messageNode[reactivePropsKey];
-    const messageProps = reactiveProps.children?.props;
+    const randomId = "NTV" + Math.random().toString(36).substring(2, 11);
+    messageNode.classList.add(randomId);
+    const messageProps = await ReactivePropsFromMain.getByClassName(randomId);
     if (!messageProps) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
     const chatEntry = messageProps.chatEntry;
     if (!chatEntry) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
@@ -20816,7 +20838,7 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
-    version: "1.5.38",
+    version: "1.5.39",
     date: "2024-10-03",
     description: `
                   Finally fixed the reply message behaviour that got broken due to the Kick website update. For now it only has effect on channel chatrooms, and not yet the creator & moderator dashboard pages. I'm still waiting for when Kick will actually finish the update for the creator & moderator dashboard pages. But if they don't, I'll make it work with the old layout that still gets loaded on those pages as well.
@@ -23492,14 +23514,10 @@ var KickEventService = class {
   connect(channelData) {
   }
   subToChatroomEvents(channelData) {
-    const { chatroom, channelId } = channelData;
-    if (!chatroom || !channelId) return error("Chatroom data is missing from channelData");
-    const chatroomId = chatroom.id;
-    const channel = this.pusher.subscribe(`chatrooms.${chatroomId}.v2`);
-    this.chatroomChannelsMap.set(channelId, channel);
-    channel.bind_global((event, data) => {
-      log("EventService event received", event, data);
-    });
+    const { chatroom } = channelData;
+    if (!chatroom) return error("Chatroom data is missing from channelData");
+    const channelId = chatroom.id;
+    this.chatroomChannelsMap.set(channelId, this.pusher.subscribe(`chatrooms.${channelId}.v2`));
   }
   addEventListener(channelData, event, callback) {
     const { chatroom } = channelData;
@@ -23722,7 +23740,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.38";
+  VERSION = "1.5.39";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -23785,8 +23803,24 @@ var NipahClient = class {
     this.attachPageNavigationListener();
     this.setupDatabase().then(async () => {
       window.RESTFromMainService = new RESTFromMain();
-      await RESTFromMainService.initialize();
+      window.ReactivePropsFromMain = new ReactivePropsFromMain2();
+      await this.injectPageScript();
       this.setupClientEnvironment().catch((err) => error("Failed to setup client environment.\n\n", err.message));
+    });
+  }
+  injectPageScript() {
+    return new Promise((resolve) => {
+      if (false) {
+        const s = document.createElement("script");
+        s.src = browser.runtime.getURL("Page.js");
+        s.onload = function() {
+          s.remove();
+          resolve(void 0);
+        };
+        (document.head || document.documentElement).appendChild(s);
+      } else {
+        resolve(void 0);
+      }
     });
   }
   setupDatabase() {
