@@ -71,3 +71,53 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 	if (options.body) xhr.send(options.body)
 	else xhr.send()
 })
+
+document.addEventListener('ntv_downstream_reactive_props', function (evt: Event) {
+	const data = JSON.parse((evt as CustomEvent).detail)
+	const { rID, className } = data
+
+	const els = document.getElementsByClassName(className)
+	if (els.length === 0 || els.length > 1) {
+		console.error('[NIPAH] [RESTAsPage] No elements found with class name:', className)
+		document.dispatchEvent(
+			new CustomEvent('ntv_upstream_reactive_props', {
+				detail: JSON.stringify({ rID, props: false })
+			})
+		)
+		return
+	}
+
+	const el = els[0]
+	el.classList.remove(className)
+
+	const reactivePropsKey = Object.keys(el).find(key => key.startsWith('__reactProps$'))
+	if (!reactivePropsKey) {
+		console.error('[NIPAH] [RESTAsPage] No reactive props found')
+		document.dispatchEvent(
+			new CustomEvent('ntv_upstream_reactive_props', {
+				detail: JSON.stringify({ rID, props: false })
+			})
+		)
+		return
+	}
+
+	// @ts-expect-error
+	const reactivePropsHandle = el[reactivePropsKey]
+
+	const reactiveProps = reactivePropsHandle.children?.props
+	if (!reactiveProps) {
+		console.error('[NIPAH] [RESTAsPage] No reactive props found')
+		document.dispatchEvent(
+			new CustomEvent('ntv_upstream_reactive_props', {
+				detail: JSON.stringify({ rID, props: false })
+			})
+		)
+		return
+	}
+
+	document.dispatchEvent(
+		new CustomEvent('ntv_upstream_reactive_props', {
+			detail: JSON.stringify({ rID, props: reactiveProps })
+		})
+	)
+})

@@ -2122,7 +2122,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 	}
 
-	handleMessageReplyBtnClick(messageNode: HTMLElement, fallbackButtonEl: HTMLElement) {
+	async handleMessageReplyBtnClick(messageNode: HTMLElement, fallbackButtonEl: HTMLElement) {
 		const { inputController } = this
 		const { channelData } = this.session
 		if (!channelData.me.isLoggedIn) return
@@ -2130,13 +2130,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (channelData.isCreatorView || channelData.isModView)
 			return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl)
 
-		const reactivePropsKey = Object.keys(messageNode).find(key => key.startsWith('__reactProps$'))
-		if (!reactivePropsKey) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl)
+		const randomId = 'NTV' + Math.random().toString(36).substring(2, 11)
+		messageNode.classList.add(randomId)
 
-		// @ts-expect-error
-		const reactiveProps = messageNode[reactivePropsKey]
-
-		const messageProps = reactiveProps.children?.props
+		const messageProps = await ReactivePropsFromMain.getByClassName(randomId)
 		if (!messageProps) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl)
 
 		const chatEntry = messageProps.chatEntry
