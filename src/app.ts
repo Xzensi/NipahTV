@@ -145,7 +145,7 @@ class NipahClient {
 			//  So we need to inject the page script manually
 			if (__FIREFOX_MV2__) {
 				const s = document.createElement('script')
-				s.src = browser.runtime.getURL('Page.js')
+				s.src = browser.runtime.getURL('page.js')
 				s.onload = function () {
 					s.remove()
 					resolve(void 0)
