@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.42',
+		date: '2024-10-03',
+		description: `
+                  Fix: Reply message wrappers not cleaning up after reply stacking invisible height
+            `
+	},
+	{
 		version: '1.5.39',
 		date: '2024-10-03',
 		description: `

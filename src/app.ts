@@ -42,7 +42,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.39'
+	VERSION = '1.5.42'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -140,15 +140,19 @@ class NipahClient {
 	}
 
 	injectPageScript() {
-		return new Promise(resolve => {
+		return new Promise((resolve, reject) => {
 			// Firefox Manifest V2 does not support content script in execution context MAIN
 			//  So we need to inject the page script manually
 			if (__FIREFOX_MV2__) {
 				const s = document.createElement('script')
-				s.src = browser.runtime.getURL('Page.js')
+				s.src = browser.runtime.getURL('page.js')
 				s.onload = function () {
 					s.remove()
 					resolve(void 0)
+				}
+				s.onerror = function () {
+					error('Failed to load page script..')
+					reject(void 0)
 				}
 				;(document.head || document.documentElement).appendChild(s)
 			} else {
