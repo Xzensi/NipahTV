@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.43',
+		date: '2024-10-04',
+		description: `
+                  Fix: Send emotes immediately setting shouldn't apply when replying
+                  Fix: Chat message seperator setting not updating livetime
+            `
+	},
+	{
 		version: '1.5.42',
 		date: '2024-10-03',
 		description: `

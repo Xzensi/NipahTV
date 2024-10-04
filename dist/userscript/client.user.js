@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.42
+// @version 1.5.43
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -13746,6 +13746,9 @@ var AbstractUserInterface = class {
       this.destroyReplyMessageContext();
     });
   }
+  isReplyingToMessage() {
+    return !!this.replyMessageComponent;
+  }
   destroyReplyMessageContext() {
     this.replyMessageComponent?.destroy();
     this.elm.replyMessageWrapper?.remove();
@@ -16481,7 +16484,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       "ntv.ui.emote.click",
       ({ emoteHid, sendImmediately }) => {
         assertArgDefined(emoteHid);
-        if (sendImmediately) {
+        log("Emote clicked:", emoteHid, sendImmediately, this.isReplyingToMessage());
+        if (sendImmediately && !this.isReplyingToMessage()) {
           this.sendEmoteToChat(emoteHid);
         } else {
           this.inputController?.contentEditableEditor.insertEmote(emoteHid);
@@ -16524,13 +16528,10 @@ var KickUserInterface = class extends AbstractUserInterface {
     rootEventBus.subscribe(
       "ntv.settings.change.chat.appearance.seperators",
       ({ value, prevValue }) => {
-        if (prevValue !== "none") {
-          const oldClassName = `ntv__chat-message--seperator-${prevValue}`;
-          document.querySelector("." + oldClassName)?.classList.remove(oldClassName);
-        }
-        if (!value || value === "none") return;
-        const newClassName = `ntv__chat-message--seperator-${value}`;
-        document.querySelector("." + newClassName)?.classList.add(newClassName);
+        Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
+          if (prevValue !== "none") el.classList.remove(`ntv__chat-message--seperator-${prevValue}`);
+          if (value !== "none") el.classList.add(`ntv__chat-message--seperator-${value}`);
+        });
       }
     );
     rootEventBus.subscribe(
@@ -20839,6 +20840,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.43",
+    date: "2024-10-04",
+    description: `
+                  Fix: Send emotes immediately setting shouldn't apply when replying
+                  Fix: Chat message seperator setting not updating livetime
+            `
+  },
+  {
     version: "1.5.42",
     date: "2024-10-03",
     description: `
@@ -23748,7 +23757,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.42";
+  VERSION = "1.5.43";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
