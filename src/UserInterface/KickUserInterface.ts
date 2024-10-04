@@ -272,7 +272,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			({ emoteHid, sendImmediately }: { emoteHid: string; sendImmediately?: boolean }) => {
 				assertArgDefined(emoteHid)
 
-				if (sendImmediately) {
+				log('Emote clicked:', emoteHid, sendImmediately, this.isReplyingToMessage())
+
+				if (sendImmediately && !this.isReplyingToMessage()) {
 					this.sendEmoteToChat(emoteHid)
 				} else {
 					this.inputController?.contentEditableEditor.insertEmote(emoteHid)
@@ -338,13 +340,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		rootEventBus.subscribe(
 			'ntv.settings.change.chat.appearance.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
-				if (prevValue !== 'none') {
-					const oldClassName = `ntv__chat-message--seperator-${prevValue}`
-					document.querySelector('.' + oldClassName)?.classList.remove(oldClassName)
-				}
-				if (!value || value === 'none') return
-				const newClassName = `ntv__chat-message--seperator-${value}`
-				document.querySelector('.' + newClassName)?.classList.add(newClassName)
+				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
+					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--seperator-${prevValue}`)
+					if (value !== 'none') el.classList.add(`ntv__chat-message--seperator-${value}`)
+				})
 			}
 		)
 
