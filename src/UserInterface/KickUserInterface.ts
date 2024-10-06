@@ -119,23 +119,9 @@ export class KickUserInterface extends AbstractUserInterface {
 					if (this.session.isDestroyed) return
 
 					const [chatMessagesContainerEl] = foundElements as HTMLElement[]
-					chatMessagesContainerEl.classList.add('ntv__chat-messages-container')
-
 					this.elm.chatMessagesContainer = chatMessagesContainerEl
 
-					// Show timestamps for messages
-					if (settingsManager.getSetting(channelId, 'chat.appearance.show_timestamps')) {
-						chatMessagesContainerEl.classList.add('ntv__show-message-timestamps')
-					}
-
-					// Add alternating background color to chat messages
-					if (settingsManager.getSetting(channelId, 'chat.appearance.alternating_background')) {
-						chatMessagesContainerEl.classList.add('ntv__alternating-background')
-					}
-
-					if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
-						chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
-					}
+					this.applyChatContainerClasses()
 
 					this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
 						this.clipboard.handleCopyEvent(evt as ClipboardEvent)
@@ -218,23 +204,9 @@ export class KickUserInterface extends AbstractUserInterface {
 					if (this.session.isDestroyed) return
 
 					const [chatMessagesContainerEl] = foundElements as HTMLElement[]
-					chatMessagesContainerEl.classList.add('ntv__chat-messages-container')
-
 					this.elm.chatMessagesContainer = chatMessagesContainerEl
 
-					// Show timestamps for messages
-					if (settingsManager.getSetting(channelId, 'chat.appearance.show_timestamps')) {
-						chatMessagesContainerEl.classList.add('ntv__show-message-timestamps')
-					}
-
-					// Add alternating background color to chat messages
-					if (settingsManager.getSetting(channelId, 'chat.appearance.alternating_background')) {
-						chatMessagesContainerEl.classList.add('ntv__alternating-background')
-					}
-
-					if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
-						chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
-					}
+					this.applyChatContainerClasses()
 
 					this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
 						this.clipboard.handleCopyEvent(evt as ClipboardEvent)
@@ -371,6 +343,30 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// On sigterm signal, cleanup user interface
 		eventBus.subscribe('ntv.session.destroy', this.destroy.bind(this))
+	}
+
+	applyChatContainerClasses() {
+		const settingsManager = this.rootContext.settingsManager
+		const channelId = this.session.channelData.channelId
+
+		const chatMessagesContainerEl = this.elm.chatMessagesContainer
+		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for settings')
+
+		chatMessagesContainerEl.classList.add('ntv__chat-messages-container')
+
+		// Show timestamps for messages
+		if (settingsManager.getSetting(channelId, 'chat.appearance.show_timestamps')) {
+			chatMessagesContainerEl.classList.add('ntv__show-message-timestamps')
+		}
+
+		// Add alternating background color to chat messages
+		if (settingsManager.getSetting(channelId, 'chat.appearance.alternating_background')) {
+			chatMessagesContainerEl.classList.add('ntv__alternating-background')
+		}
+
+		if (settingsManager.getSetting(channelId, 'chat.behavior.smooth_scrolling')) {
+			chatMessagesContainerEl.classList.add('ntv__smooth-scrolling')
+		}
 	}
 
 	// TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
@@ -1158,6 +1154,9 @@ export class KickUserInterface extends AbstractUserInterface {
 							log('New chatroom messages container found, reloading chat UI..')
 
 							const chatroomContainerEl = node.firstElementChild.querySelector('& > .no-scrollbar')
+							this.elm.chatMessagesContainer = chatroomContainerEl as HTMLElement
+							this.applyChatContainerClasses()
+
 							this.chatObserver?.disconnect()
 							this.observeChatMessages(chatroomContainerEl as HTMLElement)
 						}
