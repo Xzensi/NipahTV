@@ -133,6 +133,10 @@ export class ContentEditableEditor {
 		return this.inputEmpty
 	}
 
+	focusInput() {
+		this.inputNode.focus()
+	}
+
 	clearInput() {
 		while (this.inputNode.firstChild) this.inputNode.removeChild(this.inputNode.firstChild)
 		this.hasUnprocessedContentChanges = true

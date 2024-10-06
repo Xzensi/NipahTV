@@ -1820,7 +1820,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			let ntvModBtnsWrapperEl: HTMLElement | null = null
 			if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
-				log('Mod buttons enabled', modActionsEl)
 				if (modActionsEl?.classList.contains('stroke-gray-600')) {
 					ntvModBtnsWrapperEl = document.createElement('div')
 					ntvModBtnsWrapperEl.className = 'ntv__chat-message__mod-buttons'
@@ -1828,8 +1827,6 @@ export class KickUserInterface extends AbstractUserInterface {
 					const modDeleteBtnEl = modActionsEl.children[0]
 					const modTimeoutBtnEl = modActionsEl.children[1]
 					const modBanBtnEl = modActionsEl.children[2]
-
-					log('Mod buttons', modDeleteBtnEl, modTimeoutBtnEl, modBanBtnEl)
 
 					ntvModBtnsWrapperEl.append(modDeleteBtnEl, modTimeoutBtnEl, modBanBtnEl)
 				}
@@ -2055,7 +2052,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			//  so we have to do this ugly temporary solution where we restore the original Kick text field.
 			// This is only temporary until we have fully implemented our own chat message system.
 			const textFieldEl = this.elm.textField!
-			const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]')
+			const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]') as HTMLElement
 
 			textFieldEl.parentElement!.style.display = 'none'
 			kickTextFieldEl?.parentElement?.style.setProperty('display', 'block', 'important')
@@ -2125,6 +2122,8 @@ export class KickUserInterface extends AbstractUserInterface {
 					clearInterval(intervalId)
 				}
 			}, 400)
+
+			kickTextFieldEl?.focus()
 		}
 		// Chatroom is old Kick design in mod or creator view
 		else {

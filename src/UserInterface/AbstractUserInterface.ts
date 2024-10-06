@@ -504,6 +504,8 @@ export default abstract class AbstractUserInterface {
 		this.replyMessageComponent.addEventListener('close', () => {
 			this.destroyReplyMessageContext()
 		})
+
+		if (this.inputController) this.inputController.contentEditableEditor.focusInput()
 	}
 
 	isReplyingToMessage() {
