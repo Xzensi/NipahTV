@@ -1811,12 +1811,16 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			const chatMessageWrapper = chatMessageIdentityEl.parentElement
-			const timestampEl = chatMessageWrapper?.firstElementChild
-			const modActionsEl = timestampEl?.nextElementSibling
+			let timestampEl = chatMessageWrapper?.firstElementChild
+			if (timestampEl && !timestampEl.classList.contains('text-gray-400')) timestampEl = null
+
+			const modActionsEl =
+				(timestampEl && timestampEl.nextElementSibling) || chatMessageWrapper?.firstElementChild
 			const messageContentEl = chatMessageWrapper!.lastElementChild as HTMLElement
 
 			let ntvModBtnsWrapperEl: HTMLElement | null = null
 			if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
+				log('Mod buttons enabled', modActionsEl)
 				if (modActionsEl?.classList.contains('stroke-gray-600')) {
 					ntvModBtnsWrapperEl = document.createElement('div')
 					ntvModBtnsWrapperEl.className = 'ntv__chat-message__mod-buttons'
@@ -1824,6 +1828,8 @@ export class KickUserInterface extends AbstractUserInterface {
 					const modDeleteBtnEl = modActionsEl.children[0]
 					const modTimeoutBtnEl = modActionsEl.children[1]
 					const modBanBtnEl = modActionsEl.children[2]
+
+					log('Mod buttons', modDeleteBtnEl, modTimeoutBtnEl, modBanBtnEl)
 
 					ntvModBtnsWrapperEl.append(modDeleteBtnEl, modTimeoutBtnEl, modBanBtnEl)
 				}
@@ -1949,9 +1955,12 @@ export class KickUserInterface extends AbstractUserInterface {
 			const ntvIdentityWrapperEl = document.createElement('div')
 			ntvIdentityWrapperEl.classList.add('ntv__chat-message__identity')
 
-			const ntvTimestampEl = document.createElement('span')
-			ntvTimestampEl.className = 'ntv__chat-message__timestamp'
-			ntvTimestampEl.textContent = timestampEl?.textContent || '00:00 AM'
+			let ntvTimestampEl: HTMLElement | null = null
+			if (timestampEl) {
+				ntvTimestampEl = document.createElement('span')
+				ntvTimestampEl.className = 'ntv__cha-tmessage__timestamp'
+				ntvTimestampEl.textContent = timestampEl?.textContent || '00:00 AM'
+			}
 
 			if (badgesEl && badgesEl.tagName === 'DIV') {
 				if (badgesEl.firstElementChild)
@@ -2015,8 +2024,9 @@ export class KickUserInterface extends AbstractUserInterface {
 				ntvMessageInnerEl.append(messageReplyAttachmentBodyNode.cloneNode(true))
 			}
 
+			if (ntvTimestampEl) ntvIdentityWrapperEl.append(ntvTimestampEl)
 			if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl)
-			ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
+			ntvIdentityWrapperEl.append(ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
 			ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...this.renderMessageParts(messageParts))
 
 			// Observe changes to detect when message is deleted
