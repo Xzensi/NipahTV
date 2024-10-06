@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.43
+// @version 1.5.44
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -13745,6 +13745,7 @@ var AbstractUserInterface = class {
     this.replyMessageComponent.addEventListener("close", () => {
       this.destroyReplyMessageContext();
     });
+    if (this.inputController) this.inputController.contentEditableEditor.focusInput();
   }
   isReplyingToMessage() {
     return !!this.replyMessageComponent;
@@ -15189,6 +15190,9 @@ var ContentEditableEditor = class {
   isInputEmpty() {
     return this.inputEmpty;
   }
+  focusInput() {
+    this.inputNode.focus();
+  }
   clearInput() {
     while (this.inputNode.firstChild) this.inputNode.removeChild(this.inputNode.firstChild);
     this.hasUnprocessedContentChanges = true;
@@ -16384,17 +16388,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       waitForElements(["#chatroom-top + div.overflow-hidden > .overflow-x-hidden"], 1e4, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [chatMessagesContainerEl] = foundElements;
-        chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
         this.elm.chatMessagesContainer = chatMessagesContainerEl;
-        if (settingsManager.getSetting(channelId, "chat.appearance.show_timestamps")) {
-          chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
-        }
-        if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
-          chatMessagesContainerEl.classList.add("ntv__alternating-background");
-        }
-        if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
-          chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
-        }
+        this.applyChatContainerClasses();
         this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
           this.clipboard.handleCopyEvent(evt);
         });
@@ -16450,17 +16445,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       waitForElements([chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [chatMessagesContainerEl] = foundElements;
-        chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
         this.elm.chatMessagesContainer = chatMessagesContainerEl;
-        if (settingsManager.getSetting(channelId, "chat.appearance.show_timestamps")) {
-          chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
-        }
-        if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
-          chatMessagesContainerEl.classList.add("ntv__alternating-background");
-        }
-        if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
-          chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
-        }
+        this.applyChatContainerClasses();
         this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
           this.clipboard.handleCopyEvent(evt);
         });
@@ -16553,6 +16539,22 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     eventBus.subscribe("ntv.session.destroy", this.destroy.bind(this));
+  }
+  applyChatContainerClasses() {
+    const settingsManager = this.rootContext.settingsManager;
+    const channelId = this.session.channelData.channelId;
+    const chatMessagesContainerEl = this.elm.chatMessagesContainer;
+    if (!chatMessagesContainerEl) return error("Chat messages container not loaded for settings");
+    chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
+    if (settingsManager.getSetting(channelId, "chat.appearance.show_timestamps")) {
+      chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
+    }
+    if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
+      chatMessagesContainerEl.classList.add("ntv__alternating-background");
+    }
+    if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
+      chatMessagesContainerEl.classList.add("ntv__smooth-scrolling");
+    }
   }
   // TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
   async loadEmoteMenu() {
@@ -17122,6 +17124,8 @@ var KickUserInterface = class extends AbstractUserInterface {
             if (node instanceof HTMLElement && node.firstElementChild?.id === "chatroom-messages") {
               log("New chatroom messages container found, reloading chat UI..");
               const chatroomContainerEl = node.firstElementChild.querySelector("& > .no-scrollbar");
+              this.elm.chatMessagesContainer = chatroomContainerEl;
+              this.applyChatContainerClasses();
               this.chatObserver?.disconnect();
               this.observeChatMessages(chatroomContainerEl);
             }
@@ -17554,8 +17558,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         return;
       }
       const chatMessageWrapper = chatMessageIdentityEl.parentElement;
-      const timestampEl = chatMessageWrapper?.firstElementChild;
-      const modActionsEl = timestampEl?.nextElementSibling;
+      let timestampEl = chatMessageWrapper?.firstElementChild;
+      if (timestampEl && !timestampEl.classList.contains("text-gray-400")) timestampEl = null;
+      const modActionsEl = timestampEl && timestampEl.nextElementSibling || chatMessageWrapper?.firstElementChild;
       const messageContentEl = chatMessageWrapper.lastElementChild;
       let ntvModBtnsWrapperEl = null;
       if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
@@ -17653,9 +17658,12 @@ var KickUserInterface = class extends AbstractUserInterface {
       ntvMessageInnerEl.className = "ntv__chat-message__inner";
       const ntvIdentityWrapperEl = document.createElement("div");
       ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
-      const ntvTimestampEl = document.createElement("span");
-      ntvTimestampEl.className = "ntv__chat-message__timestamp";
-      ntvTimestampEl.textContent = timestampEl?.textContent || "00:00 AM";
+      let ntvTimestampEl = null;
+      if (timestampEl) {
+        ntvTimestampEl = document.createElement("span");
+        ntvTimestampEl.className = "ntv__cha-tmessage__timestamp";
+        ntvTimestampEl.textContent = timestampEl?.textContent || "00:00 AM";
+      }
       if (badgesEl && badgesEl.tagName === "DIV") {
         if (badgesEl.firstElementChild)
           ntvBadgesEl.append(
@@ -17706,8 +17714,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
         ntvMessageInnerEl.append(messageReplyAttachmentBodyNode.cloneNode(true));
       }
+      if (ntvTimestampEl) ntvIdentityWrapperEl.append(ntvTimestampEl);
       if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
-      ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
+      ntvIdentityWrapperEl.append(ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
       ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...this.renderMessageParts(messageParts));
       this.deletedChatEntryObserver?.observe(messageBodyNode, {
         childList: true,
@@ -17779,6 +17788,7 @@ var KickUserInterface = class extends AbstractUserInterface {
           clearInterval(intervalId);
         }
       }, 400);
+      kickTextFieldEl?.focus();
     } else {
     }
   }
@@ -20840,6 +20850,16 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.44",
+    date: "2024-10-06",
+    description: `
+                  Fix: Quick actions not showing when timestamps are disabled for creator & moderators view
+                  Fix: Timestamps showing after quick actions for creator & moderators view
+                  Fix: Clicking reply message not focussing input #178
+                  Fix: Certain settings like timestamps not applying to VOD pages
+            `
+  },
+  {
     version: "1.5.43",
     date: "2024-10-04",
     description: `
@@ -23757,7 +23777,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.43";
+  VERSION = "1.5.44";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
