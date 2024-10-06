@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.44',
+		date: '2024-10-06',
+		description: `
+                  Fix: Quick actions not showing when timestamps are disabled for creator & moderators view
+                  Fix: Timestamps showing after quick actions for creator & moderators view
+                  Fix: Clicking reply message not focussing input #178
+                  Fix: Certain settings like timestamps not applying to VOD pages
+            `
+	},
+	{
 		version: '1.5.43',
 		date: '2024-10-04',
 		description: `
