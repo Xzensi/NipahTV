@@ -41,7 +41,13 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 
 	getRelevantEmotes(searchString: string) {
 		if (searchString.length) {
-			return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20)
+			const emotesManager = this.session.emotesManager
+
+			return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20).filter(emote => {
+				// Don't show subscribers only emotes if user is not subscribed
+				const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emote.item.hid)?.isSubscribed
+				return !emote.item.isSubscribersOnly && isSubscribed
+			})
 		} else {
 			return []
 			// return this.session.emotesManager
