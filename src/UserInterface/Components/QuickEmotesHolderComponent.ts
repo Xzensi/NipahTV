@@ -430,8 +430,12 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		}
 
 		if (!emoteEl) {
+			const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed
 			const emote = emotesManager.getEmote(emoteHid)
 			if (!emote) return error('Unable to render commonly used emote:', emoteHid)
+
+			// Don't show subscribers only emotes if user is not subscribed
+			if (!isSubscribed && emote?.isSubscribersOnly) return
 
 			const emoteHTML = emotesManager.getRenderableEmote(
 				emote,
