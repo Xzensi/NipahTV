@@ -4,6 +4,20 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.45',
+		date: '2024-10-11',
+		description: `
+                  Fix: Empty favorites for channels where favorited emotes do not apply
+                  Fix: Subscriber emotes showing in quick emotes holder when not subscribed
+                  Fix: Subscriber emotes showing in input completion when not subscribed
+                  Fix: Emote provider setting being mixed up with wrong setting key
+                  Fix: Kick emote provider current channel setting not applying
+                  Fix: Quick emote holder and input completors not respecting emote provider enabled emote settings
+                  Style: Reduced message lines and emote spacing
+                  Style: Reduced message badge sizes
+            `
+	},
+	{
 		version: '1.5.44',
 		date: '2024-10-06',
 		description: `

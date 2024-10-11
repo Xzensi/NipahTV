@@ -11,7 +11,7 @@
 
 	&__inner {
 		overflow: hidden;
-		padding: 0.3em 0;
+		padding: 0.25em 0;
 	}
 
 	&__attachment {
@@ -25,6 +25,9 @@
 	&__identity {
 		display: inline;
 		margin-left: 0;
+
+		// position: relative;
+		// z-index: 1;
 
 		// Because align middle is set to bottom of baseline instead of actual middle
 		margin-top: -0.13em;
@@ -56,16 +59,16 @@
 
 	&__badges {
 		vertical-align: middle;
-		margin-right: 0.12em;
+		margin-right: 0.08em;
 		display: inline-flex;
 		white-space: nowrap;
 		align-items: center;
 
 		// Because align middle is set to bottom of baseline instead of actual middle
-		margin-top: -0.1em;
+		margin-top: -0.12em;
 
 		.ntv__badge {
-			margin-right: 0.333em;
+			margin-right: 0.25em;
 		}
 	}
 

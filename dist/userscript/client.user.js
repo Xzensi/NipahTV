@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.44
+// @version 1.5.45
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-4e69ac85.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-40751703.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -7003,8 +7003,8 @@ var require_pusher = __commonJS({
                 if (core_pusher.log) {
                   core_pusher.log(message);
                 } else if (core_pusher.logToConsole) {
-                  const log15 = defaultLoggingFunction.bind(this);
-                  log15(message);
+                  const log16 = defaultLoggingFunction.bind(this);
+                  log16(message);
                 }
               }
             }
@@ -11020,13 +11020,15 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       }
     }
     for (const [emoteHid] of emoteUsageCounts) {
-      const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed;
+      const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
       const emote = emotesManager.getEmote(emoteHid);
-      if (!emote) {
+      if (!emoteSet || !emote) {
         error("Unable to render commonly used emote, unkown emote hid:", emoteHid);
         continue;
       }
-      if (!isSubscribed && emote?.isSubscribersOnly) continue;
+      const isSubscribed = emoteSet.isSubscribed;
+      const isMenuEnabled = emoteSet.enabledInMenu;
+      if (!isMenuEnabled || !isSubscribed && emote.isSubscribersOnly) return;
       const emoteRender = emotesManager.getRenderableEmote(
         emote,
         emote.isZeroWidth && "ntv__emote--zero-width" || ""
@@ -11060,8 +11062,12 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       return;
     }
     if (!emoteEl) {
+      const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
       const emote = emotesManager.getEmote(emoteHid);
-      if (!emote) return error("Unable to render commonly used emote:", emoteHid);
+      if (!emoteSet || !emote) return error("Unable to render commonly used emote:", emoteHid);
+      const isSubscribed = emoteSet.isSubscribed;
+      const isMenuEnabled = emoteSet.enabledInMenu;
+      if (!isMenuEnabled || !isSubscribed && emote.isSubscribersOnly) return;
       const emoteHTML = emotesManager.getRenderableEmote(
         emote,
         emote.isZeroWidth && "ntv__emote--zero-width" || ""
@@ -14676,7 +14682,13 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
     });
   }
   getRelevantEmotes(searchString) {
-    return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20);
+    const emotesManager = this.session.emotesManager;
+    return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20).filter((fuseResult) => {
+      const emote = fuseResult.item;
+      const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid);
+      if (!emoteSet) return false;
+      return emoteSet.enabledInMenu && (!emote.isSubscribersOnly || emote.isSubscribersOnly && emoteSet.isSubscribed);
+    });
   }
   updateCompletionEntries() {
     const { word, start, end, startOffset, node } = Caret.getWordBeforeCaret();
@@ -15968,7 +15980,13 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
   }
   getRelevantEmotes(searchString) {
     if (searchString.length) {
-      return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20);
+      const emotesManager = this.session.emotesManager;
+      return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20).filter((fuseResult) => {
+        const emote = fuseResult.item;
+        const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid);
+        if (!emoteSet) return false;
+        return emoteSet.enabledInMenu && (!emote.isSubscribersOnly || emote.isSubscribersOnly && emoteSet.isSubscribed);
+      });
     } else {
       return [];
     }
@@ -16081,7 +16099,6 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
     }
   }
   handleKeyDownEvent(event) {
-    log("ColonEmoteCompletionStrategy.handleKeyDownEvent", event.key);
     if (this.navWindow) {
       switch (event.key) {
         case "Tab":
@@ -20068,7 +20085,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
     });
     const isMenuEnabled = !!this.settingsManager.getSetting(
       channelId,
-      "emote_menu.emote_providers.kick.show_current_channel"
+      "emote_menu.emote_providers.7tv.show_current_channel"
     );
     return [
       {
@@ -20146,7 +20163,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
         isEmoji = true;
         dataSet.id = "kick_emoji";
         isMenuEnabled = !!settingsManager.getSetting(channelId, "emote_menu.emote_providers.kick.show_emojis");
-      } else if (dataSet.id === channelId) {
+      } else if ("" + dataSet.id === channelId) {
         isMenuEnabled = !!settingsManager.getSetting(
           channelId,
           "emote_menu.emote_providers.kick.show_current_channel"
@@ -20849,6 +20866,20 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.45",
+    date: "2024-10-11",
+    description: `
+                  Fix: Empty favorites for channels where favorited emotes do not apply
+                  Fix: Subscriber emotes showing in quick emotes holder when not subscribed
+                  Fix: Subscriber emotes showing in input completion when not subscribed
+                  Fix: Emote provider setting being mixed up with wrong setting key
+                  Fix: Kick emote provider current channel setting not applying
+                  Fix: Quick emote holder and input completors not respecting emote provider enabled emote settings
+                  Style: Reduced message lines and emote spacing
+                  Style: Reduced message badge sizes
+            `
+  },
   {
     version: "1.5.44",
     date: "2024-10-06",
@@ -23777,7 +23808,7 @@ var AnnouncementService = class {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.44";
+  VERSION = "1.5.45";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

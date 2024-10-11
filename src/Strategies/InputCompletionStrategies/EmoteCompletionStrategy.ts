@@ -45,7 +45,20 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 	}
 
 	getRelevantEmotes(searchString: string) {
-		return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20)
+		const emotesManager = this.session.emotesManager
+
+		return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20).filter(fuseResult => {
+			const emote = fuseResult.item
+			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid)
+			if (!emoteSet) return false
+
+			// Don't show emotes if they are not enabled in the menu
+			// Don't show subscribers only emotes if user is not subscribed
+			return (
+				emoteSet.enabledInMenu &&
+				(!emote.isSubscribersOnly || (emote.isSubscribersOnly && emoteSet.isSubscribed))
+			)
+		})
 	}
 
 	updateCompletionEntries() {

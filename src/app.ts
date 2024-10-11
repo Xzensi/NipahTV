@@ -42,7 +42,7 @@ import TwitchEventService from './EventServices/TwitchEventService'
 import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.44'
+	VERSION = '1.5.45'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
