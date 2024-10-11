@@ -123,7 +123,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 
 		const isMenuEnabled = !!this.settingsManager.getSetting(
 			channelId,
-			'emote_menu.emote_providers.kick.show_current_channel'
+			'emote_menu.emote_providers.7tv.show_current_channel'
 		)
 
 		return [
