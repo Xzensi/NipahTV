@@ -378,15 +378,19 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		// Render the emotes
 		for (const [emoteHid] of emoteUsageCounts) {
-			const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed
+			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid)
 			const emote = emotesManager.getEmote(emoteHid)
-			if (!emote) {
+			if (!emoteSet || !emote) {
 				error('Unable to render commonly used emote, unkown emote hid:', emoteHid)
 				continue
 			}
 
+			const isSubscribed = emoteSet.isSubscribed
+			const isMenuEnabled = emoteSet.enabledInMenu
+
+			// Don't show emote if emoteset is not enabled
 			// Don't show subscribers only emotes if user is not subscribed
-			if (!isSubscribed && emote?.isSubscribersOnly) continue
+			if (!isMenuEnabled || (!isSubscribed && emote.isSubscribersOnly)) return
 
 			const emoteRender = emotesManager.getRenderableEmote(
 				emote,
@@ -430,12 +434,16 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		}
 
 		if (!emoteEl) {
-			const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed
+			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid)
 			const emote = emotesManager.getEmote(emoteHid)
-			if (!emote) return error('Unable to render commonly used emote:', emoteHid)
+			if (!emoteSet || !emote) return error('Unable to render commonly used emote:', emoteHid)
 
+			const isSubscribed = emoteSet.isSubscribed
+			const isMenuEnabled = emoteSet.enabledInMenu
+
+			// Don't show emote if emoteset is not enabled
 			// Don't show subscribers only emotes if user is not subscribed
-			if (!isSubscribed && emote?.isSubscribersOnly) return
+			if (!isMenuEnabled || (!isSubscribed && emote.isSubscribersOnly)) return
 
 			const emoteHTML = emotesManager.getRenderableEmote(
 				emote,

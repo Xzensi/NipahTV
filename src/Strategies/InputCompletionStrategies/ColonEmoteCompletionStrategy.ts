@@ -43,10 +43,17 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 		if (searchString.length) {
 			const emotesManager = this.session.emotesManager
 
-			return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20).filter(emote => {
+			return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20).filter(fuseResult => {
+				const emote = fuseResult.item
+				const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid)
+				if (!emoteSet) return false
+
+				// Don't show emotes if they are not enabled in the menu
 				// Don't show subscribers only emotes if user is not subscribed
-				const isSubscribed = emotesManager.getEmoteSetByEmoteHid(emote.item.hid)?.isSubscribed
-				return !emote.item.isSubscribersOnly && isSubscribed
+				return (
+					emoteSet.enabledInMenu &&
+					(!emote.isSubscribersOnly || (emote.isSubscribersOnly && emoteSet.isSubscribed))
+				)
 			})
 		} else {
 			return []
@@ -198,8 +205,6 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	}
 
 	handleKeyDownEvent(event: KeyboardEvent) {
-		log('ColonEmoteCompletionStrategy.handleKeyDownEvent', event.key)
-
 		if (this.navWindow) {
 			switch (event.key) {
 				case 'Tab':
