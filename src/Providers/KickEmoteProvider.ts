@@ -51,6 +51,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 			let isMenuEnabled = true,
 				isGlobalSet = false,
 				isEmoji = false
+
 			if (dataSet.id === 'Global') {
 				isGlobalSet = true
 				dataSet.id = 'kick_global'
@@ -59,7 +60,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 				isEmoji = true
 				dataSet.id = 'kick_emoji'
 				isMenuEnabled = !!settingsManager.getSetting(channelId, 'emote_menu.emote_providers.kick.show_emojis')
-			} else if (dataSet.id === channelId) {
+			} else if ('' + dataSet.id === channelId) {
 				isMenuEnabled = !!settingsManager.getSetting(
 					channelId,
 					'emote_menu.emote_providers.kick.show_current_channel'
