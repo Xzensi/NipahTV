@@ -45,7 +45,7 @@ export default class BotrixExtension extends Extension {
 
 		const { eventBus: rootEventBus, settingsManager } = this.rootContext
 
-		this.sessions.forEach(this.registerSessionCompletionStrategy.bind(this))
+		this.sessions.forEach(this.onSessionCreate.bind(this))
 
 		rootEventBus.subscribe('ntv.session.create', this.sessionCreateCb)
 	}

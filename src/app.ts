@@ -1,16 +1,26 @@
 // Classes
+import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
+import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
+import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
+import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
+import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 import { KickUserInterface } from './UserInterface/KickUserInterface'
-import EmotesManager from './Managers/EmotesManager'
-import Publisher from './Classes/Publisher'
-
-// Providers
-import SevenTVEmoteProvider from './Providers/SevenTVEmoteProvider'
+import TwitchEventService from './EventServices/TwitchEventService'
+import AnnouncementService from './Services/AnnouncementService'
+import KickEventService from './EventServices/KickEventService'
 import KickEmoteProvider from './Providers/KickEmoteProvider'
+import KickBadgeProvider from './Providers/KickBadgeProvider'
+import { EventService } from './EventServices/EventService'
+import SettingsManager from './Managers/SettingsManager'
+import EmotesManager from './Managers/EmotesManager'
+import UsersManager from './Managers/UsersManager'
+import Publisher from './Classes/Publisher'
+import Database from './Database/Database'
 
-// Utils
 import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
 import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
-import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
+
+// Utils
 import {
 	log,
 	info,
@@ -24,22 +34,12 @@ import {
 	hasSupportForAvif,
 	ReactivePropsFromMain
 } from './utils'
-import KickBadgeProvider from './Providers/KickBadgeProvider'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import SettingsManager from './Managers/SettingsManager'
-import UsersManager from './Managers/UsersManager'
-import Database from './Database/Database'
 
 // Extensions
-import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
-import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
-import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
-import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
+import { Extension } from './Extensions/Extension'
+import SevenTVExtension from './Extensions/7tv'
 import BotrixExtension from './Extensions/Botrix'
-import { EventService } from './EventServices/EventService'
-import KickEventService from './EventServices/KickEventService'
-import TwitchEventService from './EventServices/TwitchEventService'
-import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
 	VERSION = '1.5.45'
@@ -274,11 +274,17 @@ class NipahClient {
 		if (!rootContext) throw new Error('Root context is not initialized.')
 
 		const { settingsManager } = rootContext
-		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
+		const enabledExtensions: Set<new (rootContext: RootContext, sessions: Session[]) => Extension> = new Set()
 
-		if (isBotrixExtensionEnabled) {
-			const botrixExtension = new BotrixExtension(rootContext, this.sessions)
-			botrixExtension.onEnable()
+		const is7tvExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.7tv.enabled')
+		if (is7tvExtensionEnabled) enabledExtensions.add(SevenTVExtension)
+
+		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
+		if (isBotrixExtensionEnabled) enabledExtensions.add(BotrixExtension)
+
+		for (const enabledExtension of enabledExtensions) {
+			const extObject = new enabledExtension(rootContext, this.sessions)
+			extObject.onEnable()
 		}
 	}
 
@@ -397,6 +403,9 @@ class NipahClient {
 
 		session.userInterface = userInterface
 
+		emotesManager.registerProvider(KickEmoteProvider)
+		rootEventBus.publish('ntv.session.create', session)
+
 		if (!this.stylesLoaded) {
 			this.loadStyles()
 				.then(() => {
@@ -408,13 +417,8 @@ class NipahClient {
 			userInterface.loadInterface()
 		}
 
-		emotesManager.registerProvider(KickEmoteProvider)
-		emotesManager.registerProvider(SevenTVEmoteProvider)
-
 		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
 		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
-
-		rootEventBus.publish('ntv.session.create', session)
 
 		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 	}
