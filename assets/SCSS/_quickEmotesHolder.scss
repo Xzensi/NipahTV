@@ -24,8 +24,8 @@ $emotes_gap: 0.2em;
 	.ntv__emote-box {
 		max-height: $chat_emote_size;
 		min-width: $chat_emote_size;
+		margin: $emotes_gap 2px;
 		border-radius: 0.2em;
-		margin: $emotes_gap;
 		width: auto;
 
 		&:not(:hover) {

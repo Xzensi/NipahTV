@@ -3,8 +3,6 @@
 
 .ntv__message-input__wrapper {
 	font-size: $root_font_size;
-	padding-right: 0.5rem;
-	padding-left: 0.5rem;
 	align-items: center;
 	position: relative;
 	display: flex;
@@ -48,6 +46,7 @@
 }
 
 #ntv__message-input {
+	padding: 0.618em 0.3em 0.618em 0.5em;
 	white-space: pre-wrap !important;
 	vertical-align: middle;
 	word-break: break-word;
@@ -55,7 +54,6 @@
 	font-size: 0.875rem;
 	position: relative;
 	line-height: 2em;
-	padding: 0.618em;
 	min-height: 3em;
 	flex-shrink: 1;
 	flex-grow: 0;
