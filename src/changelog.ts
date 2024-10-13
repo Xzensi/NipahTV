@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.47',
+		date: '2024-10-13',
+		description: `
+                  Fix: Incorrect quick emote holder height calculation
+            `
+	},
+	{
 		version: '1.5.46',
 		date: '2024-10-13',
 		description: `
