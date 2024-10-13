@@ -1,9 +1,9 @@
-import FavoriteEmotesModel, { favoriteEmotesSchema, FavoriteEmoteDocument } from './models/FavoriteEmotesModel'
-import { SettingDocument, settingsSchema } from './models/SettingsModel'
-import EmoteUsagesModel, { emoteUsagesSchema, EmoteUsagesDocument } from './models/EmoteUsagesModel'
+import FavoriteEmotesModel, { favoriteEmotesSchema, FavoriteEmoteDocument } from './Models/FavoriteEmotesModel'
+import EmoteUsagesModel, { emoteUsagesSchema, EmoteUsagesDocument } from './Models/EmoteUsagesModel'
 import Dexie, { DexieConstructor, type Table, type EntityTable } from 'dexie'
-import SettingsModel from './models/SettingsModel'
-import { log, error } from '../utils'
+import { SettingDocument, settingsSchema } from './Models/SettingsModel'
+import SettingsModel from './Models/SettingsModel'
+import { log, error } from '../Core/Common/utils'
 
 export type databaseExtended = Dexie & {
 	settings: EntityTable<SettingDocument, 'id'>

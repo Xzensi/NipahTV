@@ -1,8 +1,8 @@
-import AbstractInputCompletionStrategy from '../../Strategies/InputCompletionStrategies/AbstractInputCompletionStrategy'
+import AbstractInputCompletionStrategy from '../../Core/Input/Completion/Strategies/AbstractInputCompletionStrategy'
+import NavigatableListWindowManager from '../../Core/Common/NavigatableListWindowManager'
+import type { ContentEditableEditor } from '../../Core/Input/ContentEditableEditor'
+import { error, log } from '../../Core/Common/utils'
 import { BotrixSessionManager } from '.'
-import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
-import { error, log } from '../../utils'
-import NavigatableListWindowManager from '../../Managers/NavigatableListWindowManager'
 
 export class BotrixInputCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'botrix'

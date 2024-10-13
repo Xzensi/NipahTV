@@ -1,16 +1,21 @@
 // Classes
-import { KickUserInterface } from './UserInterface/KickUserInterface'
-import EmotesManager from './Managers/EmotesManager'
-import Publisher from './Classes/Publisher'
-
-// Providers
-import SevenTVEmoteProvider from './Providers/SevenTVEmoteProvider'
-import KickEmoteProvider from './Providers/KickEmoteProvider'
+import InputExecutionStrategyRegister from './Core/Input/Execution/InputExecutionStrategyRegister'
+import DefaultExecutionStrategy from './Core/Input/Execution/Strategies/DefaultExecutionStrategy'
+import CommandExecutionStrategy from './Core/Input/Execution/Strategies/CommandExecutionStrategy'
+import InputCompletionStrategyRegister from './Core/Input/Completion/InputCompletionStrategyRegister'
+import { DatabaseProxyFactory, DatabaseProxy } from './Database/DatabaseProxy'
+import AnnouncementService from './Core/Services/AnnouncementService'
+import AbstractUserInterface from './Core/UI/AbstractUserInterface'
+import TwitchEventService from './Sites/Twitch/TwitchEventService'
+import SettingsManager from './Core/Settings/SettingsManager'
+import KickEventService from './Sites/Kick/KickEventService'
+import { EventService } from './Core/Common/EventService'
+import EmotesManager from './Core/Emotes/EmotesManager'
+import UsersManager from './Core/Users/UsersManager'
+import Publisher from './Core/Common/Publisher'
+import Database from './Database/Database'
 
 // Utils
-import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
-import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
-import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
 import {
 	log,
 	info,
@@ -23,26 +28,23 @@ import {
 	getDevice,
 	hasSupportForAvif,
 	ReactivePropsFromMain
-} from './utils'
-import KickBadgeProvider from './Providers/KickBadgeProvider'
-import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
-import SettingsManager from './Managers/SettingsManager'
-import UsersManager from './Managers/UsersManager'
-import Database from './Database/Database'
+} from './Core/Common/utils'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from './Core/Common/constants'
+
+// Sites
+import { KickUserInterface } from './Sites/Kick/KickUserInterface'
+import KickNetworkInterface from './Sites/Kick/KickNetworkInterface'
+import KickEmoteProvider from './Sites/Kick/KickEmoteProvider'
+import KickBadgeProvider from './Sites/Kick/KickBadgeProvider'
+import TwitchNetworkInterface from './Sites/Twitch/TwitchNetworkInterface'
 
 // Extensions
-import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
-import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
-import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
-import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
+import { Extension } from './Extensions/Extension'
+import SevenTVExtension from './Extensions/7tv'
 import BotrixExtension from './Extensions/Botrix'
-import { EventService } from './EventServices/EventService'
-import KickEventService from './EventServices/KickEventService'
-import TwitchEventService from './EventServices/TwitchEventService'
-import AnnouncementService from './Services/AnnouncementService'
 
 class NipahClient {
-	VERSION = '1.5.45'
+	VERSION = '1.5.46'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -274,11 +276,17 @@ class NipahClient {
 		if (!rootContext) throw new Error('Root context is not initialized.')
 
 		const { settingsManager } = rootContext
-		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
+		const enabledExtensions: Set<new (rootContext: RootContext, sessions: Session[]) => Extension> = new Set()
 
-		if (isBotrixExtensionEnabled) {
-			const botrixExtension = new BotrixExtension(rootContext, this.sessions)
-			botrixExtension.onEnable()
+		const is7tvExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.7tv.enabled')
+		if (is7tvExtensionEnabled) enabledExtensions.add(SevenTVExtension)
+
+		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
+		if (isBotrixExtensionEnabled) enabledExtensions.add(BotrixExtension)
+
+		for (const enabledExtension of enabledExtensions) {
+			const extObject = new enabledExtension(rootContext, this.sessions)
+			extObject.onEnable()
 		}
 	}
 
@@ -300,7 +308,7 @@ class NipahClient {
 					showDontShowAgainButton: true,
 					showCloseButton: true,
 					message: `
-					<h2>💥 <strong>7TV Extension Conflict!</strong> 💥</h2>
+					<h2>⚠️ <strong>7TV Extension Conflict!</strong> ⚠️</h2>
 					<p>The 7TV extension has been found to be enabled on ${platformName}. 7TV is not compatible with NipahTV and will cause issues if both are enabled at the same time. It is possible to keep the 7TV extension for <b>other</b> streaming websites if you want, by disabling the extension for only ${platformName}.</p>
 					<h4>How to disable 7TV extension <i>only</i> just for ${platformName}?</h4>
 					<p>If you want to keep 7TV for other streaming websites instead of uninstalling it completely, please follow the instructions on <a href="https://nipahtv.com/seventv_compatibility" target="_blank">https://nipahtv.com/seventv_compatibility</a>.</p>
@@ -388,7 +396,7 @@ class NipahClient {
 		session.inputExecutionStrategyRegister.registerStrategy(new DefaultExecutionStrategy(rootContext, session))
 		session.inputExecutionStrategyRegister.registerStrategy(new CommandExecutionStrategy(rootContext, session))
 
-		let userInterface: KickUserInterface
+		let userInterface: AbstractUserInterface
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface(rootContext, session)
 		} else {
@@ -396,6 +404,16 @@ class NipahClient {
 		}
 
 		session.userInterface = userInterface
+
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
+			emotesManager.registerProvider(KickEmoteProvider)
+		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
+			throw new Error('Twitch platform is not supported yet.')
+		} else {
+			throw new Error('Unsupported platform')
+		}
+
+		rootEventBus.publish('ntv.session.create', session)
 
 		if (!this.stylesLoaded) {
 			this.loadStyles()
@@ -408,13 +426,8 @@ class NipahClient {
 			userInterface.loadInterface()
 		}
 
-		emotesManager.registerProvider(KickEmoteProvider)
-		emotesManager.registerProvider(SevenTVEmoteProvider)
-
 		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
 		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
-
-		rootEventBus.publish('ntv.session.create', session)
 
 		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 	}

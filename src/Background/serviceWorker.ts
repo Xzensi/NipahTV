@@ -1,4 +1,4 @@
-import { error, info, log } from '../utils'
+import { error, info, log } from '../Core/Common/utils'
 import Database from '../Database/Database'
 import Dexie from 'dexie'
 

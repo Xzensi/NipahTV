@@ -4,6 +4,26 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.46',
+		date: '2024-10-13',
+		description: `
+                  Fix: Emotes getting slightly clipped due to overflow
+                  Fix: Being able to click sub emotes in chat of current channel when not subbed
+                  Fix: Slightly improved new messages showing out of view
+                  Fix: Chat overlay mode buttons not translucent #180
+                  Fix: Low quality emote tooltip images
+                  Refactor: Isolated 7TV integration as extension
+                  Refactor: Full restructure of project from pattern-based to semantic-based organization
+                  Style: Quick emote holder emotes are now same size as in chat
+                  Style: Changed default highlight color
+                  Style: Tightened spacing of chat footer and message input
+                  Style: Larger emote tooltip images
+                  Style: Fixed the alternating background colors of message input on focus states
+                  Chore: Turned my doorbell into a time machine
+                  Chore: Added warning announcement for lost stragglers on the old Kick popout chatroom page
+            `
+	},
+	{
 		version: '1.5.45',
 		date: '2024-10-11',
 		description: `

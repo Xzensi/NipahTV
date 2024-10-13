@@ -51,6 +51,7 @@
 	&__icon-button {
 		transition: 120ms opacity ease-in-out;
 		border-radius: 0.128em;
+		position: relative;
 		cursor: pointer;
 
 		&--disabled {
@@ -60,8 +61,18 @@
 			opacity: 0.38;
 		}
 
-		&:hover {
+		&:hover:before {
 			background-color: var(--ntv-background-color-tint-2);
+			// height: 100%;
+			// width: 100%;
+			position: absolute;
+			opacity: 0.5;
+			content: '';
+			z-index: -1;
+			bottom: 0;
+			right: 0;
+			left: 0;
+			top: 0;
 		}
 	}
 

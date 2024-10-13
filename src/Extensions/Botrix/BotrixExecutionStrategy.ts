@@ -1,5 +1,5 @@
-import { InputExecutionStrategy, InputIntentDTO } from '../../Strategies/InputExecutionStrategy'
-import type { ContentEditableEditor } from '../../Classes/ContentEditableEditor'
+import { InputExecutionStrategy, InputIntentDTO } from '../../Core/Input/Execution/InputExecutionStrategy'
+import type { ContentEditableEditor } from '../../Core/Input/ContentEditableEditor'
 
 export default class BotrixExecutionStrategy implements InputExecutionStrategy {
 	constructor(private rootContext: RootContext, private session: Session) {}
