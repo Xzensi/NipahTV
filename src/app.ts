@@ -1,24 +1,19 @@
 // Classes
-import DefaultExecutionStrategy from './Strategies/InputExecutionStrategies/DefaultExecutionStrategy'
-import InputExecutionStrategyRegister from './Strategies/InputExecutionStrategyRegister'
-import CommandExecutionStrategy from './Strategies/InputExecutionStrategies/CommandExecutionStrategy'
-import InputCompletionStrategyRegister from './Strategies/InputCompletionStrategyRegister'
-import { DatabaseProxyFactory, DatabaseProxy } from './Classes/DatabaseProxy'
-import { KickUserInterface } from './UserInterface/KickUserInterface'
-import TwitchEventService from './EventServices/TwitchEventService'
-import AnnouncementService from './Services/AnnouncementService'
-import KickEventService from './EventServices/KickEventService'
-import KickEmoteProvider from './Providers/KickEmoteProvider'
-import KickBadgeProvider from './Providers/KickBadgeProvider'
-import { EventService } from './EventServices/EventService'
-import SettingsManager from './Managers/SettingsManager'
-import EmotesManager from './Managers/EmotesManager'
-import UsersManager from './Managers/UsersManager'
-import Publisher from './Classes/Publisher'
+import InputExecutionStrategyRegister from './Core/Input/Execution/InputExecutionStrategyRegister'
+import DefaultExecutionStrategy from './Core/Input/Execution/Strategies/DefaultExecutionStrategy'
+import CommandExecutionStrategy from './Core/Input/Execution/Strategies/CommandExecutionStrategy'
+import InputCompletionStrategyRegister from './Core/Input/Completion/InputCompletionStrategyRegister'
+import { DatabaseProxyFactory, DatabaseProxy } from './Database/DatabaseProxy'
+import AnnouncementService from './Core/Services/AnnouncementService'
+import AbstractUserInterface from './Core/UI/AbstractUserInterface'
+import TwitchEventService from './Sites/Twitch/TwitchEventService'
+import SettingsManager from './Core/Settings/SettingsManager'
+import KickEventService from './Sites/Kick/KickEventService'
+import { EventService } from './Core/Common/EventService'
+import EmotesManager from './Core/Emotes/EmotesManager'
+import UsersManager from './Core/Users/UsersManager'
+import Publisher from './Core/Common/Publisher'
 import Database from './Database/Database'
-
-import TwitchNetworkInterface from './NetworkInterfaces/TwitchNetworkInterface'
-import KickNetworkInterface from './NetworkInterfaces/KickNetworkInterface'
 
 // Utils
 import {
@@ -33,8 +28,15 @@ import {
 	getDevice,
 	hasSupportForAvif,
 	ReactivePropsFromMain
-} from './utils'
-import { PLATFORM_ENUM, PROVIDER_ENUM } from './constants'
+} from './Core/Common/utils'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from './Core/Common/constants'
+
+// Sites
+import { KickUserInterface } from './Sites/Kick/KickUserInterface'
+import KickNetworkInterface from './Sites/Kick/KickNetworkInterface'
+import KickEmoteProvider from './Sites/Kick/KickEmoteProvider'
+import KickBadgeProvider from './Sites/Kick/KickBadgeProvider'
+import TwitchNetworkInterface from './Sites/Twitch/TwitchNetworkInterface'
 
 // Extensions
 import { Extension } from './Extensions/Extension'
@@ -394,7 +396,7 @@ class NipahClient {
 		session.inputExecutionStrategyRegister.registerStrategy(new DefaultExecutionStrategy(rootContext, session))
 		session.inputExecutionStrategyRegister.registerStrategy(new CommandExecutionStrategy(rootContext, session))
 
-		let userInterface: KickUserInterface
+		let userInterface: AbstractUserInterface
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface(rootContext, session)
 		} else {
@@ -403,7 +405,14 @@ class NipahClient {
 
 		session.userInterface = userInterface
 
-		emotesManager.registerProvider(KickEmoteProvider)
+		if (PLATFORM === PLATFORM_ENUM.KICK) {
+			emotesManager.registerProvider(KickEmoteProvider)
+		} else if (PLATFORM === PLATFORM_ENUM.TWITCH) {
+			throw new Error('Twitch platform is not supported yet.')
+		} else {
+			throw new Error('Unsupported platform')
+		}
+
 		rootEventBus.publish('ntv.session.create', session)
 
 		if (!this.stylesLoaded) {

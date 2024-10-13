@@ -1,5 +1,5 @@
 import SevenTVEmoteProvider from './SevenTVEmoteProvider'
-import { error, info, log, REST } from '../../utils'
+import { error, info, log, REST } from '../../Core/Common/utils'
 import { Extension } from '../Extension'
 
 export default class SevenTVExtension extends Extension {

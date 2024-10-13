@@ -1,6 +1,6 @@
 import { BotrixInputCompletionStrategy } from './BotrixInputCompletionStrategy'
+import { error, info, log, REST } from '../../Core/Common/utils'
 import BotrixExecutionStrategy from './BotrixExecutionStrategy'
-import { error, info, log, REST } from '../../utils'
 import { Extension } from '../Extension'
 
 class BotrixNetworkInterface {

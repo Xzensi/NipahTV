@@ -1,18 +1,18 @@
-import type InputCompletionStrategyRegister from '../Strategies/InputCompletionStrategyRegister'
-import type InputExecutionStrategyRegister from '../Strategies/InputExecutionStrategyRegister'
-import type InputCompletionStrategyManager from '../Managers/InputCompletionStrategyManager'
-import type KickNetworkInterface from '../NetworkInterfaces/KickNetworkInterface'
-import type AbstractUserInterface from '../UserInterface/AbstractUserInterface'
-import type AnnouncementService from '../Services/AnnouncementService'
-import type { EventService } from '../EventServices/EventService'
-import type { IBadgeProvider } from '../Providers/BadgeProvider'
-import type SettingsManager from '../Managers/SettingsManager'
-import type EmotesManager from '../Managers/EmotesManager'
-import type UsersManager from '../Managers/UsersManager'
-import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from '../constants'
-import type Publisher from '../Classes/Publisher'
+import type InputCompletionStrategyRegister from '../Core/Input/Completion/InputCompletionStrategyRegister'
+import type InputCompletionStrategyManager from '../Core/Input/Completion/InputCompletionStrategyManager'
+import type InputExecutionStrategyRegister from '../Core/Input/Execution/InputExecutionStrategyRegister'
+import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from '../Core/Common/constants'
+import type { ReactivePropsFromMain, RESTFromMain } from '../Core/Common/utils'
+import type AnnouncementService from '../Core/Services/AnnouncementService'
+import type AbstractUserInterface from '../Core/UI/AbstractUserInterface'
+import type SettingsManager from '../Core/Settings/SettingsManager'
+import type { IBadgeProvider } from '../Core/Emotes/BadgeProvider'
+import { NetworkInterface } from '../Core/Common/NetworkInterface'
+import type { EventService } from '../Core/Common/EventService'
+import type EmotesManager from '../Core/Emotes/EmotesManager'
+import type UsersManager from '../Core/Users/UsersManager'
+import type Publisher from '../Core/Common/Publisher'
 import type Database from '../Database/Database'
-import type { ReactivePropsFromMain, RESTFromMain } from '../utils'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -63,7 +63,7 @@ declare global {
 
 	interface Session {
 		eventBus: Publisher
-		networkInterface: KickNetworkInterface
+		networkInterface: NetworkInterface
 		meData: MeData
 		channelData: ChannelData
 		usersManager: UsersManager

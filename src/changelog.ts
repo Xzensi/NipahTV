@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.46',
+		date: '2024-10-12',
+		description: `
+                  Refactor: Isolated 7TV integration as extension
+            `
+	},
+	{
 		version: '1.5.45',
 		date: '2024-10-11',
 		description: `

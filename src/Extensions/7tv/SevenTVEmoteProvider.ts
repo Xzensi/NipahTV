@@ -1,7 +1,7 @@
-import { AbstractEmoteProvider, IAbstractEmoteProvider } from '../../Providers/AbstractEmoteProvider'
-import type SettingsManager from '../../Managers/SettingsManager'
-import { BROWSER_ENUM, PROVIDER_ENUM } from '../../constants'
-import { log, info, error, REST, md5 } from '../../utils'
+import { AbstractEmoteProvider, IAbstractEmoteProvider } from '../../Core/Emotes/AbstractEmoteProvider'
+import { BROWSER_ENUM, PROVIDER_ENUM } from '../../Core/Common/constants'
+import type SettingsManager from '../../Core/Settings/SettingsManager'
+import { log, info, error, REST, md5 } from '../../Core/Common/utils'
 
 export default class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.SEVENTV

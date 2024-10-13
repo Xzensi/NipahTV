@@ -1,11 +1,11 @@
-import { InputExecutionStrategy, InputIntentDTO } from '../../Core/Input/Execution/InputExecutionStrategy'
-import type { ContentEditableEditor } from '../../Core/Input/ContentEditableEditor'
+import { InputIntentDTO, InputExecutionStrategy as InputExecutionStrategy } from '../InputExecutionStrategy'
+import type { ContentEditableEditor } from '../../ContentEditableEditor'
 
-export default class BotrixExecutionStrategy implements InputExecutionStrategy {
+export default class DefaultExecutionStrategy implements InputExecutionStrategy {
 	constructor(private rootContext: RootContext, private session: Session) {}
 
 	shouldUseStrategy(inputIntentDTO: InputIntentDTO): boolean {
-		return inputIntentDTO.input[0] === '!'
+		return true
 	}
 
 	async route(
@@ -13,7 +13,8 @@ export default class BotrixExecutionStrategy implements InputExecutionStrategy {
 		inputIntentDTO: InputIntentDTO,
 		dontClearInput?: boolean
 	): Promise<void | string> {
-		const { networkInterface } = this.session
+		const { session } = this
+		const { networkInterface } = session
 
 		dontClearInput || contentEditableEditor.clearInput()
 
@@ -26,10 +27,10 @@ export default class BotrixExecutionStrategy implements InputExecutionStrategy {
 				inputIntentDTO.replyRefs.messageContent,
 				inputIntentDTO.replyRefs.senderId,
 				inputIntentDTO.replyRefs.senderUsername,
-				true
+				session.channelData.chatroom?.emotesMode?.enabled
 			)
 		} else {
-			await networkInterface.sendMessage(inputIntentDTO.input, true)
+			await networkInterface.sendMessage(inputIntentDTO.input, session.channelData.chatroom?.emotesMode?.enabled)
 		}
 	}
 }
