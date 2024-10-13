@@ -308,7 +308,7 @@ class NipahClient {
 					showDontShowAgainButton: true,
 					showCloseButton: true,
 					message: `
-					<h2>💥 <strong>7TV Extension Conflict!</strong> 💥</h2>
+					<h2>⚠️ <strong>7TV Extension Conflict!</strong> ⚠️</h2>
 					<p>The 7TV extension has been found to be enabled on ${platformName}. 7TV is not compatible with NipahTV and will cause issues if both are enabled at the same time. It is possible to keep the 7TV extension for <b>other</b> streaming websites if you want, by disabling the extension for only ${platformName}.</p>
 					<h4>How to disable 7TV extension <i>only</i> just for ${platformName}?</h4>
 					<p>If you want to keep 7TV for other streaming websites instead of uninstalling it completely, please follow the instructions on <a href="https://nipahtv.com/seventv_compatibility" target="_blank">https://nipahtv.com/seventv_compatibility</a>.</p>

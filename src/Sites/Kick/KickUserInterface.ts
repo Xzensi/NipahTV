@@ -443,25 +443,26 @@ export class KickUserInterface extends AbstractUserInterface {
 			 * Previously used announcement IDs
 			 * - website_overhaul_sept_2024
 			 * - website_overhaul_sept_2024_update
+			 * - old_popout_chatroom
 			 * -
 			 */
-			// announcementService.registerAnnouncement({
-			// 	id: 'discord_community_server_launch',
-			// 	dateTimeRange: [new Date(1727595396025)],
-			// 	message: `
-			// 		<p>🚀 <strong>NipahTV is Taking Off—Thanks to You!</strong> 🚀</p>
-			// 		<p>It's been a short while now since the humble beginning of this project. At first it was just for our little community because when we joined Kick the chatting experience was very lackluster, so I decided to take it upon myself to do it better. Back then we had no expectations of ever growing big and it was simply a passion project to improve our own lives on the Kick plaform.</p>
-			// 		<p>We had a slow and steady growth, but over the last few days, since the new Kick website launch, we've suddenly exploded in popularity! Our install count has skyrocketed, and we’re beyond excited to welcome so many new users! 👋</p>
-			// 		<p>You’ve likely noticed that the new Kick update has broken a lot of things, but rest assured—we’re working hard to get everything in working order again and bring you new features to make NipahTV even better.</p>
-			// 		<p>Lastly, our brand-new Discord community server is live, and we'd love to invite you! Swing by to say hi and help shape NipahTV by sharing feedback and voting on the features you want to see next.</p>
-			// 		<p>Discord link: <a href="https://discord.gg/KZZZYM6ESs">NipahTV Discord server</a></p>
-			// 	`
-			// })
-			// if (announcementService.hasAnnouncement('discord_community_server_launch')) {
-			// 	setTimeout(() => {
-			// 		announcementService.displayAnnouncement('discord_community_server_launch')
-			// 	}, 1000)
-			// }
+			// Current page is the old popout chatroom page, advise users not to use this URL hack
+			if (window.location.pathname.split('/')[2] === 'chatroom') {
+				const newURL = `popout/${window.location.pathname.split('/')[1]}/chat`
+				announcementService.registerAnnouncement({
+					id: 'old_popout_chatroom',
+					message: `
+						<h2>⚠️ <strong>Outdated Chatroom Warning</strong> ⚠️</h2>
+						<p>Uh-oh.. Looks like you found the old popout chatroom page from before the Kick 2.0 website update.</p>
+						<p>This page uses the old Kick layout and is no longer compatible with NTV. You can find the new popout chatroom page here: <a href='//kick.com/${newURL}'>kick.com/${newURL}</a></p>
+					`
+				})
+				if (announcementService.hasAnnouncement('old_popout_chatroom')) {
+					setTimeout(() => {
+						announcementService.displayAnnouncement('old_popout_chatroom')
+					}, 1000)
+				}
+			}
 		}
 
 		rootEventBus.subscribe(
