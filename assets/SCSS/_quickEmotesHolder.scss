@@ -22,11 +22,18 @@ $emotes_gap: 0.2em;
 	}
 
 	.ntv__emote-box {
+		max-height: $chat_emote_size;
+		min-width: $chat_emote_size;
 		border-radius: 0.2em;
 		margin: $emotes_gap;
+		width: auto;
 
 		&:not(:hover) {
 			background: none;
+		}
+
+		&:hover {
+			scale: 102%;
 		}
 	}
 

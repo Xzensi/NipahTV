@@ -12,6 +12,10 @@
 // 	}
 // }
 
+#chatroom-messages > .no-scrollbar > div {
+	min-height: 32px;
+}
+
 .ntv__chat-message {
 	.kick__chat-message__actions {
 		display: none;

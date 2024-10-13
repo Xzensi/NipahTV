@@ -1031,7 +1031,16 @@ export class KickUserInterface extends AbstractUserInterface {
 			// Insert emote in chat input when clicked
 			if (target.tagName === 'IMG' && target?.parentElement?.classList.contains('ntv__inline-emote-box')) {
 				const emoteHid = target.getAttribute('data-emote-hid')
-				if (emoteHid) this.inputController?.contentEditableEditor.insertEmote(emoteHid)
+				if (!emoteHid) return
+
+				const emote = this.session.emotesManager.getEmote(emoteHid)
+				if (
+					emote &&
+					(!emote.isSubscribersOnly ||
+						(emote.isSubscribersOnly &&
+							this.session.emotesManager.getEmoteSetByEmoteHid(emoteHid)?.isSubscribed))
+				)
+					this.inputController?.contentEditableEditor.insertEmote(emoteHid)
 			}
 
 			// Show user info modal when clicking usernames

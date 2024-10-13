@@ -11,7 +11,7 @@
 
 	&__inner {
 		overflow: hidden;
-		padding: 0.25em 0;
+		padding: 4px 0;
 	}
 
 	&__attachment {
@@ -65,7 +65,7 @@
 		align-items: center;
 
 		// Because align middle is set to bottom of baseline instead of actual middle
-		margin-top: -0.12em;
+		margin-top: -3px;
 
 		.ntv__badge {
 			margin-right: 0.25em;

@@ -1,5 +1,6 @@
 import { AbstractComponent } from '../../UI/Components/AbstractComponent'
 import { error, cleanupHTML, parseHTML, log } from '../../Common/utils'
+import { DEVICE_ENUM } from '../../Common/constants'
 
 export default class EmoteMenuComponent extends AbstractComponent {
 	private toggleStates = {}
