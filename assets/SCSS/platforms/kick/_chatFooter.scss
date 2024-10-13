@@ -81,6 +81,10 @@
 	overflow: visible !important;
 	// padding-top: 0.2em;
 
+	@media (min-width: 1024px) {
+		padding: 0.25em 1.2rem 0.75rem 1.2rem !important;
+	}
+
 	> div {
 		position: relative;
 	}
