@@ -227,7 +227,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				const tooltipEl = parseHTML(
 					cleanupHTML(
 						`<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
-									${imageInTooltop ? emotesManager.getRenderableEmote(emote, 'ntv__emote') : ''}
+									${(imageInTooltop && emotesManager.getRenderableEmote(emote, 'ntv__emote', true)) || ''}
 									<span class="ntv__emote-tooltip__title">${emote.name}</span>
 								</div>`
 					),

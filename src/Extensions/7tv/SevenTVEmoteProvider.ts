@@ -144,9 +144,16 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		]
 	}
 
-	getRenderableEmote(emote: Emote, classes = '') {
+	getRenderableEmote(emote: Emote, classes = '', srcSetWidthDescriptor?: boolean) {
 		const ext = (SUPPORTS_AVIF && BROWSER !== BROWSER_ENUM.SAFARI && 'avif') || 'webp'
-		const srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`
+
+		let srcSet: string
+
+		if (srcSetWidthDescriptor) {
+			srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 32w 32h, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 64w 64h, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 96w 96h, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 128w 128h`
+		} else {
+			srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`
+		}
 
 		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ''}" data-emote-hid="${
 			emote.hid || ''

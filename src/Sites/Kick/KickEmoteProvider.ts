@@ -105,7 +105,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 		return emoteSets
 	}
 
-	getRenderableEmote(emote: Emote, classes = '') {
+	getRenderableEmote(emote: Emote, classes = '', srcSetWidthDescriptor?: boolean) {
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
 		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ''}" data-emote-hid="${

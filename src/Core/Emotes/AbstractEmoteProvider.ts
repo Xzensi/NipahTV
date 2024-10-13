@@ -16,6 +16,6 @@ export abstract class AbstractEmoteProvider {
 	}
 
 	abstract fetchEmotes(params: ChannelData): Promise<Array<EmoteSet> | void>
-	abstract getRenderableEmote(emote: Emote, classes?: string): string
+	abstract getRenderableEmote(emote: Emote, classes?: string, srcSetWidthDescriptor?: boolean): string
 	abstract getEmbeddableEmote(emote: Emote): string
 }

@@ -1004,8 +1004,11 @@ export class KickUserInterface extends AbstractUserInterface {
 					tooltipEl.appendChild(span)
 				}
 
-				if (showTooltipImage) {
-					const imageNode = target.cloneNode(true) as HTMLImageElement
+				if (showTooltipImage && emote) {
+					const imageNode = parseHTML(
+						this.session.emotesManager.getRenderableEmote(emote, '', true) as string,
+						true
+					) as HTMLElement
 					imageNode.className = 'ntv__emote'
 					tooltipEl.prepend(imageNode)
 				}
