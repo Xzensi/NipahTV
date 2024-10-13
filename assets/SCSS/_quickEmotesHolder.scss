@@ -1,7 +1,7 @@
 @use 'animations' as *;
 @use 'variables' as *;
 
-$emotes_gap: 0.2em;
+$emotes_gap: 2px;
 
 .ntv__quick-emotes-holder {
 	max-height: $menu_and_holder_emote_size * 2;
@@ -17,7 +17,7 @@ $emotes_gap: 0.2em;
 
 	@for $i from 1 through 14 {
 		&[data-rows='#{$i}'] {
-			max-height: $menu_and_holder_emote_size * $i + $emotes_gap * $i * 2;
+			max-height: $chat_emote_size * $i + $emotes_gap * $i * 2;
 		}
 	}
 
