@@ -245,7 +245,7 @@ export default class SettingsManager {
 								{
 									label: 'Highlight Color',
 									key: 'chat.appearance.highlight_color',
-									default: '',
+									default: '#4f95ff',
 									type: 'color'
 								},
 								{
