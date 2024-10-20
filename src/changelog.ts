@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.48',
+		date: '2024-10-20',
+		description: `
+                  Feat: Added new settings options for message styling
+                  Feat: Added new settings options for emotes styling
+                  Fix: Default message and emote styling not matching native Kick
+                  Style: Improved settings modal looks
+                  Refactor: Re-identified settings keys
+            `
+	},
+	{
 		version: '1.5.47',
 		date: '2024-10-13',
 		description: `
