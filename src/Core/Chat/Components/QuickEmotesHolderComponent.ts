@@ -136,7 +136,6 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 						this.renderFavoriteEmotes()
 						this.renderCommonlyUsedEmotes()
 					},
-					true,
 					true
 				)
 			}
