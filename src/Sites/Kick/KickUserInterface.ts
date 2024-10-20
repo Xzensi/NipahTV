@@ -72,6 +72,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		this.loadAnnouncements()
 		this.loadSettings()
+		this.loadStylingVariables()
 
 		if (channelData.isModView || channelData.isCreatorView) {
 			// Wait for text input & submit button to load
@@ -267,7 +268,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Set chat show message timestamps
 		rootEventBus.subscribe(
-			'ntv.settings.change.chat.appearance.show_timestamps',
+			'ntv.settings.change.chat.messages.show_timestamps',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				document
 					.querySelector('.ntv__chat-messages-container')
@@ -297,7 +298,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Add alternating background color to chat messages
 		rootEventBus.subscribe(
-			'ntv.settings.change.chat.appearance.alternating_background',
+			'ntv.settings.change.chat.messages.alternating_background',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				//* Not respecting chatroomContainerSelector on purpose here because vods reverse the order of chat messages resulting in alternating background not working as expected
 				document
@@ -308,7 +309,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Add seperator lines to chat messages
 		rootEventBus.subscribe(
-			'ntv.settings.change.chat.appearance.seperators',
+			'ntv.settings.change.chat.messages.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
 					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--seperator-${prevValue}`)
@@ -319,18 +320,18 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Chat messages spacing settings change
 		rootEventBus.subscribe(
-			'ntv.settings.change.chat.appearance.messages_spacing',
+			'ntv.settings.change.chat.messages.spacing',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
-					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
-					if (value !== 'none') el.classList.add(`ntv__chat-message--${value}`)
+					if (value === 'none' && prevValue !== 'none') el.classList.remove(`ntv__chat-message--${prevValue}`)
+					if (value !== 'none' && prevValue === 'none') el.classList.add(`ntv__chat-message--${value}`)
 				})
 			}
 		)
 
 		// Chat messages style settings change
 		rootEventBus.subscribe(
-			'ntv.settings.change.chat.appearance.messages_style',
+			'ntv.settings.change.chat.messages.style',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
 					if (prevValue !== 'none') el.classList.remove(`ntv__chat-message--theme-${prevValue}`)
@@ -353,12 +354,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		chatMessagesContainerEl.classList.add('ntv__chat-messages-container')
 
 		// Show timestamps for messages
-		if (settingsManager.getSetting(channelId, 'chat.appearance.show_timestamps')) {
+		if (settingsManager.getSetting(channelId, 'chat.messages.show_timestamps')) {
 			chatMessagesContainerEl.classList.add('ntv__show-message-timestamps')
 		}
 
 		// Add alternating background color to chat messages
-		if (settingsManager.getSetting(channelId, 'chat.appearance.alternating_background')) {
+		if (settingsManager.getSetting(channelId, 'chat.messages.alternating_background')) {
 			chatMessagesContainerEl.classList.add('ntv__alternating-background')
 		}
 
@@ -480,7 +481,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { eventBus, channelData } = this.session
 		const channelId = channelData.channelId
 
-		const firstMessageHighlightColor = settingsManager.getSetting(channelId, 'chat.appearance.highlight_color')
+		const firstMessageHighlightColor = settingsManager.getSetting(channelId, 'chat.messages.highlight_color')
 		if (firstMessageHighlightColor) {
 			const rgb = hex2rgb(firstMessageHighlightColor)
 			document.documentElement.style.setProperty(
@@ -490,7 +491,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		eventBus.subscribe(
-			'ntv.settings.change.chat.appearance.highlight_color',
+			'ntv.settings.change.chat.messages.highlight_color',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				if (!value) return
 				const rgb = hex2rgb(value)
@@ -500,6 +501,48 @@ export class KickUserInterface extends AbstractUserInterface {
 				)
 			}
 		)
+	}
+
+	loadStylingVariables() {
+		const { settingsManager, eventBus: rootEventBus } = this.rootContext
+		const { channelData } = this.session
+		const channelId = channelData.channelId
+
+		// Chat message font size
+		const messageFontSize = settingsManager.getSetting(channelId, 'chat.messages.font_size') || '13px'
+		document.documentElement.style.setProperty('--ntv-chat-message-font-size', messageFontSize)
+
+		rootEventBus.subscribe('ntv.settings.change.chat.messages.font_size', ({ value }: { value?: string }) => {
+			if (!value) return
+			document.documentElement.style.setProperty('--ntv-chat-message-font-size', value)
+		})
+
+		// Chat message spacing
+		const messageSpacing = settingsManager.getSetting(channelId, 'chat.messages.spacing') || '0'
+		document.documentElement.style.setProperty('--ntv-chat-message-spacing', messageSpacing)
+
+		rootEventBus.subscribe('ntv.settings.change.chat.messages.spacing', ({ value }: { value?: string }) => {
+			if (!value) return
+			document.documentElement.style.setProperty('--ntv-chat-message-spacing', value)
+		})
+
+		// Emote size
+		const emoteSize = settingsManager.getSetting(channelId, 'chat.messages.emotes.size') || '0'
+		document.documentElement.style.setProperty('--ntv-chat-message-emote-size', emoteSize)
+
+		rootEventBus.subscribe('ntv.settings.change.chat.messages.emotes.size', ({ value }: { value?: string }) => {
+			if (!value) return
+			document.documentElement.style.setProperty('--ntv-chat-message-emote-size', value)
+		})
+
+		// Emote overlap
+		const emoteOverlap = settingsManager.getSetting(channelId, 'chat.messages.emotes.overlap') || '0'
+		document.documentElement.style.setProperty('--ntv-chat-message-emote-overlap', emoteOverlap)
+
+		rootEventBus.subscribe('ntv.settings.change.chat.messages.emotes.overlap', ({ value }: { value?: string }) => {
+			if (!value) return
+			document.documentElement.style.setProperty('--ntv-chat-message-emote-overlap', value)
+		})
 	}
 
 	loadInputBehaviour(kickTextFieldEl: HTMLElement, kickSubmitButtonEl: HTMLElement) {
@@ -591,10 +634,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				submitButtonEl.removeAttribute('disabled')
 				submitButtonEl.classList.remove('disabled')
 			}
-		})
-
-		textFieldEl.addEventListener('cut', evt => {
-			this.clipboard.handleCutEvent(evt)
 		})
 
 		this.session.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
@@ -1332,9 +1371,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		const channelData = this.session.channelData
 		const channelId = channelData.channelId
 
-		const settingStyle = settingsManager.getSetting(channelId, 'chat.appearance.messages_style')
-		const settingSeperator = settingsManager.getSetting(channelId, 'chat.appearance.seperators')
-		const settingSpacing = settingsManager.getSetting(channelId, 'chat.appearance.messages_spacing')
+		const settingStyle = settingsManager.getSetting(channelId, 'chat.messages.style')
+		const settingSeperator = settingsManager.getSetting(channelId, 'chat.messages.seperators')
+		const settingSpacing = settingsManager.getSetting(channelId, 'chat.messages.spacing')
 
 		if (settingStyle && settingStyle !== 'none') messageEl.classList.add('ntv__chat-message--theme-' + settingStyle)
 
@@ -1617,11 +1656,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (!usersManager.hasSeenUser(username)) {
 					const enableFirstMessageHighlight = settingsManager.getSetting(
 						channelId,
-						'chat.appearance.highlight_first_message'
+						'chat.messages.highlight_first_time'
 					)
 					const highlightWhenModeratorOnly = settingsManager.getSetting(
 						channelId,
-						'chat.appearance.highlight_first_message_moderator'
+						'chat.messages.highlight_first_moderator'
 					)
 					if (
 						enableFirstMessageHighlight &&
@@ -2003,11 +2042,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (!usersManager.hasSeenUser(username)) {
 					const enableFirstMessageHighlight = settingsManager.getSetting(
 						channelId,
-						'chat.appearance.highlight_first_message'
+						'chat.messages.highlight_first_time'
 					)
 					const highlightWhenModeratorOnly = settingsManager.getSetting(
 						channelId,
-						'chat.appearance.highlight_first_message_moderator'
+						'chat.messages.highlight_first_moderator'
 					)
 					if (
 						enableFirstMessageHighlight &&

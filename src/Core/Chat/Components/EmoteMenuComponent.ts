@@ -313,7 +313,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		// On ctrl+spacebar key, open the modal
-		if (settingsManager.getSetting(channelId, 'chat.appearance.emote_menu_ctrl_spacebar')) {
+		if (settingsManager.getSetting(channelId, 'chat.emote_menu.open_ctrl_spacebar')) {
 			document.addEventListener('keydown', evt => {
 				if (evt.ctrlKey && evt.key === ' ') {
 					evt.preventDefault()
@@ -323,7 +323,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		}
 
 		// On ctrl+e key, open the modal
-		if (settingsManager.getSetting(channelId, 'chat.appearance.emote_menu_ctrl_e')) {
+		if (settingsManager.getSetting(channelId, 'chat.emote_menu.open_ctrl_e')) {
 			document.addEventListener('keydown', evt => {
 				if (evt.ctrlKey && evt.key === 'e') {
 					evt.preventDefault()

@@ -238,7 +238,13 @@ export class ContentEditableEditor {
 			}
 		})
 
+		inputNode.addEventListener('copy', evt => {
+			evt.preventDefault()
+			this.clipboard.handleCopyEvent(evt)
+		})
+
 		inputNode.addEventListener('cut', evt => {
+			this.clipboard.handleCutEvent(evt)
 			this.hasUnprocessedContentChanges = true
 		})
 

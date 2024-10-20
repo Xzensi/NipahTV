@@ -43,7 +43,7 @@ export default class TwitchNetworkInterface implements NetworkInterface {
 		throw new Error('Method not implemented.')
 	}
 
-	async executeCommand(commandName: string, channelName: string, args: string[]) {
+	async executeCommand(commandName: string, channelName: string, args: Array<string | number>) {
 		throw new Error('Method not implemented.')
 	}
 

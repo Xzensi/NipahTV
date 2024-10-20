@@ -401,7 +401,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 		return successMessage
 	}
 
-	async executeCommand(commandName: string, channelName: string, args: string[]) {
+	async executeCommand(commandName: string, channelName: string, args: Array<string | number>) {
 		let command = KICK_COMMANDS.find(command => command.name === commandName || command.alias === commandName)
 		if (command?.alias) command = KICK_COMMANDS.find(n => n.name === command!.alias)
 

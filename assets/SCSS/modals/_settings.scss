@@ -111,13 +111,38 @@
 
 	&__group {
 		margin-bottom: $golden_ratio * 1em;
+		padding: 0 1.618em;
+	}
 
-		&-header {
-			margin-bottom: $golden_ratio * 1em;
+	&__group-header {
+		margin-left: -1.618em;
+		margin-bottom: 1em;
 
-			// h4 {
-			// 	font-size: 1.333em;
-			// }
+		// h4 {
+		// 	font-size: 1.333em;
+		// }
+
+		& > h3,
+		& > h4 {
+			align-items: center;
+			flex-direction: row;
+			column-gap: 0.618em;
+			position: relative;
+			display: flex;
+
+			// Horizontal line on right side of header
+			&:after {
+				display: inline-block;
+				background-color: var(--ntv-border-transparent-2);
+				flex: 1 1 100px;
+				content: '';
+				height: 1px;
+			}
+		}
+
+		p {
+			color: var(--ntv-text-color-medium-emphasis);
+			font-size: 0.95em;
 		}
 	}
 
@@ -128,7 +153,7 @@
 	}
 
 	&__panel {
-		padding-top: $golden_ratio_inverse * 1em;
+		// padding-top: $golden_ratio_inverse * 1em;
 
 		&[data-panel='nipahtv.changelog'] {
 			h3 {

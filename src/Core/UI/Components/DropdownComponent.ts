@@ -21,7 +21,7 @@ export class DropdownComponent extends AbstractComponent {
 		this.element = parseHTML(
 			cleanupHTML(`
             <div class="ntv__dropdown">
-                <label for="${this.id}">${this.label}</label>
+				<label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
                     ${this.options
 						.map(option => {
@@ -45,6 +45,10 @@ export class DropdownComponent extends AbstractComponent {
 		this.selectEl.addEventListener('change', event => {
 			this.event.dispatchEvent(new Event('change'))
 		})
+	}
+
+	addEventListener(event: string, callback: EventListener) {
+		this.event.addEventListener(event, callback)
 	}
 
 	getValue() {

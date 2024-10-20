@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.47
+// @version 1.5.48
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f6280271.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-c2169a43.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -1018,8 +1018,8 @@ var require_pusher = __commonJS({
                 if (core_pusher.log) {
                   core_pusher.log(message);
                 } else if (core_pusher.logToConsole) {
-                  const log15 = defaultLoggingFunction.bind(this);
-                  log15(message);
+                  const log17 = defaultLoggingFunction.bind(this);
+                  log17(message);
                 }
               }
             }
@@ -11134,7 +11134,7 @@ var KICK_COMMANDS = [
     },
     execute: async (deps, args) => {
       const { networkInterface, channelData } = deps;
-      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
+      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, "" + args[0]).catch((err) => {
         throw new Error("Failed to follow user. " + (err.message || ""));
       });
       if (!userInfo) throw new Error("Failed to follow user. User not found");
@@ -11152,7 +11152,7 @@ var KICK_COMMANDS = [
     },
     execute: async (deps, args) => {
       const { networkInterface, channelData } = deps;
-      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch((err) => {
+      const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, "" + args[0]).catch((err) => {
         throw new Error("Failed to follow user. " + (err.message || ""));
       });
       if (!userInfo) throw new Error("Failed to follow user. User not found");
@@ -11170,7 +11170,7 @@ var KICK_COMMANDS = [
     },
     execute: async (deps, args) => {
       const { usersManager } = deps;
-      const user = usersManager.getUserByName(args[0]);
+      const user = usersManager.getUserByName("" + args[0]);
       if (!user) throw new Error("User not found");
       else if (user.muted) throw new Error("User is already muted");
       else usersManager.muteUserById(user.id);
@@ -11186,7 +11186,7 @@ var KICK_COMMANDS = [
     },
     execute: async (deps, args) => {
       const { usersManager } = deps;
-      const user = usersManager.getUserByName(args[0]);
+      const user = usersManager.getUserByName("" + args[0]);
       if (!user) throw new Error("User not found");
       else if (!user.muted) throw new Error("User is not muted");
       else usersManager.unmuteUserById(user.id);
@@ -11653,6 +11653,58 @@ var TwitchEventService = class {
   }
 };
 
+// src/Core/UI/Components/SteppedInputSliderLabeledComponent.ts
+var SteppedInputSliderLabeledComponent = class extends AbstractComponent {
+  value;
+  labels;
+  steps;
+  event = new EventTarget();
+  element;
+  constructor(labels, steps, label, value) {
+    super();
+    this.labels = labels;
+    this.steps = steps;
+    const defaultIndex = typeof value !== "undefined" && steps.indexOf(value) || 0;
+    this.element = parseHTML(
+      cleanupHTML(`
+            <div class="ntv__stepped-input-slider ntv__stepped-input-slider-labeled">
+				<label>${label}</label>
+				<div class="ntv__stepped-input-slider-labeled__slider">
+					<input type="range" min="0" max="${this.steps.length - 1}" step="1" value="${defaultIndex}">
+					<div class="ntv__stepped-input-slider-labeled__labels">
+						${labels.map((label2, index) => `<span>${label2}</span>`).join("")}
+					</div>
+				</div>
+            </div>
+        `),
+      true
+    );
+    this.value = value || steps[0];
+  }
+  render() {
+  }
+  attachEventHandlers() {
+    if (!this.element) return;
+    const inputEl = this.element.querySelector("input");
+    const labelsEl = this.element.querySelector(".ntv__stepped-input-slider-labeled__labels");
+    const index = parseInt(inputEl.value);
+    labelsEl.children[index].setAttribute("data-active", "true");
+    inputEl.addEventListener("input", () => {
+      const index2 = parseInt(inputEl.value);
+      labelsEl.querySelectorAll("span[data-active]").forEach((el) => el.removeAttribute("data-active"));
+      labelsEl.children[index2].setAttribute("data-active", "true");
+      this.value = this.steps[index2] || this.steps[0];
+      this.event.dispatchEvent(new Event("change"));
+    });
+  }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
+  }
+  getValue() {
+    return this.value;
+  }
+};
+
 // src/Core/UI/Components/CheckboxComponent.ts
 var CheckboxComponent = class extends AbstractComponent {
   checked;
@@ -11684,6 +11736,9 @@ var CheckboxComponent = class extends AbstractComponent {
       this.event.dispatchEvent(new Event("change"));
     });
   }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
+  }
   getValue() {
     return this.checked;
   }
@@ -11707,7 +11762,7 @@ var DropdownComponent = class extends AbstractComponent {
     this.element = parseHTML(
       cleanupHTML(`
             <div class="ntv__dropdown">
-                <label for="${this.id}">${this.label}</label>
+				<label for="${this.id}">${this.label}</label>
                 <select id="${this.id}">
                     ${this.options.map((option) => {
         const selected = this.selectedOption && option.value === this.selectedOption ? "selected" : "";
@@ -11726,6 +11781,9 @@ var DropdownComponent = class extends AbstractComponent {
     this.selectEl.addEventListener("change", (event) => {
       this.event.dispatchEvent(new Event("change"));
     });
+  }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
   }
   getValue() {
     return this.selectEl.value;
@@ -11769,6 +11827,9 @@ var NumberComponent = class extends AbstractComponent {
       this.event.dispatchEvent(new Event("change"));
     });
   }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
+  }
   getValue() {
     return this.value;
   }
@@ -11805,6 +11866,9 @@ var ColorComponent = class extends AbstractComponent {
       this.event.dispatchEvent(new Event("change"));
     });
   }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
+  }
   getValue() {
     return this.value;
   }
@@ -11812,6 +11876,19 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.48",
+    date: "2024-10-20",
+    description: `
+                  Feat: Added new settings options for message styling
+                  Feat: Added new settings options for emotes styling
+                  Fix: Default message and emote styling not matching native Kick
+                  Fix: Zero-width emotes not centering when wider than emote
+                  Fix: Clipboard copy not working for emotes in input field
+                  Style: Improved settings modal looks
+                  Refactor: Re-identified settings keys
+            `
+  },
   {
     version: "1.5.47",
     date: "2024-10-13",
@@ -12931,7 +13008,7 @@ var SettingsModal = class extends AbstractModal {
     }
     modalHeaderEl.prepend(
       parseHTML(
-        `<svg class="ntv__modal__logo" alt="NipahTV" width="32" height="32" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0230583" d="M 0.2512317,15.995848 0.2531577,6.8477328 C 0.24943124,6.3032776 0.7989812,5.104041 1.8304975,4.5520217 2.4476507,4.2217505 2.9962666,4.1106784 4.0212875,4.0887637 5.0105274,4.067611 5.5052433,4.2710769 5.6829817,4.3608374 c 0.4879421,0.2263549 0.995257,0.7009925 1.134824,0.9054343 l 4.4137403,6.8270373 c 0.262057,0.343592 0.582941,0.565754 0.919866,0.529874 0.284783,-0.0234 0.4358,-0.268186 0.437049,-0.491242 l 0.003,-9.2749904 L 0.25,2.8575985 0.25004315,0 15.747898,2.1455645e-4 15.747791,13.08679 c -0.0055,0.149056 -0.09606,1.191174 -1.033875,2.026391 -0.839525,0.807902 -2.269442,0.879196 -2.269442,0.879196 -0.601658,0.0088 -1.057295,0.02361 -1.397155,-0.04695 -0.563514,-0.148465 -0.807905,-0.274059 -1.274522,-0.607992 -0.4091245,-0.311857 -0.6818768,-0.678904 -0.9118424,-0.98799 0,0 -1.0856521,-1.86285 -1.8718165,-3.044031 C 6.3863506,10.352753 5.3651096,8.7805786 4.8659674,8.1123589 4.4859461,7.5666062 4.2214229,7.4478431 4.0798053,7.3975803 3.9287117,7.3478681 3.7624996,7.39252 3.6345251,7.4474753 3.5213234,7.5006891 3.4249644,7.5987165 3.4078407,7.7314301 l 7.632e-4,8.2653999 z"/></svg>`
+        `<svg class="ntv__modal__logo" alt="NipahTV" width="32" height="32" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.023423" d="M 0.0045448,15.994522 0.00653212,7.0100931 C 0.00268662,6.4657282 0.56985346,5.2666906 1.6344369,4.714763 2.2713742,4.3845464 2.837577,4.2734929 3.8954568,4.2515817 4.9164087,4.2304326 5.4269836,4.4338648 5.61042,4.5236104 6.1140039,4.7499277 6.6375815,5.2244865 6.7816227,5.4288944 l 4.5552313,6.6637346 c 0.270458,0.343536 0.601629,0.565661 0.949354,0.529787 0.293913,-0.02339 0.449771,-0.268141 0.45106,-0.491161 l 0.0031,-9.2329087 -12.73699293,6.478e-4 4.453e-5,-2.8976667 15.9946434,2.145e-4 -1.11e-4,13.0844041 c -0.0057,0.149032 -0.09913,1.190976 -1.067016,2.026055 -0.866438,0.807769 -2.342194,0.87905 -2.342194,0.87905 -0.620946,0.0088 -1.091187,0.02361 -1.441943,-0.04695 -0.581657,-0.148437 -0.833883,-0.27401 -1.315459,-0.607888 -0.4222398,-0.311805 -0.7037358,-0.678791 -0.9410734,-0.987827 0,0 -1.1204546,-1.801726 -1.931821,-2.982711 C 6.3363366,10.413177 5.2823578,8.9426183 4.7672147,8.2745095 4.375011,7.7288473 4.102008,7.6101039 3.9558506,7.5598495 3.7999133,7.5101456 3.6283732,7.55479 3.4962961,7.6097361 3.3794655,7.6629412 3.2800176,7.7609522 3.2623448,7.8936439 l 7.879e-4,8.1018591 z"/></svg>`
       )
     );
     this.panelsEl = parseHTML(`<div class="ntv__settings-modal__panels"></div>`, true);
@@ -13029,6 +13106,14 @@ var SettingsModal = class extends AbstractModal {
                   settingValue
                 );
                 break;
+              case "stepped_slider":
+                settingComponent = new SteppedInputSliderLabeledComponent(
+                  setting.labels,
+                  setting.steps,
+                  setting.label,
+                  settingValue
+                );
+                break;
               case "number":
                 settingComponent = new NumberComponent(
                   settingId,
@@ -13045,7 +13130,7 @@ var SettingsModal = class extends AbstractModal {
             }
             settingComponent?.init();
             groupEl.append(settingComponent.element);
-            settingComponent.event.addEventListener("change", () => {
+            settingComponent.addEventListener("change", () => {
               const value = settingComponent.getValue();
               this.eventTarget.dispatchEvent(
                 new CustomEvent("setting_change", {
@@ -13104,87 +13189,6 @@ var SettingsModal = class extends AbstractModal {
 
 // src/Core/Settings/SettingsManager.ts
 var SettingsManager = class {
-  /*
-     - Global shared settings
-  	= Appearance
-  	    = Layout
-  			(Appearance)
-  	            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
-  				- Overlay chat position in theatre mode (dropdown)
-  				- Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen) (dropdown)
-         = Chat
-             = Appearance
-                 (Appearance)
-                     - Highlight first user messages
-                     - Highlight first user messages only for channels where you are a moderator
-                     - Highlight Color
-                     - Display lines with alternating background colors
-                 (General)
-                     - Use Ctrl+E to open the Emote Menu
-                     - Use Ctrl+Spacebar for quick emote access
-  			(Messages)
-  				- Show timestamps of messages (checkbox)
-  				- Seperators (dropdown)
-  				- Messages spacing (dropdown)
-  				- Messages style (dropdown
-  		= Behavior
-                 (General)
-  				- Enable chat message rendering
-                     - Enable chat smooth scrolling
-                 (Search)
-                     - Add bias to emotes of channels you are subscribed to
-                     - Add extra bias to emotes of the current channel you are watching the stream of
-  		= Badges
-  			(Badges)
-  				- Show the NipahTV badge for NTV users
-             = Emotes
-                 (Appearance)
-                     - Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them
-                     - Display images in tooltips
-             = Emote Menu
-                 (Appearance)
-                     - Choose the style of the emote menu button (dropdown)
-                     - Show the search box
-  				- Show favorited emotes in the emote menu (requires page refresh)
-  				- Show favorited emotes of other channels that cannot be used, because they\'re not cross-channel emotes (requires page refresh)
-                     - Close the emote menu after clicking an emote
-             = Emote Providers
-                 (Kick)
-                     - Show emotes in chat
-                     - Show global emote set
-                     - Show current channel emote set
-                     - Show other channel emote sets
-                     - Show Emoji emote set
-                 (7TV)
-                     - Show emotes in chat
-                     - Show global emote set
-                     - Show current channel emote set
-             = Input
-  			(Behavior)
-  				- Steal focus to chat input when typing without having chat input focused
-                 (Recent Messages)
-                     - Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages
-                 (Input completion)
-                     - Enable <TAB> key emote completion suggestions
-  				- Enable <COLON (:)> key emote completion suggestions
-  				- Enable < @ > key username mention completion suggestions
-  		= Moderators
-  			(Messsages)
-  				- Show quick actions (delete, timeout, ban) (checkbox)
-  		= Quick Emote Holder
-                 (Appearance)
-                     - Show quick emote holder
-                     - Rows of emotes to display (number)
-  				- Show favorited emotes in the quick emote holder
-  				- Show favorited emotes of other channels that cannot be used (because they're not cross-channel emotes)
-  				- Show recently used emotes in the quick emote holder
-                 (Behavior)
-                     - Send emotes to chat immediately on click
-  	= Moderators
-  		= Behavior
-  			(General)
-  				- Completely disable NipahTV for moderator and creator dashboard
-  */
   uiSettings = [
     {
       label: "NipahTV",
@@ -13273,177 +13277,21 @@ var SettingsManager = class {
     {
       label: "Chat",
       children: [
-        {
-          label: "Appearance",
-          children: [
-            {
-              label: "Appearance",
-              children: [
-                {
-                  label: "Highlight first time user messages (of this chat session, not first time ever)",
-                  key: "chat.appearance.highlight_first_message",
-                  default: false,
-                  type: "checkbox"
-                },
-                {
-                  label: "Highlight first user messages only for channels where you are a moderator",
-                  key: "chat.appearance.highlight_first_message_moderator",
-                  default: false,
-                  type: "checkbox"
-                },
-                {
-                  label: "Highlight Color",
-                  key: "chat.appearance.highlight_color",
-                  default: "#4f95ff",
-                  type: "color"
-                },
-                {
-                  label: "Display lines with alternating background colors",
-                  key: "chat.appearance.alternating_background",
-                  default: false,
-                  type: "checkbox"
-                }
-              ]
-            },
-            {
-              label: "General",
-              description: "These settings require a page refresh to take effect.",
-              children: [
-                {
-                  label: "Use Ctrl+E to open the Emote Menu",
-                  key: "chat.appearance.emote_menu_ctrl_e",
-                  default: false,
-                  type: "checkbox"
-                },
-                {
-                  label: "Use Ctrl+Spacebar to open the Emote Menu",
-                  key: "chat.appearance.emote_menu_ctrl_spacebar",
-                  default: true,
-                  type: "checkbox"
-                }
-              ]
-            },
-            {
-              label: "Messages",
-              children: [
-                {
-                  label: "Show chat message timestamps",
-                  key: "chat.appearance.show_timestamps",
-                  default: false,
-                  type: "checkbox"
-                },
-                {
-                  label: "Seperators",
-                  key: "chat.appearance.seperators",
-                  default: "none",
-                  type: "dropdown",
-                  options: [
-                    {
-                      label: "Disabled",
-                      value: "none"
-                    },
-                    {
-                      label: "Basic Line (1px Solid)",
-                      value: "basic"
-                    },
-                    {
-                      label: "3D Line (2px Groove)",
-                      value: "3d"
-                    },
-                    {
-                      label: "3D Line (2x Groove Inset)",
-                      value: "3d-inset"
-                    },
-                    {
-                      label: "Wide Line (2px Solid)",
-                      value: "wide"
-                    }
-                  ]
-                },
-                {
-                  label: "Messages spacing",
-                  key: "chat.appearance.messages_spacing",
-                  default: "none",
-                  type: "dropdown",
-                  options: [
-                    {
-                      label: "No spacing",
-                      value: "none"
-                    },
-                    {
-                      label: "Little spacing",
-                      value: "little-spacing"
-                    },
-                    {
-                      label: "Large spacing",
-                      value: "large-spacing"
-                    }
-                  ]
-                },
-                {
-                  label: "Messages style",
-                  key: "chat.appearance.messages_style",
-                  default: "none",
-                  type: "dropdown",
-                  options: [
-                    {
-                      label: "Default",
-                      value: "none"
-                    },
-                    {
-                      label: "Rounded",
-                      value: "rounded"
-                    },
-                    {
-                      label: "Rounded 2",
-                      value: "rounded-2"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          label: "Behavior",
-          children: [
-            {
-              label: "General",
-              children: [
-                {
-                  label: "Enable chat message rendering",
-                  key: "chat.behavior.enable_chat_rendering",
-                  default: true,
-                  type: "checkbox"
-                },
-                {
-                  label: "Enable chat smooth scrolling (currently broken after Kick update!)",
-                  key: "chat.behavior.smooth_scrolling",
-                  default: false,
-                  type: "checkbox"
-                }
-              ]
-            },
-            {
-              label: "Search",
-              description: "These settings require a page refresh to take effect.",
-              children: [
-                {
-                  label: "Add bias to emotes of channels you are subscribed to",
-                  key: "chat.behavior.search_bias_subscribed_channels",
-                  default: true,
-                  type: "checkbox"
-                },
-                {
-                  label: "Add extra bias to emotes of the current channel you are watching the stream of",
-                  key: "chat.behavior.search_bias_current_channels",
-                  default: true,
-                  type: "checkbox"
-                }
-              ]
-            }
-          ]
-        },
+        // {
+        // 	label: 'Appearance',
+        // 	children: [
+        // 		{
+        // 			label: 'Appearance',
+        // 			children: []
+        // 		},
+        // 		{
+        // 			label: 'General',
+        // 			description: 'These settings require a page refresh to take effect.',
+        // 			children: [
+        // 			]
+        // 		}
+        // 	]
+        // },
         {
           label: "Badges",
           children: [
@@ -13464,7 +13312,28 @@ var SettingsManager = class {
           label: "Emotes",
           children: [
             {
-              label: "Appearance",
+              label: "Emote appearance",
+              children: [
+                {
+                  label: "Emote size",
+                  key: "chat.messages.emotes.size",
+                  default: "28px",
+                  type: "stepped_slider",
+                  labels: ["Small", "Default", "Large"],
+                  steps: ["24px", "28px", "32px"]
+                },
+                {
+                  label: "Message emote overlap",
+                  key: "chat.messages.emotes.overlap",
+                  default: "-0.4em",
+                  type: "stepped_slider",
+                  labels: ["No overlap", "Slight overlap", "Moderate overlap", "Default"],
+                  steps: ["0", "-0.2em", "-0.3em", "-0.4em"]
+                }
+              ]
+            },
+            {
+              label: "In chat appearance",
               description: "These settings require a page refresh to take effect.",
               children: [
                 {
@@ -13553,11 +13422,34 @@ var SettingsManager = class {
                   key: "emote_menu.show_unavailable_favorites",
                   default: false,
                   type: "checkbox"
-                },
+                }
+              ]
+            },
+            {
+              label: "Behavior",
+              children: [
                 {
                   label: "Close the emote menu after clicking an emote",
                   key: "chat.emote_menu.close_on_click",
                   default: false,
+                  type: "checkbox"
+                }
+              ]
+            },
+            {
+              label: "Hotkeys",
+              description: "These settings require a page refresh to take effect.",
+              children: [
+                {
+                  label: "Use Ctrl+E to open the Emote Menu",
+                  key: "chat.emote_menu.open_ctrl_e",
+                  default: false,
+                  type: "checkbox"
+                },
+                {
+                  label: "Use Ctrl+Spacebar to open the Emote Menu",
+                  key: "chat.emote_menu.open_ctrl_spacebar",
+                  default: true,
                   type: "checkbox"
                 }
               ]
@@ -13630,7 +13522,7 @@ var SettingsManager = class {
           ]
         },
         {
-          label: "Input",
+          label: "Input field",
           children: [
             {
               label: "Behavior",
@@ -13693,6 +13585,132 @@ var SettingsManager = class {
           ]
         },
         {
+          label: "Messages",
+          children: [
+            {
+              label: "General",
+              children: [
+                {
+                  label: "Enable chat message rendering",
+                  key: "chat.behavior.enable_chat_rendering",
+                  default: true,
+                  type: "checkbox"
+                },
+                {
+                  label: "Enable chat smooth scrolling (currently broken after Kick update!)",
+                  key: "chat.behavior.smooth_scrolling",
+                  default: false,
+                  type: "checkbox"
+                },
+                {
+                  label: "Show chat message timestamps",
+                  key: "chat.messages.show_timestamps",
+                  default: false,
+                  type: "checkbox"
+                }
+              ]
+            },
+            {
+              label: "Appearance",
+              children: [
+                {
+                  label: "Messages font size",
+                  key: "chat.messages.font_size",
+                  default: "13px",
+                  type: "stepped_slider",
+                  labels: ["Small", "Default", "Large", "Extra Large"],
+                  steps: ["12px", "13px", "14px", "15px"]
+                },
+                {
+                  label: "Messages spacing",
+                  key: "chat.messages.spacing",
+                  default: "0",
+                  type: "stepped_slider",
+                  labels: ["No spacing", "Little spacing", "Moderate spacing", "Large spacing"],
+                  steps: ["0", "0.128em", "0.256em", "0.384em"]
+                },
+                {
+                  label: "Seperators",
+                  key: "chat.messages.seperators",
+                  default: "none",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "Disabled",
+                      value: "none"
+                    },
+                    {
+                      label: "Basic Line (1px Solid)",
+                      value: "basic"
+                    },
+                    {
+                      label: "3D Line (2px Groove)",
+                      value: "3d"
+                    },
+                    {
+                      label: "3D Line (2x Groove Inset)",
+                      value: "3d-inset"
+                    },
+                    {
+                      label: "Wide Line (2px Solid)",
+                      value: "wide"
+                    }
+                  ]
+                },
+                {
+                  label: "Messages style",
+                  key: "chat.messages.style",
+                  default: "none",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "Default",
+                      value: "none"
+                    },
+                    {
+                      label: "Slightly rounded",
+                      value: "rounded"
+                    },
+                    {
+                      label: "Fully rounded",
+                      value: "rounded-2"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              label: "Highlighting",
+              children: [
+                {
+                  label: "Highlight first time user messages (of this chat session, not first time ever)",
+                  key: "chat.messages.highlight_first_time",
+                  default: false,
+                  type: "checkbox"
+                },
+                {
+                  label: "Highlight first user messages only for channels where you are a moderator",
+                  key: "chat.messages.highlight_first_moderator",
+                  default: false,
+                  type: "checkbox"
+                },
+                {
+                  label: "Highlight Color",
+                  key: "chat.messages.highlight_color",
+                  default: "#4f95ff",
+                  type: "color"
+                },
+                {
+                  label: "Display lines with alternating background colors",
+                  key: "chat.messages.alternating_background",
+                  default: false,
+                  type: "checkbox"
+                }
+              ]
+            }
+          ]
+        },
+        {
           label: "Quick Emote Holder",
           children: [
             {
@@ -13740,6 +13758,29 @@ var SettingsManager = class {
                   key: "chat.quick_emote_holder.send_immediately",
                   type: "checkbox",
                   default: false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          label: "Searching",
+          children: [
+            {
+              label: "Search behavior",
+              description: "These settings require a page refresh to take effect.",
+              children: [
+                {
+                  label: "Add bias to emotes of channels you are subscribed to when searching",
+                  key: "chat.behavior.search_bias_subscribed_channels",
+                  default: true,
+                  type: "checkbox"
+                },
+                {
+                  label: "Add extra bias to emotes of the current channel you are watching the stream of when searching",
+                  key: "chat.behavior.search_bias_current_channels",
+                  default: true,
+                  type: "checkbox"
                 }
               ]
             }
@@ -13821,15 +13862,23 @@ var SettingsManager = class {
       this.settingsMap.set(id, value);
     }
     ;
-    [["chat.moderators.show_quick_actions", "moderators.chat.show_quick_actions"]].forEach(
-      async ([oldKey, newKey]) => {
-        if (this.settingsMap.has("global.shared." + oldKey)) {
-          const val = this.settingsMap.get("global.shared." + oldKey);
-          await database.settings.deleteRecord("global.shared." + oldKey);
-          this.setSetting("global", "shared", newKey, val);
-        }
+    [
+      ["chat.appearance.messages_style", "chat.messages.style"],
+      ["chat.appearance.messages_spacing", "chat.messages.spacing"],
+      ["chat.appearance.highlight_first_message", "chat.messages.highlight_first_time"],
+      ["chat.appearance.seperators", "chat.messages.seperators"],
+      ["chat.appearance.show_timestamps", "chat.messages.show_timestamps"],
+      ["chat.appearance.highlight_color", "chat.messages.highlight_color"],
+      ["chat.appearance.alternating_background", "chat.messages.alternating_background"],
+      ["chat.appearance.emote_menu_ctrl_spacebar", "chat.emote_menu.open_ctrl_spacebar"],
+      ["chat.appearance.emote_menu_ctrl_e", "chat.emote_menu.open_ctrl_e"]
+    ].forEach(async ([oldKey, newKey]) => {
+      if (this.settingsMap.has("global.shared." + oldKey)) {
+        const val = this.settingsMap.get("global.shared." + oldKey);
+        await database.settings.deleteRecord("global.shared." + oldKey);
+        this.setSetting("global", "shared", newKey, val);
       }
-    );
+    });
     this.isLoaded = true;
     eventBus.publish("ntv.settings.loaded");
   }
@@ -16980,7 +17029,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     document.addEventListener("keydown", (evt) => {
       if (evt.key === "Escape") this.toggleShow(false);
     });
-    if (settingsManager.getSetting(channelId, "chat.appearance.emote_menu_ctrl_spacebar")) {
+    if (settingsManager.getSetting(channelId, "chat.emote_menu.open_ctrl_spacebar")) {
       document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === " ") {
           evt.preventDefault();
@@ -16988,7 +17037,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         }
       });
     }
-    if (settingsManager.getSetting(channelId, "chat.appearance.emote_menu_ctrl_e")) {
+    if (settingsManager.getSetting(channelId, "chat.emote_menu.open_ctrl_e")) {
       document.addEventListener("keydown", (evt) => {
         if (evt.ctrlKey && evt.key === "e") {
           evt.preventDefault();
@@ -17602,28 +17651,28 @@ var MessagesHistory = class {
 
 // src/Core/UI/Components/SteppedInputSliderComponent.ts
 var SteppedInputSliderComponent = class extends AbstractComponent {
-  container;
+  value;
   labels;
   steps;
-  eventTarget = new EventTarget();
+  event = new EventTarget();
   element;
-  constructor(container, labels, steps) {
+  constructor(labels, steps, value) {
     super();
-    this.container = container;
     this.labels = labels;
     this.steps = steps;
-  }
-  render() {
+    const defaultIndex = typeof value !== "undefined" && steps.indexOf(value) || 0;
     this.element = parseHTML(
       cleanupHTML(`
             <div class="ntv__stepped-input-slider">
-                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="0">
-                <div>${this.labels[0]}</div>
+                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="${defaultIndex}">
+                <div>${this.labels[defaultIndex]}</div>
             </div>
         `),
       true
     );
-    this.container.appendChild(this.element);
+    this.value = value || steps[0];
+  }
+  render() {
   }
   attachEventHandlers() {
     if (!this.element) return;
@@ -17631,16 +17680,15 @@ var SteppedInputSliderComponent = class extends AbstractComponent {
     const label = this.element.querySelector("div");
     input.addEventListener("input", () => {
       label.textContent = this.labels[parseInt(input.value)];
-      this.eventTarget.dispatchEvent(new Event("change"));
+      this.value = this.steps[parseInt(input.value)] || this.steps[0];
+      this.event.dispatchEvent(new Event("change"));
     });
   }
   addEventListener(event, callback) {
-    this.eventTarget.addEventListener(event, callback);
+    this.event.addEventListener(event, callback);
   }
   getValue() {
-    if (!this.element) return;
-    const input = this.element.querySelector("input");
-    return this.steps[parseInt(input.value)] || this.steps[0];
+    return this.value;
   }
 };
 
@@ -17947,10 +17995,10 @@ var UserInfoModal = class extends AbstractModal {
       ".ntv__user-info-modal__timeout-page__wrapper div"
     );
     this.timeoutSliderComponent = new SteppedInputSliderComponent(
-      rangeWrapperEl,
       ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week"],
       [5, 15, 60, 60 * 24, 60 * 24 * 7]
     ).init();
+    rangeWrapperEl.appendChild(this.timeoutSliderComponent.element);
     const buttonEl = timeoutWrapperEl.querySelector("button");
     buttonEl.addEventListener("click", async () => {
       if (!this.timeoutSliderComponent) return;
@@ -18385,16 +18433,16 @@ var PollModal = class extends AbstractModal {
     this.pollOptionsEls = element.querySelectorAll(".ntv__poll-modal__o-input");
     const durationWrapper = element.querySelector(".ntv__poll-modal__duration");
     this.durationSliderComponent = new SteppedInputSliderComponent(
-      durationWrapper,
       ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
       [30, 60, 120, 180, 240, 300]
     ).init();
+    durationWrapper.appendChild(this.durationSliderComponent.element);
     const displayDurationWrapper = element.querySelector(".ntv__poll-modal__display-duration");
     this.displayDurationSliderComponent = new SteppedInputSliderComponent(
-      displayDurationWrapper,
       ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
       [30, 60, 120, 180, 240, 300]
     ).init();
+    displayDurationWrapper.appendChild(this.displayDurationSliderComponent.element);
     this.createButtonEl = element.querySelector(".ntv__poll-modal__create-btn");
     this.cancelButtonEl = element.querySelector(".ntv__poll-modal__close-btn");
     this.modalBodyEl.appendChild(element);
@@ -20514,7 +20562,12 @@ var ContentEditableEditor = class {
         this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
       }
     });
+    inputNode.addEventListener("copy", (evt) => {
+      evt.preventDefault();
+      this.clipboard.handleCopyEvent(evt);
+    });
     inputNode.addEventListener("cut", (evt) => {
+      this.clipboard.handleCutEvent(evt);
       this.hasUnprocessedContentChanges = true;
     });
     this.eventTarget.addEventListener("keydown", 10, this.handleKeydown.bind(this));
@@ -21373,6 +21426,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const abortSignal = abortController.signal;
     this.loadAnnouncements();
     this.loadSettings();
+    this.loadStylingVariables();
     if (channelData.isModView || channelData.isCreatorView) {
       waitForElements(["#message-input", "#chatroom-footer .send-row > button"], 1e4, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
@@ -21501,7 +21555,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.chat.appearance.show_timestamps",
+      "ntv.settings.change.chat.messages.show_timestamps",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__show-message-timestamps", !!value);
       }
@@ -21519,13 +21573,13 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.chat.appearance.alternating_background",
+      "ntv.settings.change.chat.messages.alternating_background",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__alternating-background", !!value);
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.chat.appearance.seperators",
+      "ntv.settings.change.chat.messages.seperators",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
           if (prevValue !== "none") el.classList.remove(`ntv__chat-message--seperator-${prevValue}`);
@@ -21534,16 +21588,16 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.chat.appearance.messages_spacing",
+      "ntv.settings.change.chat.messages.spacing",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
-          if (prevValue !== "none") el.classList.remove(`ntv__chat-message--${prevValue}`);
-          if (value !== "none") el.classList.add(`ntv__chat-message--${value}`);
+          if (value === "none" && prevValue !== "none") el.classList.remove(`ntv__chat-message--${prevValue}`);
+          if (value !== "none" && prevValue === "none") el.classList.add(`ntv__chat-message--${value}`);
         });
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.chat.appearance.messages_style",
+      "ntv.settings.change.chat.messages.style",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
           if (prevValue !== "none") el.classList.remove(`ntv__chat-message--theme-${prevValue}`);
@@ -21559,10 +21613,10 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
     if (!chatMessagesContainerEl) return error("Chat messages container not loaded for settings");
     chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
-    if (settingsManager.getSetting(channelId, "chat.appearance.show_timestamps")) {
+    if (settingsManager.getSetting(channelId, "chat.messages.show_timestamps")) {
       chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
     }
-    if (settingsManager.getSetting(channelId, "chat.appearance.alternating_background")) {
+    if (settingsManager.getSetting(channelId, "chat.messages.alternating_background")) {
       chatMessagesContainerEl.classList.add("ntv__alternating-background");
     }
     if (settingsManager.getSetting(channelId, "chat.behavior.smooth_scrolling")) {
@@ -21654,7 +21708,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { settingsManager } = this.rootContext;
     const { eventBus, channelData } = this.session;
     const channelId = channelData.channelId;
-    const firstMessageHighlightColor = settingsManager.getSetting(channelId, "chat.appearance.highlight_color");
+    const firstMessageHighlightColor = settingsManager.getSetting(channelId, "chat.messages.highlight_color");
     if (firstMessageHighlightColor) {
       const rgb = hex2rgb(firstMessageHighlightColor);
       document.documentElement.style.setProperty(
@@ -21663,7 +21717,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       );
     }
     eventBus.subscribe(
-      "ntv.settings.change.chat.appearance.highlight_color",
+      "ntv.settings.change.chat.messages.highlight_color",
       ({ value, prevValue }) => {
         if (!value) return;
         const rgb = hex2rgb(value);
@@ -21673,6 +21727,35 @@ var KickUserInterface = class extends AbstractUserInterface {
         );
       }
     );
+  }
+  loadStylingVariables() {
+    const { settingsManager, eventBus: rootEventBus } = this.rootContext;
+    const { channelData } = this.session;
+    const channelId = channelData.channelId;
+    const messageFontSize = settingsManager.getSetting(channelId, "chat.messages.font_size") || "13px";
+    document.documentElement.style.setProperty("--ntv-chat-message-font-size", messageFontSize);
+    rootEventBus.subscribe("ntv.settings.change.chat.messages.font_size", ({ value }) => {
+      if (!value) return;
+      document.documentElement.style.setProperty("--ntv-chat-message-font-size", value);
+    });
+    const messageSpacing = settingsManager.getSetting(channelId, "chat.messages.spacing") || "0";
+    document.documentElement.style.setProperty("--ntv-chat-message-spacing", messageSpacing);
+    rootEventBus.subscribe("ntv.settings.change.chat.messages.spacing", ({ value }) => {
+      if (!value) return;
+      document.documentElement.style.setProperty("--ntv-chat-message-spacing", value);
+    });
+    const emoteSize = settingsManager.getSetting(channelId, "chat.messages.emotes.size") || "0";
+    document.documentElement.style.setProperty("--ntv-chat-message-emote-size", emoteSize);
+    rootEventBus.subscribe("ntv.settings.change.chat.messages.emotes.size", ({ value }) => {
+      if (!value) return;
+      document.documentElement.style.setProperty("--ntv-chat-message-emote-size", value);
+    });
+    const emoteOverlap = settingsManager.getSetting(channelId, "chat.messages.emotes.overlap") || "0";
+    document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap", emoteOverlap);
+    rootEventBus.subscribe("ntv.settings.change.chat.messages.emotes.overlap", ({ value }) => {
+      if (!value) return;
+      document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap", value);
+    });
   }
   loadInputBehaviour(kickTextFieldEl, kickSubmitButtonEl) {
     if (!this.session.channelData.me.isLoggedIn) return;
@@ -21733,9 +21816,6 @@ var KickUserInterface = class extends AbstractUserInterface {
         submitButtonEl.removeAttribute("disabled");
         submitButtonEl.classList.remove("disabled");
       }
-    });
-    textFieldEl.addEventListener("cut", (evt) => {
-      this.clipboard.handleCutEvent(evt);
     });
     this.session.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
       if (value > this.maxMessageLength) {
@@ -22281,9 +22361,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     const settingsManager = this.rootContext.settingsManager;
     const channelData = this.session.channelData;
     const channelId = channelData.channelId;
-    const settingStyle = settingsManager.getSetting(channelId, "chat.appearance.messages_style");
-    const settingSeperator = settingsManager.getSetting(channelId, "chat.appearance.seperators");
-    const settingSpacing = settingsManager.getSetting(channelId, "chat.appearance.messages_spacing");
+    const settingStyle = settingsManager.getSetting(channelId, "chat.messages.style");
+    const settingSeperator = settingsManager.getSetting(channelId, "chat.messages.seperators");
+    const settingSpacing = settingsManager.getSetting(channelId, "chat.messages.spacing");
     if (settingStyle && settingStyle !== "none") messageEl.classList.add("ntv__chat-message--theme-" + settingStyle);
     if (settingSeperator && settingSeperator !== "none")
       messageEl.classList.add(`ntv__chat-message--seperator-${settingSeperator}`);
@@ -22452,11 +22532,11 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (!usersManager.hasSeenUser(username)) {
           const enableFirstMessageHighlight = settingsManager.getSetting(
             channelId,
-            "chat.appearance.highlight_first_message"
+            "chat.messages.highlight_first_time"
           );
           const highlightWhenModeratorOnly = settingsManager.getSetting(
             channelId,
-            "chat.appearance.highlight_first_message_moderator"
+            "chat.messages.highlight_first_moderator"
           );
           if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
             messageNode.classList.add("ntv__chat-message--first-message");
@@ -22729,11 +22809,11 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (!usersManager.hasSeenUser(username)) {
           const enableFirstMessageHighlight = settingsManager.getSetting(
             channelId,
-            "chat.appearance.highlight_first_message"
+            "chat.messages.highlight_first_time"
           );
           const highlightWhenModeratorOnly = settingsManager.getSetting(
             channelId,
-            "chat.appearance.highlight_first_message_moderator"
+            "chat.messages.highlight_first_moderator"
           );
           if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
             messageNode.classList.add("ntv__chat-message--first-message");
@@ -23523,7 +23603,7 @@ var KickBadgeProvider = class {
     const randomId = "_" + (Math.random() * 1e7 << 0);
     switch (badge.type) {
       case "nipahtv":
-        return `<svg class="ntv__badge" ntv-tooltip="NipahTV" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0230583" d="M 0.2512317,15.995848 0.2531577,6.8477328 C 0.24943124,6.3032776 0.7989812,5.104041 1.8304975,4.5520217 2.4476507,4.2217505 2.9962666,4.1106784 4.0212875,4.0887637 5.0105274,4.067611 5.5052433,4.2710769 5.6829817,4.3608374 c 0.4879421,0.2263549 0.995257,0.7009925 1.134824,0.9054343 l 4.4137403,6.8270373 c 0.262057,0.343592 0.582941,0.565754 0.919866,0.529874 0.284783,-0.0234 0.4358,-0.268186 0.437049,-0.491242 l 0.003,-9.2749904 L 0.25,2.8575985 0.25004315,0 15.747898,2.1455645e-4 15.747791,13.08679 c -0.0055,0.149056 -0.09606,1.191174 -1.033875,2.026391 -0.839525,0.807902 -2.269442,0.879196 -2.269442,0.879196 -0.601658,0.0088 -1.057295,0.02361 -1.397155,-0.04695 -0.563514,-0.148465 -0.807905,-0.274059 -1.274522,-0.607992 -0.4091245,-0.311857 -0.6818768,-0.678904 -0.9118424,-0.98799 0,0 -1.0856521,-1.86285 -1.8718165,-3.044031 C 6.3863506,10.352753 5.3651096,8.7805786 4.8659674,8.1123589 4.4859461,7.5666062 4.2214229,7.4478431 4.0798053,7.3975803 3.9287117,7.3478681 3.7624996,7.39252 3.6345251,7.4474753 3.5213234,7.5006891 3.4249644,7.5987165 3.4078407,7.7314301 l 7.632e-4,8.2653999 z"/></svg>`;
+        return `<svg class="ntv__badge" ntv-tooltip="NipahTV" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.023423" d="M 0.0045448,15.994522 0.00653212,7.0100931 C 0.00268662,6.4657282 0.56985346,5.2666906 1.6344369,4.714763 2.2713742,4.3845464 2.837577,4.2734929 3.8954568,4.2515817 4.9164087,4.2304326 5.4269836,4.4338648 5.61042,4.5236104 6.1140039,4.7499277 6.6375815,5.2244865 6.7816227,5.4288944 l 4.5552313,6.6637346 c 0.270458,0.343536 0.601629,0.565661 0.949354,0.529787 0.293913,-0.02339 0.449771,-0.268141 0.45106,-0.491161 l 0.0031,-9.2329087 -12.73699293,6.478e-4 4.453e-5,-2.8976667 15.9946434,2.145e-4 -1.11e-4,13.0844041 c -0.0057,0.149032 -0.09913,1.190976 -1.067016,2.026055 -0.866438,0.807769 -2.342194,0.87905 -2.342194,0.87905 -0.620946,0.0088 -1.091187,0.02361 -1.441943,-0.04695 -0.581657,-0.148437 -0.833883,-0.27401 -1.315459,-0.607888 -0.4222398,-0.311805 -0.7037358,-0.678791 -0.9410734,-0.987827 0,0 -1.1204546,-1.801726 -1.931821,-2.982711 C 6.3363366,10.413177 5.2823578,8.9426183 4.7672147,8.2745095 4.375011,7.7288473 4.102008,7.6101039 3.9558506,7.5598495 3.7999133,7.5101456 3.6283732,7.55479 3.4962961,7.6097361 3.3794655,7.6629412 3.2800176,7.7609522 3.2623448,7.8936439 l 7.879e-4,8.1018591 z"/></svg>`;
       case "broadcaster":
         return `<svg class="ntv__badge" ntv-tooltip="Broadcaster" x="0px" y="0px" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1${randomId}" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2${randomId});" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3${randomId}" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3${randomId});" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4${randomId}" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5${randomId});" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6${randomId}"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6${randomId});" width="1.6" height="3.2"></rect></g></svg>`;
       case "verified":
@@ -23892,7 +23972,7 @@ var BotrixExtension = class extends Extension {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.47";
+  VERSION = "1.5.48";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

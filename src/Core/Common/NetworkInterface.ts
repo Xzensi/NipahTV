@@ -58,7 +58,7 @@ export interface NetworkInterface {
 		originalSenderUsername: string,
 		noUtag?: boolean
 	): Promise<any>
-	executeCommand(commandName: string, channelName: string, args: string[]): Promise<string | void>
+	executeCommand(commandName: string, channelName: string, args: Array<string | number>): Promise<string | void>
 	createPoll(
 		channelName: string,
 		question: string,
