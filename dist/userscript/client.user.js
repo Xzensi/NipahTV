@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.50
+// @version 1.5.51
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11878,6 +11878,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.51",
+    date: "2024-10-20",
+    description: `
+                  Fix: Quick emote holder favorites not correctly updating new loaded emote sets
+            `
+  },
+  {
     version: "1.5.50",
     date: "2024-10-20",
     description: `
@@ -16481,7 +16488,6 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
             this.renderFavoriteEmotes();
             this.renderCommonlyUsedEmotes();
           },
-          true,
           true
         );
       }
@@ -24030,7 +24036,7 @@ var BotrixExtension = class extends Extension {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.50";
+  VERSION = "1.5.51";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.51',
+		date: '2024-10-20',
+		description: `
+                  Fix: Quick emote holder favorites not correctly updating new loaded emote sets
+            `
+	},
+	{
 		version: '1.5.50',
 		date: '2024-10-20',
 		description: `
