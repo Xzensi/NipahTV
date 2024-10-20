@@ -128,13 +128,18 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		// Wait for emotes to be loaded from the database before rendering the quick emotes
 		eventBus.subscribeAllOnce(
-			['ntv.providers.loaded', 'ntv.datastore.emotes.usage.loaded'],
-			this.renderCommonlyUsedEmotes.bind(this)
-		)
-
-		eventBus.subscribeAllOnce(
-			['ntv.providers.loaded', 'ntv.datastore.emotes.favorites.loaded'],
-			this.renderFavoriteEmotes.bind(this)
+			['ntv.datastore.emotes.favorites.loaded', 'ntv.datastore.emotes.usage.loaded'],
+			() => {
+				eventBus.subscribe(
+					'ntv.datastore.emoteset.added',
+					() => {
+						this.renderFavoriteEmotes()
+						this.renderCommonlyUsedEmotes()
+					},
+					true,
+					true
+				)
+			}
 		)
 
 		eventBus.subscribe(
@@ -381,7 +386,10 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid)
 			const emote = emotesManager.getEmote(emoteHid)
 			if (!emoteSet || !emote) {
-				error('Unable to render commonly used emote, unkown emote hid:', emoteHid)
+				// Don't complain about missing emotes if not all providers are loaded yet
+				if (emotesManager.hasLoadedProviders()) {
+					error('Unable to render commonly used emote, unkown emote hid:', emoteHid)
+				}
 				continue
 			}
 

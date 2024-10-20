@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.50',
+		date: '2024-10-20',
+		description: `
+                  Fix: Allow faster asynchronous non-blocking loading of emote providers
+                  Fix: Emote provider outtage potentially resulting in data loss of recently used emotes and stored favorites due to scheduled database cleanup
+            `
+	},
+	{
 		version: '1.5.48',
 		date: '2024-10-20',
 		description: `

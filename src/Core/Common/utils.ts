@@ -154,7 +154,7 @@ export class REST {
 			}
 			xhr.onerror = function () {
 				if (xhr.responseText) reject(JSON.parse(xhr.responseText))
-				else reject()
+				else reject('Request failed')
 			}
 			xhr.onabort = function () {
 				reject('Request aborted')
@@ -163,6 +163,7 @@ export class REST {
 				reject('Request timed out')
 			}
 
+			xhr.timeout = 7000
 			if (options.body) xhr.send(options.body as string)
 			else xhr.send()
 		}) as Promise<any | void>

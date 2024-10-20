@@ -44,7 +44,7 @@ import SevenTVExtension from './Extensions/7tv'
 import BotrixExtension from './Extensions/Botrix'
 
 class NipahClient {
-	VERSION = '1.5.49'
+	VERSION = '1.5.50'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -527,7 +527,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: RESOURCE_ROOT + 'dist/css/kick.css',
+					url: RESOURCE_ROOT + 'dist/userscript/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
 						log('Loaded styles from local resource..')

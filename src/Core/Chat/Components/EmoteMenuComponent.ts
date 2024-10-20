@@ -263,6 +263,26 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		// Search input event
 		this.searchInputEl?.addEventListener('input', this.handleSearchInput.bind(this) as any)
 
+		// Sidebar click event
+		this.sidebarSetsEl?.addEventListener('click', evt => {
+			const target = evt.target as HTMLElement
+
+			const scrollableEl = this.scrollableEl
+			if (!scrollableEl) return
+
+			const emoteSetId = target.querySelector('img, svg')?.getAttribute('data-id')
+			const emoteSetEl = this.containerEl?.querySelector(
+				`.ntv__emote-set[data-id="${emoteSetId}"]`
+			) as HTMLElement
+			if (!emoteSetEl) return error('Invalid emote set element')
+
+			const headerHeight = emoteSetEl.querySelector('.ntv__emote-set__header')?.clientHeight || 0
+			scrollableEl.scrollTo({
+				top: emoteSetEl.offsetTop - headerHeight,
+				behavior: 'smooth'
+			})
+		})
+
 		this.panels.emotes?.addEventListener('click', evt => {
 			const target = evt.target as HTMLElement
 			if (!target.classList.contains('ntv__chevron')) return
@@ -281,11 +301,17 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			this.rootContext.eventBus.publish('ntv.ui.settings.toggle_show')
 		})
 
-		eventBus.subscribe('ntv.providers.loaded', this.renderEmoteSets.bind(this), true)
-		eventBus.subscribeAllOnce(
-			['ntv.providers.loaded', 'ntv.datastore.emotes.favorites.loaded'],
-			this.renderFavoriteEmotes.bind(this)
+		eventBus.subscribe('ntv.datastore.emoteset.added', this.renderEmoteSets.bind(this), true)
+
+		eventBus.subscribe(
+			'ntv.datastore.emotes.favorites.loaded',
+			() => {
+				eventBus.subscribe('ntv.datastore.emoteset.added', this.renderFavoriteEmotes.bind(this), true)
+			},
+			true,
+			true
 		)
+
 		eventBus.subscribe(
 			'ntv.datastore.emotes.favorites.changed',
 			(data: { added?: string; reordered?: string; removed?: string }) => {
@@ -566,25 +592,6 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				}
 			}
 		}
-
-		sidebarSetsEl.addEventListener('click', evt => {
-			const target = evt.target as HTMLElement
-
-			const scrollableEl = this.scrollableEl
-			if (!scrollableEl) return
-
-			const emoteSetId = target.querySelector('img, svg')?.getAttribute('data-id')
-			const emoteSetEl = this.containerEl?.querySelector(
-				`.ntv__emote-set[data-id="${emoteSetId}"]`
-			) as HTMLElement
-			if (!emoteSetEl) return error('Invalid emote set element')
-
-			const headerHeight = emoteSetEl.querySelector('.ntv__emote-set__header')?.clientHeight || 0
-			scrollableEl.scrollTo({
-				top: emoteSetEl.offsetTop - headerHeight,
-				behavior: 'smooth'
-			})
-		})
 
 		// Observe intersection of scrollable emote sets to change sidebar icon opacity
 		const observer = new IntersectionObserver(

@@ -263,7 +263,7 @@ export class EmoteDatastore {
 			}
 		}
 
-		this.session.eventBus.publish('ntv.datastore.emotes.changed')
+		this.session.eventBus.publish('ntv.datastore.emoteset.added', emoteSet)
 	}
 
 	getEmote(emoteHid: string) {

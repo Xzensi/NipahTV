@@ -1,11 +1,15 @@
-import { AbstractEmoteProvider, IAbstractEmoteProvider } from '../../Core/Emotes/AbstractEmoteProvider'
+import {
+	AbstractEmoteProvider,
+	EmoteProviderStatus,
+	IAbstractEmoteProvider
+} from '../../Core/Emotes/AbstractEmoteProvider'
 import { BROWSER_ENUM, PROVIDER_ENUM } from '../../Core/Common/constants'
 import type SettingsManager from '../../Core/Settings/SettingsManager'
 import { log, info, error, REST, md5 } from '../../Core/Common/utils'
 
 export default class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.SEVENTV
-	status = 'unloaded'
+	name = '7TV'
 
 	constructor(settingsManager: SettingsManager) {
 		super(settingsManager)
@@ -13,40 +17,63 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 
 	async fetchEmotes({ userId, channelId }: ChannelData) {
 		info('Fetching emote data from SevenTV..')
-		if (!userId) return error('Missing Kick channel id for SevenTV provider.')! || []
+		this.status = EmoteProviderStatus.LOADING
+
+		if (!userId) {
+			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			throw new Error('Missing Kick user id for SevenTV provider.')
+		}
 
 		const isChatEnabled = !!this.settingsManager.getSetting(channelId, 'chat.emote_providers.7tv.show_emotes')
-		if (!isChatEnabled) return []
+		if (!isChatEnabled) {
+			this.status = EmoteProviderStatus.LOADED
+			return
+		}
 
 		const [globalData, userData] = await Promise.all([
 			REST.get(`https://7tv.io/v3/emote-sets/global`).catch(err => {
-				error('Failed to fetch SevenTV global emotes.', err)
+				error('Failed to fetch SevenTV global emotes:', err)
 			}),
 			REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch(err => {
-				error('Failed to fetch SevenTV emotes.', err)
+				error('Failed to fetch SevenTV user emotes:', err)
 			})
 		])
 
 		if (!globalData) {
-			this.status = 'connection_failed'
-			return []
+			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			return error('Failed to fetch SevenTV global emotes.')
 		}
 
 		const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {})
 		const userEmoteSet = this.unpackUserEmotes(channelId, userData || {})
 
-		if (globalEmoteSet.length + userEmoteSet.length > 1)
-			log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`)
-		else log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`)
+		// 7TV should always have global emotes
+		if (!globalEmoteSet) {
+			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			return error('Failed to unpack global emotes from SevenTV provider.')
+		}
 
-		this.status = 'loaded'
-		return [...globalEmoteSet, ...userEmoteSet]
+		if (userEmoteSet) {
+			if (globalEmoteSet.length + userEmoteSet.length > 1)
+				log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`)
+			else log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`)
+		} else {
+			log(`Fetched ${globalEmoteSet.length} global emote set from SevenTV.`)
+		}
+
+		if (userEmoteSet) {
+			this.status = EmoteProviderStatus.LOADED
+			return [...globalEmoteSet, ...userEmoteSet]
+		} else {
+			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			return [...globalEmoteSet]
+		}
 	}
 
 	private unpackGlobalEmotes(channelId: ChannelId, globalData: any) {
 		if (!globalData.emotes || !globalData.emotes?.length) {
 			error('No global emotes found for SevenTV provider')
-			return []
+			return
 		}
 
 		const emotesMapped = globalData.emotes.map((emote: any) => {
@@ -99,9 +126,8 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 
 	private unpackUserEmotes(channelId: ChannelId, userData: any) {
 		if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
-			log('No emotes found for SevenTV provider')
-			this.status = 'no_user_emotes_found'
-			return []
+			log('No user emotes found for SevenTV provider')
+			return
 		}
 
 		const emotesMapped = userData.emote_set.emotes.map((emote: any) => {
