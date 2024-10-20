@@ -527,7 +527,7 @@ class NipahClient {
 				// * @grant GM.xmlHttpRequest
 				GM_xmlhttpRequest({
 					method: 'GET',
-					url: RESOURCE_ROOT + 'dist/css/kick.css',
+					url: RESOURCE_ROOT + 'dist/userscript/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
 						log('Loaded styles from local resource..')
