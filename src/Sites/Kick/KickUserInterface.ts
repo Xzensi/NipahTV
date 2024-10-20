@@ -636,10 +636,6 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		})
 
-		textFieldEl.addEventListener('cut', evt => {
-			this.clipboard.handleCutEvent(evt)
-		})
-
 		this.session.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
 			if (value > this.maxMessageLength) {
 				textFieldWrapperEl.setAttribute('data-char-count', value)
