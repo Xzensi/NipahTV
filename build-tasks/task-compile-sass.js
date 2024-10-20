@@ -5,7 +5,7 @@ const fs = require('fs')
 // Input and output file paths
 const headerFilePath = 'build-tasks/compile_header'
 const inputFilePath = 'assets/scss/kick.scss'
-const outputFilePath = 'dist/css/kick-temp.min.css'
+const outputFilePath = 'dist/userscript/kick-temp.min.css'
 
 // Compile Sass
 // exec(`sass --watch ${inputFilePath}:${outputFilePath} -s compressed --no-source-map`, (error, stdout, stderr) => {
@@ -29,13 +29,16 @@ exec(`sass -s compressed --no-source-map ${inputFilePath}:${outputFilePath}`, (e
 			return
 		}
 
-		// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-1817026f.min.css
-		const oldCSSFilename = data.match(/dist\/css\/(kick-\S{0,8}\.min\.css)$/m)[1]
-		const updatedHeader = data.replace(/(dist\/css\/kick-\S{0,8}\.min\.css)$/m, `dist/css/kick-${hash}.min.css`)
+		// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-1817026f.min.css
+		const oldCSSFilename = data.match(/dist\/userscript\/(kick-\S{0,8}\.min\.css)$/m)[1]
+		const updatedHeader = data.replace(
+			/(dist\/userscript\/kick-\S{0,8}\.min\.css)$/m,
+			`dist/userscript/kick-${hash}.min.css`
+		)
 
 		console.log(`Old CSS: ${oldCSSFilename}`)
 
-		if (fs.existsSync(`dist/css/${oldCSSFilename}`)) fs.unlinkSync(`dist/css/${oldCSSFilename}`)
+		if (fs.existsSync(`dist/userscript/${oldCSSFilename}`)) fs.unlinkSync(`dist/userscript/${oldCSSFilename}`)
 
 		// Write the updated header back to the file
 		fs.writeFile(headerFilePath, updatedHeader, 'utf8', err => {
@@ -45,7 +48,7 @@ exec(`sass -s compressed --no-source-map ${inputFilePath}:${outputFilePath}`, (e
 			}
 			console.log('Header file updated successfully.')
 
-			fs.renameSync(outputFilePath, `dist/css/kick-${hash}.min.css`)
+			fs.renameSync(outputFilePath, `dist/userscript/kick-${hash}.min.css`)
 		})
 	})
 })

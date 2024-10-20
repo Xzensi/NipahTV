@@ -12,7 +12,7 @@
 		"watch:build-ext-firefox": "nodemon --watch src -e ts --exec npm run build-firefox",
 		"watch:build-ext": "FIX THIS -- npm run watch:build-ext-chrome && npm run watch:build-ext-firefox",
 		"watch:dev-esbuild": "nodemon --watch src -e ts --exec npm run dev-esbuild",
-		"watch:sass": "sass --watch assets/scss:dist/css --style=compressed",
+		"watch:sass": "sass --watch assets/scss:dist/userscript --style=compressed",
 		"watch:tsc": "tsc --watch --noEmit",
 		"dev-esbuild": "node build-tasks/task-build.js is_local=true",
 		"esbuild": "npm run tsc && rm -f dist/client.user.js&& node build-tasks/task-build.js",
