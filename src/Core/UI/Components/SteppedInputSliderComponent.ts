@@ -1,35 +1,36 @@
-import { cleanupHTML, parseHTML } from '../../Common/utils'
+import { cleanupHTML, log, parseHTML } from '../../Common/utils'
 import { AbstractComponent } from './AbstractComponent'
 
-export class SteppedInputSliderComponent extends AbstractComponent {
-	private container: HTMLElement
+export class SteppedInputSliderComponent<K = string | number> extends AbstractComponent {
+	private value: K
 	private labels: string[]
 	private steps: any[]
 
-	eventTarget = new EventTarget()
-	element?: HTMLElement
+	event = new EventTarget()
+	element: HTMLElement
 
-	constructor(container: HTMLElement, labels: string[], steps: any[]) {
+	constructor(labels: string[], steps: K[], value?: K) {
 		super()
 
-		this.container = container
 		this.labels = labels
 		this.steps = steps
-	}
 
-	render() {
+		const defaultIndex = (typeof value !== 'undefined' && steps.indexOf(value)) || 0
+
 		this.element = parseHTML(
 			cleanupHTML(`
             <div class="ntv__stepped-input-slider">
-                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="0">
-                <div>${this.labels[0]}</div>
+                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="${defaultIndex}">
+                <div>${this.labels[defaultIndex]}</div>
             </div>
         `),
 			true
 		) as HTMLElement
 
-		this.container.appendChild(this.element)
+		this.value = value || steps[0]
 	}
+
+	render() {}
 
 	attachEventHandlers() {
 		if (!this.element) return
@@ -39,17 +40,16 @@ export class SteppedInputSliderComponent extends AbstractComponent {
 
 		input.addEventListener('input', () => {
 			label.textContent = this.labels[parseInt(input.value)]
-			this.eventTarget.dispatchEvent(new Event('change'))
+			this.value = this.steps[parseInt(input.value)] || this.steps[0]
+			this.event.dispatchEvent(new Event('change'))
 		})
 	}
 
 	addEventListener(event: string, callback: EventListener) {
-		this.eventTarget.addEventListener(event, callback)
+		this.event.addEventListener(event, callback)
 	}
 
 	getValue() {
-		if (!this.element) return
-		const input = this.element.querySelector('input') as HTMLInputElement
-		return this.steps[parseInt(input.value)] || this.steps[0]
+		return this.value
 	}
 }

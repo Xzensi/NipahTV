@@ -10,8 +10,8 @@ export default class PollModal extends AbstractModal {
 
 	private pollQuestionEl?: HTMLTextAreaElement
 	private pollOptionsEls?: NodeListOf<HTMLInputElement>
-	private durationSliderComponent?: SteppedInputSliderComponent
-	private displayDurationSliderComponent?: SteppedInputSliderComponent
+	private durationSliderComponent!: SteppedInputSliderComponent<number>
+	private displayDurationSliderComponent!: SteppedInputSliderComponent<number>
 	private createButtonEl?: HTMLButtonElement
 	private cancelButtonEl?: HTMLButtonElement
 
@@ -71,17 +71,19 @@ export default class PollModal extends AbstractModal {
 
 		const durationWrapper = element.querySelector('.ntv__poll-modal__duration') as HTMLDivElement
 		this.durationSliderComponent = new SteppedInputSliderComponent(
-			durationWrapper,
 			['30 seconds', '1 minute', '2 minutes', '3 minutes', '4 minutes', '5 minutes'],
 			[30, 60, 120, 180, 240, 300]
 		).init()
 
+		durationWrapper.appendChild(this.durationSliderComponent.element)
+
 		const displayDurationWrapper = element.querySelector('.ntv__poll-modal__display-duration') as HTMLDivElement
 		this.displayDurationSliderComponent = new SteppedInputSliderComponent(
-			displayDurationWrapper,
 			['30 seconds', '1 minute', '2 minutes', '3 minutes', '4 minutes', '5 minutes'],
 			[30, 60, 120, 180, 240, 300]
 		).init()
+
+		displayDurationWrapper.appendChild(this.displayDurationSliderComponent.element)
 
 		this.createButtonEl = element.querySelector('.ntv__poll-modal__create-btn') as HTMLButtonElement
 		this.cancelButtonEl = element.querySelector('.ntv__poll-modal__close-btn') as HTMLButtonElement
@@ -110,8 +112,8 @@ export default class PollModal extends AbstractModal {
 			const options = Array.from(this.pollOptionsEls!)
 				.map(el => el.value.trim())
 				.filter(option => !!option)
-			const duration = this.durationSliderComponent!.getValue()
-			const displayDuration = this.displayDurationSliderComponent!.getValue()
+			const duration = this.durationSliderComponent.getValue()
+			const displayDuration = this.displayDurationSliderComponent.getValue()
 
 			if (!question) {
 				this.toaster.addToast('Please enter a question', 6_000, 'error')

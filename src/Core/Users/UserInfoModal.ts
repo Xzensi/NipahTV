@@ -30,7 +30,7 @@ export default class UserInfoModal extends AbstractModal {
 	private modLogsMessagesEl?: HTMLElement
 	private modLogsPageEl?: HTMLElement
 
-	private timeoutSliderComponent?: SteppedInputSliderComponent
+	private timeoutSliderComponent?: SteppedInputSliderComponent<number>
 
 	private messagesHistoryCursor: number | null = 0
 	private isLoadingMessages = false
@@ -381,10 +381,11 @@ export default class UserInfoModal extends AbstractModal {
 		) as HTMLElement
 
 		this.timeoutSliderComponent = new SteppedInputSliderComponent(
-			rangeWrapperEl,
 			['5 minutes', '15 minutes', '1 hour', '1 day', '1 week'],
 			[5, 15, 60, 60 * 24, 60 * 24 * 7]
 		).init()
+
+		rangeWrapperEl.appendChild(this.timeoutSliderComponent.element)
 
 		const buttonEl = timeoutWrapperEl.querySelector('button') as HTMLElement
 		buttonEl.addEventListener('click', async () => {

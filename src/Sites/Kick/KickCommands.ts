@@ -8,9 +8,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Temporarily ban an user from chat.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required',
-			'<minutes>': (arg: string) => {
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'),
+			'<minutes>': arg => {
 				if (!isStringNumber(arg)) return 'Minutes must be a number'
 
 				const m = parseInt(arg, 10)
@@ -22,8 +21,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/bans`,
-			data: (args: string[]) => ({
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans`,
+			data: args => ({
 				banned_username: args[0],
 				duration: args[1],
 				reason: args.slice(2).join(' '),
@@ -40,13 +39,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		description: 'Permanently ban an user from chat.',
 		argValidators: {
 			// Not doing a length check > 2 here because Kick doesn't do it..
-			'<username>': (arg: string) => (!!arg ? null : 'Username is required')
+			'<username>': arg => (!!arg ? null : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/bans`,
-			data: (args: string[]) => {
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans`,
+			data: args => {
 				const data: Record<string, any> = {
 					banned_username: args[0],
 					permanent: true
@@ -64,10 +63,9 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		// minAllowedRole: 'moderator',
 		description: 'Display user information.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
-		execute: async (deps: RootContext & Session, args: string[]) => {
+		execute: async (deps: RootContext & Session, args) => {
 			log('User command executed with args:', args)
 			const { eventBus } = deps
 			eventBus.publish('ntv.ui.show_modal.user_info', { username: args[0] })
@@ -79,14 +77,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Set the stream title.',
 		argValidators: {
-			'<title>': (arg: string) => (!!arg ? null : 'Title is required')
+			'<title>': arg => (!!arg ? null : 'Title is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) =>
-				`https://kick.com/api/v2/channels/${channelName}/chat-commands`,
-			data: (args: string[]) => ({ command: 'title', parameter: args.join(' ') }),
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chat-commands`,
+			data: args => ({ command: 'title', parameter: args.join(' ') }),
 			errorMessage: 'Failed to set title.',
 			successMessage: 'Title has been set.'
 		}
@@ -95,7 +92,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		name: 'poll',
 		minAllowedRole: 'moderator',
 		description: 'Create a poll.',
-		execute: async (deps: RootContext & Session, args: string[]) => {
+		execute: async (deps: RootContext & Session, args) => {
 			const { eventBus } = deps
 			eventBus.publish('ntv.ui.show_modal.poll')
 		}
@@ -107,7 +104,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		api: {
 			protocol: 'http',
 			method: 'delete',
-			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/polls`,
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/polls`,
 			errorMessage: 'Failed to delete poll.',
 			successMessage: 'Poll has been deleted.'
 		}
@@ -124,9 +121,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Enable slow mode for chat. Message interval in seconds.',
 		argValidators: {
-			'<on_off>': (arg: string) =>
-				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"',
-			'[seconds]': (arg: string) =>
+			'<on_off>': arg => (arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'),
+			'[seconds]': arg =>
 				!arg || (isStringNumber(arg) && parseInt(arg, 10) > 0)
 					? null
 					: 'Seconds must be a number greater than 0'
@@ -134,8 +130,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		api: {
 			protocol: 'http',
 			method: 'put',
-			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-			data: (args: string[]) => ({ slow_mode: args[0] === 'on', message_interval: args[1] || 6 }),
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+			data: args => ({ slow_mode: args[0] === 'on', message_interval: args[1] || 6 }),
 			errorMessage: 'Failed to set slow mode.',
 			successMessage: 'Succesfully toggled slow mode.'
 		}
@@ -146,14 +142,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Enable emote party mode for chat.',
 		argValidators: {
-			'<on_off>': (arg: string) =>
-				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'
+			'<on_off>': arg => (arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"')
 		},
 		api: {
 			protocol: 'http',
 			method: 'put',
-			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-			data: (args: string[]) => ({ emotes_mode: args[0] === 'on' }),
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+			data: args => ({ emotes_mode: args[0] === 'on' }),
 			errorMessage: 'Failed to set emote only mode.',
 			successMessage: 'Successfully toggled emote only mode.'
 		}
@@ -164,9 +159,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Enable followers only mode for chat.',
 		argValidators: {
-			'<on_off>': (arg: string) =>
-				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"',
-			'[minutes]': (arg: string) =>
+			'<on_off>': arg => (arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'),
+			'[minutes]': arg =>
 				!arg || (isStringNumber(arg) && parseInt(arg, 10) > 0)
 					? null
 					: 'Minutes must be a number greater than 0'
@@ -174,12 +168,12 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		api: {
 			protocol: 'http',
 			method: 'put',
-			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-			data: (args: string[]) => {
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+			data: args => {
 				if (args[1]) {
 					return {
 						followers_mode: args[0] === 'on',
-						following_min_duration: parseInt(args[1], 10)
+						following_min_duration: parseInt(args[1] as string, 10)
 					} as Record<string, boolean | number>
 				} else {
 					return { followers_mode: args[0] === 'on' }
@@ -199,7 +193,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<seconds/minutes/hours> [description]',
 		description: 'Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.',
 		argValidators: {
-			'<seconds/minutes/hours>': (arg: string) => {
+			'<seconds/minutes/hours>': arg => {
 				const time = arg.match(/^(\d+)(s|m|h)$/i)
 				if (!time) return 'Invalid time format. Use e.g. 30s, 2m or 1h.'
 				const value = parseInt(time[1], 10)
@@ -209,7 +203,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 				return 'Invalid time format. Use e.g. 30s, 2m or 1h.'
 			}
 		},
-		execute: async (deps: RootContext & Session, args: string[]) => {
+		execute: async (deps: RootContext & Session, args) => {
 			const { eventBus } = deps
 			eventBus.publish('ntv.ui.timers.add', { duration: args[0], description: args[1] })
 			log('Timer command executed with args:', args)
@@ -222,8 +216,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) =>
-				`https://kick.com/api/v2/channels/${channelName}/chat-commands`,
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chat-commands`,
 			data: () => ({ command: 'clear' }),
 			errorMessage: 'Failed to clear chat.',
 			successMessage: 'Chat has been cleared.'
@@ -235,14 +228,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Enable subscribers only mode for chat.',
 		argValidators: {
-			'<on_off>': (arg: string) =>
-				arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"'
+			'<on_off>': arg => (arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"')
 		},
 		api: {
 			protocol: 'http',
 			method: 'put',
-			uri: (channelName: string, args: string[]) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-			data: (args: string[]) => ({ subscribers_mode: args[0] === 'on' }),
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+			data: args => ({ subscribers_mode: args[0] === 'on' }),
 			errorMessage: 'Failed to set subscribers only mode.',
 			successMessage: 'Successfully toggled subscribers only mode.'
 		}
@@ -253,14 +245,12 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Unban an user from chat.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'delete',
-			uri: (channelName: string, args: string[]) =>
-				`https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
 			errorMessage: 'Failed to unban user.',
 			successMessage: 'User has been unbanned.'
 		}
@@ -271,15 +261,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Add an user to your VIP list.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) =>
-				`https://kick.com/api/internal/v1/channels/${channelName}/community/vips`,
-			data: (args: string[]) => ({ username: args[0] }),
+			uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/vips`,
+			data: args => ({ username: args[0] }),
 			errorMessage: 'Failed to add user as VIP.',
 			successMessage: 'User has been added as VIP.'
 		}
@@ -290,13 +278,12 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Remove an user from your VIP list.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'delete',
-			uri: (channelName: string, args: string[]) =>
+			uri: (channelName, args) =>
 				`https://kick.com/api/internal/v1/channels/${channelName}/community/vips/${args[0]}`,
 			errorMessage: 'Failed to remove user from VIPs.',
 			successMessage: 'User has been removed from VIPs.'
@@ -308,15 +295,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Add an user to your moderator list.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) =>
-				`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`,
-			data: (args: string[]) => ({ username: args[0] }),
+			uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`,
+			data: args => ({ username: args[0] }),
 			errorMessage: 'Failed to add user as moderator.',
 			successMessage: 'User has been added as moderator.'
 		}
@@ -327,13 +312,12 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Remove an user from your moderator list.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'delete',
-			uri: (channelName: string, args: string[]) =>
+			uri: (channelName, args) =>
 				`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators/${args[0]}`,
 			errorMessage: 'Failed to remove user from moderators.',
 			successMessage: 'User has been removed from moderators.'
@@ -345,15 +329,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Add an user to your OG list.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) =>
-				`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`,
-			data: (args: string[]) => ({ username: args[0] }),
+			uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`,
+			data: args => ({ username: args[0] }),
 			errorMessage: 'Failed to add user as OG.',
 			successMessage: 'User has been added as OG.'
 		}
@@ -364,13 +346,12 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Remove an user from your OG list',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'delete',
-			uri: (channelName: string, args: string[]) =>
+			uri: (channelName, args) =>
 				`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs/${args[0]}`,
 			errorMessage: 'Failed to remove user from OG.',
 			successMessage: 'User has been removed from OG.'
@@ -381,14 +362,15 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Follow an user.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
-		execute: async (deps: RootContext & Session, args: string[]) => {
+		execute: async (deps: RootContext & Session, args) => {
 			const { networkInterface, channelData } = deps
-			const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch(err => {
-				throw new Error('Failed to follow user. ' + (err.message || ''))
-			})
+			const userInfo = await networkInterface
+				.getUserChannelInfo(channelData.channelName, '' + args[0])
+				.catch(err => {
+					throw new Error('Failed to follow user. ' + (err.message || ''))
+				})
 			if (!userInfo) throw new Error('Failed to follow user. User not found')
 			return networkInterface
 				.followUser(userInfo.slug)
@@ -403,14 +385,15 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Unfollow an user.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
-		execute: async (deps: RootContext & Session, args: string[]) => {
+		execute: async (deps: RootContext & Session, args) => {
 			const { networkInterface, channelData } = deps
-			const userInfo = await networkInterface.getUserChannelInfo(channelData.channelName, args[0]).catch(err => {
-				throw new Error('Failed to follow user. ' + (err.message || ''))
-			})
+			const userInfo = await networkInterface
+				.getUserChannelInfo(channelData.channelName, '' + args[0])
+				.catch(err => {
+					throw new Error('Failed to follow user. ' + (err.message || ''))
+				})
 			if (!userInfo) throw new Error('Failed to follow user. User not found')
 			return networkInterface
 				.unfollowUser(userInfo.slug)
@@ -425,12 +408,11 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Mute an user.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
-		execute: async (deps: RootContext & Session, args: string[]) => {
+		execute: async (deps: RootContext & Session, args) => {
 			const { usersManager } = deps
-			const user = usersManager.getUserByName(args[0])
+			const user = usersManager.getUserByName('' + args[0])
 			if (!user) throw new Error('User not found')
 			else if (user.muted) throw new Error('User is already muted')
 			else usersManager.muteUserById(user.id)
@@ -442,12 +424,11 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Unmute an user.',
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
-		execute: async (deps: RootContext & Session, args: string[]) => {
+		execute: async (deps: RootContext & Session, args) => {
 			const { usersManager } = deps
-			const user = usersManager.getUserByName(args[0])
+			const user = usersManager.getUserByName('' + args[0])
 			if (!user) throw new Error('User not found')
 			else if (!user.muted) throw new Error('User is not muted')
 			else usersManager.unmuteUserById(user.id)
@@ -460,15 +441,13 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: "Host someone's channel",
 		argValidators: {
-			'<username>': (arg: string) =>
-				!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
+			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
 			method: 'post',
-			uri: (channelName: string, args: string[]) =>
-				`https://kick.com/api/v2/channels/${channelName}/chat-commands`,
-			data: (args: string[]) => ({ command: 'host', parameter: args[0] }),
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chat-commands`,
+			data: args => ({ command: 'host', parameter: args[0] }),
 			errorMessage: 'Failed to host channel.',
 			successMessage: 'Channel has been hosted.'
 		}

@@ -33,7 +33,19 @@ interface UIDropdownSetting extends UISettingBase {
 	options: { label: string; value: string }[]
 }
 
-type UISetting = UICheckboxSetting | UINumberSetting | UIColorSetting | UIDropdownSetting
+interface UISteppedSliderSetting<K extends string | number> extends UISettingBase {
+	type: 'stepped_slider'
+	default: K
+	labels: string[]
+	steps: K[]
+}
+
+type UISetting =
+	| UICheckboxSetting
+	| UINumberSetting
+	| UIColorSetting
+	| UIDropdownSetting
+	| UISteppedSliderSetting<string | number>
 
 interface UISettingsSubCategory {
 	label: string
@@ -54,88 +66,6 @@ export interface UISettingsGroup {
 }
 
 export default class SettingsManager {
-	/*
-    - Global shared settings
-		= Appearance
-		    = Layout
-				(Appearance)
-		            - Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)
-					- Overlay chat position in theatre mode (dropdown)
-					- Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen) (dropdown)
-        = Chat
-            = Appearance
-                (Appearance)
-                    - Highlight first user messages
-                    - Highlight first user messages only for channels where you are a moderator
-                    - Highlight Color
-                    - Display lines with alternating background colors
-                (General)
-                    - Use Ctrl+E to open the Emote Menu
-                    - Use Ctrl+Spacebar for quick emote access
-				(Messages)
-					- Show timestamps of messages (checkbox)
-					- Seperators (dropdown)
-					- Messages spacing (dropdown)
-					- Messages style (dropdown
-			= Behavior
-                (General)
-					- Enable chat message rendering
-                    - Enable chat smooth scrolling
-                (Search)
-                    - Add bias to emotes of channels you are subscribed to
-                    - Add extra bias to emotes of the current channel you are watching the stream of
-			= Badges
-				(Badges)
-					- Show the NipahTV badge for NTV users
-            = Emotes
-                (Appearance)
-                    - Hide subscriber emotes for channels you are not subscribed to. They will still show when other users send them
-                    - Display images in tooltips
-            = Emote Menu
-                (Appearance)
-                    - Choose the style of the emote menu button (dropdown)
-                    - Show the search box
-					- Show favorited emotes in the emote menu (requires page refresh)
-					- Show favorited emotes of other channels that cannot be used, because they\'re not cross-channel emotes (requires page refresh)
-                    - Close the emote menu after clicking an emote
-            = Emote Providers
-                (Kick)
-                    - Show emotes in chat
-                    - Show global emote set
-                    - Show current channel emote set
-                    - Show other channel emote sets
-                    - Show Emoji emote set
-                (7TV)
-                    - Show emotes in chat
-                    - Show global emote set
-                    - Show current channel emote set
-            = Input
-				(Behavior)
-					- Steal focus to chat input when typing without having chat input focused
-                (Recent Messages)
-                    - Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages
-                (Input completion)
-                    - Enable <TAB> key emote completion suggestions
-					- Enable <COLON (:)> key emote completion suggestions
-					- Enable < @ > key username mention completion suggestions
-			= Moderators
-				(Messsages)
-					- Show quick actions (delete, timeout, ban) (checkbox)
-			= Quick Emote Holder
-                (Appearance)
-                    - Show quick emote holder
-                    - Rows of emotes to display (number)
-					- Show favorited emotes in the quick emote holder
-					- Show favorited emotes of other channels that cannot be used (because they're not cross-channel emotes)
-					- Show recently used emotes in the quick emote holder
-                (Behavior)
-                    - Send emotes to chat immediately on click
-		= Moderators
-			= Behavior
-				(General)
-					- Completely disable NipahTV for moderator and creator dashboard
-	*/
-
 	private uiSettings: UISettingsGroup[] = [
 		{
 			label: 'NipahTV',
@@ -224,177 +154,21 @@ export default class SettingsManager {
 		{
 			label: 'Chat',
 			children: [
-				{
-					label: 'Appearance',
-					children: [
-						{
-							label: 'Appearance',
-							children: [
-								{
-									label: 'Highlight first time user messages (of this chat session, not first time ever)',
-									key: 'chat.appearance.highlight_first_message',
-									default: false,
-									type: 'checkbox'
-								},
-								{
-									label: 'Highlight first user messages only for channels where you are a moderator',
-									key: 'chat.appearance.highlight_first_message_moderator',
-									default: false,
-									type: 'checkbox'
-								},
-								{
-									label: 'Highlight Color',
-									key: 'chat.appearance.highlight_color',
-									default: '#4f95ff',
-									type: 'color'
-								},
-								{
-									label: 'Display lines with alternating background colors',
-									key: 'chat.appearance.alternating_background',
-									default: false,
-									type: 'checkbox'
-								}
-							]
-						},
-						{
-							label: 'General',
-							description: 'These settings require a page refresh to take effect.',
-							children: [
-								{
-									label: 'Use Ctrl+E to open the Emote Menu',
-									key: 'chat.appearance.emote_menu_ctrl_e',
-									default: false,
-									type: 'checkbox'
-								},
-								{
-									label: 'Use Ctrl+Spacebar to open the Emote Menu',
-									key: 'chat.appearance.emote_menu_ctrl_spacebar',
-									default: true,
-									type: 'checkbox'
-								}
-							]
-						},
-						{
-							label: 'Messages',
-							children: [
-								{
-									label: 'Show chat message timestamps',
-									key: 'chat.appearance.show_timestamps',
-									default: false,
-									type: 'checkbox'
-								},
-								{
-									label: 'Seperators',
-									key: 'chat.appearance.seperators',
-									default: 'none',
-									type: 'dropdown',
-									options: [
-										{
-											label: 'Disabled',
-											value: 'none'
-										},
-										{
-											label: 'Basic Line (1px Solid)',
-											value: 'basic'
-										},
-										{
-											label: '3D Line (2px Groove)',
-											value: '3d'
-										},
-										{
-											label: '3D Line (2x Groove Inset)',
-											value: '3d-inset'
-										},
-										{
-											label: 'Wide Line (2px Solid)',
-											value: 'wide'
-										}
-									]
-								},
-								{
-									label: 'Messages spacing',
-									key: 'chat.appearance.messages_spacing',
-									default: 'none',
-									type: 'dropdown',
-									options: [
-										{
-											label: 'No spacing',
-											value: 'none'
-										},
-										{
-											label: 'Little spacing',
-											value: 'little-spacing'
-										},
-										{
-											label: 'Large spacing',
-											value: 'large-spacing'
-										}
-									]
-								},
-								{
-									label: 'Messages style',
-									key: 'chat.appearance.messages_style',
-									default: 'none',
-									type: 'dropdown',
-									options: [
-										{
-											label: 'Default',
-											value: 'none'
-										},
-										{
-											label: 'Rounded',
-											value: 'rounded'
-										},
-										{
-											label: 'Rounded 2',
-											value: 'rounded-2'
-										}
-									]
-								}
-							]
-						}
-					]
-				},
-				{
-					label: 'Behavior',
-					children: [
-						{
-							label: 'General',
-							children: [
-								{
-									label: 'Enable chat message rendering',
-									key: 'chat.behavior.enable_chat_rendering',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Enable chat smooth scrolling (currently broken after Kick update!)',
-									key: 'chat.behavior.smooth_scrolling',
-									default: false,
-									type: 'checkbox'
-								}
-							]
-						},
-						{
-							label: 'Search',
-							description: 'These settings require a page refresh to take effect.',
-							children: [
-								{
-									label: 'Add bias to emotes of channels you are subscribed to',
-									key: 'chat.behavior.search_bias_subscribed_channels',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Add extra bias to emotes of the current channel you are watching the stream of',
-									key: 'chat.behavior.search_bias_current_channels',
-									default: true,
-									type: 'checkbox'
-								}
-							]
-						}
-					]
-				},
+				// {
+				// 	label: 'Appearance',
+				// 	children: [
+				// 		{
+				// 			label: 'Appearance',
+				// 			children: []
+				// 		},
+				// 		{
+				// 			label: 'General',
+				// 			description: 'These settings require a page refresh to take effect.',
+				// 			children: [
+				// 			]
+				// 		}
+				// 	]
+				// },
 				{
 					label: 'Badges',
 					children: [
@@ -415,7 +189,28 @@ export default class SettingsManager {
 					label: 'Emotes',
 					children: [
 						{
-							label: 'Appearance',
+							label: 'Emote appearance',
+							children: [
+								{
+									label: 'Emote size',
+									key: 'chat.messages.emotes.size',
+									default: '28px',
+									type: 'stepped_slider',
+									labels: ['Small', 'Default', 'Large'],
+									steps: ['24px', '28px', '32px']
+								},
+								{
+									label: 'Message emote overlap',
+									key: 'chat.messages.emotes.overlap',
+									default: '-0.4em',
+									type: 'stepped_slider',
+									labels: ['No overlap', 'Slight overlap', 'Moderate overlap', 'Default'],
+									steps: ['0', '-0.2em', '-0.3em', '-0.4em']
+								}
+							]
+						},
+						{
+							label: 'In chat appearance',
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
@@ -504,11 +299,34 @@ export default class SettingsManager {
 									key: 'emote_menu.show_unavailable_favorites',
 									default: false,
 									type: 'checkbox'
-								},
+								}
+							]
+						},
+						{
+							label: 'Behavior',
+							children: [
 								{
 									label: 'Close the emote menu after clicking an emote',
 									key: 'chat.emote_menu.close_on_click',
 									default: false,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Hotkeys',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Use Ctrl+E to open the Emote Menu',
+									key: 'chat.emote_menu.open_ctrl_e',
+									default: false,
+									type: 'checkbox'
+								},
+								{
+									label: 'Use Ctrl+Spacebar to open the Emote Menu',
+									key: 'chat.emote_menu.open_ctrl_spacebar',
+									default: true,
 									type: 'checkbox'
 								}
 							]
@@ -581,7 +399,7 @@ export default class SettingsManager {
 					]
 				},
 				{
-					label: 'Input',
+					label: 'Input field',
 					children: [
 						{
 							label: 'Behavior',
@@ -644,6 +462,132 @@ export default class SettingsManager {
 					]
 				},
 				{
+					label: 'Messages',
+					children: [
+						{
+							label: 'General',
+							children: [
+								{
+									label: 'Enable chat message rendering',
+									key: 'chat.behavior.enable_chat_rendering',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable chat smooth scrolling (currently broken after Kick update!)',
+									key: 'chat.behavior.smooth_scrolling',
+									default: false,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show chat message timestamps',
+									key: 'chat.messages.show_timestamps',
+									default: false,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Appearance',
+							children: [
+								{
+									label: 'Messages font size',
+									key: 'chat.messages.font_size',
+									default: '13px',
+									type: 'stepped_slider',
+									labels: ['Small', 'Default', 'Large', 'Extra Large'],
+									steps: ['12px', '13px', '14px', '15px']
+								},
+								{
+									label: 'Messages spacing',
+									key: 'chat.messages.spacing',
+									default: '0',
+									type: 'stepped_slider',
+									labels: ['No spacing', 'Little spacing', 'Moderate spacing', 'Large spacing'],
+									steps: ['0', '0.128em', '0.256em', '0.384em']
+								},
+								{
+									label: 'Seperators',
+									key: 'chat.messages.seperators',
+									default: 'none',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Disabled',
+											value: 'none'
+										},
+										{
+											label: 'Basic Line (1px Solid)',
+											value: 'basic'
+										},
+										{
+											label: '3D Line (2px Groove)',
+											value: '3d'
+										},
+										{
+											label: '3D Line (2x Groove Inset)',
+											value: '3d-inset'
+										},
+										{
+											label: 'Wide Line (2px Solid)',
+											value: 'wide'
+										}
+									]
+								},
+								{
+									label: 'Messages style',
+									key: 'chat.messages.style',
+									default: 'none',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Default',
+											value: 'none'
+										},
+										{
+											label: 'Slightly rounded',
+											value: 'rounded'
+										},
+										{
+											label: 'Fully rounded',
+											value: 'rounded-2'
+										}
+									]
+								}
+							]
+						},
+						{
+							label: 'Highlighting',
+							children: [
+								{
+									label: 'Highlight first time user messages (of this chat session, not first time ever)',
+									key: 'chat.messages.highlight_first_time',
+									default: false,
+									type: 'checkbox'
+								},
+								{
+									label: 'Highlight first user messages only for channels where you are a moderator',
+									key: 'chat.messages.highlight_first_moderator',
+									default: false,
+									type: 'checkbox'
+								},
+								{
+									label: 'Highlight Color',
+									key: 'chat.messages.highlight_color',
+									default: '#4f95ff',
+									type: 'color'
+								},
+								{
+									label: 'Display lines with alternating background colors',
+									key: 'chat.messages.alternating_background',
+									default: false,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
 					label: 'Quick Emote Holder',
 					children: [
 						{
@@ -691,6 +635,29 @@ export default class SettingsManager {
 									key: 'chat.quick_emote_holder.send_immediately',
 									type: 'checkbox',
 									default: false
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Searching',
+					children: [
+						{
+							label: 'Search behavior',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Add bias to emotes of channels you are subscribed to when searching',
+									key: 'chat.behavior.search_bias_subscribed_channels',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Add extra bias to emotes of the current channel you are watching the stream of when searching',
+									key: 'chat.behavior.search_bias_current_channels',
+									default: true,
+									type: 'checkbox'
 								}
 							]
 						}
@@ -784,15 +751,23 @@ export default class SettingsManager {
 		}
 
 		//! Temporary migration code
-		;[['chat.moderators.show_quick_actions', 'moderators.chat.show_quick_actions']].forEach(
-			async ([oldKey, newKey]) => {
-				if (this.settingsMap.has('global.shared.' + oldKey)) {
-					const val = this.settingsMap.get('global.shared.' + oldKey)
-					await database.settings.deleteRecord('global.shared.' + oldKey)
-					this.setSetting('global', 'shared', newKey, val)
-				}
+		;[
+			['chat.appearance.messages_style', 'chat.messages.style'],
+			['chat.appearance.messages_spacing', 'chat.messages.spacing'],
+			['chat.appearance.highlight_first_message', 'chat.messages.highlight_first_time'],
+			['chat.appearance.seperators', 'chat.messages.seperators'],
+			['chat.appearance.show_timestamps', 'chat.messages.show_timestamps'],
+			['chat.appearance.highlight_color', 'chat.messages.highlight_color'],
+			['chat.appearance.alternating_background', 'chat.messages.alternating_background'],
+			['chat.appearance.emote_menu_ctrl_spacebar', 'chat.emote_menu.open_ctrl_spacebar'],
+			['chat.appearance.emote_menu_ctrl_e', 'chat.emote_menu.open_ctrl_e']
+		].forEach(async ([oldKey, newKey]) => {
+			if (this.settingsMap.has('global.shared.' + oldKey)) {
+				const val = this.settingsMap.get('global.shared.' + oldKey)
+				await database.settings.deleteRecord('global.shared.' + oldKey)
+				this.setSetting('global', 'shared', newKey, val)
 			}
-		)
+		})
 
 		//! Temporary delete old settings records
 		// ;['shared.chat.input.tab_completion.multiple_entries'].forEach(key => {

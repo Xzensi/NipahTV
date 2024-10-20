@@ -5,13 +5,13 @@ export interface CommandEntry {
 	minAllowedRole?: 'broadcaster' | 'moderator'
 	description: string
 	argValidators?: Record<string, (arg: string) => string | null>
-	execute?: (deps: RootContext & Session, args: string[]) => Promise<string | void>
+	execute?: (deps: RootContext & Session, args: Array<string | number>) => Promise<string | void>
 	api?:
 		| {
 				protocol: 'http'
 				method: 'post' | 'put' | 'delete'
-				uri: (channelName: string, args: string[]) => string
-				data?: (args: string[]) => Record<string, string | number | boolean>
+				uri: (channelName: string, args: Array<string | number>) => string
+				data?: (args: Array<string | number>) => Record<string, string | number | boolean>
 				errorMessage: string
 				successMessage?: string
 		  }

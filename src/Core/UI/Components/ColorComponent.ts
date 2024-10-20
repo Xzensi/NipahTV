@@ -36,6 +36,10 @@ export class ColorComponent extends AbstractComponent {
 		})
 	}
 
+	addEventListener(event: string, callback: EventListener) {
+		this.event.addEventListener(event, callback)
+	}
+
 	getValue() {
 		return this.value
 	}
