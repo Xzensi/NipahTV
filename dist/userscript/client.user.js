@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.49
+// @version 1.5.50
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -1018,8 +1018,8 @@ var require_pusher = __commonJS({
                 if (core_pusher.log) {
                   core_pusher.log(message);
                 } else if (core_pusher.logToConsole) {
-                  const log17 = defaultLoggingFunction.bind(this);
-                  log17(message);
+                  const log18 = defaultLoggingFunction.bind(this);
+                  log18(message);
                 }
               }
             }
@@ -10326,7 +10326,7 @@ var REST = class {
       };
       xhr.onerror = function() {
         if (xhr.responseText) reject(JSON.parse(xhr.responseText));
-        else reject();
+        else reject("Request failed");
       };
       xhr.onabort = function() {
         reject("Request aborted");
@@ -10334,6 +10334,7 @@ var REST = class {
       xhr.ontimeout = function() {
         reject("Request timed out");
       };
+      xhr.timeout = 7e3;
       if (options.body) xhr.send(options.body);
       else xhr.send();
     });
@@ -11876,6 +11877,14 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.50",
+    date: "2024-10-20",
+    description: `
+                  Fix: Allow faster asynchronous non-blocking loading of emote providers
+                  Fix: Emote provider outtage potentially resulting in data loss of recently used emotes and stored favorites due to scheduled database cleanup
+            `
+  },
   {
     version: "1.5.48",
     date: "2024-10-20",
@@ -14076,6 +14085,16 @@ var KickEventService = class {
   }
 };
 
+// src/Core/Emotes/AbstractEmoteProvider.ts
+var AbstractEmoteProvider = class {
+  constructor(settingsManager) {
+    this.settingsManager = settingsManager;
+  }
+  id = 0 /* NULL */;
+  name = "NULL";
+  status = "unloaded" /* UNLOADED */;
+};
+
 // src/Core/Emotes/EmotesManager.ts
 var import_parser = __toESM(require_dist());
 
@@ -15549,7 +15568,7 @@ var EmoteDatastore = class {
         this.fuse.add(emote);
       }
     }
-    this.session.eventBus.publish("ntv.datastore.emotes.changed");
+    this.session.eventBus.publish("ntv.datastore.emoteset.added", emoteSet);
   }
   getEmote(emoteHid) {
     return this.emoteMap.get(emoteHid);
@@ -15722,20 +15741,6 @@ var EmotesManager = class {
   }
   initialize() {
     this.datastore.loadDatabase().then(() => {
-      this.session.eventBus.subscribe(
-        "ntv.providers.loaded",
-        () => {
-          const emoteUsage = this.datastore.emoteUsage;
-          for (const [emoteHid] of emoteUsage) {
-            const emote = this.datastore.getEmote(emoteHid);
-            if (!emote) {
-              log("Removing stale emote usage data of emote", emoteHid);
-              this.datastore.removeEmoteUsage(emoteHid);
-            }
-          }
-        },
-        true
-      );
     }).catch((err) => error("Failed to load emote data from database.", err.message));
   }
   registerProvider(providerConstructor) {
@@ -15749,35 +15754,45 @@ var EmotesManager = class {
   async loadProviderEmotes(channelData, providerOverrideOrder) {
     const { datastore, providers } = this;
     const { eventBus } = this.session;
+    info("Indexing emote providers..");
     const fetchEmoteProviderPromises = [];
     providers.forEach((provider) => {
-      fetchEmoteProviderPromises.push(provider.fetchEmotes(channelData));
-    });
-    info("Indexing emote providers..");
-    Promise.allSettled(fetchEmoteProviderPromises).then((results) => {
-      const emoteSets = [];
-      for (const promis of results) {
-        if (promis.status === "rejected") {
-          error("Failed to fetch emotes from provider", promis.reason);
-        } else if (promis.value && promis.value.length) {
-          emoteSets.push(...promis.value);
-        }
-      }
-      log("Provider emotes loaded:", emoteSets);
-      for (const emoteSet of emoteSets) {
-        for (const emote of emoteSet.emotes) {
-          const parts = splitEmoteName(emote.name, 2);
-          if (parts.length && parts[0] !== emote.name) {
-            emote.parts = parts;
-          } else {
-            emote.parts = [];
+      const providerPromise = provider.fetchEmotes(channelData);
+      fetchEmoteProviderPromises.push(providerPromise);
+      providerPromise.then((emoteSets) => {
+        if (!emoteSets) return;
+        for (const emoteSet of emoteSets) {
+          for (const emote of emoteSet.emotes) {
+            const parts = splitEmoteName(emote.name, 2);
+            if (parts.length && parts[0] !== emote.name) {
+              emote.parts = parts;
+            } else {
+              emote.parts = [];
+            }
           }
+          datastore.registerEmoteSet(emoteSet, providerOverrideOrder);
         }
-        datastore.registerEmoteSet(emoteSet, providerOverrideOrder);
+      }).catch((err) => {
+        this.session.userInterface?.toastError(`Failed to fetch emotes from provider ${provider.name}`);
+        error("Failed to fetch emotes from provider", provider.id, err.message);
+      });
+    });
+    Promise.allSettled(fetchEmoteProviderPromises).then((results) => {
+      let allProvidersLoadedSuccessfully = true;
+      for (const [, provider] of providers) {
+        if (provider.status !== "loaded" /* LOADED */ && provider.status !== "no_emotes" /* NO_EMOTES */) {
+          allProvidersLoadedSuccessfully = false;
+          this.session.userInterface?.toastError(
+            `Failed to fetch emotes from ${provider.name} emote provider`
+          );
+        }
       }
       this.loaded = true;
-      eventBus.publish("ntv.providers.loaded");
+      eventBus.publish("ntv.providers.loaded", allProvidersLoadedSuccessfully);
     });
+  }
+  hasLoadedProviders() {
+    return this.loaded;
   }
   getEmote(emoteHid) {
     return this.datastore.getEmote("" + emoteHid);
@@ -16458,12 +16473,18 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       { passive: true }
     );
     eventBus.subscribeAllOnce(
-      ["ntv.providers.loaded", "ntv.datastore.emotes.usage.loaded"],
-      this.renderCommonlyUsedEmotes.bind(this)
-    );
-    eventBus.subscribeAllOnce(
-      ["ntv.providers.loaded", "ntv.datastore.emotes.favorites.loaded"],
-      this.renderFavoriteEmotes.bind(this)
+      ["ntv.datastore.emotes.favorites.loaded", "ntv.datastore.emotes.usage.loaded"],
+      () => {
+        eventBus.subscribe(
+          "ntv.datastore.emoteset.added",
+          () => {
+            this.renderFavoriteEmotes();
+            this.renderCommonlyUsedEmotes();
+          },
+          true,
+          true
+        );
+      }
     );
     eventBus.subscribe(
       "ntv.datastore.emotes.favorites.changed",
@@ -16637,7 +16658,9 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
       const emote = emotesManager.getEmote(emoteHid);
       if (!emoteSet || !emote) {
-        error("Unable to render commonly used emote, unkown emote hid:", emoteHid);
+        if (emotesManager.hasLoadedProviders()) {
+          error("Unable to render commonly used emote, unkown emote hid:", emoteHid);
+        }
         continue;
       }
       const isSubscribed = emoteSet.isSubscribed;
@@ -17001,6 +17024,21 @@ var EmoteMenuComponent = class extends AbstractComponent {
       { passive: true }
     );
     this.searchInputEl?.addEventListener("input", this.handleSearchInput.bind(this));
+    this.sidebarSetsEl?.addEventListener("click", (evt) => {
+      const target = evt.target;
+      const scrollableEl = this.scrollableEl;
+      if (!scrollableEl) return;
+      const emoteSetId = target.querySelector("img, svg")?.getAttribute("data-id");
+      const emoteSetEl = this.containerEl?.querySelector(
+        `.ntv__emote-set[data-id="${emoteSetId}"]`
+      );
+      if (!emoteSetEl) return error("Invalid emote set element");
+      const headerHeight = emoteSetEl.querySelector(".ntv__emote-set__header")?.clientHeight || 0;
+      scrollableEl.scrollTo({
+        top: emoteSetEl.offsetTop - headerHeight,
+        behavior: "smooth"
+      });
+    });
     this.panels.emotes?.addEventListener("click", (evt) => {
       const target = evt.target;
       if (!target.classList.contains("ntv__chevron")) return;
@@ -17013,10 +17051,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.settingsBtnEl?.addEventListener("click", () => {
       this.rootContext.eventBus.publish("ntv.ui.settings.toggle_show");
     });
-    eventBus.subscribe("ntv.providers.loaded", this.renderEmoteSets.bind(this), true);
-    eventBus.subscribeAllOnce(
-      ["ntv.providers.loaded", "ntv.datastore.emotes.favorites.loaded"],
-      this.renderFavoriteEmotes.bind(this)
+    eventBus.subscribe("ntv.datastore.emoteset.added", this.renderEmoteSets.bind(this), true);
+    eventBus.subscribe(
+      "ntv.datastore.emotes.favorites.loaded",
+      () => {
+        eventBus.subscribe("ntv.datastore.emoteset.added", this.renderFavoriteEmotes.bind(this), true);
+      },
+      true,
+      true
     );
     eventBus.subscribe(
       "ntv.datastore.emotes.favorites.changed",
@@ -17238,21 +17280,6 @@ var EmoteMenuComponent = class extends AbstractComponent {
         }
       }
     }
-    sidebarSetsEl.addEventListener("click", (evt) => {
-      const target = evt.target;
-      const scrollableEl2 = this.scrollableEl;
-      if (!scrollableEl2) return;
-      const emoteSetId = target.querySelector("img, svg")?.getAttribute("data-id");
-      const emoteSetEl = this.containerEl?.querySelector(
-        `.ntv__emote-set[data-id="${emoteSetId}"]`
-      );
-      if (!emoteSetEl) return error("Invalid emote set element");
-      const headerHeight = emoteSetEl.querySelector(".ntv__emote-set__header")?.clientHeight || 0;
-      scrollableEl2.scrollTo({
-        top: emoteSetEl.offsetTop - headerHeight,
-        behavior: "smooth"
-      });
-    });
     const observer = new IntersectionObserver(
       (entries, observer2) => {
         entries.forEach((entry) => {
@@ -18931,7 +18958,6 @@ var AbstractUserInterface = class {
     this.toaster.addToast(message.replaceAll("<", "&lt;"), 6e3, "success");
   }
   toastError(message) {
-    error(message);
     this.toaster.addToast(message.replaceAll("<", "&lt;"), 6e3, "error");
   }
   renderMessageParts(parsedMessageParts) {
@@ -23446,30 +23472,34 @@ var KickNetworkInterface = class {
   }
 };
 
-// src/Core/Emotes/AbstractEmoteProvider.ts
-var AbstractEmoteProvider = class {
-  id = 0 /* NULL */;
-  settingsManager;
-  constructor(settingsManager) {
-    this.settingsManager = settingsManager;
-  }
-};
-
 // src/Sites/Kick/KickEmoteProvider.ts
 var KickEmoteProvider = class extends AbstractEmoteProvider {
   id = 1 /* KICK */;
-  status = "unloaded";
+  name = "Kick";
   constructor(settingsManager) {
     super(settingsManager);
   }
   async fetchEmotes({ channelId, channelName, userId, me }) {
-    if (!channelId) return error("Missing channel id for Kick provider") || [];
-    if (!channelName) return error("Missing channel name for Kick provider") || [];
+    if (!channelId) {
+      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      throw new Error("Missing channel id for Kick provider");
+    }
+    if (!channelName) {
+      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      throw new Error("Missing channel name for Kick provider");
+    }
     const { settingsManager } = this;
     const isChatEnabled = !!settingsManager.getSetting(channelId, "chat.emote_providers.kick.show_emotes");
-    if (!isChatEnabled) return [];
+    if (!isChatEnabled) {
+      this.status = "loaded" /* LOADED */;
+      return [];
+    }
     info("Fetching emote data from Kick..");
     const dataSets = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`);
+    if (!dataSets) {
+      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      return error("Failed to fetch Kick emotes");
+    }
     const emoteSets = [];
     for (const dataSet of dataSets) {
       const emotesMapped = dataSet.emotes.map((emote) => {
@@ -23530,7 +23560,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
     }
     if (!emoteSets.length) {
       log("No emote sets found on Kick provider with current settings.");
-      this.status = "no_emotes_found";
+      this.status = "no_emotes" /* NO_EMOTES */;
       return [];
     }
     if (emoteSets.length > 1) {
@@ -23538,7 +23568,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
     } else {
       log(`Fetched 1 emote set from Kick`);
     }
-    this.status = "loaded";
+    this.status = "loaded" /* LOADED */;
     return emoteSets;
   }
   getRenderableEmote(emote, classes = "", srcSetWidthDescriptor) {
@@ -23662,39 +23692,59 @@ var KickBadgeProvider = class {
 // src/Extensions/7tv/SevenTVEmoteProvider.ts
 var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
   id = 2 /* SEVENTV */;
-  status = "unloaded";
+  name = "7TV";
   constructor(settingsManager) {
     super(settingsManager);
   }
   async fetchEmotes({ userId, channelId }) {
     info("Fetching emote data from SevenTV..");
-    if (!userId) return error("Missing Kick channel id for SevenTV provider.") || [];
+    this.status = "loading" /* LOADING */;
+    if (!userId) {
+      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      throw new Error("Missing Kick user id for SevenTV provider.");
+    }
     const isChatEnabled = !!this.settingsManager.getSetting(channelId, "chat.emote_providers.7tv.show_emotes");
-    if (!isChatEnabled) return [];
+    if (!isChatEnabled) {
+      this.status = "loaded" /* LOADED */;
+      return;
+    }
     const [globalData, userData] = await Promise.all([
       REST.get(`https://7tv.io/v3/emote-sets/global`).catch((err) => {
-        error("Failed to fetch SevenTV global emotes.", err);
+        error("Failed to fetch SevenTV global emotes:", err);
       }),
       REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch((err) => {
-        error("Failed to fetch SevenTV emotes.", err);
+        error("Failed to fetch SevenTV user emotes:", err);
       })
     ]);
     if (!globalData) {
-      this.status = "connection_failed";
-      return [];
+      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      return error("Failed to fetch SevenTV global emotes.");
     }
     const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {});
     const userEmoteSet = this.unpackUserEmotes(channelId, userData || {});
-    if (globalEmoteSet.length + userEmoteSet.length > 1)
-      log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`);
-    else log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`);
-    this.status = "loaded";
-    return [...globalEmoteSet, ...userEmoteSet];
+    if (!globalEmoteSet) {
+      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      return error("Failed to unpack global emotes from SevenTV provider.");
+    }
+    if (userEmoteSet) {
+      if (globalEmoteSet.length + userEmoteSet.length > 1)
+        log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`);
+      else log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`);
+    } else {
+      log(`Fetched ${globalEmoteSet.length} global emote set from SevenTV.`);
+    }
+    if (userEmoteSet) {
+      this.status = "loaded" /* LOADED */;
+      return [...globalEmoteSet, ...userEmoteSet];
+    } else {
+      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      return [...globalEmoteSet];
+    }
   }
   unpackGlobalEmotes(channelId, globalData) {
     if (!globalData.emotes || !globalData.emotes?.length) {
       error("No global emotes found for SevenTV provider");
-      return [];
+      return;
     }
     const emotesMapped = globalData.emotes.map((emote) => {
       const file = emote.data.host.files[0];
@@ -23743,9 +23793,8 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
   }
   unpackUserEmotes(channelId, userData) {
     if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
-      log("No emotes found for SevenTV provider");
-      this.status = "no_user_emotes_found";
-      return [];
+      log("No user emotes found for SevenTV provider");
+      return;
     }
     const emotesMapped = userData.emote_set.emotes.map((emote) => {
       const file = emote.data.host.files[0];
@@ -23981,7 +24030,7 @@ var BotrixExtension = class extends Extension {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.49";
+  VERSION = "1.5.50";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -24327,7 +24376,7 @@ var NipahClient = class {
       if (false) {
         GM_xmlhttpRequest({
           method: "GET",
-          url: NTV_RESOURCE_ROOT + "dist/css/kick.css",
+          url: NTV_RESOURCE_ROOT + "dist/userscript/kick.css",
           onerror: () => reject("Failed to load local stylesheet"),
           onload: function(response) {
             log("Loaded styles from local resource..");
