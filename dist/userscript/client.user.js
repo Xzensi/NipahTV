@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.48
+// @version 1.5.49
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-c2169a43.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-c2169a43.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -13864,7 +13864,6 @@ var SettingsManager = class {
     ;
     [
       ["chat.appearance.messages_style", "chat.messages.style"],
-      ["chat.appearance.messages_spacing", "chat.messages.spacing"],
       ["chat.appearance.highlight_first_message", "chat.messages.highlight_first_time"],
       ["chat.appearance.seperators", "chat.messages.seperators"],
       ["chat.appearance.show_timestamps", "chat.messages.show_timestamps"],
@@ -13879,6 +13878,16 @@ var SettingsManager = class {
         this.setSetting("global", "shared", newKey, val);
       }
     });
+    ["global.shared.chat.appearance.messages_spacing"].forEach((key) => {
+      if (!this.settingsMap.has(key)) return;
+      database.settings.deleteRecord(key);
+    });
+    const messageSpacingSetting = this.settingsMap.get("global.shared.chat.messages.spacing");
+    if (messageSpacingSetting === "none" || messageSpacingSetting === "little-spacing" || messageSpacingSetting === "large-spacing") {
+      const key = "global.shared.chat.messages.spacing";
+      this.settingsMap.delete(key);
+      database.settings.deleteRecord(key);
+    }
     this.isLoaded = true;
     eventBus.publish("ntv.settings.loaded");
   }
@@ -23972,7 +23981,7 @@ var BotrixExtension = class extends Extension {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.48";
+  VERSION = "1.5.49";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -24415,7 +24424,7 @@ var NipahClient = class {
   nipahClient.initialize();
 })();
 //! Temporary migration code
-//! Temporary delete old settings records
+//! Temporary patch for message spacing setting
 //! Does not respect multiple sessions framework structure
 /*! Bundled license information:
 
