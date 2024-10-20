@@ -1,27 +1,45 @@
-import { AbstractEmoteProvider, IAbstractEmoteProvider } from '../../Core/Emotes/AbstractEmoteProvider'
+import {
+	AbstractEmoteProvider,
+	EmoteProviderStatus,
+	IAbstractEmoteProvider
+} from '../../Core/Emotes/AbstractEmoteProvider'
 import type SettingsManager from '../../Core/Settings/SettingsManager'
 import { log, info, error, REST, md5 } from '../../Core/Common/utils'
 import { PROVIDER_ENUM } from '../../Core/Common/constants'
 
 export default class KickEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.KICK
-	status = 'unloaded'
+	name = 'Kick'
 
 	constructor(settingsManager: SettingsManager) {
 		super(settingsManager)
 	}
 
 	async fetchEmotes({ channelId, channelName, userId, me }: ChannelData) {
-		if (!channelId) return error('Missing channel id for Kick provider')! || []
-		if (!channelName) return error('Missing channel name for Kick provider')! || []
+		if (!channelId) {
+			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			throw new Error('Missing channel id for Kick provider')
+		}
+		if (!channelName) {
+			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			throw new Error('Missing channel name for Kick provider')
+		}
 
 		const { settingsManager } = this
 
 		const isChatEnabled = !!settingsManager.getSetting(channelId, 'chat.emote_providers.kick.show_emotes')
-		if (!isChatEnabled) return []
+		if (!isChatEnabled) {
+			this.status = EmoteProviderStatus.LOADED
+			return []
+		}
 
 		info('Fetching emote data from Kick..')
 		const dataSets = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`)
+
+		if (!dataSets) {
+			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			return error('Failed to fetch Kick emotes')
+		}
 
 		const emoteSets = []
 		for (const dataSet of dataSets) {
@@ -92,7 +110,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 
 		if (!emoteSets.length) {
 			log('No emote sets found on Kick provider with current settings.')
-			this.status = 'no_emotes_found'
+			this.status = EmoteProviderStatus.NO_EMOTES
 			return []
 		}
 
@@ -101,7 +119,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 		} else {
 			log(`Fetched 1 emote set from Kick`)
 		}
-		this.status = 'loaded'
+		this.status = EmoteProviderStatus.LOADED
 		return emoteSets
 	}
 

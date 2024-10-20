@@ -1,8 +1,8 @@
 import { error, info, log, splitEmoteName } from '../Common/utils'
 import type SettingsManager from '../Settings/SettingsManager'
-import { AbstractEmoteProvider } from './AbstractEmoteProvider'
+import { AbstractEmoteProvider, EmoteProviderStatus } from './AbstractEmoteProvider'
 import { parse as twemojiParse } from '@twemoji/parser'
-import { U_TAG_NTV_AFFIX } from '../Common/constants'
+import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../Common/constants'
 import { EmoteDatastore } from './EmoteDatastore'
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
@@ -25,26 +25,28 @@ export default class EmotesManager {
 		this.datastore
 			.loadDatabase()
 			.then(() => {
-				this.session.eventBus.subscribe(
-					'ntv.providers.loaded',
-					() => {
-						/**
-						 * Cleanup database of stale data
-						 */
-
-						// Remove emote useage data of emotes that are no longer in any emote set
-						const emoteUsage = this.datastore.emoteUsage
-
-						for (const [emoteHid] of emoteUsage) {
-							const emote = this.datastore.getEmote(emoteHid)
-							if (!emote) {
-								log('Removing stale emote usage data of emote', emoteHid)
-								this.datastore.removeEmoteUsage(emoteHid)
-							}
-						}
-					},
-					true
-				)
+				/**
+				 * Cleanup database of stale data
+				 */
+				// TODO figure out how to deal with incorrectly loading providers first to prevent accidental data loss
+				// this.session.eventBus.subscribe(
+				// 	'ntv.providers.loaded',
+				// 	(allProvidersLoadedSuccessfully: boolean) => {
+				// 		log('Cleaning up stale emote data..', allProvidersLoadedSuccessfully)
+				// 		// We only cleanup the database if all providers loaded successfully
+				// 		if (!allProvidersLoadedSuccessfully) return
+				// 		// Remove emote useage data of emotes that are no longer in any emote set
+				// 		const emoteUsage = this.datastore.emoteUsage
+				// 		for (const [emoteHid] of emoteUsage) {
+				// 			const emote = this.datastore.getEmote(emoteHid)
+				// 			if (!emote) {
+				// 				log('Removing stale emote usage data of emote', emoteHid)
+				// 				this.datastore.removeEmoteUsage(emoteHid)
+				// 			}
+				// 		}
+				// 	},
+				// 	true
+				// )
 			})
 			.catch(err => error('Failed to load emote data from database.', err.message))
 	}
@@ -62,41 +64,59 @@ export default class EmotesManager {
 		const { datastore, providers } = this
 		const { eventBus } = this.session
 
+		info('Indexing emote providers..')
+
 		const fetchEmoteProviderPromises: Array<Promise<void | EmoteSet[]>> = []
 		providers.forEach(provider => {
-			fetchEmoteProviderPromises.push(provider.fetchEmotes(channelData))
+			const providerPromise = provider.fetchEmotes(channelData)
+			fetchEmoteProviderPromises.push(providerPromise)
+
+			providerPromise
+				.then(emoteSets => {
+					if (!emoteSets) return // error('Failed to fetch emotes from provider', provider.id)
+
+					for (const emoteSet of emoteSets) {
+						for (const emote of emoteSet.emotes) {
+							// Map of emote names splitted into parts for more relevant search results
+							const parts = splitEmoteName(emote.name, 2)
+							if (parts.length && parts[0] !== emote.name) {
+								emote.parts = parts
+							} else {
+								emote.parts = []
+							}
+						}
+
+						datastore.registerEmoteSet(emoteSet, providerOverrideOrder)
+					}
+				})
+				.catch(err => {
+					this.session.userInterface?.toastError(`Failed to fetch emotes from provider ${provider.name}`)
+					error('Failed to fetch emotes from provider', provider.id, err.message)
+				})
 		})
 
-		info('Indexing emote providers..')
 		Promise.allSettled(fetchEmoteProviderPromises).then(results => {
-			const emoteSets = []
-			for (const promis of results) {
-				if (promis.status === 'rejected') {
-					error('Failed to fetch emotes from provider', promis.reason)
-				} else if (promis.value && promis.value.length) {
-					emoteSets.push(...promis.value)
+			let allProvidersLoadedSuccessfully = true
+
+			for (const [, provider] of providers) {
+				if (
+					provider.status !== EmoteProviderStatus.LOADED &&
+					provider.status !== EmoteProviderStatus.NO_EMOTES
+				) {
+					allProvidersLoadedSuccessfully = false
+					this.session.userInterface?.toastError(
+						`Failed to fetch emotes from ${provider.name} emote provider`
+					)
 				}
-			}
-
-			log('Provider emotes loaded:', emoteSets)
-
-			for (const emoteSet of emoteSets) {
-				for (const emote of emoteSet.emotes) {
-					// Map of emote names splitted into parts for more relevant search results
-					const parts = splitEmoteName(emote.name, 2)
-					if (parts.length && parts[0] !== emote.name) {
-						emote.parts = parts
-					} else {
-						emote.parts = []
-					}
-				}
-
-				datastore.registerEmoteSet(emoteSet, providerOverrideOrder)
 			}
 
 			this.loaded = true
-			eventBus.publish('ntv.providers.loaded')
+			eventBus.publish('ntv.providers.loaded', allProvidersLoadedSuccessfully)
 		})
+	}
+
+	hasLoadedProviders() {
+		return this.loaded
 	}
 
 	getEmote(emoteHid: string) {

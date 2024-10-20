@@ -95,7 +95,7 @@ export default abstract class AbstractUserInterface {
 	}
 
 	toastError(message: string) {
-		error(message)
+		// error(message)
 		this.toaster.addToast(message.replaceAll('<', '&lt;'), 6_000, 'error')
 	}
 
