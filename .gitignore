@@ -5,6 +5,5 @@ vendor
 dist/**/*
 assets/**/*.css
 !dist/userscript
+!dist/userscript/kick-*.*
 !dist/userscript/client.user.js
-!dist/css
-!dist/css/kick-*.*

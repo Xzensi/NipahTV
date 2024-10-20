@@ -753,7 +753,6 @@ export default class SettingsManager {
 		//! Temporary migration code
 		;[
 			['chat.appearance.messages_style', 'chat.messages.style'],
-			['chat.appearance.messages_spacing', 'chat.messages.spacing'],
 			['chat.appearance.highlight_first_message', 'chat.messages.highlight_first_time'],
 			['chat.appearance.seperators', 'chat.messages.seperators'],
 			['chat.appearance.show_timestamps', 'chat.messages.show_timestamps'],
@@ -770,10 +769,22 @@ export default class SettingsManager {
 		})
 
 		//! Temporary delete old settings records
-		// ;['shared.chat.input.tab_completion.multiple_entries'].forEach(key => {
-		// 	if (!this.settingsMap.has(key)) return
-		// 	database.settings.deleteRecord(key)
-		// })
+		;['global.shared.chat.appearance.messages_spacing'].forEach(key => {
+			if (!this.settingsMap.has(key)) return
+			database.settings.deleteRecord(key)
+		})
+
+		//! Temporary patch for message spacing setting
+		const messageSpacingSetting = this.settingsMap.get('global.shared.chat.messages.spacing')
+		if (
+			messageSpacingSetting === 'none' ||
+			messageSpacingSetting === 'little-spacing' ||
+			messageSpacingSetting === 'large-spacing'
+		) {
+			const key = 'global.shared.chat.messages.spacing'
+			this.settingsMap.delete(key)
+			database.settings.deleteRecord(key)
+		}
 
 		this.isLoaded = true
 		eventBus.publish('ntv.settings.loaded')

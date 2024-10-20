@@ -44,7 +44,7 @@ import SevenTVExtension from './Extensions/7tv'
 import BotrixExtension from './Extensions/Botrix'
 
 class NipahClient {
-	VERSION = '1.5.48'
+	VERSION = '1.5.49'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
