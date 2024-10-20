@@ -108,6 +108,7 @@
 	img {
 		// height: #{1.6182 * 1.6182}em;
 		// height: #{math.pow(1 + math.div(1, 3), 3)}em;
+		justify-self: center;
 		grid-column: 1;
 		grid-row: 1;
 	}
