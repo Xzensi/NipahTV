@@ -5,7 +5,7 @@
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-f7c753ef.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/css/kick-c2169a43.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11883,6 +11883,8 @@ var CHANGELOG = [
                   Feat: Added new settings options for message styling
                   Feat: Added new settings options for emotes styling
                   Fix: Default message and emote styling not matching native Kick
+                  Fix: Zero-width emotes not centering when wider than emote
+                  Fix: Clipboard copy not working for emotes in input field
                   Style: Improved settings modal looks
                   Refactor: Re-identified settings keys
             `
@@ -20560,7 +20562,12 @@ var ContentEditableEditor = class {
         this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
       }
     });
+    inputNode.addEventListener("copy", (evt) => {
+      evt.preventDefault();
+      this.clipboard.handleCopyEvent(evt);
+    });
     inputNode.addEventListener("cut", (evt) => {
+      this.clipboard.handleCutEvent(evt);
       this.hasUnprocessedContentChanges = true;
     });
     this.eventTarget.addEventListener("keydown", 10, this.handleKeydown.bind(this));
@@ -21809,9 +21816,6 @@ var KickUserInterface = class extends AbstractUserInterface {
         submitButtonEl.removeAttribute("disabled");
         submitButtonEl.classList.remove("disabled");
       }
-    });
-    textFieldEl.addEventListener("cut", (evt) => {
-      this.clipboard.handleCutEvent(evt);
     });
     this.session.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
       if (value > this.maxMessageLength) {
