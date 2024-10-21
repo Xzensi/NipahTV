@@ -47,6 +47,7 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 		this.footerLogoBtnEl?.addEventListener('click', () => {
 			if (!this.session.channelData.me.isLoggedIn) {
 				this.session.userInterface?.toastError(`Please log in first to use NipahTV.`)
+				error('User is not logged in, cannot open emote menu')
 			}
 
 			eventBus.publish('ntv.ui.footer.click')
