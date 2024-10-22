@@ -555,7 +555,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	}
 
 	addEmoteSet(emoteSet: EmoteSet) {
-		log('Adding emote set to emote menu..', emoteSet)
+		log(`Adding emote set "${emoteSet.name}" to emote menu..`)
 
 		const { sidebarSetsEl, scrollableEl, rootContext } = this
 		const { emotesManager, channelData } = this.session

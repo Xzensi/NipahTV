@@ -305,9 +305,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 			return stopStrategy
 		}
 
-		if (!this.isClickInsideNavWindow(event.target as Node)) {
-			return true
-		}
+		return true
 	}
 
 	reset() {

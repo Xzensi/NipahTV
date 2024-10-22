@@ -212,9 +212,7 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 	}
 
 	handleClickEvent(event: MouseEvent, clickIsInInput: boolean) {
-		if (!this.isClickInsideNavWindow(event.target as Node)) {
-			return true
-		}
+		return true
 	}
 
 	reset() {
