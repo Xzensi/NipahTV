@@ -73,7 +73,7 @@ export default class EmotesManager {
 
 			providerPromise
 				.then(emoteSets => {
-					if (!emoteSets) return // error('Failed to fetch emotes from provider', provider.id)
+					if (!emoteSets) return // Can be NO_EMOTES
 
 					for (const emoteSet of emoteSets) {
 						for (const emote of emoteSet.emotes) {

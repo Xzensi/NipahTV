@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.52',
+		date: '2024-10-22',
+		description: `
+                  Fix: Emote sets re-rendering all emote sets for every set added
+                  Fix: 7TV user not found showing unnecessary error toast
+                  Fix: Emote completions not closing nav window on cursor click
+            `
+	},
+	{
 		version: '1.5.51',
 		date: '2024-10-20',
 		description: `

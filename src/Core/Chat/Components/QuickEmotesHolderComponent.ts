@@ -132,8 +132,8 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			() => {
 				eventBus.subscribe(
 					'ntv.datastore.emoteset.added',
-					() => {
-						this.renderFavoriteEmotes()
+					(emoteSet: EmoteSet) => {
+						this.renderFavoriteEmotes(emoteSet)
 						this.renderCommonlyUsedEmotes()
 					},
 					true
@@ -273,19 +273,26 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		}
 	}
 
-	renderFavoriteEmotes() {
+	renderFavoriteEmotes(emoteSet?: EmoteSet) {
 		const { settingsManager } = this.rootContext
 		const { emotesManager, channelData } = this.session
 		const channelId = channelData.channelId
+
+		const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments()
+		if (
+			emoteSet &&
+			!unsortedFavoriteEmoteDocuments.some(doc => emoteSet.emotes.find(emote => emote.hid === doc.emote.hid))
+		) {
+			// No need to re-render if the emote set is not in the favorites
+			return
+		}
 
 		// Clear the current emotes
 		while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove()
 
 		if (!settingsManager.getSetting(channelId, 'quick_emote_holder.show_favorites')) return
 
-		const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
-			(a, b) => b.orderIndex - a.orderIndex
-		)
+		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => b.orderIndex - a.orderIndex)
 
 		// Render the emotes
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {

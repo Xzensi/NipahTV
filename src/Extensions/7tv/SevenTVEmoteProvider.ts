@@ -65,7 +65,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			this.status = EmoteProviderStatus.LOADED
 			return [...globalEmoteSet, ...userEmoteSet]
 		} else {
-			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			this.status = EmoteProviderStatus.LOADED
 			return [...globalEmoteSet]
 		}
 	}
@@ -165,7 +165,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				isOtherChannel: false,
 				isSubscribed: false,
 				icon: userData.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.ico',
-				id: '' + userData.emote_set.id
+				id: '7tv_' + userData.emote_set.id
 			} as EmoteSet
 		]
 	}

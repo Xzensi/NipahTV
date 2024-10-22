@@ -390,6 +390,7 @@ export default abstract class AbstractUserInterface {
 
 		// 14 is the magic number of encoded unicode message tag
 		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
+			error('Message is too long to send.')
 			return this.toastError('Message is too long to send.')
 		}
 
@@ -426,8 +427,13 @@ export default abstract class AbstractUserInterface {
 					eventBus.publish('ntv.ui.submitted_input', { suppressEngagementEvent })
 				})
 				.catch(err => {
-					if (err && err.message) this.toastError(err.message)
-					else this.toastError('Failed to reply to message. Reason unknown.')
+					if (err && err.message) {
+						error(err.message)
+						this.toastError(err.message)
+					} else {
+						error('Failed to reply to message. Reason unknown.')
+						this.toastError('Failed to reply to message. Reason unknown.')
+					}
 				})
 
 			this.destroyReplyMessageContext()
@@ -451,8 +457,13 @@ export default abstract class AbstractUserInterface {
 					eventBus.publish('ntv.ui.submitted_input', { suppressEngagementEvent })
 				})
 				.catch(err => {
-					if (err && err.message) this.toastError(err.message)
-					else this.toastError('Failed to send message. Reason unknown.')
+					if (err && err.message) {
+						error(err.message)
+						this.toastError(err.message)
+					} else {
+						error('Failed to send message. Reason unknown.')
+						this.toastError('Failed to send message. Reason unknown.')
+					}
 				})
 		}
 	}
@@ -472,8 +483,13 @@ export default abstract class AbstractUserInterface {
 				isReply: false
 			})
 			.catch(err => {
-				if (err) this.toastError('Failed to send emote because: ' + err)
-				else this.toastError('Failed to send emote to chat. Reason unknown.')
+				if (err) {
+					error('Failed to send emote because:', err)
+					this.toastError('Failed to send emote because: ' + err)
+				} else {
+					error('Failed to send emote to chat. Reason unknown.')
+					this.toastError('Failed to send emote to chat. Reason unknown.')
+				}
 			})
 	}
 

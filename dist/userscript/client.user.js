@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.51
+// @version 1.5.52
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11878,6 +11878,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.52",
+    date: "2024-10-22",
+    description: `
+                  Fix: Emote sets re-rendering all emote sets for every set added
+                  Fix: 7TV user not found showing unnecessary error toast
+                  Fix: Emote completions not closing nav window on cursor click
+            `
+  },
+  {
     version: "1.5.51",
     date: "2024-10-20",
     description: `
@@ -16484,8 +16493,8 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       () => {
         eventBus.subscribe(
           "ntv.datastore.emoteset.added",
-          () => {
-            this.renderFavoriteEmotes();
+          (emoteSet) => {
+            this.renderFavoriteEmotes(emoteSet);
             this.renderCommonlyUsedEmotes();
           },
           true
@@ -16586,21 +16595,23 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
       this.dragEmoteNewIndex = null;
     }
   }
-  renderFavoriteEmotes() {
+  renderFavoriteEmotes(emoteSet) {
     const { settingsManager } = this.rootContext;
     const { emotesManager, channelData } = this.session;
     const channelId = channelData.channelId;
+    const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
+    if (emoteSet && !unsortedFavoriteEmoteDocuments.some((doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid))) {
+      return;
+    }
     while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove();
     if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
-    const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
-      (a, b) => b.orderIndex - a.orderIndex
-    );
+    const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => b.orderIndex - a.orderIndex);
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
       const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
-      const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
+      const emoteSet2 = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
       let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
-      if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.isSubscribersOnly)
+      if (!emoteSet2?.isSubscribed && maybeFavoriteEmote?.isSubscribersOnly)
         emoteBoxClasses += " ntv__emote-box--locked";
       this.favoritesEl.append(
         parseHTML(
@@ -16776,6 +16787,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     this.footerLogoBtnEl?.addEventListener("click", () => {
       if (!this.session.channelData.me.isLoggedIn) {
         this.session.userInterface?.toastError(`Please log in first to use NipahTV.`);
+        error("User is not logged in, cannot open emote menu");
       }
       eventBus.publish("ntv.ui.footer.click");
     });
@@ -16841,7 +16853,6 @@ var EmoteMenuComponent = class extends AbstractComponent {
   toggleStates = {};
   isShowing = false;
   activePanel = "emotes";
-  sidebarMap = /* @__PURE__ */ new Map();
   rootContext;
   session;
   parentContainer;
@@ -16853,6 +16864,9 @@ var EmoteMenuComponent = class extends AbstractComponent {
   sidebarSetsEl;
   favoritesEmoteSetEl;
   tooltipEl;
+  emoteSetEls = /* @__PURE__ */ new Map();
+  emoteSetSidebarEls = /* @__PURE__ */ new Map();
+  scrollableObserver;
   closeModalClickListenerHandle;
   scrollableHeight = 0;
   isDraggingEmote = false;
@@ -16928,6 +16942,30 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const parentContainerPosition = this.parentContainer.getBoundingClientRect();
     this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + "px";
     this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + "px";
+    this.scrollableObserver = new IntersectionObserver(
+      (entries, observer) => {
+        entries.forEach((entry) => {
+          const emoteSetId = entry.target.getAttribute("data-id");
+          const sidebarIcon = this.emoteSetSidebarEls.get(emoteSetId);
+          if (!sidebarIcon) return error("Invalid emote set sidebar element");
+          sidebarIcon.style.backgroundColor = `rgba(255, 255, 255, ${entry.intersectionRect.height / this.scrollableHeight / 7})`;
+        });
+      },
+      {
+        root: this.scrollableEl,
+        rootMargin: "0px",
+        threshold: (() => {
+          let thresholds = [];
+          let numSteps = 100;
+          for (let i = 1; i <= numSteps; i++) {
+            let ratio = i / numSteps;
+            thresholds.push(ratio);
+          }
+          thresholds.push(0);
+          return thresholds;
+        })()
+      }
+    );
   }
   attachEventHandlers() {
     const { eventBus: rootEventBus, settingsManager } = this.rootContext;
@@ -17057,7 +17095,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.settingsBtnEl?.addEventListener("click", () => {
       this.rootContext.eventBus.publish("ntv.ui.settings.toggle_show");
     });
-    eventBus.subscribe("ntv.datastore.emoteset.added", this.renderEmoteSets.bind(this), true);
+    eventBus.subscribe("ntv.datastore.emoteset.added", this.addEmoteSet.bind(this), true);
     eventBus.subscribe(
       "ntv.datastore.emotes.favorites.loaded",
       () => {
@@ -17175,7 +17213,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       true
     );
     sidebarSetsEl.appendChild(sidebarFavoritesBtn);
-    this.sidebarMap.set("favorites", sidebarFavoritesBtn);
+    this.emoteSetSidebarEls.set("favorites", sidebarFavoritesBtn);
     const showUnavailableEmotes = settingsManager.getSetting(channelId, "emote_menu.show_unavailable_favorites");
     this.favoritesEmoteSetEl = parseHTML(
       cleanupHTML(
@@ -17194,24 +17232,26 @@ var EmoteMenuComponent = class extends AbstractComponent {
     );
     emotesPanelEl.append(this.favoritesEmoteSetEl);
   }
-  renderFavoriteEmotes() {
+  renderFavoriteEmotes(emoteSet) {
     const { settingsManager } = this.rootContext;
     const channelId = this.session.channelData.channelId;
     if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
     if (!this.favoritesEmoteSetEl) return error("Invalid favorites emote set element");
-    log("Rendering favorite emote set in emote menu..");
     const { emotesManager } = this.session;
+    const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
+    if (emoteSet && !unsortedFavoriteEmoteDocuments.some((doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid))) {
+      return;
+    }
+    log("Rendering favorite emote set in emote menu..");
+    const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => b.orderIndex - a.orderIndex);
     const emotesEl = this.favoritesEmoteSetEl.getElementsByClassName("ntv__emote-set__emotes")[0];
     while (emotesEl.firstChild) emotesEl.removeChild(emotesEl.firstChild);
-    const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
-      (a, b) => b.orderIndex - a.orderIndex
-    );
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
       const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
-      const emoteSet = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
+      const emoteSet2 = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
       let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
-      emoteBoxClasses += !emoteSet?.isSubscribed && emote?.isSubscribersOnly ? "ntv__emote-box--locked" : "";
+      emoteBoxClasses += !emoteSet2?.isSubscribed && emote?.isSubscribersOnly ? "ntv__emote-box--locked" : "";
       emotesEl.append(
         parseHTML(
           `<div class="ntv__emote-box ${emoteBoxClasses}" size="${maybeFavoriteEmote.size}">${emotesManager.getRenderableEmote(
@@ -17222,38 +17262,37 @@ var EmoteMenuComponent = class extends AbstractComponent {
       );
     }
   }
-  renderEmoteSets() {
+  addEmoteSet(emoteSet) {
+    log(`Adding emote set "${emoteSet.name}" to emote menu..`);
     const { sidebarSetsEl, scrollableEl, rootContext } = this;
     const { emotesManager, channelData } = this.session;
     const channelId = channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
     if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error("Invalid emote menu elements");
-    const emotesPanelElChildren = Array.from(emotesPanelEl.children);
-    for (const child of emotesPanelElChildren) {
-      if (child.getAttribute("data-id") !== "favorites") child.remove();
+    if (this.emoteSetEls.has(emoteSet.id)) {
+      error(`Emote set "${emoteSet.name}" already exists, removing it before re-adding..`);
+      this.emoteSetEls.get(emoteSet.id)?.remove();
+      this.emoteSetEls.delete(emoteSet.id);
+      this.emoteSetSidebarEls.get(emoteSet.id)?.remove();
+      this.emoteSetSidebarEls.delete(emoteSet.id);
     }
-    const sidebarSetsElChildren = Array.from(sidebarSetsEl.children);
-    for (const child of sidebarSetsElChildren) {
-      if (child.children[0]?.getAttribute("data-id") !== "favorites") child.remove();
+    const emoteSets = emotesManager.getMenuEnabledEmoteSets();
+    if (!emoteSets.find((set) => set.id === emoteSet.id)) {
+      log(`Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`);
+      return;
     }
     const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
       channelId,
       "chat.emotes.hide_subscriber_emotes"
     );
-    const emoteSets = emotesManager.getMenuEnabledEmoteSets();
-    const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex);
-    log(`Rendering ${orderedEmoteSets.length} emote sets in emote menu..`);
-    for (const emoteSet of orderedEmoteSets) {
-      const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
-      const sidebarIcon = parseHTML(
-        `<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`,
-        true
-      );
-      sidebarSetsEl.appendChild(sidebarIcon);
-      this.sidebarMap.set(emoteSet.id, sidebarIcon);
-      const newEmoteSetEl = parseHTML(
-        cleanupHTML(
-          `<div class="ntv__emote-set" data-id="${emoteSet.id}">
+    const sortedEmotes = emoteSet.emotes.sort((a, b) => a.width - b.width);
+    const sidebarIconEl = parseHTML(
+      `<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`,
+      true
+    );
+    const emoteSetEl = parseHTML(
+      cleanupHTML(
+        `<div class="ntv__emote-set" data-id="${emoteSet.id}">
 						<div class="ntv__emote-set__header">
 							<img src="${emoteSet.icon}">
 							<span>${emoteSet.name}</span>
@@ -17261,56 +17300,39 @@ var EmoteMenuComponent = class extends AbstractComponent {
 								<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
 							</div>
 						</div>
-						<div class="ntv__emote-set__emotes"></div>
 					</div>`
-        ),
-        true
-      );
-      emotesPanelEl.append(newEmoteSetEl);
-      const newEmoteSetEmotesEl = newEmoteSetEl.querySelector(".ntv__emote-set__emotes");
-      for (const emote of sortedEmotes) {
-        const zeroWidthClass = emote.isZeroWidth && " ntv__emote-box--zero-width" || "";
-        if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
-          if (hideSubscribersEmotes) continue;
-          newEmoteSetEmotesEl.append(
-            parseHTML(
-              `<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
-            )
-          );
-        } else {
-          newEmoteSetEmotesEl.append(
-            parseHTML(
-              `<div class="ntv__emote-box${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
-            )
-          );
-        }
+      ),
+      true
+    );
+    const emoteSetEmotesEl = document.createElement("div");
+    emoteSetEmotesEl.className = "ntv__emote-set__emotes";
+    for (const emote of sortedEmotes) {
+      const zeroWidthClass = emote.isZeroWidth && " ntv__emote-box--zero-width" || "";
+      if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
+        if (hideSubscribersEmotes) continue;
+        emoteSetEmotesEl.append(
+          parseHTML(
+            `<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
+          )
+        );
+      } else {
+        emoteSetEmotesEl.append(
+          parseHTML(
+            `<div class="ntv__emote-box${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
+          )
+        );
       }
     }
-    const observer = new IntersectionObserver(
-      (entries, observer2) => {
-        entries.forEach((entry) => {
-          const emoteSetId = entry.target.getAttribute("data-id");
-          const sidebarIcon = this.sidebarMap.get(emoteSetId);
-          sidebarIcon.style.backgroundColor = `rgba(255, 255, 255, ${entry.intersectionRect.height / this.scrollableHeight / 7})`;
-        });
-      },
-      {
-        root: scrollableEl,
-        rootMargin: "0px",
-        threshold: (() => {
-          let thresholds = [];
-          let numSteps = 100;
-          for (let i = 1; i <= numSteps; i++) {
-            let ratio = i / numSteps;
-            thresholds.push(ratio);
-          }
-          thresholds.push(0);
-          return thresholds;
-        })()
-      }
-    );
-    const emoteSetEls = emotesPanelEl.querySelectorAll(".ntv__emote-set");
-    for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl);
+    this.emoteSetSidebarEls.set(emoteSet.id, sidebarIconEl);
+    emoteSetEl.append(emoteSetEmotesEl);
+    this.emoteSetEls.set(emoteSet.id, emoteSetEl);
+    const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex);
+    for (const oEmoteSet of orderedEmoteSets) {
+      if (!this.emoteSetEls.has(oEmoteSet.id)) continue;
+      emotesPanelEl.append(this.emoteSetEls.get(oEmoteSet.id));
+      sidebarSetsEl.appendChild(this.emoteSetSidebarEls.get(oEmoteSet.id));
+    }
+    this.scrollableObserver.observe(emoteSetEl);
   }
   handleEmoteClick(emoteBoxEl, emoteHid, isHoldingCtrl) {
     const { settingsManager } = this.rootContext;
@@ -19187,6 +19209,7 @@ var AbstractUserInterface = class {
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor) return error("Unable to submit input, the input controller is not loaded yet.");
     if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
+      error("Message is too long to send.");
       return this.toastError("Message is too long to send.");
     }
     const messageContent = contentEditableEditor.getMessageContent();
@@ -19215,8 +19238,13 @@ var AbstractUserInterface = class {
         }
         eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
       }).catch((err) => {
-        if (err && err.message) this.toastError(err.message);
-        else this.toastError("Failed to reply to message. Reason unknown.");
+        if (err && err.message) {
+          error(err.message);
+          this.toastError(err.message);
+        } else {
+          error("Failed to reply to message. Reason unknown.");
+          this.toastError("Failed to reply to message. Reason unknown.");
+        }
       });
       this.destroyReplyMessageContext();
     } else {
@@ -19235,8 +19263,13 @@ var AbstractUserInterface = class {
         }
         eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
       }).catch((err) => {
-        if (err && err.message) this.toastError(err.message);
-        else this.toastError("Failed to send message. Reason unknown.");
+        if (err && err.message) {
+          error(err.message);
+          this.toastError(err.message);
+        } else {
+          error("Failed to send message. Reason unknown.");
+          this.toastError("Failed to send message. Reason unknown.");
+        }
       });
     }
   }
@@ -19250,8 +19283,13 @@ var AbstractUserInterface = class {
       input: emoteEmbedding,
       isReply: false
     }).catch((err) => {
-      if (err) this.toastError("Failed to send emote because: " + err);
-      else this.toastError("Failed to send emote to chat. Reason unknown.");
+      if (err) {
+        error("Failed to send emote because:", err);
+        this.toastError("Failed to send emote because: " + err);
+      } else {
+        error("Failed to send emote to chat. Reason unknown.");
+        this.toastError("Failed to send emote to chat. Reason unknown.");
+      }
     });
   }
   replyMessage(messageNodes, chatEntryId, chatEntryContent, chatEntrySenderId, chatEntrySenderUsername) {
@@ -19561,9 +19599,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
       this.hasNavigated = true;
       return stopStrategy;
     }
-    if (!this.isClickInsideNavWindow(event.target)) {
-      return true;
-    }
+    return true;
   }
   reset() {
     super.reset();
@@ -20455,9 +20491,7 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
     return this.updateCompletionEntries();
   }
   handleClickEvent(event, clickIsInInput) {
-    if (!this.isClickInsideNavWindow(event.target)) {
-      return true;
-    }
+    return true;
   }
   reset() {
     super.reset();
@@ -23561,7 +23595,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
         isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
         isSubscribed: dataSetId === channelId ? me.isSubscribed || me.isBroadcaster : true,
         icon: emoteSetIcon,
-        id: "" + dataSetId
+        id: "kick_" + dataSetId
       });
     }
     if (!emoteSets.length) {
@@ -23743,7 +23777,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       this.status = "loaded" /* LOADED */;
       return [...globalEmoteSet, ...userEmoteSet];
     } else {
-      this.status = "connection_failed" /* CONNECTION_FAILED */;
+      this.status = "loaded" /* LOADED */;
       return [...globalEmoteSet];
     }
   }
@@ -23834,7 +23868,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         isOtherChannel: false,
         isSubscribed: false,
         icon: userData.emote_set?.user?.avatar_url || "https://7tv.app/favicon.ico",
-        id: "" + userData.emote_set.id
+        id: "7tv_" + userData.emote_set.id
       }
     ];
   }
@@ -24036,7 +24070,7 @@ var BotrixExtension = class extends Extension {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.51";
+  VERSION = "1.5.52";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
