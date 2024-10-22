@@ -6,7 +6,6 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	private toggleStates = {}
 	private isShowing = false
 	private activePanel = 'emotes'
-	private sidebarMap = new Map()
 
 	private rootContext: RootContext
 	private session: Session
@@ -21,6 +20,10 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	private favoritesEmoteSetEl?: HTMLElement
 	private tooltipEl?: HTMLElement
 
+	private emoteSetEls: Map<EmoteSet['id'], HTMLElement> = new Map()
+	private emoteSetSidebarEls: Map<EmoteSet['id'], HTMLElement> = new Map()
+
+	private scrollableObserver!: IntersectionObserver
 	private closeModalClickListenerHandle?: Function
 	private scrollableHeight: number = 0
 
@@ -117,6 +120,37 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		const parentContainerPosition = this.parentContainer.getBoundingClientRect()
 		this.containerEl.style.right = window.innerWidth - parentContainerPosition.left + 'px'
 		this.containerEl.style.bottom = window.innerHeight - parentContainerPosition.top + 10 + 'px'
+
+		// Observe intersection of scrollable emote sets to change sidebar icon opacity
+		this.scrollableObserver = new IntersectionObserver(
+			(entries, observer) => {
+				entries.forEach(entry => {
+					const emoteSetId = entry.target.getAttribute('data-id')
+					const sidebarIcon = this.emoteSetSidebarEls.get(emoteSetId!)
+					if (!sidebarIcon) return error('Invalid emote set sidebar element')
+
+					sidebarIcon.style.backgroundColor = `rgba(255, 255, 255, ${
+						entry.intersectionRect.height / this.scrollableHeight / 7
+					})`
+				})
+			},
+			{
+				root: this.scrollableEl,
+				rootMargin: '0px',
+				threshold: (() => {
+					let thresholds = []
+					let numSteps = 100
+
+					for (let i = 1.0; i <= numSteps; i++) {
+						let ratio = i / numSteps
+						thresholds.push(ratio)
+					}
+
+					thresholds.push(0)
+					return thresholds
+				})()
+			}
+		)
 	}
 
 	attachEventHandlers() {
@@ -301,7 +335,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			this.rootContext.eventBus.publish('ntv.ui.settings.toggle_show')
 		})
 
-		eventBus.subscribe('ntv.datastore.emoteset.added', this.renderEmoteSets.bind(this), true)
+		eventBus.subscribe('ntv.datastore.emoteset.added', this.addEmoteSet.bind(this), true)
 
 		eventBus.subscribe(
 			'ntv.datastore.emotes.favorites.loaded',
@@ -451,7 +485,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		) as HTMLElement
 
 		sidebarSetsEl.appendChild(sidebarFavoritesBtn)
-		this.sidebarMap.set('favorites', sidebarFavoritesBtn)
+		this.emoteSetSidebarEls.set('favorites', sidebarFavoritesBtn)
 
 		const showUnavailableEmotes = settingsManager.getSetting(channelId, 'emote_menu.show_unavailable_favorites')
 
@@ -474,21 +508,29 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		emotesPanelEl.append(this.favoritesEmoteSetEl)
 	}
 
-	renderFavoriteEmotes() {
+	renderFavoriteEmotes(emoteSet?: EmoteSet) {
 		const { settingsManager } = this.rootContext
 		const channelId = this.session.channelData.channelId
 		if (!settingsManager.getSetting(channelId, 'emote_menu.show_favorites')) return
-
 		if (!this.favoritesEmoteSetEl) return error('Invalid favorites emote set element')
-		log('Rendering favorite emote set in emote menu..')
 
 		const { emotesManager } = this.session
+
+		const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments()
+		if (
+			emoteSet &&
+			!unsortedFavoriteEmoteDocuments.some(doc => emoteSet.emotes.find(emote => emote.hid === doc.emote.hid))
+		) {
+			// No need to re-render if the emote set is not in the favorites
+			return
+		}
+
+		log('Rendering favorite emote set in emote menu..')
+
+		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => b.orderIndex - a.orderIndex)
+
 		const emotesEl = this.favoritesEmoteSetEl.getElementsByClassName('ntv__emote-set__emotes')[0]
 		while (emotesEl.firstChild) emotesEl.removeChild(emotesEl.firstChild)
-
-		const favoriteEmoteDocuments = [...emotesManager.getFavoriteEmoteDocuments()].sort(
-			(a, b) => b.orderIndex - a.orderIndex
-		)
 
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
 			const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
@@ -512,21 +554,28 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		}
 	}
 
-	renderEmoteSets() {
+	addEmoteSet(emoteSet: EmoteSet) {
+		log('Adding emote set to emote menu..', emoteSet)
+
 		const { sidebarSetsEl, scrollableEl, rootContext } = this
 		const { emotesManager, channelData } = this.session
 		const channelId = channelData.channelId
 		const emotesPanelEl = this.panels.emotes
 		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
 
-		// Clear any existing emote sets except for the favorites emote set
-		const emotesPanelElChildren = Array.from(emotesPanelEl.children)
-		for (const child of emotesPanelElChildren) {
-			if (child.getAttribute('data-id') !== 'favorites') child.remove()
+		// Check if emote set is already added and remove it
+		if (this.emoteSetEls.has(emoteSet.id)) {
+			error(`Emote set "${emoteSet.name}" already exists, removing it before re-adding..`)
+			this.emoteSetEls.get(emoteSet.id)?.remove()
+			this.emoteSetEls.delete(emoteSet.id)
+			this.emoteSetSidebarEls.get(emoteSet.id)?.remove()
+			this.emoteSetSidebarEls.delete(emoteSet.id)
 		}
-		const sidebarSetsElChildren = Array.from(sidebarSetsEl.children)
-		for (const child of sidebarSetsElChildren) {
-			if (child.children[0]?.getAttribute('data-id') !== 'favorites') child.remove()
+
+		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
+		if (!emoteSets.find(set => set.id === emoteSet.id)) {
+			log(`Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`)
+			return
 		}
 
 		const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
@@ -534,25 +583,18 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			'chat.emotes.hide_subscriber_emotes'
 		)
 
-		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
-		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex)
+		const sortedEmotes = (emoteSet as EmoteSet).emotes.sort((a, b) => a.width - b.width)
 
-		log(`Rendering ${orderedEmoteSets.length} emote sets in emote menu..`)
+		// Render emote set sidebar icon
+		const sidebarIconEl = parseHTML(
+			`<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`,
+			true
+		) as HTMLElement
 
-		for (const emoteSet of orderedEmoteSets) {
-			const sortedEmotes = (emoteSet as EmoteSet).emotes.sort((a, b) => a.width - b.width)
-
-			const sidebarIcon = parseHTML(
-				`<div class="ntv__emote-menu__sidebar-btn"><img data-id="${emoteSet.id}" src="${emoteSet.icon}"></div`,
-				true
-			) as HTMLElement
-
-			sidebarSetsEl.appendChild(sidebarIcon)
-			this.sidebarMap.set(emoteSet.id, sidebarIcon)
-
-			const newEmoteSetEl = parseHTML(
-				cleanupHTML(
-					`<div class="ntv__emote-set" data-id="${emoteSet.id}">
+		// Render emote set
+		const emoteSetEl = parseHTML(
+			cleanupHTML(
+				`<div class="ntv__emote-set" data-id="${emoteSet.id}">
 						<div class="ntv__emote-set__header">
 							<img src="${emoteSet.icon}">
 							<span>${emoteSet.name}</span>
@@ -560,71 +602,51 @@ export default class EmoteMenuComponent extends AbstractComponent {
 								<svg width="1em" height="0.6666em" viewBox="0 0 9 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0.221974 4.46565L3.93498 0.251908C4.0157 0.160305 4.10314 0.0955723 4.19731 0.0577097C4.29148 0.0192364 4.39238 5.49454e-08 4.5 5.3662e-08C4.60762 5.23786e-08 4.70852 0.0192364 4.80269 0.0577097C4.89686 0.0955723 4.9843 0.160305 5.06502 0.251908L8.77803 4.46565C8.92601 4.63359 9 4.84733 9 5.10687C9 5.36641 8.92601 5.58015 8.77803 5.74809C8.63005 5.91603 8.4417 6 8.213 6C7.98431 6 7.79596 5.91603 7.64798 5.74809L4.5 2.17557L1.35202 5.74809C1.20404 5.91603 1.0157 6 0.786996 6C0.558296 6 0.369956 5.91603 0.221974 5.74809C0.0739918 5.58015 6.39938e-08 5.36641 6.08988e-08 5.10687C5.78038e-08 4.84733 0.0739918 4.63359 0.221974 4.46565Z"></path></svg>
 							</div>
 						</div>
-						<div class="ntv__emote-set__emotes"></div>
 					</div>`
-				),
-				true
-			) as HTMLElement
+			),
+			true
+		) as HTMLElement
 
-			emotesPanelEl.append(newEmoteSetEl)
+		// Render emote set body
+		const emoteSetEmotesEl = document.createElement('div')
+		emoteSetEmotesEl.className = 'ntv__emote-set__emotes'
+		for (const emote of sortedEmotes) {
+			const zeroWidthClass = (emote.isZeroWidth && ' ntv__emote-box--zero-width') || ''
+			if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
+				if (hideSubscribersEmotes) continue
 
-			const newEmoteSetEmotesEl = newEmoteSetEl.querySelector('.ntv__emote-set__emotes')!
-			for (const emote of sortedEmotes) {
-				const zeroWidthClass = (emote.isZeroWidth && ' ntv__emote-box--zero-width') || ''
-				if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
-					if (hideSubscribersEmotes) continue
-
-					newEmoteSetEmotesEl.append(
-						parseHTML(
-							`<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${
-								emote.size
-							}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
-						)
+				emoteSetEmotesEl.append(
+					parseHTML(
+						`<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${
+							emote.size
+						}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
 					)
-				} else {
-					newEmoteSetEmotesEl.append(
-						parseHTML(
-							`<div class="ntv__emote-box${zeroWidthClass}" size="${
-								emote.size
-							}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
-						)
+				)
+			} else {
+				emoteSetEmotesEl.append(
+					parseHTML(
+						`<div class="ntv__emote-box${zeroWidthClass}" size="${
+							emote.size
+						}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
 					)
-				}
+				)
 			}
 		}
 
-		// Observe intersection of scrollable emote sets to change sidebar icon opacity
-		const observer = new IntersectionObserver(
-			(entries, observer) => {
-				entries.forEach(entry => {
-					const emoteSetId = entry.target.getAttribute('data-id')
-					const sidebarIcon = this.sidebarMap.get(emoteSetId)
+		this.emoteSetSidebarEls.set(emoteSet.id, sidebarIconEl)
 
-					sidebarIcon.style.backgroundColor = `rgba(255, 255, 255, ${
-						entry.intersectionRect.height / this.scrollableHeight / 7
-					})`
-				})
-			},
-			{
-				root: scrollableEl,
-				rootMargin: '0px',
-				threshold: (() => {
-					let thresholds = []
-					let numSteps = 100
+		emoteSetEl.append(emoteSetEmotesEl)
+		this.emoteSetEls.set(emoteSet.id, emoteSetEl)
 
-					for (let i = 1.0; i <= numSteps; i++) {
-						let ratio = i / numSteps
-						thresholds.push(ratio)
-					}
+		const orderedEmoteSets = Array.from(emoteSets).sort((a, b) => a.orderIndex - b.orderIndex)
+		for (const oEmoteSet of orderedEmoteSets) {
+			if (!this.emoteSetEls.has(oEmoteSet.id)) continue
 
-					thresholds.push(0)
-					return thresholds
-				})()
-			}
-		)
+			emotesPanelEl.append(this.emoteSetEls.get(oEmoteSet.id)!)
+			sidebarSetsEl.appendChild(this.emoteSetSidebarEls.get(oEmoteSet.id)!)
+		}
 
-		const emoteSetEls = emotesPanelEl.querySelectorAll('.ntv__emote-set')
-		for (const emoteSetEl of emoteSetEls) observer.observe(emoteSetEl)
+		this.scrollableObserver.observe(emoteSetEl)
 	}
 
 	handleEmoteClick(emoteBoxEl: HTMLElement, emoteHid: string, isHoldingCtrl: boolean) {

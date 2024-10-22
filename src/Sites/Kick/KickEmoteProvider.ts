@@ -104,7 +104,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 				isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
 				isSubscribed: dataSetId === channelId ? me.isSubscribed || me.isBroadcaster : true,
 				icon: emoteSetIcon,
-				id: '' + dataSetId
+				id: 'kick_' + dataSetId
 			} as EmoteSet)
 		}
 
