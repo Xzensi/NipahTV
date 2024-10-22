@@ -65,7 +65,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			this.status = EmoteProviderStatus.LOADED
 			return [...globalEmoteSet, ...userEmoteSet]
 		} else {
-			this.status = EmoteProviderStatus.CONNECTION_FAILED
+			this.status = EmoteProviderStatus.LOADED
 			return [...globalEmoteSet]
 		}
 	}
