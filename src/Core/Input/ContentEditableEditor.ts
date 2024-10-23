@@ -264,6 +264,16 @@ export class ContentEditableEditor {
 			this.updateEmptyInputContent()
 			this.processInputContentDebounce()
 		})
+
+		inputNode.addEventListener('compositionstart', event => {
+			this.adjustSelectionForceOutOfComponent()
+		})
+		// inputNode.addEventListener('compositionupdate', event => {
+		// 	log('Composition update', event)
+		// })
+		// inputNode.addEventListener('compositionend', event => {
+		// 	log('Composition end', event)
+		// })
 	}
 
 	handleKeydown(event: KeyboardEvent) {
@@ -545,6 +555,7 @@ export class ContentEditableEditor {
 
 		const component = document.createElement('span')
 		component.className = 'ntv__input-component'
+		// component.setAttribute('contenteditable', 'false')
 		component.appendChild(document.createTextNode(CHAR_ZWSP))
 
 		const componentBody = document.createElement('span')
