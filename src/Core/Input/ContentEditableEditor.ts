@@ -597,7 +597,6 @@ export class ContentEditableEditor {
 	 * @param force Force processing of input content in case input content was changed through direct DOM manipulation.
 	 */
 	processInputContent(force = false) {
-		log('Processing input content', this.hasUnprocessedContentChanges)
 		if (!this.hasUnprocessedContentChanges && !force) return
 
 		const { eventBus, emotesManager } = this.session
