@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.52
+// @version 1.5.53
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10334,7 +10334,7 @@ var REST = class {
       xhr.ontimeout = function() {
         reject("Request timed out");
       };
-      xhr.timeout = 7e3;
+      xhr.timeout = 15e3;
       if (options.body) xhr.send(options.body);
       else xhr.send();
     });
@@ -11877,6 +11877,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.53",
+    date: "2024-10-23",
+    description: `
+                  Fix: Raised request timeout from 7s to 15s
+            `
+  },
   {
     version: "1.5.52",
     date: "2024-10-22",
@@ -24070,7 +24077,7 @@ var BotrixExtension = class extends Extension {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.52";
+  VERSION = "1.5.53";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.53',
+		date: '2024-10-23',
+		description: `
+                  Fix: Raised request timeout from 7s to 15s
+            `
+	},
+	{
 		version: '1.5.52',
 		date: '2024-10-22',
 		description: `
