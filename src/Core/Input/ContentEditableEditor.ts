@@ -139,6 +139,7 @@ export class ContentEditableEditor {
 	clearInput() {
 		while (this.inputNode.firstChild) this.inputNode.removeChild(this.inputNode.firstChild)
 		this.hasUnprocessedContentChanges = true
+		this.updateEmptyInputContent()
 		this.processInputContent()
 	}
 
@@ -191,10 +192,10 @@ export class ContentEditableEditor {
 			this.adjustSelection()
 		})
 
-		inputNode.addEventListener('paste', evt => {
-			evt.preventDefault()
+		inputNode.addEventListener('paste', event => {
+			event.preventDefault()
 
-			const messageParts = clipboard.parsePastedMessage(evt)
+			const messageParts = clipboard.parsePastedMessage(event)
 			if (!messageParts.length) return
 
 			// Remove reserved Unicode range U+E0001 to U+E007F. These are used for internal tag characters.
@@ -230,12 +231,7 @@ export class ContentEditableEditor {
 
 			this.insertNodes(newNodes)
 			this.processInputContent()
-
-			const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
-			if (this.inputEmpty && isNotEmpty) {
-				this.inputEmpty = isNotEmpty
-				this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
-			}
+			this.updateEmptyInputContent()
 		})
 
 		inputNode.addEventListener('copy', evt => {
@@ -260,9 +256,12 @@ export class ContentEditableEditor {
 
 		inputNode.addEventListener('input', _evt => {
 			const evt = _evt as InputEvent
-			if (evt.inputType === 'insertCompositionText' && !evt.data) return
+
+			const isInsertCompositionTextEvent = evt.inputType === 'insertCompositionText'
+			if (isInsertCompositionTextEvent && !evt.data) return
 
 			this.hasUnprocessedContentChanges = true
+			this.updateEmptyInputContent()
 			this.processInputContentDebounce()
 		})
 	}
@@ -360,9 +359,7 @@ export class ContentEditableEditor {
 			}
 		}
 
-		if (this.inputEmpty === !isNotEmpty) return
-		this.inputEmpty = !this.inputEmpty
-		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
+		this.updateEmptyInputContent()
 	}
 
 	handleSpaceKey(event: KeyboardEvent) {
@@ -566,10 +563,23 @@ export class ContentEditableEditor {
 		return component
 	}
 
+	updateEmptyInputContent() {
+		const inputNode = this.inputNode
+
+		const isNotEmpty = !!inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
+		if (this.inputEmpty === !isNotEmpty) return
+
+		this.inputEmpty = !isNotEmpty
+		this.eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: !isNotEmpty } }))
+
+		if (!isNotEmpty) this.session.eventBus.publish('ntv.input_controller.empty_input')
+	}
+
 	setInputContent(content: string) {
 		this.inputNode.innerHTML = content
 		this.hasUnprocessedContentChanges = true
 		this.processInputContent()
+		this.updateEmptyInputContent()
 	}
 
 	/**
@@ -621,12 +631,11 @@ export class ContentEditableEditor {
 
 		this.characterCount = this.messageContent.length
 		this.hasUnprocessedContentChanges = false
-		eventBus.publish('ntv.input_controller.character_count', { value: this.characterCount })
 
-		if (!inputNode.childNodes.length) eventBus.publish('ntv.input_controller.empty_input')
+		eventBus.publish('ntv.input_controller.character_count', { value: this.characterCount })
 	}
 
-	deleteBackwards(evt: KeyboardEvent) {
+	deleteBackwards(event: KeyboardEvent) {
 		const { inputNode } = this
 
 		const selection = document.getSelection()
@@ -634,7 +643,7 @@ export class ContentEditableEditor {
 
 		const { focusNode, focusOffset } = selection
 		if (focusNode === inputNode && focusOffset === 0) {
-			evt.preventDefault()
+			event.preventDefault()
 			return
 		}
 
@@ -689,7 +698,7 @@ export class ContentEditableEditor {
 		}
 
 		if (rangeIncludesComponent) {
-			evt.preventDefault()
+			event.preventDefault()
 			range.deleteContents()
 			selection.removeAllRanges()
 			selection.addRange(range)
@@ -699,7 +708,7 @@ export class ContentEditableEditor {
 		this.hasUnprocessedContentChanges = true
 	}
 
-	deleteForwards(evt: KeyboardEvent) {
+	deleteForwards(event: KeyboardEvent) {
 		const { inputNode } = this
 
 		const selection = document.getSelection()
@@ -743,7 +752,7 @@ export class ContentEditableEditor {
 		}
 
 		if (rangeIncludesComponent) {
-			evt.preventDefault()
+			event.preventDefault()
 			range.deleteContents()
 			selection.removeAllRanges()
 			selection.addRange(range)
@@ -1105,15 +1114,8 @@ export class ContentEditableEditor {
 		}
 
 		this.insertComponent(emoteComponent)
-
-		const wasNotEmpty = this.inputEmpty
-		if (wasNotEmpty) this.inputEmpty = false
-
 		this.processInputContent()
-
-		if (wasNotEmpty) {
-			eventTarget.dispatchEvent(new CustomEvent('is_empty', { detail: { isEmpty: false } }))
-		}
+		this.updateEmptyInputContent()
 
 		return emoteComponent
 	}
@@ -1160,6 +1162,7 @@ export class ContentEditableEditor {
 		inputNode.normalize()
 
 		this.hasUnprocessedContentChanges = true
+		this.updateEmptyInputContent()
 		this.processInputContentDebounce()
 
 		return textNode
