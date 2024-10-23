@@ -257,6 +257,14 @@ export class ContentEditableEditor {
 
 		inputNode.addEventListener('mousedown', this.handleMouseDown.bind(this))
 		inputNode.addEventListener('mouseup', this.handleMouseUp.bind(this))
+
+		inputNode.addEventListener('input', _evt => {
+			const evt = _evt as InputEvent
+			if (evt.inputType === 'insertCompositionText' && !evt.data) return
+
+			this.hasUnprocessedContentChanges = true
+			this.processInputContentDebounce()
+		})
 	}
 
 	handleKeydown(event: KeyboardEvent) {
@@ -568,6 +576,7 @@ export class ContentEditableEditor {
 	 * @param force Force processing of input content in case input content was changed through direct DOM manipulation.
 	 */
 	processInputContent(force = false) {
+		log('Processing input content', this.hasUnprocessedContentChanges)
 		if (!this.hasUnprocessedContentChanges && !force) return
 
 		const { eventBus, emotesManager } = this.session
