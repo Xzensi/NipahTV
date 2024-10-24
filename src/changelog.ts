@@ -4,6 +4,18 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.54',
+		date: '2024-10-24',
+		description: `
+                  Fix: Zero width emotes overflowing emote container
+                  Fix: Windows emoji bar unrecognized input events
+                  Fix: Short UI init timeouts sporadically resulting in partially loaded UI states
+                  Fix: Input requiring more checks for empty content events
+                  Fix: Compositioned input events not inserting content correctly into input
+                  Fix: Re-aligned the stars to improve system performance
+            `
+	},
+	{
 		version: '1.5.53',
 		date: '2024-10-23',
 		description: `
