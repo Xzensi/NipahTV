@@ -76,7 +76,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		if (channelData.isModView || channelData.isCreatorView) {
 			// Wait for text input & submit button to load
-			waitForElements(['#message-input', '#chatroom-footer .send-row > button'], 10_000, abortSignal)
+			waitForElements(['#message-input', '#chatroom-footer .send-row > button'], 15_000, abortSignal)
 				.then(foundElements => {
 					if (this.session.isDestroyed) return
 
@@ -87,7 +87,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				.catch(() => {})
 
 			// Wait for chat footer to load
-			waitForElements(['#chatroom-footer'], 10_000, abortSignal)
+			waitForElements(['#chatroom-footer'], 15_000, abortSignal)
 				.then(foundElements => {
 					if (this.session.isDestroyed) return
 
@@ -103,7 +103,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					const quickEmotesHolderEl = footerEl.querySelector('& > .quick-emotes-holder') as HTMLElement
 					this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
 
-					waitForElements(['#chatroom-footer .send-row'], 10_000, abortSignal)
+					waitForElements(['#chatroom-footer .send-row'], 15_000, abortSignal)
 						.then(foundElements => {
 							if (this.session.isDestroyed) return
 
@@ -115,7 +115,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				.catch(() => {})
 
 			// Wait for chat messages container to load
-			waitForElements(['#chatroom-top + div.overflow-hidden > .overflow-x-hidden'], 10_000, abortSignal)
+			waitForElements(['#chatroom-top + div.overflow-hidden > .overflow-x-hidden'], 15_000, abortSignal)
 				.then(foundElements => {
 					if (this.session.isDestroyed) return
 
@@ -153,7 +153,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					'#channel-chatroom .editor-input[contenteditable="true"]',
 					`${footerSelector} button.select-none.bg-green-500.rounded`
 				],
-				10_000,
+				15_000,
 				abortSignal
 			)
 				.then(foundElements => {
@@ -166,7 +166,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				.catch(() => {})
 
 			// Wait for chat footer to load
-			waitForElements([`${footerSelector}`], 10_000, abortSignal)
+			waitForElements([`${footerSelector}`], 15_000, abortSignal)
 				.then(foundElements => {
 					if (this.session.isDestroyed) return
 
@@ -184,7 +184,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 					waitForElements(
 						[`${footerSelector} > div.flex > .flex.items-center > .items-center`],
-						10_000,
+						15_000,
 						abortSignal
 					)
 						.then(foundElements => {
@@ -200,7 +200,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const chatMessagesContainerSelector = '#chatroom-messages > .no-scrollbar'
 
 			// Wait for chat messages container to load
-			waitForElements([chatMessagesContainerSelector], 10_000, abortSignal)
+			waitForElements([chatMessagesContainerSelector], 15_000, abortSignal)
 				.then(foundElements => {
 					if (this.session.isDestroyed) return
 
@@ -230,7 +230,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				.catch(() => {})
 
 			// Wait for video player and chat messages container to load
-			waitForElements(['#video-player', chatMessagesContainerSelector], 10_000, abortSignal)
+			waitForElements(['#video-player', chatMessagesContainerSelector], 15000, abortSignal)
 				.then(foundElements => {
 					if (this.session.isDestroyed) return
 
