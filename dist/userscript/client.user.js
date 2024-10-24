@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.53
+// @version 1.5.54
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-c2169a43.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-b2825067.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11878,6 +11878,18 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.54",
+    date: "2024-10-24",
+    description: `
+                  Fix: Zero width emotes overflowing emote container
+                  Fix: Windows emoji bar unrecognized input events
+                  Fix: Short UI init timeouts sporadically resulting in partially loaded UI states
+                  Fix: Input requiring more checks for empty content events
+                  Fix: Compositioned input events not inserting content correctly into input
+                  Fix: Re-aligned the stars to improve system performance
+            `
+  },
+  {
     version: "1.5.53",
     date: "2024-10-23",
     description: `
@@ -20573,6 +20585,7 @@ var ContentEditableEditor = class {
   clearInput() {
     while (this.inputNode.firstChild) this.inputNode.removeChild(this.inputNode.firstChild);
     this.hasUnprocessedContentChanges = true;
+    this.updateEmptyInputContent();
     this.processInputContent();
   }
   enableInput() {
@@ -20605,9 +20618,9 @@ var ContentEditableEditor = class {
       if (activeElement !== inputNode) return;
       this.adjustSelection();
     });
-    inputNode.addEventListener("paste", (evt) => {
-      evt.preventDefault();
-      const messageParts = clipboard.parsePastedMessage(evt);
+    inputNode.addEventListener("paste", (event) => {
+      event.preventDefault();
+      const messageParts = clipboard.parsePastedMessage(event);
       if (!messageParts.length) return;
       for (let i = 0; i < messageParts.length; i++) {
         messageParts[i] = messageParts[i].replace(/[\u{E0001}-\u{E007F}]/gu, "");
@@ -20638,11 +20651,7 @@ var ContentEditableEditor = class {
       }
       this.insertNodes(newNodes);
       this.processInputContent();
-      const isNotEmpty = inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
-      if (this.inputEmpty && isNotEmpty) {
-        this.inputEmpty = isNotEmpty;
-        this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
-      }
+      this.updateEmptyInputContent();
     });
     inputNode.addEventListener("copy", (evt) => {
       evt.preventDefault();
@@ -20658,6 +20667,17 @@ var ContentEditableEditor = class {
     inputNode.addEventListener("keyup", this.eventTarget.dispatchEvent.bind(this.eventTarget));
     inputNode.addEventListener("mousedown", this.handleMouseDown.bind(this));
     inputNode.addEventListener("mouseup", this.handleMouseUp.bind(this));
+    inputNode.addEventListener("input", (_evt) => {
+      const evt = _evt;
+      const isInsertCompositionTextEvent = evt.inputType === "insertCompositionText";
+      if (isInsertCompositionTextEvent && !evt.data) return;
+      this.hasUnprocessedContentChanges = true;
+      this.updateEmptyInputContent();
+      this.processInputContentDebounce();
+    });
+    inputNode.addEventListener("compositionstart", (event) => {
+      this.adjustSelectionForceOutOfComponent();
+    });
   }
   handleKeydown(event) {
     if (event.ctrlKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
@@ -20728,9 +20748,7 @@ var ContentEditableEditor = class {
         this.processInputContent();
       }
     }
-    if (this.inputEmpty === !isNotEmpty) return;
-    this.inputEmpty = !this.inputEmpty;
-    this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
+    this.updateEmptyInputContent();
   }
   handleSpaceKey(event) {
     const { inputNode } = this;
@@ -20865,10 +20883,19 @@ var ContentEditableEditor = class {
     component.appendChild(document.createTextNode(CHAR_ZWSP));
     return component;
   }
+  updateEmptyInputContent() {
+    const inputNode = this.inputNode;
+    const isNotEmpty = !!inputNode.childNodes.length && inputNode.childNodes[0]?.tagName !== "BR";
+    if (this.inputEmpty === !isNotEmpty) return;
+    this.inputEmpty = !isNotEmpty;
+    this.eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: !isNotEmpty } }));
+    if (!isNotEmpty) this.session.eventBus.publish("ntv.input_controller.empty_input");
+  }
   setInputContent(content) {
     this.inputNode.innerHTML = content;
     this.hasUnprocessedContentChanges = true;
     this.processInputContent();
+    this.updateEmptyInputContent();
   }
   /**
    * @param force Force processing of input content in case input content was changed through direct DOM manipulation.
@@ -20912,15 +20939,14 @@ var ContentEditableEditor = class {
     this.characterCount = this.messageContent.length;
     this.hasUnprocessedContentChanges = false;
     eventBus.publish("ntv.input_controller.character_count", { value: this.characterCount });
-    if (!inputNode.childNodes.length) eventBus.publish("ntv.input_controller.empty_input");
   }
-  deleteBackwards(evt) {
+  deleteBackwards(event) {
     const { inputNode } = this;
     const selection = document.getSelection();
     if (!selection || !selection.rangeCount) return error("No ranges found in selection");
     const { focusNode, focusOffset } = selection;
     if (focusNode === inputNode && focusOffset === 0) {
-      evt.preventDefault();
+      event.preventDefault();
       return;
     }
     let range = selection.getRangeAt(0);
@@ -20950,7 +20976,7 @@ var ContentEditableEditor = class {
       rangeIncludesComponent = true;
     }
     if (rangeIncludesComponent) {
-      evt.preventDefault();
+      event.preventDefault();
       range.deleteContents();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -20958,7 +20984,7 @@ var ContentEditableEditor = class {
     }
     this.hasUnprocessedContentChanges = true;
   }
-  deleteForwards(evt) {
+  deleteForwards(event) {
     const { inputNode } = this;
     const selection = document.getSelection();
     if (!selection || !selection.rangeCount) return error("No ranges found in selection");
@@ -20987,7 +21013,7 @@ var ContentEditableEditor = class {
       rangeIncludesComponent = true;
     }
     if (rangeIncludesComponent) {
-      evt.preventDefault();
+      event.preventDefault();
       range.deleteContents();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -21276,12 +21302,8 @@ var ContentEditableEditor = class {
       return null;
     }
     this.insertComponent(emoteComponent);
-    const wasNotEmpty = this.inputEmpty;
-    if (wasNotEmpty) this.inputEmpty = false;
     this.processInputContent();
-    if (wasNotEmpty) {
-      eventTarget.dispatchEvent(new CustomEvent("is_empty", { detail: { isEmpty: false } }));
-    }
+    this.updateEmptyInputContent();
     return emoteComponent;
   }
   replaceEmote(component, emoteHid) {
@@ -21315,6 +21337,7 @@ var ContentEditableEditor = class {
     selection.addRange(range);
     inputNode.normalize();
     this.hasUnprocessedContentChanges = true;
+    this.updateEmptyInputContent();
     this.processInputContentDebounce();
     return textNode;
   }
@@ -21510,14 +21533,14 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.loadSettings();
     this.loadStylingVariables();
     if (channelData.isModView || channelData.isCreatorView) {
-      waitForElements(["#message-input", "#chatroom-footer .send-row > button"], 1e4, abortSignal).then((foundElements) => {
+      waitForElements(["#message-input", "#chatroom-footer .send-row > button"], 15e3, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [textFieldEl, submitButtonEl] = foundElements;
         this.loadInputBehaviour(textFieldEl, submitButtonEl);
         this.loadEmoteMenu();
       }).catch(() => {
       });
-      waitForElements(["#chatroom-footer"], 1e4, abortSignal).then((foundElements) => {
+      waitForElements(["#chatroom-footer"], 15e3, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [footerEl] = foundElements;
         footerEl.classList.add("kick__chat-footer");
@@ -21527,7 +21550,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.elm.timersContainer = timersContainer;
         const quickEmotesHolderEl = footerEl.querySelector("& > .quick-emotes-holder");
         this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
-        waitForElements(["#chatroom-footer .send-row"], 1e4, abortSignal).then((foundElements2) => {
+        waitForElements(["#chatroom-footer .send-row"], 15e3, abortSignal).then((foundElements2) => {
           if (this.session.isDestroyed) return;
           const [footerBottomBarEl] = foundElements2;
           this.loadEmoteMenuButton(footerBottomBarEl);
@@ -21535,7 +21558,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         });
       }).catch(() => {
       });
-      waitForElements(["#chatroom-top + div.overflow-hidden > .overflow-x-hidden"], 1e4, abortSignal).then((foundElements) => {
+      waitForElements(["#chatroom-top + div.overflow-hidden > .overflow-x-hidden"], 15e3, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [chatMessagesContainerEl] = foundElements;
         this.elm.chatMessagesContainer = chatMessagesContainerEl;
@@ -21560,7 +21583,7 @@ var KickUserInterface = class extends AbstractUserInterface {
           '#channel-chatroom .editor-input[contenteditable="true"]',
           `${footerSelector} button.select-none.bg-green-500.rounded`
         ],
-        1e4,
+        15e3,
         abortSignal
       ).then((foundElements) => {
         if (this.session.isDestroyed) return;
@@ -21569,7 +21592,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.loadEmoteMenu();
       }).catch(() => {
       });
-      waitForElements([`${footerSelector}`], 1e4, abortSignal).then((foundElements) => {
+      waitForElements([`${footerSelector}`], 15e3, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [footerEl] = foundElements;
         footerEl.classList.add("kick__chat-footer");
@@ -21581,7 +21604,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
         waitForElements(
           [`${footerSelector} > div.flex > .flex.items-center > .items-center`],
-          1e4,
+          15e3,
           abortSignal
         ).then((foundElements2) => {
           if (this.session.isDestroyed) return;
@@ -21592,7 +21615,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }).catch(() => {
       });
       const chatMessagesContainerSelector = "#chatroom-messages > .no-scrollbar";
-      waitForElements([chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
+      waitForElements([chatMessagesContainerSelector], 15e3, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         const [chatMessagesContainerEl] = foundElements;
         this.elm.chatMessagesContainer = chatMessagesContainerEl;
@@ -21610,7 +21633,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }).catch(() => {
       });
-      waitForElements(["#video-player", chatMessagesContainerSelector], 1e4, abortSignal).then((foundElements) => {
+      waitForElements(["#video-player", chatMessagesContainerSelector], 15e3, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
         this.loadTheatreModeBehaviour();
       }).catch(() => {
@@ -24077,7 +24100,7 @@ var BotrixExtension = class extends Extension {
 
 // src/app.ts
 var NipahClient = class {
-  VERSION = "1.5.53";
+  VERSION = "1.5.54";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
