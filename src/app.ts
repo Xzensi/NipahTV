@@ -40,7 +40,7 @@ import TwitchNetworkInterface from './Sites/Twitch/TwitchNetworkInterface'
 
 // Extensions
 import { Extension } from './Extensions/Extension'
-import SevenTVExtension from './Extensions/7tv'
+import SevenTVExtension from './Extensions/SevenTV'
 import BotrixExtension from './Extensions/Botrix'
 
 class NipahClient {
@@ -60,7 +60,7 @@ class NipahClient {
 	rootContext: RootContext | null = null
 	loadSettingsManagerPromise: Promise<void> | null = null
 
-	private database: DatabaseProxy | null = null
+	private database: DatabaseProxy<Database> | null = null
 	private sessions: Session[] = []
 
 	async initialize() {
@@ -177,8 +177,8 @@ class NipahClient {
 
 		return new Promise((resolve, reject) => {
 			const database: Database = __USERSCRIPT__
-				? DatabaseProxyFactory.create(new Database())
-				: DatabaseProxyFactory.create()
+				? DatabaseProxyFactory.create('NipahTV', new Database())
+				: DatabaseProxyFactory.create('NipahTV')
 
 			database
 				.checkCompatibility()
@@ -278,8 +278,8 @@ class NipahClient {
 		const { settingsManager } = rootContext
 		const enabledExtensions: Set<new (rootContext: RootContext, sessions: Session[]) => Extension> = new Set()
 
-		const is7tvExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.7tv.enabled')
-		if (is7tvExtensionEnabled) enabledExtensions.add(SevenTVExtension)
+		const isSevenTVExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.7tv.enabled')
+		if (isSevenTVExtensionEnabled) enabledExtensions.add(SevenTVExtension)
 
 		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
 		if (isBotrixExtensionEnabled) enabledExtensions.add(BotrixExtension)
@@ -608,6 +608,12 @@ class NipahClient {
 		window.addEventListener('beforeunload', () => {
 			info('User is navigating away from the page, cleaning up sessions before leaving..')
 			this.rootContext?.eventService.disconnectAll()
+
+			this.sessions.forEach(session => {
+				session.isDestroyed = true
+				session.eventBus.publish('ntv.session.destroy')
+				this.rootContext?.eventBus.publish('ntv.session.destroy', session)
+			})
 		})
 	}
 
@@ -621,7 +627,9 @@ class NipahClient {
 			)
 			prevSession.isDestroyed = true
 			prevSession.eventBus.publish('ntv.session.destroy')
+			prevSession.eventBus.publish('ntv.session.ui.restore_original')
 			this.rootContext?.eventBus.publish('ntv.session.destroy', prevSession)
+			prevSession.eventBus.destroy()
 			// TODO after session is destroyed, all session event listeners attached to rootEventBus should be removed as well
 		} else {
 			log(`No session to clean up for ${oldLocation}..`)

@@ -54,20 +54,14 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		}
 
 		if (userEmoteSet) {
-			if (globalEmoteSet.length + userEmoteSet.length > 1)
-				log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote sets from SevenTV.`)
-			else log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote set from SevenTV.`)
+			const plural = globalEmoteSet.length + userEmoteSet.length > 1 ? 'sets' : 'set'
+			log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote ${plural} from SevenTV.`)
 		} else {
 			log(`Fetched ${globalEmoteSet.length} global emote set from SevenTV.`)
 		}
 
-		if (userEmoteSet) {
-			this.status = EmoteProviderStatus.LOADED
-			return [...globalEmoteSet, ...userEmoteSet]
-		} else {
-			this.status = EmoteProviderStatus.LOADED
-			return [...globalEmoteSet]
-		}
+		this.status = EmoteProviderStatus.LOADED
+		return (userEmoteSet && [...globalEmoteSet, ...userEmoteSet]) || [...globalEmoteSet]
 	}
 
 	private unpackGlobalEmotes(channelId: ChannelId, globalData: any) {

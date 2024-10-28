@@ -1,4 +1,5 @@
 import { error, info, log } from '../Core/Common/utils'
+import SevenTVExtension from '@extensions/SevenTV'
 import Database from '../Database/Database'
 import Dexie from 'dexie'
 
@@ -25,6 +26,14 @@ database
 	.catch((err: any) => {
 		error('Database compatibility check failed.', err)
 	})
+
+const databases = new Map()
+databases.set(database.dbName, database)
+
+// Create databases for enabled extensions.
+// const extensions = ExtensionManager.getEnabledExtensions()
+const sevenTVDatabase = SevenTVExtension.getExtensionDatabase()
+databases.set(sevenTVDatabase.dbName, sevenTVDatabase)
 
 log('Service worker loaded.')
 
@@ -78,8 +87,15 @@ function handleMessage(request: any) {
 	const { action, stack, args } = request
 
 	if (action === 'database') {
+		const dbName = request.db
+		const db = databases.get(dbName)
+		if (!db) {
+			error('Database not found for request:', request)
+			return Promise.resolve({ error: 'Database not found.' })
+		}
+
 		// Attempt to resolve the request callstack to a method on the database object.
-		let resolvedProp: any = database
+		let resolvedProp: any = db
 		let prevProp = resolvedProp
 		for (const prop of stack) {
 			if (resolvedProp['' + prop] === undefined) {
@@ -96,12 +112,12 @@ function handleMessage(request: any) {
 			return Promise.resolve({ error: `Invalid database request, unprocessable callstack.` })
 		}
 
-		if (typeof resolvedProp === 'function') {
-			// if (!database.ready) {
-			// 	error('Database not ready.')
-			// 	return Promise.resolve({ error: 'Database not ready.' })
-			// }
+		if (!db.ready && stack[0] !== 'checkCompatibility') {
+			error('Database not ready for request:', request)
+			return Promise.resolve({ error: 'Database not ready.' })
+		}
 
+		if (typeof resolvedProp === 'function') {
 			return resolvedProp.apply(prevProp, args).then((res: any) => {
 				log('Database response:', res)
 				return { data: res }

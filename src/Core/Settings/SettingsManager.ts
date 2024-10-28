@@ -3,6 +3,7 @@ import { DatabaseProxy } from '../../Database/DatabaseProxy'
 import SettingsModal from './Modals/SettingsModal'
 import { error, log } from '../Common/utils'
 import Publisher from '../Common/Publisher'
+import Database from '@database/Database'
 
 interface UISettingBase {
 	label: string
@@ -712,13 +713,13 @@ export default class SettingsManager {
 	] as [string, any][])
 
 	private isShowingModal = false
-	private database: DatabaseProxy
+	private database: DatabaseProxy<Database>
 	private rootEventBus: Publisher
 	private modal?: SettingsModal
 
 	isLoaded = false
 
-	constructor({ database, rootEventBus }: { database: DatabaseProxy; rootEventBus: Publisher }) {
+	constructor({ database, rootEventBus }: { database: DatabaseProxy<Database>; rootEventBus: Publisher }) {
 		this.database = database
 		this.rootEventBus = rootEventBus
 	}

@@ -137,7 +137,9 @@ export class REST {
 				if (xhr.status >= 200 && xhr.status < 300) {
 					if (xhr.responseText) {
 						try {
-							resolve(JSON.parse(xhr.responseText))
+							const data = JSON.parse(xhr.responseText)
+							if (data['error'] || data['errors']) reject(data)
+							else resolve(data)
 						} catch (e) {
 							reject()
 						}

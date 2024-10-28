@@ -3,6 +3,7 @@ import EmoteUsagesModel, { emoteUsagesSchema, EmoteUsagesDocument } from './Mode
 import Dexie, { DexieConstructor, type Table, type EntityTable } from 'dexie'
 import { SettingDocument, settingsSchema } from './Models/SettingsModel'
 import SettingsModel from './Models/SettingsModel'
+import DatabaseAbstract from './DatabaseAbstract'
 import { log, error } from '../Core/Common/utils'
 
 export type databaseExtended = Dexie & {
@@ -11,17 +12,18 @@ export type databaseExtended = Dexie & {
 	favoriteEmotes: Table<FavoriteEmoteDocument, [string, string, string]>
 }
 
-export default class Database {
+export default class Database extends DatabaseAbstract {
 	protected idb: databaseExtended
-	private databaseName = 'NipahTV'
-	private ready = false
+	dbName = 'NipahTV'
 
 	settings: SettingsModel
 	emoteUsages: EmoteUsagesModel
 	favoriteEmotes: FavoriteEmotesModel
 
 	constructor(SWDexie?: DexieConstructor) {
-		this.idb = (SWDexie ? new SWDexie(this.databaseName) : new Dexie(this.databaseName)) as any
+		super()
+
+		this.idb = (SWDexie ? new SWDexie(this.dbName) : new Dexie(this.dbName)) as databaseExtended
 
 		this.idb
 			.version(2)
@@ -95,30 +97,5 @@ export default class Database {
 		this.settings = new SettingsModel(this.idb)
 		this.emoteUsages = new EmoteUsagesModel(this.idb)
 		this.favoriteEmotes = new FavoriteEmotesModel(this.idb)
-	}
-
-	async checkCompatibility() {
-		return new Promise((resolve, reject) => {
-			if (this.ready) return resolve(void 0)
-
-			this.idb
-				.open()
-				.then(async () => {
-					log('Database passed compatibility check.')
-					this.ready = true
-					resolve(void 0)
-				})
-				.catch((err: Error) => {
-					if (err.name === 'InvalidStateError') {
-						reject('Firefox private mode not supported.')
-					} else {
-						reject(err)
-					}
-				})
-		})
-	}
-
-	async getTableCount(tableName: string) {
-		return this.idb.table(tableName).count()
 	}
 }

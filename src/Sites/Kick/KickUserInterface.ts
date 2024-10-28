@@ -342,6 +342,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// On sigterm signal, cleanup user interface
 		eventBus.subscribe('ntv.session.destroy', this.destroy.bind(this))
+		eventBus.subscribe('ntv.session.ui.restore_original', this.restoreOriginalUi.bind(this))
 	}
 
 	applyChatContainerClasses() {
@@ -1489,6 +1490,18 @@ export class KickUserInterface extends AbstractUserInterface {
 				return
 			}
 
+			const messageObject: ChatMessage = {
+				username: '',
+				createdAt: '',
+				isReply: false,
+				isReplyToMe: false,
+				badges: [],
+				content: [],
+				style: {
+					color: ''
+				}
+			}
+
 			const ntvMessageInnerEl = document.createElement('div')
 
 			const ntvIdentityWrapperEl = document.createElement('div')
@@ -1519,9 +1532,11 @@ export class KickUserInterface extends AbstractUserInterface {
 			let isReplyToMe = false
 			if (betterHoverEl.firstElementChild?.classList.contains('w-full')) {
 				isReply = true
+				messageObject.isReply = true
 
 				if (betterHoverEl.classList.contains('border-green-500')) {
 					isReplyToMe = true
+					messageObject.isReplyToMe = true
 					messageNode.classList.add('ntv__chat-message--reply-to-me')
 				}
 
@@ -1601,10 +1616,11 @@ export class KickUserInterface extends AbstractUserInterface {
 				error('Chat message timestamp node not found', messageNode)
 				return
 			}
+			messageObject.createdAt = timestampEl.textContent || '00:00 AM'
 
 			const ntvTimestampEl = document.createElement('span')
 			ntvTimestampEl.className = 'ntv__chat-message__timestamp'
-			ntvTimestampEl.textContent = timestampEl.textContent || '00:00 AM'
+			ntvTimestampEl.textContent = messageObject.createdAt
 
 			const identityEl = timestampEl?.nextElementSibling
 			if (!identityEl) {
@@ -1625,6 +1641,7 @@ export class KickUserInterface extends AbstractUserInterface {
 							const svgEl = subWrapperEl?.firstElementChild
 							svgEl?.setAttribute('class', 'ntv__badge')
 							subWrapperEl?.setAttribute('class', 'ntv__chat-message__badge')
+							// messageObject.badges.push(subWrapperEl?.title || '')
 							return subWrapperEl || badgeWrapperEl
 						})
 					)
@@ -1642,6 +1659,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			const username = usernameEl.title
+			messageObject.username = username
+			messageObject.style.color = usernameEl.style.color
+
 			const ntvUsernameEl = document.createElement('span')
 			ntvUsernameEl.className = 'ntv__chat-message__username'
 			ntvUsernameEl.title = username
@@ -1741,6 +1761,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}
 
+			messageObject.content = messageParts
 			;(groupElementNode as HTMLElement).style.display = 'none'
 
 			// const ntvMessagePartsWrapperEl = document.createElement('div')
@@ -1823,6 +1844,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			// Adding this class removes the display: none from the chat message, causing a reflow
 			// messageNode.classList.add('ntv__chat-message__wrapper')
+
+			this.session.eventBus.publish('ntv.chat.message.new', messageObject)
 		}
 		// Chatroom is old Kick design in mod or creator view
 		else {
@@ -2371,7 +2394,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval)
 
 		this.domEventManager.removeAllEventListeners()
+	}
 
+	restoreOriginalUi() {
 		// Remove inserted elements
 		Array.from(document.querySelectorAll('.ntv__chat-message, .ntv__chat-message--unrendered')).forEach(node => {
 			const el = node as HTMLElement
