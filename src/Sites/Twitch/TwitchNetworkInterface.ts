@@ -1,5 +1,4 @@
-import { NetworkInterface } from '../../Core/Common/NetworkInterface'
-import { REST, info } from '../../Core/Common/utils'
+import { NetworkInterface } from '@core/Common/NetworkInterface'
 
 export default class TwitchNetworkInterface implements NetworkInterface {
 	async connect() {

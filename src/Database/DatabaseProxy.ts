@@ -1,4 +1,3 @@
-import { log } from '@core/Common/utils'
 import DatabaseAbstract from './DatabaseAbstract'
 
 /**

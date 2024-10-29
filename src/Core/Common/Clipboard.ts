@@ -1,5 +1,9 @@
-import { log, error, CHAR_ZWSP } from '../Common/utils'
+import { CHAR_ZWSP } from '../Common/utils'
 import { Caret } from '../UI/Caret'
+import { Logger } from './Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 function flattenNestedElement(node: Node) {
 	const result: Node[] = []
@@ -33,7 +37,7 @@ export default class Clipboard2 {
 
 	handleCopyEvent(event: ClipboardEvent) {
 		const selection = document.getSelection()
-		if (!selection || !selection.rangeCount) return error('Selection is null')
+		if (!selection || !selection.rangeCount) return error('CORE', 'UI', 'Selection is null')
 
 		event.preventDefault()
 
@@ -69,7 +73,7 @@ export default class Clipboard2 {
 			.replaceAll(CHAR_ZWSP, '')
 
 		event.clipboardData?.setData('text/plain', copyString)
-		log(`Copied: "${copyString}"`)
+		log('CORE', 'UI', `Copied: "${copyString}"`)
 	}
 
 	handleCutEvent(event: ClipboardEvent) {
@@ -174,7 +178,7 @@ export default class Clipboard2 {
 			}
 
 			if (startFragmentComment === null || endFragmentComment === null) {
-				error('Failed to find fragment markers, clipboard data seems to be corrupted.')
+				error('CORE', 'UI', 'Failed to find fragment markers, clipboard data seems to be corrupted.')
 				return []
 			}
 

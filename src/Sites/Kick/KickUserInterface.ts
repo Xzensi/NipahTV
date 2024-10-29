@@ -1,7 +1,4 @@
 import {
-	log,
-	info,
-	error,
 	assertArgDefined,
 	waitForElements,
 	hex2rgb,
@@ -9,17 +6,21 @@ import {
 	findNodeWithTextContent,
 	waitForTargetedElements,
 	isElementInDOM
-} from '../../Core/Common/utils'
-import QuickEmotesHolderComponent from '../../Core/Chat/Components/QuickEmotesHolderComponent'
-import EmoteMenuButtonComponent from '../../Core/Chat/Components/EmoteMenuButtonComponent'
-import EmoteMenuComponent from '../../Core/Chat/Components/EmoteMenuComponent'
-import AbstractUserInterface from '../../Core/UI/AbstractUserInterface'
-import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../../Core/Common/constants'
-import type UserInfoModal from '../../Core/Users/UserInfoModal'
-import DOMEventManager from '../../Core/Common/DOMEventManager'
-import InputController from '../../Core/Input/InputController'
-import type { Badge } from '../../Core/Emotes/BadgeProvider'
-import { Caret } from '../../Core/UI/Caret'
+} from '@core/Common/utils'
+import QuickEmotesHolderComponent from '@core/Chat/Components/QuickEmotesHolderComponent'
+import EmoteMenuButtonComponent from '@core/Chat/Components/EmoteMenuButtonComponent'
+import EmoteMenuComponent from '@core/Chat/Components/EmoteMenuComponent'
+import AbstractUserInterface from '@core/UI/AbstractUserInterface'
+import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '@core/Common/constants'
+import type UserInfoModal from '@core/Users/UserInfoModal'
+import DOMEventManager from '@core/Common/DOMEventManager'
+import InputController from '@core/Input/InputController'
+import type { Badge } from '@core/Emotes/BadgeProvider'
+import { Logger } from '@core/Common/Logger'
+import { Caret } from '@core/UI/Caret'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export class KickUserInterface extends AbstractUserInterface {
 	private abortController = new AbortController()
@@ -60,7 +61,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	async loadInterface() {
-		info('Creating user interface..')
+		info('KICK', 'UI', 'Creating user interface..')
 
 		super.loadInterface()
 
@@ -350,7 +351,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const channelId = this.session.channelData.channelId
 
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
-		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for settings')
+		if (!chatMessagesContainerEl) return error('KICK', 'UI', 'Chat messages container not loaded for settings')
 
 		chatMessagesContainerEl.classList.add('ntv__chat-messages-container')
 
@@ -372,7 +373,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	// TODO move methods like this to super class. this.elm.textfield event can be in contentEditableEditor
 	async loadEmoteMenu() {
 		if (!this.session.channelData.me.isLoggedIn) return
-		if (!this.elm.textField) return error('Text field not loaded for emote menu')
+		if (!this.elm.textField) return error('KICK', 'UI', 'Text field not loaded for emote menu')
 
 		const container = this.elm.textField.parentElement!.parentElement!.parentElement!
 		this.emoteMenu = new EmoteMenuComponent(this.rootContext, this.session, container).init()
@@ -383,10 +384,11 @@ export class KickUserInterface extends AbstractUserInterface {
 	async loadEmoteMenuButton(kickFooterBottomBarEl: HTMLElement) {
 		const placeholder = document.createElement('div')
 		// const footerBottomBarEl = kickFooterBottomBarEl.lastElementChild?.lastElementChild
-		// if (!footerBottomBarEl) return error('Footer bottom bar not found for emote menu button')
+		// if (!footerBottomBarEl) return error('KICK', 'UI', 'Footer bottom bar not found for emote menu button')
 
 		const footerSubmitButtonWrapper = kickFooterBottomBarEl
-		if (!footerSubmitButtonWrapper) return error('Footer submit button wrapper not found for emote menu button')
+		if (!footerSubmitButtonWrapper)
+			return error('KICK', 'UI', 'Footer submit button wrapper not found for emote menu button')
 
 		footerSubmitButtonWrapper.prepend(placeholder)
 		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init()
@@ -395,7 +397,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		//  so we can reload the session to reinitialize the UI.
 		this.reloadUIhackInterval = setInterval(() => {
 			if (!this.emoteMenuButton!.element.isConnected) {
-				info('Emote menu button got removed. Reloading session to reinitialize UI.')
+				info('KICK', 'UI', 'Emote menu button got removed. Reloading session to reinitialize UI.')
 				this.destroy()
 				//! Does not respect multiple sessions framework structure
 				this.rootContext.eventBus.publish('ntv.reload_sessions')
@@ -728,7 +730,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	loadScrollingBehaviour() {
 		const chatMessagesContainerEl = this.elm.chatMessagesContainer
-		if (!chatMessagesContainerEl) return error('Chat messages container not loaded for scrolling behaviour')
+		if (!chatMessagesContainerEl)
+			return error('KICK', 'UI', 'Chat messages container not loaded for scrolling behaviour')
 
 		// Scroll is sticky by default
 		if (this.stickyScroll) chatMessagesContainerEl.parentElement?.classList.add('ntv__sticky-scroll')
@@ -738,7 +741,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			chatMessagesContainerEl,
 			'scroll',
 			evt => {
-				// log('Scroll event', evt)
+				// log('KICK', 'UI', 'Scroll event', evt)
 				if (!this.stickyScroll) {
 					// Calculate if user has scrolled to bottom and set sticky scroll to true
 					const target = evt.target as HTMLElement
@@ -759,7 +762,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			chatMessagesContainerEl,
 			'wheel',
 			evt => {
-				// log('Wheel event', evt)
+				// log('KICK', 'UI', 'Wheel event', evt)
 				if (this.stickyScroll && evt.deltaY < 0) {
 					chatMessagesContainerEl.parentElement?.classList.remove('ntv__sticky-scroll')
 					this.stickyScroll = false
@@ -792,7 +795,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			'ntv.settings.change.appearance.layout.overlay_chat',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
-				if (!containerEl) return error('Theatre mode container not found')
+				if (!containerEl) return error('KICK', 'UI', 'Theatre mode container not found')
 
 				if (prevValue && prevValue !== 'none') {
 					containerEl.classList.remove('ntv__theatre-overlay__mode--' + prevValue.replaceAll('_', '-'))
@@ -825,7 +828,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			'ntv.settings.change.appearance.layout.overlay_chat.video_alignment',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
-				if (!containerEl) return error('Theatre container not found')
+				if (!containerEl) return error('KICK', 'UI', 'Theatre container not found')
 
 				if (prevValue && prevValue !== 'none') {
 					containerEl.classList.remove(
@@ -857,7 +860,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			'ntv.settings.change.appearance.layout.overlay_chat.position',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
-				if (!containerEl) return error('Theatre container not found')
+				if (!containerEl) return error('KICK', 'UI', 'Theatre container not found')
 
 				if (prevValue && prevValue !== 'none') {
 					containerEl.classList.remove('ntv__theatre-overlay__position--' + prevValue.replaceAll('_', '-'))
@@ -894,10 +897,10 @@ export class KickUserInterface extends AbstractUserInterface {
 			const queueLength = queue.length
 
 			if (queueLength) {
-				// log('Rendering chat messages..', queueLength)
+				// log('KICK', 'UI', 'Rendering chat messages..', queueLength)
 
 				if (queueLength > 150) {
-					log('Chat message queue is too large, discarding overhead..', queueLength)
+					log('KICK', 'UI', 'Chat message queue is too large, discarding overhead..', queueLength)
 					queue.splice(queueLength - 1 - 150)
 				}
 
@@ -943,7 +946,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.clearQueuedChatMessagesInterval = setInterval(() => {
 			const queue = this.queuedChatMessages
 			if (queue.length > 150) {
-				log('Chat message queue is too large, discarding overhead..', queue.length)
+				log('KICK', 'UI', 'Chat message queue is too large, discarding overhead..', queue.length)
 				queue.splice(queue.length - 1 - 150)
 			}
 		}, 4000)
@@ -1164,7 +1167,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						chatEntryNode.parentElement!.classList.add('ntv__chat-message--deleted')
 
 						const innerWrapperEl = chatEntryNode.querySelector('.ntv__chat-message__inner')
-						if (!innerWrapperEl) return error('Inner wrapper element not found')
+						if (!innerWrapperEl) return error('KICK', 'UI', 'Inner wrapper element not found')
 
 						const channelDataMe = this.session.channelData.me
 						if (channelDataMe.isBroadcaster || channelDataMe.isModerator || channelDataMe.isSuperAdmin) {
@@ -1186,12 +1189,12 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	loadVodBehaviour() {
-		log('Loading VOD behaviour..')
+		log('KICK', 'UI', 'Loading VOD behaviour..')
 
 		const chatroomParentContainerEl = document
 			.getElementById('channel-chatroom')
 			?.querySelector('& > .bg-surface-lower')
-		if (!chatroomParentContainerEl) return error('Chatroom container not found')
+		if (!chatroomParentContainerEl) return error('KICK', 'UI', 'Chatroom container not found')
 
 		this.addExistingMessagesToQueue()
 
@@ -1202,7 +1205,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (mutation.addedNodes.length) {
 					for (const node of mutation.addedNodes) {
 						if (node instanceof HTMLElement && node.firstElementChild?.id === 'chatroom-messages') {
-							log('New chatroom messages container found, reloading chat UI..')
+							log('KICK', 'UI', 'New chatroom messages container found, reloading chat UI..')
 
 							const chatroomContainerEl = node.firstElementChild.querySelector('& > .no-scrollbar')
 							this.elm.chatMessagesContainer = chatroomContainerEl as HTMLElement
@@ -1228,13 +1231,13 @@ export class KickUserInterface extends AbstractUserInterface {
 		) {
 			// User info modal was already destroyed before Kick modal had chance to load
 			if (userInfoModal.isDestroyed()) {
-				log('User info modal is already destroyed, cleaning up Kick modal..')
+				log('KICK', 'UI', 'User info modal is already destroyed, cleaning up Kick modal..')
 				destroyKickModal(kickUserInfoModalContainerEl)
 				return
 			}
 
 			userInfoModal.addEventListener('destroy', () => {
-				log('Destroying modal..')
+				log('KICK', 'UI', 'Destroying modal..')
 				destroyKickModal(kickUserInfoModalContainerEl)
 			})
 
@@ -1298,7 +1301,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!usernameElText || username !== usernameElText) return
 
 			const kickUserInfoModalContainerEl = document.getElementById('user-identity')
-			if (!kickUserInfoModalContainerEl) return error('Kick user profile modal container not found')
+			if (!kickUserInfoModalContainerEl) return error('KICK', 'UI', 'Kick user profile modal container not found')
 
 			processKickUserProfileModal(userInfoModal, kickUserInfoModalContainerEl)
 		}
@@ -1310,7 +1313,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			?.querySelector(
 				'& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden'
 			) as HTMLElement
-		if (!pinnedMessageContainerEl) return error('Pinned message container not found for observation')
+		if (!pinnedMessageContainerEl) return error('KICK', 'UI', 'Pinned message container not found for observation')
 
 		const renderPinnedMessageBody = (contentBodyEl: HTMLElement) => {
 			// Cleanup old pinned messages
@@ -1512,14 +1515,14 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			if (!groupElementNode?.classList.contains('group')) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message content wrapper node not found', messageNode)
+				error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
 				return
 			}
 
 			const betterHoverEl = groupElementNode.firstElementChild
 			if (!betterHoverEl) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Better hover element not found')
+				error('KICK', 'UI', 'Better hover element not found')
 				return
 			}
 
@@ -1544,7 +1547,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				const replyMessageAttachmentEl = betterHoverEl.firstElementChild
 				if (!replyMessageAttachmentEl) {
 					messageNode.classList.remove('ntv__chat-message--unrendered')
-					error('Reply message attachment element not found', messageNode)
+					error('KICK', 'UI', 'Reply message attachment element not found', messageNode)
 					return
 				}
 
@@ -1561,7 +1564,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl
 			if (!messageBodyWrapper) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message body wrapper node not found', messageNode)
+				error('KICK', 'UI', 'Chat message body wrapper node not found', messageNode)
 				return
 			}
 
@@ -1605,7 +1608,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const contentWrapperNode = messageBodyWrapper.lastElementChild
 			if (!contentWrapperNode) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message content wrapper node not found', messageNode)
+				error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
 				return
 			}
 
@@ -1613,7 +1616,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			while (timestampEl && timestampEl.tagName !== 'SPAN') timestampEl = timestampEl.nextElementSibling
 			if (!timestampEl) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message timestamp node not found', messageNode)
+				error('KICK', 'UI', 'Chat message timestamp node not found', messageNode)
 				return
 			}
 			messageObject.createdAt = timestampEl.textContent || '00:00 AM'
@@ -1625,7 +1628,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const identityEl = timestampEl?.nextElementSibling
 			if (!identityEl) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message identity node not found', messageNode)
+				error('KICK', 'UI', 'Chat message identity node not found', messageNode)
 				return
 			}
 
@@ -1654,7 +1657,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				usernameEl = usernameEl.nextElementSibling as HTMLElement
 			if (!usernameEl) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message username node not found', messageNode)
+				error('KICK', 'UI', 'Chat message username node not found', messageNode)
 				return
 			}
 
@@ -1697,7 +1700,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const separatorEl = identityEl?.nextElementSibling
 			if (!separatorEl || !separatorEl.hasAttribute('aria-hidden')) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message separator node not found', separatorEl)
+				error('KICK', 'UI', 'Chat message separator node not found', separatorEl)
 				return
 			}
 			const ntvSeparatorEl = document.createElement('span')
@@ -1729,14 +1732,14 @@ export class KickUserInterface extends AbstractUserInterface {
 					// Unwrap and clean up native Kick emotes
 					const imgEl = contentNode.firstElementChild?.firstElementChild
 					if (!imgEl || imgEl instanceof HTMLImageElement === false) {
-						error('Emote image element not found', imgEl)
+						error('KICK', 'UI', 'Emote image element not found', imgEl)
 						continue
 					}
 
 					const emoteId = contentNode.getAttribute('data-emote-id')
 					const emoteName = contentNode.getAttribute('data-emote-name')
 					if (!emoteId || !emoteName) {
-						error('Emote ID or name not found', contentNode)
+						error('KICK', 'UI', 'Emote ID or name not found', contentNode)
 						continue
 					}
 
@@ -1845,7 +1848,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			// Adding this class removes the display: none from the chat message, causing a reflow
 			// messageNode.classList.add('ntv__chat-message__wrapper')
 
-			this.session.eventBus.publish('ntv.chat.message.new', messageObject)
+			// this.session.eventBus.publish('ntv.chat.message.new', messageObject)
 		}
 		// Chatroom is old Kick design in mod or creator view
 		else {
@@ -1859,7 +1862,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!chatEntryEl) {
 				//? Sometimes Kick decides to just not load messages.
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				return error('Unable to render message, message has no content loaded..') // messageNode
+				return error('KICK', 'UI', 'Unable to render message, message has no content loaded..') // messageNode
 			}
 			if (chatEntryEl.classList.contains('border-primary')) {
 				messageNode.classList.add('ntv__chat-message--mentioned-me')
@@ -1878,7 +1881,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const chatMessageIdentityEl = messageNode.querySelector('.chat-message-identity')
 			if (!chatMessageIdentityEl) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('Chat message identity node not found', messageNode)
+				error('KICK', 'UI', 'Chat message identity node not found', messageNode)
 				return
 			}
 
@@ -1919,7 +1922,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (imgOrSvgEl && imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')
 					imgOrSvgEl = imgOrSvgEl.firstElementChild
 				if (!imgOrSvgEl || (imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')) {
-					error('Badge image or svg element not found', imgOrSvgEl, subWrapperEl)
+					error('KICK', 'UI', 'Badge image or svg element not found', imgOrSvgEl, subWrapperEl)
 					continue
 				}
 
@@ -1967,7 +1970,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					// - Removed messages
 					// - Kick cosmetic messages like "New Messages-------"
 					// - Message replies
-					// log('Chat message component node not found. Are chat messages being rendered twice?', contentNode)
+					// log('KICK', 'UI', 'Chat message component node not found. Are chat messages being rendered twice?', contentNode)
 					continue
 				}
 
@@ -1976,7 +1979,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					case 'chat-entry-content':
 						if (!componentNode.textContent) continue
 						if (!(componentNode instanceof Element)) {
-							error('Chat message content node not an Element?', componentNode)
+							error('KICK', 'UI', 'Chat message content node not an Element?', componentNode)
 							continue
 						}
 						emotesManager.parseEmoteText(componentNode.textContent || '', messageParts)
@@ -1990,7 +1993,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						const emoteId = imgEl.getAttribute('data-emote-id')
 						const emoteName = imgEl.getAttribute('data-emote-name')
 						if (!emoteId || !emoteName) {
-							error('Emote ID or name not found', contentNode)
+							error('KICK', 'UI', 'Emote ID or name not found', contentNode)
 							continue
 						}
 
@@ -2014,7 +2017,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 					default:
 						if (componentNode.childNodes.length) messageParts.push(...componentNode.childNodes)
-						else error('Unknown chat message component', componentNode)
+						else error('KICK', 'UI', 'Unknown chat message component', componentNode)
 				}
 			}
 
@@ -2152,7 +2155,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				?.closest('button')!
 
 			const replyPreviewWrapperEl = closeReplyButton.closest('.flex.flex-col')?.parentElement
-			if (!replyPreviewWrapperEl) return error('Reply preview wrapper element not found')
+			if (!replyPreviewWrapperEl) return error('KICK', 'UI', 'Reply preview wrapper element not found')
 
 			const restoreFields = () => {
 				kickTextFieldEl!.parentElement!.style.removeProperty('display')
@@ -2184,7 +2187,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			// Theres some weird bug where the observer doesnt trigger when the reply message is closed
 			//  so we have to add a setInterval to check if the reply message is still in the DOM.
 			const footerEl = document.querySelector('.kick__chat-footer')
-			if (!footerEl) return error('Footer element not found')
+			if (!footerEl) return error('KICK', 'UI', 'Footer element not found')
 
 			const textFieldParent = textFieldEl.parentElement!
 			const intervalId = setInterval(() => {
@@ -2225,7 +2228,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { id: senderId, slug: senderSlug, username: senderUsername } = sender
 		if (!senderId || !senderUsername) return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl)
 
-		if (!inputController) return error('Input controller not loaded for reply behaviour')
+		if (!inputController) return error('KICK', 'UI', 'Input controller not loaded for reply behaviour')
 
 		// Handle the reply message UI
 		const replyMessageWrapperEl = document.createElement('div')
@@ -2235,7 +2238,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const msgInnerEl = messageNode.querySelector('.ntv__chat-message__inner')
 		if (!msgInnerEl) {
-			error('Message inner element not found', messageNode)
+			error('KICK', 'UI', 'Message inner element not found', messageNode)
 			return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl)
 		}
 
@@ -2264,7 +2267,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	renderPinnedMessageContent(contentBodyEl: HTMLElement) {
-		log('Rendering pinned message..')
+		log('KICK', 'UI', 'Rendering pinned message..')
 
 		const ntvPinnedMessageBodyEl = document.createElement('div')
 		ntvPinnedMessageBodyEl.className = 'ntv__pinned-message__content'
@@ -2281,7 +2284,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				const emoteId = (childNode as HTMLElement).getAttribute('data-emote-id')
 
 				if (!emoteId || !emoteName) {
-					error('Emote ID or name not found', childNode)
+					error('KICK', 'UI', 'Emote ID or name not found', childNode)
 					parsedEmoteParts.push(childNode.cloneNode(true))
 					continue
 				}
@@ -2301,7 +2304,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					emote
 				})
 			} else {
-				error('Unknown node found for pinned message', childNode)
+				error('KICK', 'UI', 'Unknown node found for pinned message', childNode)
 				parsedEmoteParts.push(childNode.cloneNode(true))
 			}
 		}
@@ -2311,10 +2314,10 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	insertNodesInChat(embedNodes: Node[]) {
-		if (!embedNodes.length) return error('No nodes to insert in chat')
+		if (!embedNodes.length) return error('KICK', 'UI', 'No nodes to insert in chat')
 
 		const textFieldEl = this.elm.textField
-		if (!textFieldEl) return error('Text field not loaded for inserting node')
+		if (!textFieldEl) return error('KICK', 'UI', 'Text field not loaded for inserting node')
 
 		const selection = window.getSelection()
 		if (selection && selection.rangeCount) {
@@ -2343,11 +2346,11 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	insertNodeInChat(embedNode: Node) {
 		if (embedNode.nodeType !== Node.TEXT_NODE && embedNode.nodeType !== Node.ELEMENT_NODE) {
-			return error('Invalid node type', embedNode)
+			return error('KICK', 'UI', 'Invalid node type', embedNode)
 		}
 
 		const textFieldEl = this.elm.textField
-		if (!textFieldEl) return error('Text field not loaded for inserting node')
+		if (!textFieldEl) return error('KICK', 'UI', 'Text field not loaded for inserting node')
 
 		const selection = window.getSelection()
 		const range = selection?.anchorNode ? selection.getRangeAt(0) : null

@@ -1,5 +1,9 @@
-import { AbstractComponent } from '../../UI/Components/AbstractComponent'
-import { error, cleanupHTML, parseHTML, log } from '../../Common/utils'
+import { AbstractComponent } from '@core/UI/Components/AbstractComponent'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class EmoteMenuButtonComponent extends AbstractComponent {
 	// Not private because of reloadUIhackInterval
@@ -37,7 +41,8 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 		const { eventBus } = this.session
 
 		rootEventBus.subscribe('ntv.settings.change.chat.emote_menu.appearance.button_style', () => {
-			if (!this.footerLogoBtnEl) return error('Footer logo button not found, unable to set logo src')
+			if (!this.footerLogoBtnEl)
+				return error('CORE', 'UI', 'Footer logo button not found, unable to set logo src')
 
 			const file = this.getFile()
 			this.footerLogoBtnEl.setAttribute('src', RESOURCE_ROOT + file.path)
@@ -47,7 +52,7 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 		this.footerLogoBtnEl?.addEventListener('click', () => {
 			if (!this.session.channelData.me.isLoggedIn) {
 				this.session.userInterface?.toastError(`Please log in first to use NipahTV.`)
-				error('User is not logged in, cannot open emote menu')
+				error('CORE', 'UI', 'User is not logged in, cannot open emote menu')
 			}
 
 			eventBus.publish('ntv.ui.footer.click')

@@ -1,4 +1,3 @@
-import { log, error } from '../Core/Common/utils'
 import Dexie from 'dexie'
 
 export default abstract class DatabaseAbstract {
@@ -12,7 +11,6 @@ export default abstract class DatabaseAbstract {
 			this.idb
 				.open()
 				.then(async () => {
-					log('Database passed compatibility check.')
 					this.ready = true
 					resolve(void 0)
 				})

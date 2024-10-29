@@ -1,11 +1,11 @@
-import {
-	AbstractEmoteProvider,
-	EmoteProviderStatus,
-	IAbstractEmoteProvider
-} from '../../Core/Emotes/AbstractEmoteProvider'
-import type SettingsManager from '../../Core/Settings/SettingsManager'
-import { log, info, error, REST, md5 } from '../../Core/Common/utils'
-import { PROVIDER_ENUM } from '../../Core/Common/constants'
+import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
+import type SettingsManager from '@core/Settings/SettingsManager'
+import { PROVIDER_ENUM } from '@core/Common/constants'
+import { REST, md5 } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class KickEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.KICK
@@ -33,12 +33,12 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 			return []
 		}
 
-		info('Fetching emote data from Kick..')
+		info('KICK', 'EMOT:PROV', 'Fetching emote data from Kick..')
 		const dataSets = await RESTFromMainService.get(`https://kick.com/emotes/${channelName}`)
 
 		if (!dataSets) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
-			return error('Failed to fetch Kick emotes')
+			return error('KICK', 'EMOT:PROV', 'Failed to fetch Kick emotes')
 		}
 
 		const emoteSets = []
@@ -109,15 +109,15 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 		}
 
 		if (!emoteSets.length) {
-			log('No emote sets found on Kick provider with current settings.')
+			log('KICK', 'EMOT:PROV', 'No emote sets found on Kick provider with current settings.')
 			this.status = EmoteProviderStatus.NO_EMOTES
 			return []
 		}
 
 		if (emoteSets.length > 1) {
-			log(`Fetched ${emoteSets.length} emote sets from Kick`)
+			log('KICK', 'EMOT:PROV', `Fetched ${emoteSets.length} emote sets from Kick`)
 		} else {
-			log(`Fetched 1 emote set from Kick`)
+			log('KICK', 'EMOT:PROV', `Fetched 1 emote set from Kick`)
 		}
 		this.status = EmoteProviderStatus.LOADED
 		return emoteSets

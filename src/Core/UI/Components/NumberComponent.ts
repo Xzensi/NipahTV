@@ -1,4 +1,4 @@
-import { cleanupHTML, parseHTML } from '../../Common/utils'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
 import { AbstractComponent } from './AbstractComponent'
 
 export class NumberComponent extends AbstractComponent {

@@ -1,12 +1,16 @@
 import { DatabaseProxy, DatabaseProxyFactory } from '@database/DatabaseProxy'
-import { error, info, log, REST } from '../../Core/Common/utils'
 import SevenTVEmoteProvider from './SevenTVEmoteProvider'
 import SevenTVDatabase from './Database/SevenTVDatabase'
 import { PLATFORM_ENUM } from '@core/Common/constants'
-import { getUserByConnection } from './SevenTVGraphQL'
+import { getUserCosmeticDataByConnection, getUserEmoteSetConnectionsDataByConnection } from './SevenTVGraphQL'
 import SevenTVEventAPI from './SevenTVEventAPI'
+import { Logger } from '@core/Common/Logger'
 import { Extension } from '../Extension'
 import Dexie from 'dexie'
+import { NTVMessageEvent } from '@core/Common/EventService'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export namespace SevenTV {
 	export type Platform = 'TWITCH' | 'YOUTUBE' | 'KICK' | 'UNKNOWN'
@@ -86,6 +90,7 @@ export namespace SevenTV {
 		avatar_url: string
 		biography?: string
 		style?: UserStyle
+		cosmetics?: Cosmetic<CosmeticKind>[]
 		connections?: UserConnection[]
 		emote_sets?: EmoteSet[]
 		role_ids?: string[]
@@ -245,7 +250,7 @@ export namespace SevenTV {
 	}
 }
 
-export function getPlatformId(): SevenTV.Platform {
+export function getStvPlatformId(): SevenTV.Platform {
 	switch (PLATFORM) {
 		case PLATFORM_ENUM.TWITCH:
 			return 'TWITCH'
@@ -255,7 +260,7 @@ export function getPlatformId(): SevenTV.Platform {
 			return 'YOUTUBE'
 	}
 
-	error('Unsupported platform:', PLATFORM)
+	error('EXT:STV', 'MAIN', 'Unsupported platform:', PLATFORM)
 	return 'UNKNOWN'
 }
 
@@ -264,25 +269,27 @@ export default class SevenTVExtension extends Extension {
 	version = '1.0.0'
 	description = '7TV extension for emote support'
 
-	private database: DatabaseProxy<SevenTVDatabase>
+	private database?: DatabaseProxy<SevenTVDatabase>
 	private sessionCreateCb: (session: Session) => void
 
 	private eventAPI: SevenTVEventAPI | null = null
-	private cachedSevenTVUser: SevenTV.User | string | null = null
+	private cachedStvMeUser:
+		| Pick<SevenTV.User, 'id' | 'display_name' | 'style' | 'avatar_url' | 'cosmetics' | 'username'>
+		| Pick<SevenTV.User, 'id'>
+		| null = null
+	// private cachedStvChannelUser: Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'> | null = null
 
 	constructor(rootContext: RootContext, sessions: Session[]) {
 		super(rootContext, sessions)
 
 		this.sessionCreateCb = this.onSessionCreate.bind(this)
+	}
 
+	async init() {
 		this.database = __USERSCRIPT__
 			? DatabaseProxyFactory.create('NTV_Ext_SevenTV', new SevenTVDatabase())
 			: DatabaseProxyFactory.create('NTV_Ext_SevenTV')
 
-		this.loadDatabase()
-	}
-
-	async init() {
 		return this.loadDatabase()
 	}
 
@@ -292,34 +299,42 @@ export default class SevenTVExtension extends Extension {
 
 	loadDatabase() {
 		return new Promise((resolve, reject) => {
+			if (!this.database) return reject('Database is not initialized')
 			this.database
 				.checkCompatibility()
 				.then(() => {
-					log('SevenTV database passed compatibility check.')
+					log('EXT:STV', 'INIT', 'SevenTV database passed compatibility check.')
 					resolve(void 0)
 				})
 				.catch((err: Error) => {
-					error('Failed to open SevenTV database because:', err)
-					reject('Failed to open SevenTV database because: ' + err)
+					error('EXT:STV', 'INIT', 'Failed to open SevenTV database because:', err)
+					reject()
 				})
 		})
 	}
 
 	onEnable() {
-		info('Enabling extension:', this.name, this.version)
+		info('EXT:STV', 'INIT', 'Enabling extension:', this.name, this.version)
 
 		const { eventBus: rootEventBus, settingsManager } = this.rootContext
 
 		this.eventAPI = new SevenTVEventAPI(this.rootContext)
 		this.eventAPI.connect()
 
-		this.sessions.forEach(this.onSessionCreate.bind(this))
+		this.init()
+			.then(() => {
+				if (rootEventBus.hasFiredEvent('ntv.session.create'))
+					this.sessions.forEach(this.onSessionCreate.bind(this))
 
-		rootEventBus.subscribe('ntv.session.create', this.sessionCreateCb)
+				rootEventBus.subscribe('ntv.session.create', this.sessionCreateCb)
+			})
+			.catch(err => {
+				error('EXT:STV', 'INIT', 'Failed to initialize SevenTV extension')
+			})
 	}
 
 	onDisable() {
-		info('Disabling extension:', this.name, this.version)
+		info('EXT:STV', 'MAIN', 'Disabling extension:', this.name, this.version)
 
 		const { eventBus: rootEventBus } = this.rootContext
 
@@ -333,47 +348,85 @@ export default class SevenTVExtension extends Extension {
 
 	async onSessionCreate(session: Session) {
 		const { eventBus } = session
-		const channelId = session.channelData.channelId
-		const userId = session.meData.userId
+		const { channelId, userId: channelUserId } = session.channelData
+		const platformMeUserId = session.meData.userId
 
 		this.registerEmoteProvider(session)
 
 		if (!this.eventAPI) {
-			return error('Event API is not initialized, cannot add session:', session)
+			return error('EXT:STV', 'MAIN', 'Event API is not initialized, cannot add session:', session)
 		}
 
 		eventBus.subscribe('ntv.session.destroy', () => {
 			this.eventAPI?.disconnect()
 		})
 
-		if (!this.cachedSevenTVUser) {
-			const data = await getUserByConnection(getPlatformId(), userId).catch(err => {
-				error('SevenTV failed to get user by connection:', err)
-				return 'NOT_FOUND'
-			})
+		// TODO implement chat controller with datastores?
+		// TODO fetch global 7tv emotes earlier and channel emotes only on session create
 
-			if (typeof data === 'string') {
-				this.cachedSevenTVUser = data
-			} else {
-				const user = data?.data.userByConnection
-				if (user && user.id !== '00000000000000000000000000') {
-					this.cachedSevenTVUser = user
-				}
-			}
+		const STV_ID_NULL = '00000000000000000000000000'
+		const platformId = getStvPlatformId()
+
+		// Fetch both our own 7TV user and the platform channel user
+		let promises = []
+		if (!this.cachedStvMeUser) {
+			promises.push(
+				getUserCosmeticDataByConnection(platformId, platformMeUserId)
+					.then(res => res?.userByConnection ?? { id: STV_ID_NULL })
+					.then(user => {
+						if (user.id === STV_ID_NULL)
+							info(
+								'EXT:STV',
+								'MAIN',
+								"SevenTV failed to get user, looks like you don't have a 7TV account.."
+							)
+						return (this.cachedStvMeUser = user)
+					})
+					.catch(err => (this.cachedStvMeUser = { id: STV_ID_NULL }))
+			)
 		}
 
-		const user = typeof this.cachedSevenTVUser === 'string' ? null : this.cachedSevenTVUser
-		this.eventAPI?.addSession(channelId, user?.id)
+		promises.push(
+			getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId)
+				.then(res => res ?? { id: STV_ID_NULL })
+				.catch(err => {
+					id: STV_ID_NULL
+				})
+		)
 
-		if (user?.id) {
-			eventBus.subscribe('ntv.chat.message.new', (message: ChatMessage) => {
-				// if (message.senderId !== userId) {
-				// 	this.eventAPI?.sendPresence(channelId, message.senderId)
-				// }
-				this.eventAPI?.sendPresence(channelId, user.id)
+		const promiseRes = await Promise.allSettled(promises)
+		const channelUser = (promiseRes[1].status === 'fulfilled' ? promiseRes[1].value : { id: STV_ID_NULL }) as
+			| { id: string }
+			| Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>
+
+		let activeEmoteSet: SevenTV.EmoteSet | undefined
+		if (channelUser.id !== STV_ID_NULL && 'emote_sets' in channelUser && channelUser.emote_sets) {
+			activeEmoteSet = channelUser.emote_sets.find(
+				set => set.id === channelUser.connections?.find(c => c.platform === platformId)?.emote_set_id
+			)
+		}
+
+		const stvMeUserId =
+			!this.cachedStvMeUser || this.cachedStvMeUser.id === STV_ID_NULL ? undefined : this.cachedStvMeUser.id
+
+		/**
+		 * Channel user here is the platform user, not the 7TV user
+		 * activeEmoteSet is the emote set that the channel user has selected
+		 * stvMeUser is the current user's 7TV user
+		 */
+		const room = this.eventAPI.registerRoom(channelId, stvMeUserId, activeEmoteSet?.id)
+
+		if (room && room.userId && room.userId !== STV_ID_NULL) {
+			eventBus.subscribe('ntv.chat.message.new', (message: NTVMessageEvent) => {
+				if (message.sender.id !== platformMeUserId) {
+					log('EXT:STV', 'MAIN', 'Sending presence for message:', message)
+					this.eventAPI?.sendPresence(room)
+				}
 			})
 		}
 	}
+
+	// TODO on session destroy, unsubscribe from eventAPI
 
 	registerEmoteProvider(session: Session) {
 		session.emotesManager.registerProvider(SevenTVEmoteProvider)

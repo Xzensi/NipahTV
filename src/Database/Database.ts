@@ -4,7 +4,6 @@ import Dexie, { DexieConstructor, type Table, type EntityTable } from 'dexie'
 import { SettingDocument, settingsSchema } from './Models/SettingsModel'
 import SettingsModel from './Models/SettingsModel'
 import DatabaseAbstract from './DatabaseAbstract'
-import { log, error } from '../Core/Common/utils'
 
 export type databaseExtended = Dexie & {
 	settings: EntityTable<SettingDocument, 'id'>

@@ -1,11 +1,11 @@
-import {
-	AbstractEmoteProvider,
-	EmoteProviderStatus,
-	IAbstractEmoteProvider
-} from '../../Core/Emotes/AbstractEmoteProvider'
-import { BROWSER_ENUM, PROVIDER_ENUM } from '../../Core/Common/constants'
-import type SettingsManager from '../../Core/Settings/SettingsManager'
-import { log, info, error, REST, md5 } from '../../Core/Common/utils'
+import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
+import { BROWSER_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
+import type SettingsManager from '@core/Settings/SettingsManager'
+import { REST, md5 } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	id = PROVIDER_ENUM.SEVENTV
@@ -16,7 +16,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 	}
 
 	async fetchEmotes({ userId, channelId }: ChannelData) {
-		info('Fetching emote data from SevenTV..')
+		info('EXT:STV', 'EMOT:PROV', 'Fetching emote data from SevenTV..')
 		this.status = EmoteProviderStatus.LOADING
 
 		if (!userId) {
@@ -32,16 +32,16 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 
 		const [globalData, userData] = await Promise.all([
 			REST.get(`https://7tv.io/v3/emote-sets/global`).catch(err => {
-				error('Failed to fetch SevenTV global emotes:', err)
+				error('EXT:STV', 'EMOT:PROV', 'Failed to fetch SevenTV global emotes:', err)
 			}),
 			REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch(err => {
-				error('Failed to fetch SevenTV user emotes:', err)
+				error('EXT:STV', 'EMOT:PROV', 'Failed to fetch SevenTV user emotes:', err)
 			})
 		])
 
 		if (!globalData) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
-			return error('Failed to fetch SevenTV global emotes.')
+			return error('EXT:STV', 'EMOT:PROV', 'Failed to fetch SevenTV global emotes.')
 		}
 
 		const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {})
@@ -50,14 +50,18 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		// 7TV should always have global emotes
 		if (!globalEmoteSet) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
-			return error('Failed to unpack global emotes from SevenTV provider.')
+			return error('EXT:STV', 'EMOT:PROV', 'Failed to unpack global emotes from SevenTV provider.')
 		}
 
 		if (userEmoteSet) {
 			const plural = globalEmoteSet.length + userEmoteSet.length > 1 ? 'sets' : 'set'
-			log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote ${plural} from SevenTV.`)
+			log(
+				'EXT:STV',
+				'EMOT:PROV',
+				`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote ${plural} from SevenTV.`
+			)
 		} else {
-			log(`Fetched ${globalEmoteSet.length} global emote set from SevenTV.`)
+			log('EXT:STV', 'EMOT:PROV', `Fetched ${globalEmoteSet.length} global emote set from SevenTV.`)
 		}
 
 		this.status = EmoteProviderStatus.LOADED
@@ -66,7 +70,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 
 	private unpackGlobalEmotes(channelId: ChannelId, globalData: any) {
 		if (!globalData.emotes || !globalData.emotes?.length) {
-			error('No global emotes found for SevenTV provider')
+			error('EXT:STV', 'EMOT:PROV', 'No global emotes found for SevenTV provider')
 			return
 		}
 
@@ -120,7 +124,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 
 	private unpackUserEmotes(channelId: ChannelId, userData: any) {
 		if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
-			log('No user emotes found for SevenTV provider')
+			log('EXT:STV', 'EMOT:PROV', 'No user emotes found for SevenTV provider')
 			return
 		}
 

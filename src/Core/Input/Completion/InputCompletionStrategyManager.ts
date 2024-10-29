@@ -1,5 +1,5 @@
 import type AbstractInputCompletionStrategy from './Strategies/AbstractInputCompletionStrategy'
-import NavigatableListWindowManager from '../../Common/NavigatableListWindowManager'
+import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
 import InputCompletionStrategyRegister from './InputCompletionStrategyRegister'
 import { ContentEditableEditor } from '../ContentEditableEditor'
 

@@ -1,14 +1,18 @@
-import { SteppedInputSliderLabeledComponent } from '../../UI/Components/SteppedInputSliderLabeledComponent'
-import { AbstractModal, ModalGeometry } from '../../UI/Modals/AbstractModal'
-import type { SettingDocument } from '../../../Database/Models/SettingsModel'
-import { CheckboxComponent } from '../../UI/Components/CheckboxComponent'
-import { DropdownComponent } from '../../UI/Components/DropdownComponent'
-import { log, error, parseHTML, cleanupHTML } from '../../Common/utils'
-import { NumberComponent } from '../../UI/Components/NumberComponent'
-import { ColorComponent } from '../../UI/Components/ColorComponent'
+import { SteppedInputSliderLabeledComponent } from '@core/UI/Components/SteppedInputSliderLabeledComponent'
+import { AbstractModal, ModalGeometry } from '@core/UI/Modals/AbstractModal'
+import { CheckboxComponent } from '@core/UI/Components/CheckboxComponent'
+import { DropdownComponent } from '@core/UI/Components/DropdownComponent'
+import type { SettingDocument } from '@database/Models/SettingsModel'
+import { NumberComponent } from '@core/UI/Components/NumberComponent'
+import { ColorComponent } from '@core/UI/Components/ColorComponent'
+import { parseHTML, cleanupHTML } from '@core/Common/utils'
 import type { UISettingsGroup } from '../SettingsManager'
-import type Publisher from '../../Common/Publisher'
+import type Publisher from '@core/Common/Publisher'
 import { CHANGELOG } from '../../../changelog'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class SettingsModal extends AbstractModal {
 	private panelsEl?: HTMLElement
@@ -34,7 +38,7 @@ export default class SettingsModal extends AbstractModal {
 	render() {
 		super.render()
 
-		log('Rendered settings modal..')
+		log('CORE', 'SETTINGS', 'Rendered settings modal..')
 
 		const uiSettings = this.settingsOpts.uiSettings
 		const settingsMap = this.settingsOpts.settingsMap
@@ -195,7 +199,7 @@ export default class SettingsModal extends AbstractModal {
 								)
 								break
 							default:
-								error(`No component found for setting,`, setting)
+								error('CORE', 'SETTINGS', `No component found for setting,`, setting)
 								continue
 						}
 
@@ -241,7 +245,7 @@ export default class SettingsModal extends AbstractModal {
 		super.attachEventHandlers()
 
 		if (!this.panelsEl || !this.sidebarEl) {
-			error('SettingsModal: panelsEl or sidebarEl not found')
+			error('CORE', 'SETTINGS', 'SettingsModal: panelsEl or sidebarEl not found')
 			return
 		}
 

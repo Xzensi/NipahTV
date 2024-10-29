@@ -1,11 +1,11 @@
-import {
-	AbstractEmoteProvider,
-	EmoteProviderStatus,
-	IAbstractEmoteProvider
-} from '../../Core/Emotes/AbstractEmoteProvider'
-import { BROWSER_ENUM, PROVIDER_ENUM } from '../../Core/Common/constants'
-import type SettingsManager from '../../Core/Settings/SettingsManager'
-import { log, info, error, REST, md5 } from '../../Core/Common/utils'
+import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
+import { BROWSER_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
+import type SettingsManager from '@core/Settings/SettingsManager'
+import { REST, md5 } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class ExampleEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
 	// TODO decouple from PROVIDER_ENUM and use a unique identifier
@@ -17,7 +17,7 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 	}
 
 	async fetchEmotes({ userId, channelId }: ChannelData) {
-		info('Fetching emote data from Example..')
+		info('EXT:EXAMPLE', 'EMTE:PROV', 'Fetching emote data from Example..')
 		this.status = EmoteProviderStatus.LOADING
 
 		if (!userId) {
@@ -33,16 +33,16 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 
 		const [globalData, userData] = await Promise.all([
 			REST.get(`https://nipahtv.com/api/v1/emote-sets/global`).catch(err => {
-				error('Failed to fetch Example global emotes:', err)
+				error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to fetch Example global emotes:', err)
 			}),
 			REST.get(`https://nipahtv.com/api/v1/users/KICK/${userId}`).catch(err => {
-				error('Failed to fetch Example user emotes:', err)
+				error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to fetch Example user emotes:', err)
 			})
 		])
 
 		if (!globalData) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
-			return error('Failed to fetch Example global emotes.')
+			return error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to fetch Example global emotes.')
 		}
 
 		const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {})
@@ -50,14 +50,18 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 
 		if (!globalEmoteSet) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
-			return error('Failed to unpack global emotes from Example provider.')
+			return error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to unpack global emotes from Example provider.')
 		}
 
 		if (userEmoteSet) {
 			const plural = globalEmoteSet.length + userEmoteSet.length > 1 ? 'sets' : 'set'
-			log(`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote ${plural} from Example.`)
+			log(
+				'EXT:EXAMPLE',
+				'EMTE:PROV',
+				`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote ${plural} from Example.`
+			)
 		} else {
-			log(`Fetched ${globalEmoteSet.length} global emote set from Example.`)
+			log('EXT:EXAMPLE', 'EMTE:PROV', `Fetched ${globalEmoteSet.length} global emote set from Example.`)
 		}
 
 		this.status = EmoteProviderStatus.LOADED

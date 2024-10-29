@@ -1,9 +1,12 @@
-import { SettingDocument } from '../../Database/Models/SettingsModel'
-import { DatabaseProxy } from '../../Database/DatabaseProxy'
+import { SettingDocument } from '@database/Models/SettingsModel'
+import { DatabaseProxy } from '@database/DatabaseProxy'
 import SettingsModal from './Modals/SettingsModal'
-import { error, log } from '../Common/utils'
-import Publisher from '../Common/Publisher'
+import Publisher from '@core/Common/Publisher'
+import { Logger } from '@core/Common/Logger'
 import Database from '@database/Database'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 interface UISettingBase {
 	label: string
@@ -799,7 +802,7 @@ export default class SettingsManager {
 	) {
 		const id = `${platformId}.${channelId}.${key}`
 
-		if (this.settingsMap.has(id)) return error('Setting already registered:', id)
+		if (this.settingsMap.has(id)) return error('CORE', 'SETTINGS', 'Setting already registered:', id)
 		this.settingsMap.set(id, defaultVal)
 	}
 
@@ -810,25 +813,30 @@ export default class SettingsManager {
 		value: any
 	) {
 		if (!platformId || !channelId || !key || typeof value === 'undefined')
-			return error('Unable to set setting, invalid parameters:', { platformId, channelId, key, value })
+			return error('CORE', 'SETTINGS', 'Unable to set setting, invalid parameters:', {
+				platformId,
+				channelId,
+				key,
+				value
+			})
 
 		const id = `${platformId}.${channelId}.${key}`
-		if (!this.settingsMap.has(id)) return error('Setting not registered:', id)
+		if (!this.settingsMap.has(id)) return error('CORE', 'SETTINGS', 'Setting not registered:', id)
 
 		this.database.settings
 			.putRecord({ id, platformId, channelId, key, value })
-			.catch((err: Error) => error('Failed to save setting to database.', err.message))
+			.catch((err: Error) => error('CORE', 'SETTINGS', 'Failed to save setting to database.', err.message))
 
 		this.settingsMap.set(id, value)
 	}
 
 	setGlobalSetting(key: string, value: any) {
 		const id = `global.shared.${key}`
-		if (!this.settingsMap.has(id)) return error('Setting not registered:', id)
+		if (!this.settingsMap.has(id)) return error('CORE', 'SETTINGS', 'Setting not registered:', id)
 
 		this.database.settings
 			.putRecord({ id, platformId: 'global', channelId: 'shared', key, value })
-			.catch((err: Error) => error('Failed to save global setting to database.', err.message))
+			.catch((err: Error) => error('CORE', 'SETTINGS', 'Failed to save global setting to database.', err.message))
 
 		this.settingsMap.set(id, value)
 	}
@@ -845,12 +853,12 @@ export default class SettingsManager {
 		else if (bubblePlatform && bubbleChannel && this.settingsMap.has(`global.shared.${key}`))
 			return this.settingsMap.get(`global.shared.${key}`)
 
-		return error('Setting not registered:', id)
+		return error('CORE', 'SETTINGS', 'Setting not registered:', id)
 	}
 
 	getGlobalSetting(key: string) {
 		if (this.settingsMap.has(`global.shared.${key}`)) return this.settingsMap.get(`global.shared.${key}`)
-		return error('Setting not registered:', key)
+		return error('CORE', 'SETTINGS', 'Setting not registered:', key)
 	}
 
 	// getSettingsForPlatform(platformId: SettingDocument['platformId']) {}
@@ -863,6 +871,8 @@ export default class SettingsManager {
 	showModal(bool: boolean = true) {
 		if (!this.isLoaded) {
 			return error(
+				'CORE',
+				'SETTINGS',
 				'Unable to show settings modal because the settings are not loaded yet, please wait for it to load first.'
 			)
 		}

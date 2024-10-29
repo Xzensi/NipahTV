@@ -1,4 +1,4 @@
-import { assertArgDefined, cleanupHTML, error, isElementInDOM, log, parseHTML } from '../Common/utils'
+import { assertArgDefined, isElementInDOM, parseHTML } from '../Common/utils'
 import ReplyMessageComponent from '../Chat/Components/ReplyMessageComponent'
 import { UserBannedEvent, UserUnbannedEvent } from '../Common/EventService'
 import { PriorityEventTarget } from '../Common/PriorityEventTarget'
@@ -9,6 +9,10 @@ import UserInfoModal from '../Users/UserInfoModal'
 import PollModal from './Modals/PollModal'
 import { Toaster } from '../Common/Toaster'
 import Clipboard2 from '../Common/Clipboard'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default abstract class AbstractUserInterface {
 	protected rootContext: RootContext
@@ -95,7 +99,7 @@ export default abstract class AbstractUserInterface {
 	}
 
 	toastError(message: string) {
-		// error(message)
+		// error('CORE', 'UI',message)
 		this.toaster.addToast(message.replaceAll('<', '&lt;'), 6_000, 'error')
 	}
 
@@ -138,7 +142,7 @@ export default abstract class AbstractUserInterface {
 				spanEl.appendChild(emojiNode)
 				result.push(spanEl)
 			} else {
-				error('Unknown message part type', part)
+				error('CORE', 'UI', 'Unknown message part type', part)
 			}
 
 			prevPart = part
@@ -163,6 +167,8 @@ export default abstract class AbstractUserInterface {
 		const emoteRender = this.session.emotesManager.getRenderableEmote(emote)
 		if (!emoteRender) {
 			error(
+				'CORE',
+				'UI',
 				'Failed to create emote message part element, emote render not found.',
 				emote,
 				(emote.isZeroWidth && 'ntv__emote--zero-width') || ''
@@ -178,19 +184,20 @@ export default abstract class AbstractUserInterface {
 	insertZeroWidthEmotePart(emote: Emote, messagePartEl: HTMLElement) {
 		const emoteRender = this.session.emotesManager.getRenderableEmote(emote, 'ntv__emote--zero-width')
 		if (!emoteRender) {
-			error('Failed to insert zero width emote part, emote render not found.', emote)
+			error('CORE', 'UI', 'Failed to insert zero width emote part, emote render not found.', emote)
 			return
 		}
 
 		const emoteBoxEl = messagePartEl.firstElementChild
-		if (!emoteBoxEl) return error('Failed to insert zero width emote part, target does not have child element.')
+		if (!emoteBoxEl)
+			return error('CORE', 'UI', 'Failed to insert zero width emote part, target does not have child element.')
 
 		emoteBoxEl.appendChild(parseHTML(emoteRender))
 	}
 
 	createPlainTextMessagePartNode(textContent: string) {
 		if (textContent === ' ') {
-			error('Attempted to create a text node with a single space character.')
+			error('CORE', 'UI', 'Attempted to create a text node with a single space character.')
 			return document.createTextNode(' ')
 		}
 		const newNode = document.createElement('span')
@@ -200,7 +207,7 @@ export default abstract class AbstractUserInterface {
 	}
 
 	changeInputStatus(status: 'enabled' | 'disabled', reason?: string | null) {
-		if (!this.inputController) return error('Input controller not loaded yet.')
+		if (!this.inputController) return error('CORE', 'UI', 'Input controller not loaded yet.')
 		const contentEditableEditor = this.inputController.contentEditableEditor
 
 		if (status === 'enabled') {
@@ -214,13 +221,14 @@ export default abstract class AbstractUserInterface {
 	}
 
 	protected loadInputStatusBehaviour() {
-		if (!this.inputController) return error('Input controller not loaded yet. Cannot load input status behaviour.')
+		if (!this.inputController)
+			return error('CORE', 'UI', 'Input controller not loaded yet. Cannot load input status behaviour.')
 
 		const chatroomData = this.session.channelData.chatroom
 		const channelMeData = this.session.channelData.me
 
-		if (!chatroomData) return error('Chatroom data is missing from channelData')
-		if (!channelMeData) return error('Channel me data is missing from channelData')
+		if (!chatroomData) return error('CORE', 'UI', 'Chatroom data is missing from channelData')
+		if (!channelMeData) return error('CORE', 'UI', 'Channel me data is missing from channelData')
 
 		// If chatroom is in subscribers only, followers only or emotes only mode,
 		//   or if user is already timedout or banned, disable chat input.
@@ -230,10 +238,10 @@ export default abstract class AbstractUserInterface {
 			const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
 			let inputChanged = false
 
-			if (!chatroomData) return error('Chatroom data is missing from channelData')
+			if (!chatroomData) return error('CORE', 'UI', 'Chatroom data is missing from channelData')
 
 			if (!isPrivileged && channelMeData.isBanned) {
-				log('You got banned from chat')
+				log('CORE', 'UI', 'You got banned from chat')
 
 				if (channelMeData.isBanned.permanent) {
 					this.changeInputStatus('disabled', `You are banned from chat.`)
@@ -254,7 +262,7 @@ export default abstract class AbstractUserInterface {
 				chatroomData.subscribersMode?.enabled &&
 				(!channelMeData.isSubscribed || isPrivileged)
 			) {
-				log('Subscribers only mode enabled')
+				log('CORE', 'UI', 'Subscribers only mode enabled')
 				this.changeInputStatus(
 					isPrivileged || channelMeData.isSubscribed ? 'enabled' : 'disabled',
 					'Subscribers only'
@@ -263,7 +271,7 @@ export default abstract class AbstractUserInterface {
 			}
 
 			if (!inputChanged && chatroomData.followersMode?.enabled && (!channelMeData.isFollowing || isPrivileged)) {
-				log('Followers only mode enabled')
+				log('CORE', 'UI', 'Followers only mode enabled')
 
 				this.changeInputStatus(
 					isPrivileged || channelMeData.isFollowing ? 'enabled' : 'disabled',
@@ -303,12 +311,12 @@ export default abstract class AbstractUserInterface {
 			}
 
 			if (!inputChanged && chatroomData.emotesMode?.enabled) {
-				log('Emotes only mode enabled')
+				log('CORE', 'UI', 'Emotes only mode enabled')
 				this.changeInputStatus('enabled', 'Emotes only')
 			}
 
 			if (!inputChanged) {
-				log('Normal chat input restored')
+				log('CORE', 'UI', 'Normal chat input restored')
 				this.changeInputStatus('enabled', 'Send message..')
 			}
 		}
@@ -360,7 +368,7 @@ export default abstract class AbstractUserInterface {
 	}
 
 	showUserInfoModal(username: string, position?: { x: number; y: number }) {
-		log('Loading user info modal..')
+		log('CORE', 'UI', 'Loading user info modal..')
 		return new UserInfoModal(
 			this.rootContext,
 			this.session,
@@ -373,9 +381,9 @@ export default abstract class AbstractUserInterface {
 	}
 
 	addTimer({ duration, description }: { duration: string; description: string }) {
-		log('Adding timer..', duration, description)
+		log('CORE', 'UI', 'Adding timer..', duration, description)
 		const timersContainer = this.elm.timersContainer
-		if (!timersContainer) return error('Unable to add timet, UI container does not exist yet.')
+		if (!timersContainer) return error('CORE', 'UI', 'Unable to add timet, UI container does not exist yet.')
 
 		// Add a timer component to the timers container
 		const timer = new TimerComponent(duration, description).init()
@@ -386,16 +394,17 @@ export default abstract class AbstractUserInterface {
 	submitInput(suppressEngagementEvent?: boolean, dontClearInput?: boolean) {
 		const { eventBus, inputExecutionStrategyRegister } = this.session
 		const contentEditableEditor = this.inputController?.contentEditableEditor
-		if (!contentEditableEditor) return error('Unable to submit input, the input controller is not loaded yet.')
+		if (!contentEditableEditor)
+			return error('CORE', 'UI', 'Unable to submit input, the input controller is not loaded yet.')
 
 		// 14 is the magic number of encoded unicode message tag
 		if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
-			error('Message is too long to send.')
+			error('CORE', 'UI', 'Message is too long to send.')
 			return this.toastError('Message is too long to send.')
 		}
 
 		const messageContent = contentEditableEditor.getMessageContent()
-		if (!messageContent.length) return log('No message content to send.')
+		if (!messageContent.length) return log('CORE', 'UI', 'No message content to send.')
 
 		eventBus.publish('ntv.ui.submit_input', { suppressEngagementEvent })
 
@@ -428,10 +437,10 @@ export default abstract class AbstractUserInterface {
 				})
 				.catch(err => {
 					if (err && err.message) {
-						error(err.message)
+						error('CORE', 'UI', err.message)
 						this.toastError(err.message)
 					} else {
-						error('Failed to reply to message. Reason unknown.')
+						error('CORE', 'UI', 'Failed to reply to message. Reason unknown.')
 						this.toastError('Failed to reply to message. Reason unknown.')
 					}
 				})
@@ -458,10 +467,10 @@ export default abstract class AbstractUserInterface {
 				})
 				.catch(err => {
 					if (err && err.message) {
-						error(err.message)
+						error('CORE', 'UI', err.message)
 						this.toastError(err.message)
 					} else {
-						error('Failed to send message. Reason unknown.')
+						error('CORE', 'UI', 'Failed to send message. Reason unknown.')
 						this.toastError('Failed to send message. Reason unknown.')
 					}
 				})
@@ -472,10 +481,11 @@ export default abstract class AbstractUserInterface {
 		const { emotesManager, inputExecutionStrategyRegister } = this.session
 
 		const contentEditableEditor = this.inputController?.contentEditableEditor
-		if (!contentEditableEditor) return error('Unable to send emote to chat, input controller is not loaded yet.')
+		if (!contentEditableEditor)
+			return error('CORE', 'UI', 'Unable to send emote to chat, input controller is not loaded yet.')
 
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
-		if (!emoteEmbedding) return error('Failed to send emote to chat, emote embedding not found.')
+		if (!emoteEmbedding) return error('CORE', 'UI', 'Failed to send emote to chat, emote embedding not found.')
 
 		inputExecutionStrategyRegister
 			.routeInput(contentEditableEditor, {
@@ -484,10 +494,10 @@ export default abstract class AbstractUserInterface {
 			})
 			.catch(err => {
 				if (err) {
-					error('Failed to send emote because:', err)
+					error('CORE', 'UI', 'Failed to send emote because:', err)
 					this.toastError('Failed to send emote because: ' + err)
 				} else {
-					error('Failed to send emote to chat. Reason unknown.')
+					error('CORE', 'UI', 'Failed to send emote to chat. Reason unknown.')
 					this.toastError('Failed to send emote to chat. Reason unknown.')
 				}
 			})
@@ -500,10 +510,15 @@ export default abstract class AbstractUserInterface {
 		chatEntrySenderId: string,
 		chatEntrySenderUsername: string
 	) {
-		log(`Replying to message ${chatEntryId} of user ${chatEntrySenderUsername} with ID ${chatEntrySenderId}..`)
+		log(
+			'CORE',
+			'UI',
+			`Replying to message ${chatEntryId} of user ${chatEntrySenderUsername} with ID ${chatEntrySenderId}..`
+		)
 
-		if (!this.inputController) return error('Input controller not loaded for reply behaviour')
-		if (!this.elm.replyMessageWrapper) return error('Unable to load reply message, reply message wrapper not found')
+		if (!this.inputController) return error('CORE', 'UI', 'Input controller not loaded for reply behaviour')
+		if (!this.elm.replyMessageWrapper)
+			return error('CORE', 'UI', 'Unable to load reply message, reply message wrapper not found')
 		if (this.replyMessageData) this.destroyReplyMessageContext()
 
 		this.replyMessageData = {

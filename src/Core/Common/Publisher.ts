@@ -1,11 +1,15 @@
-import { logEvent, error, assertArgument, assertArray } from './utils'
+import { assertArgument, assertArray } from './utils'
+import { Logger } from './Logger'
 import { DTO } from './DTO'
+
+const logger = new Logger()
+const { log, error } = logger.destruct()
 
 export default class Publisher {
 	private listeners = new Map()
 	private onceListeners = new Map()
 	private firedEvents = new Map()
-	private type: 'root' | 'session'
+	private type: 'ROOT' | 'SESSION'
 
 	constructor(type: typeof Publisher.prototype.type) {
 		this.type = type
@@ -36,6 +40,8 @@ export default class Publisher {
 				callback(this.firedEvents.get(event).data)
 			}
 		}
+
+		// TODO maybe unsubscribe itself when callback throws error?
 	}
 
 	// Fires callback immediately and only when all passed events have been fired
@@ -90,11 +96,11 @@ export default class Publisher {
 	}
 
 	publish(topic: string, data?: any) {
-		if (!topic) return error('Invalid event topic, discarding event..')
+		if (!topic) return error('EVENTS', this.type, 'Invalid event topic, discarding event..')
 		const dto = new DTO(topic, data)
 
 		this.firedEvents.set(dto.topic, dto)
-		logEvent(this.type[0].toUpperCase(), dto.topic)
+		log('EVENTS', this.type, dto.topic)
 
 		if (this.onceListeners.has(dto.topic)) {
 			const listeners = this.onceListeners.get(dto.topic)
@@ -114,6 +120,10 @@ export default class Publisher {
 				listener(dto.data)
 			}
 		}
+	}
+
+	hasFiredEvent(event: string) {
+		return this.firedEvents.has(event)
 	}
 
 	destroy() {

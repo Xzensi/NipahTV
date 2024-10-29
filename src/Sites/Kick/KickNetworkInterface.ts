@@ -1,7 +1,10 @@
-import type { NetworkInterface, UserMessage } from '../../Core/Common/NetworkInterface'
-import { REST, assertArgDefined, error, info, log } from '../../Core/Common/utils'
+import type { NetworkInterface, UserMessage } from '@core/Common/NetworkInterface'
+import { U_TAG_NTV_AFFIX } from '@core/Common/constants'
 import { KICK_COMMANDS } from './KickCommands'
-import { U_TAG_NTV_AFFIX } from '../../Core/Common/constants'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 function tryParseErrorMessage(res: { [key: string]: any }) {
 	// Sometimes response format is like:
@@ -173,7 +176,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 			slug: slug
 		}
 
-		log('LOADED ME DATA', this.session.meData)
+		log('KICK', 'NET', 'LOADED ME DATA', this.session.meData)
 	}
 
 	async loadChannelData() {
@@ -181,7 +184,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const channelData = {} as ChannelData
 
 		if (pathArr[1] === 'videos' && pathArr[2]) {
-			info('VOD video detected..')
+			info('KICK', 'NET', 'VOD video detected..')
 
 			// We are on a VOD page
 			const videoId = pathArr[2]
@@ -289,7 +292,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const channelName = (channelData as any).channelName as string
 		const responseChannelMeData = await RESTFromMainService.get(
 			`https://kick.com/api/v2/channels/${channelName}/me`
-		).catch(error)
+		).catch(err => error('KICK', 'NET', err.message))
 
 		if (responseChannelMeData) {
 			Object.assign(channelData, {
@@ -315,12 +318,12 @@ export default class KickNetworkInterface implements NetworkInterface {
 				}
 			}
 		} else {
-			info('User is not logged in.')
+			info('KICK', 'NET', 'User is not logged in.')
 		}
 
 		this.session.channelData = channelData as ChannelData
 
-		log('LOADED CHANNEL DATA', this.session.channelData)
+		log('KICK', 'NET', 'LOADED CHANNEL DATA', this.session.channelData)
 	}
 
 	async sendMessage(message: string, noUtag = false) {
@@ -464,8 +467,8 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const userMeInfo = res1.value
 		const userOwnChannelInfo = res2.value
 
-		// log('User me info:', userMeInfo)
-		// log('User own channel info:', userOwnChannelInfo)
+		// log('KICK', 'NET', 'User me info:', userMeInfo)
+		// log('KICK', 'NET', 'User own channel info:', userOwnChannelInfo)
 
 		return {
 			id: userOwnChannelInfo.user.id,
@@ -486,7 +489,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 			`https://kick.com/api/v2/channels/${channelName}/users/${username}`
 		)
 
-		// log('User channel info:', channelUserInfo)
+		// log('KICK', 'NET', 'User channel info:', channelUserInfo)
 
 		return {
 			id: channelUserInfo.id,
@@ -517,7 +520,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 		)
 		const { data, status } = res
 		if (status.error) {
-			error('Failed to fetch user messages', status)
+			error('KICK', 'NET', 'Failed to fetch user messages', status)
 			throw new Error('Failed to fetch user messages')
 		}
 

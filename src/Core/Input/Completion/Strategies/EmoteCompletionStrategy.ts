@@ -1,8 +1,12 @@
-import NavigatableListWindowManager from '../../../Common/NavigatableListWindowManager'
+import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
 import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
-import type { ContentEditableEditor } from '../../ContentEditableEditor'
-import { error, log, parseHTML } from '../../../Common/utils'
-import { Caret } from '../../../UI/Caret'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
+import { parseHTML } from '@core/Common/utils'
+import { Caret } from '@core/UI/Caret'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class EmoteCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'emotes'
@@ -104,30 +108,30 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 	}
 
 	moveSelectorUp() {
-		if (!this.navWindow) return error('No tab completion window to move selector up')
+		if (!this.navWindow) return error('CORE', 'EMCOMST', 'No tab completion window to move selector up')
 		this.navWindow.moveSelectorUp()
 		this.renderInlineCompletion()
 	}
 
 	moveSelectorDown() {
-		if (!this.navWindow) return error('No tab completion window to move selector down')
+		if (!this.navWindow) return error('CORE', 'EMCOMST', 'No tab completion window to move selector down')
 		this.navWindow.moveSelectorDown()
 		this.renderInlineCompletion()
 	}
 
 	renderInlineCompletion() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
+		if (!this.navWindow) return error('CORE', 'EMCOMST', 'Tab completion window does not exist yet')
 
 		const selectedEntry = this.navWindow.getSelectedEntry()
-		if (!selectedEntry) return error('No selected entry to render completion')
+		if (!selectedEntry) return error('CORE', 'EMCOMST', 'No selected entry to render completion')
 
 		const { emoteHid } = selectedEntry as { emoteHid: string }
-		if (!emoteHid) return error('No emote hid to render inline emote')
+		if (!emoteHid) return error('CORE', 'EMCOMST', 'No emote hid to render inline emote')
 
 		if (this.emoteComponent) {
 			this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid)
 		} else {
-			if (!this.node) return error('Invalid node to restore original text')
+			if (!this.node) return error('CORE', 'EMCOMST', 'Invalid node to restore original text')
 
 			const range = document.createRange()
 			range.setStart(this.node, this.start)
@@ -147,7 +151,7 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 
 	restoreOriginalText() {
 		if (this.word) {
-			if (!this.emoteComponent) return error('Invalid embed node to restore original text')
+			if (!this.emoteComponent) return error('CORE', 'EMCOMST', 'Invalid embed node to restore original text')
 
 			this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word)
 		}

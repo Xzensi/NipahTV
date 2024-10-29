@@ -1,5 +1,9 @@
-import { AbstractComponent } from '../../UI/Components/AbstractComponent'
-import { cleanupHTML, log, parseHTML } from '../../Common/utils'
+import { AbstractComponent } from '@core/UI/Components/AbstractComponent'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class ReplyMessageComponent extends AbstractComponent {
 	private element: HTMLElement
@@ -57,7 +61,7 @@ export default class ReplyMessageComponent extends AbstractComponent {
 	}
 
 	destroy() {
-		log('Destroying reply message component..', this.element)
+		log('CORE', 'UI', 'Destroying reply message component..', this.element)
 		this.element.remove()
 	}
 }

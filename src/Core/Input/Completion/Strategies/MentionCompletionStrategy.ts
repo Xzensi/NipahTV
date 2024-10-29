@@ -1,8 +1,12 @@
-import NavigatableListWindowManager from '../../../Common/NavigatableListWindowManager'
+import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
 import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
-import type { ContentEditableEditor } from '../../ContentEditableEditor'
-import { error, log, parseHTML } from '../../../Common/utils'
-import { Caret } from '../../../UI/Caret'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
+import { parseHTML } from '@core/Common/utils'
+import { Caret } from '@core/UI/Caret'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class MentionCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'mentions'
@@ -109,7 +113,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 	}
 
 	moveSelectorUp() {
-		if (!this.navWindow) return error('No tab completion window to move selector up')
+		if (!this.navWindow) return error('CORE', 'MENCOMST', 'No tab completion window to move selector up')
 		if (this.hasNavigated) this.navWindow.moveSelectorUp()
 		else this.navWindow.setSelectedIndex(0)
 		this.renderInlineCompletion()
@@ -117,7 +121,7 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 	}
 
 	moveSelectorDown() {
-		if (!this.navWindow) return error('No tab completion window to move selector down')
+		if (!this.navWindow) return error('CORE', 'MENCOMST', 'No tab completion window to move selector down')
 		if (this.hasNavigated) this.navWindow.moveSelectorDown()
 		else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1)
 		this.renderInlineCompletion()
@@ -125,11 +129,11 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 	}
 
 	renderInlineCompletion() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
-		if (!this.node) return error('Invalid node to render inline user mention')
+		if (!this.navWindow) return error('CORE', 'MENCOMST', 'Tab completion window does not exist yet')
+		if (!this.node) return error('CORE', 'MENCOMST', 'Invalid node to render inline user mention')
 
 		const entry = this.navWindow.getSelectedEntry()
-		if (!entry) return error('No selected entry to render inline user mention')
+		if (!entry) return error('CORE', 'MENCOMST', 'No selected entry to render inline user mention')
 
 		const { userId, userName } = entry as { userId: string; userName: string }
 		const userMention = `@${userName}`
@@ -147,7 +151,12 @@ export default class MentionCompletionStrategy extends AbstractInputCompletionSt
 				case 'Tab':
 					event.preventDefault()
 
-					log('Tab key pressed in mention completion strategy', this.navWindow.getEntriesCount())
+					log(
+						'CORE',
+						'MENCOMST',
+						'Tab key pressed in mention completion strategy',
+						this.navWindow.getEntriesCount()
+					)
 					if (this.navWindow.getEntriesCount() === 1) {
 						this.renderInlineCompletion()
 						this.contentEditableEditor.insertText(' ')

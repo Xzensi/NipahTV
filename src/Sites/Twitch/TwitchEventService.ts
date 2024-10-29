@@ -1,4 +1,4 @@
-import { EventData, EventService } from '../../Core/Common/EventService'
+import { EventData, EventService } from '@core/Common/EventService'
 
 export default class TwitchEventService implements EventService {
 	connect(channelData: ChannelData) {}
