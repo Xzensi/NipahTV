@@ -362,7 +362,7 @@ export default class SevenTVEventAPI {
 
 		this.emit({
 			op: EventAPIClientOpCodes.RESUME,
-			data: {
+			d: {
 				session_id: this.connectionId
 			}
 		})
@@ -585,6 +585,7 @@ export default class SevenTVEventAPI {
 			this.reconnect(event.code)
 		} else {
 			error('EXT:STV', 'EVENTAPI', '[END_OF_STREAM] Unexpected end of stream:', event)
+			this.shouldReconnect = false
 		}
 	}
 

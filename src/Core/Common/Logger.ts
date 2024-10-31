@@ -1,6 +1,6 @@
 export class Logger {
 	private namespaceStyle =
-		'background: #b92f4a; color: #fff; border-top-left-radius: 5px; border-bottom-left-radius: 5px;'
+		'background: #441000; color: #fff; border-top-left-radius: 5px; border-bottom-left-radius: 5px;'
 	private defaultCategoryStyle = 'background: #6D4C41; color: #fff;'
 	private defaultScopeStyle = 'background: white; color: black;'
 

@@ -247,7 +247,7 @@ export class EmoteDatastore {
 					log(
 						'CORE',
 						'EMOT:STORE',
-						`Registered ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV '} ${
+						`Registered ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							storedEmoteSet.isGlobalSet ? 'global' : 'channel'
 						} emote override for ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							emoteSet.isGlobalSet ? 'global' : 'channel'

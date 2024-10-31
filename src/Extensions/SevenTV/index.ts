@@ -363,6 +363,7 @@ export default class SevenTVExtension extends Extension {
 
 		// TODO implement chat controller with datastores?
 		// TODO fetch global 7tv emotes earlier and channel emotes only on session create
+		// TODO what if both 7TV and BTTV want to paint usernames but are async?
 
 		const STV_ID_NULL = '00000000000000000000000000'
 		const platformId = getStvPlatformId()
@@ -395,9 +396,12 @@ export default class SevenTVExtension extends Extension {
 		)
 
 		const promiseRes = await Promise.allSettled(promises)
-		const channelUser = (promiseRes[1].status === 'fulfilled' ? promiseRes[1].value : { id: STV_ID_NULL }) as
-			| { id: string }
-			| Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>
+		const channelUser = (
+			promiseRes[promiseRes.length - 1].status === 'fulfilled'
+				? //@ts-ignore
+				  promiseRes[promiseRes.length - 1].value
+				: { id: STV_ID_NULL }
+		) as { id: string } | Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>
 
 		let activeEmoteSet: SevenTV.EmoteSet | undefined
 		if (channelUser.id !== STV_ID_NULL && 'emote_sets' in channelUser && channelUser.emote_sets) {
