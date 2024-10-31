@@ -221,37 +221,18 @@ export default class SevenTVEventAPI {
 		this.socket = new WebSocket(url)
 
 		this.socket.onopen = event => {
-			log('EXT:STV', 'EVENTAPI', 'EventAPI Connected!')
-
 			this.connecting = false
 			this.connected = true
+			log('EXT:STV', 'EVENTAPI', 'EventAPI Connected!')
 		}
 
-		// this.socket.onerror = event => {
-		// 	log('EXT:STV', 'EVENTAPI',
-		// 		'EventAPI[ERROR] Connection was closed due to error...',
-		// 		'Current state: ' + ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.socket?.readyState ?? 3]
-		// 	)
-
-		// 	this.connected = false
-		// 	this.shouldResume = false
-
-		// 	// if (this.socket?.readyState === 0)
-		// 	// 	return log('EXT:STV', 'EVENTAPI','EventAPI[ERROR] Socket is already in connecting state, no need to force reconnect...')
-
-		// 	this.reconnect(EventApiServerCloseCodes.SERVER_ERROR)
-		// }
-
 		this.socket.onclose = event => {
-			log(
-				'EXT:STV',
-				'EVENTAPI',
-				'EventAPI[ERROR] Connection was closed...',
-				'Current state: ' + ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.socket?.readyState ?? 2]
-			)
+			const state = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.socket?.readyState ?? 3]
+			log('EXT:STV', 'EVENTAPI', 'EventAPI[ERROR] Connection was closed...', `Current state: ${state}`)
 
 			this.socket = null
 			this.connected = false
+			this.connecting = false
 
 			if (!this.shouldReconnect) return
 
@@ -275,6 +256,10 @@ export default class SevenTVEventAPI {
 		}
 
 		this.socket.onmessage = event => {
+			if (!this.socket || !this.connected) {
+				return error('EXT:STV', 'EVENTAPI', 'Received message but socket is not connected')
+			}
+
 			let payload: EventAPIMessage<keyof EventApiOpCodeMapping>
 			try {
 				payload = JSON.parse(event.data)
@@ -348,14 +333,17 @@ export default class SevenTVEventAPI {
 			setTimeout(() => this.connect(), 300000 + Math.random() * 5000)
 		} else {
 			if (this.connectAttempts)
-				log('EXT:STV', 'EVENTAPI', `EventAPI Attempting to reconnect in ${this.connectAttempts} seconds..`)
+				log('EXT:STV', 'EVENTAPI', `EventAPI Attempting to reconnect in ${((delay / 10) << 0) / 100} seconds..`)
 			else log('EXT:STV', 'EVENTAPI', 'EventAPI Attempting to reconnect..')
 			setTimeout(() => this.connect(), delay)
 		}
 	}
 
 	private resume() {
-		if (!this.socket) return error('EXT:STV', 'EVENTAPI', 'EventAPI[RESUME] Socket is not connected!')
+		// Check both socket and connected state
+		if (!this.socket || !this.connected) {
+			return error('EXT:STV', 'EVENTAPI', 'EventAPI[RESUME] Socket is not connected!')
+		}
 
 		// TODO sometimes theres no connection ID to resume
 		if (!this.connectionId) return error('EXT:STV', 'EVENTAPI', 'EventAPI[RESUME] No connection id to resume!')
