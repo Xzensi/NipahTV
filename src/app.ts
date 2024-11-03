@@ -46,7 +46,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 class NipahClient {
-	VERSION = '1.5.55'
+	VERSION = '1.5.56'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -582,7 +582,6 @@ class NipahClient {
 	attachPageNavigationListener() {
 		info('CORE', 'MAIN', 'Current URL:', window.location.href)
 		let locationURL = window.location.href
-		let channelName: string | null = null
 
 		const navigateFn = () => {
 			if (locationURL === window.location.href) return
@@ -598,24 +597,25 @@ class NipahClient {
 
 			// It's ugly, but prev session is guaranteed to exist at this point
 			const prevSession = this.sessions[0]
-			const prevChannelName = prevSession.channelData.channelName
-			const newLocationChannelName = prevSession.networkInterface.getChannelName()
-			const newLocationIsVod = prevSession.networkInterface.isVOD()
 
-			// Check if session UI is actually destroyed or just part of page has changed
-			if (
-				!newLocationIsVod &&
-				prevSession &&
-				!prevSession.isDestroyed &&
-				!prevSession.userInterface?.isContentEditableEditorDestroyed() &&
-				prevChannelName === newLocationChannelName
-			)
-				return log('CORE', 'MAIN', 'Session UI is not destroyed, only part of page has changed..')
+			if (prevSession) {
+				const prevChannelName = prevSession.channelData.channelName
+				const newLocationChannelName = prevSession.networkInterface.getChannelName()
+				const newLocationIsVod = prevSession.networkInterface.isVOD()
 
-			channelName = newLocationChannelName
+				// Check if session UI is actually destroyed or just part of page has changed
+				if (
+					!newLocationIsVod &&
+					!prevSession.isDestroyed &&
+					!prevSession.userInterface?.isContentEditableEditorDestroyed() &&
+					prevChannelName === newLocationChannelName
+				)
+					return log('CORE', 'MAIN', 'Session UI is not destroyed, only part of page has changed..')
+			}
+
 			info('CORE', 'MAIN', 'Navigated to:', locationURL)
 
-			this.cleanupSessions(prevLocation)
+			this.cleanupSessions()
 			log('CORE', 'MAIN', 'Cleaned up old session for', prevLocation)
 
 			this.createChannelSession()
@@ -640,9 +640,7 @@ class NipahClient {
 		})
 	}
 
-	cleanupSessions(oldLocation: string) {
-		// if (!this.sessions.length) return log('CORE', 'MAIN', `No session to clean up for ${oldLocation}..`)
-
+	cleanupSessions() {
 		for (const session of this.sessions) {
 			log(
 				'CORE',
