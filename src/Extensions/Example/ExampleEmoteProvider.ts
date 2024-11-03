@@ -17,7 +17,7 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 	}
 
 	async fetchEmotes({ userId, channelId }: ChannelData) {
-		info('EXT:EXAMPLE', 'EMTE:PROV', 'Fetching emote data from Example..')
+		info('EXT:EXAMPLE', 'EMOT:PROV', 'Fetching emote data from Example..')
 		this.status = EmoteProviderStatus.LOADING
 
 		if (!userId) {
@@ -33,16 +33,16 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 
 		const [globalData, userData] = await Promise.all([
 			REST.get(`https://nipahtv.com/api/v1/emote-sets/global`).catch(err => {
-				error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to fetch Example global emotes:', err)
+				error('EXT:EXAMPLE', 'EMOT:PROV', 'Failed to fetch Example global emotes:', err)
 			}),
 			REST.get(`https://nipahtv.com/api/v1/users/KICK/${userId}`).catch(err => {
-				error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to fetch Example user emotes:', err)
+				error('EXT:EXAMPLE', 'EMOT:PROV', 'Failed to fetch Example user emotes:', err)
 			})
 		])
 
 		if (!globalData) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
-			return error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to fetch Example global emotes.')
+			return error('EXT:EXAMPLE', 'EMOT:PROV', 'Failed to fetch Example global emotes.')
 		}
 
 		const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {})
@@ -50,18 +50,18 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 
 		if (!globalEmoteSet) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
-			return error('EXT:EXAMPLE', 'EMTE:PROV', 'Failed to unpack global emotes from Example provider.')
+			return error('EXT:EXAMPLE', 'EMOT:PROV', 'Failed to unpack global emotes from Example provider.')
 		}
 
 		if (userEmoteSet) {
 			const plural = globalEmoteSet.length + userEmoteSet.length > 1 ? 'sets' : 'set'
 			log(
 				'EXT:EXAMPLE',
-				'EMTE:PROV',
+				'EMOT:PROV',
 				`Fetched ${globalEmoteSet.length + userEmoteSet.length} emote ${plural} from Example.`
 			)
 		} else {
-			log('EXT:EXAMPLE', 'EMTE:PROV', `Fetched ${globalEmoteSet.length} global emote set from Example.`)
+			log('EXT:EXAMPLE', 'EMOT:PROV', `Fetched ${globalEmoteSet.length} global emote set from Example.`)
 		}
 
 		this.status = EmoteProviderStatus.LOADED
