@@ -46,7 +46,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 class NipahClient {
-	VERSION = '1.5.56'
+	VERSION = '1.5.58'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -285,7 +285,7 @@ class NipahClient {
 			sevenTVExtension = new SevenTVExtension(rootContext, this.sessions)
 			sevenTVExtension.onEnable()
 		}
-		const isSevenTVExtensionEnabled = false //await settingsManager.getSettingFromDatabase('global.shared.ext.7tv.enabled')
+		const isSevenTVExtensionEnabled = await settingsManager.getSettingFromDatabase('global.shared.ext.7tv.enabled')
 		if (isSevenTVExtensionEnabled) enableSevenTVExtension()
 		rootContext.eventBus.subscribe(
 			'ntv.settings.change.ext.7tv.enabled',

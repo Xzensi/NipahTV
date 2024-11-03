@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.57',
+		date: '2024-11-03',
+		description: `
+                  Fix: Clip links not working in chat messages
+                  Fix: Another attempt at fixing the async session reload issues
+            `
+	},
+	{
 		version: '1.5.56',
 		date: '2024-11-03',
 		description: `
