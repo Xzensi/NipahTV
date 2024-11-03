@@ -1604,7 +1604,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			// First element child might be the reply message attachment wrapper, so we get last instead
-			const contentWrapperNode = messageBodyWrapper.lastElementChild
+			const contentWrapperNode = messageBodyWrapper.querySelector('span:last-of-type')
 			if (!contentWrapperNode) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
 				error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
@@ -1761,6 +1761,22 @@ export class KickUserInterface extends AbstractUserInterface {
 				} else {
 					messageParts.push(contentNode.cloneNode(true))
 				}
+			}
+
+			const clipAttachmentEl = contentWrapperNode.nextElementSibling
+			if (clipAttachmentEl && clipAttachmentEl.nodeName === 'BUTTON') {
+				const clipPreviewBtnEl = clipAttachmentEl.cloneNode(true)
+				// Forward the click event to the original clickable clip attachment preview element
+				clipPreviewBtnEl.addEventListener('click', evt => {
+					evt.preventDefault()
+					evt.stopPropagation()
+					evt.stopImmediatePropagation()
+
+					const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+					Object.defineProperty(event, 'target', { value: clipAttachmentEl, enumerable: true })
+					clipAttachmentEl.dispatchEvent(event)
+				})
+				messageParts.push(clipPreviewBtnEl)
 			}
 
 			messageObject.content = messageParts
