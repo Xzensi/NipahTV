@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.56',
+		date: '2024-11-03',
+		description: `
+                  Fix: Lack of previous session sometimes breaking navigation
+
+            `
+	},
+	{
 		version: '1.5.55',
 		date: '2024-11-03',
 		description: `

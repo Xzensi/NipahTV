@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.55
+// @version 1.5.56
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11955,6 +11955,14 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.56",
+    date: "2024-11-03",
+    description: `
+                  Fix: Lack of previous session sometimes breaking navigation
+
+            `
+  },
   {
     version: "1.5.55",
     date: "2024-11-03",
@@ -25434,7 +25442,7 @@ var BotrixExtension = class extends Extension {
 var logger35 = new Logger();
 var { log: log34, info: info33, error: error35 } = logger35.destruct();
 var NipahClient = class {
-  VERSION = "1.5.55";
+  VERSION = "1.5.56";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -25831,7 +25839,6 @@ var NipahClient = class {
   attachPageNavigationListener() {
     info33("CORE", "MAIN", "Current URL:", window.location.href);
     let locationURL = window.location.href;
-    let channelName = null;
     const navigateFn = () => {
       if (locationURL === window.location.href) return;
       if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) return;
@@ -25840,14 +25847,15 @@ var NipahClient = class {
       locationURL = newLocation;
       log34("CORE", "MAIN", "Navigated to:", newLocation);
       const prevSession = this.sessions[0];
-      const prevChannelName = prevSession.channelData.channelName;
-      const newLocationChannelName = prevSession.networkInterface.getChannelName();
-      const newLocationIsVod = prevSession.networkInterface.isVOD();
-      if (!newLocationIsVod && prevSession && !prevSession.isDestroyed && !prevSession.userInterface?.isContentEditableEditorDestroyed() && prevChannelName === newLocationChannelName)
-        return log34("CORE", "MAIN", "Session UI is not destroyed, only part of page has changed..");
-      channelName = newLocationChannelName;
+      if (prevSession) {
+        const prevChannelName = prevSession.channelData.channelName;
+        const newLocationChannelName = prevSession.networkInterface.getChannelName();
+        const newLocationIsVod = prevSession.networkInterface.isVOD();
+        if (!newLocationIsVod && !prevSession.isDestroyed && !prevSession.userInterface?.isContentEditableEditorDestroyed() && prevChannelName === newLocationChannelName)
+          return log34("CORE", "MAIN", "Session UI is not destroyed, only part of page has changed..");
+      }
       info33("CORE", "MAIN", "Navigated to:", locationURL);
-      this.cleanupSessions(prevLocation);
+      this.cleanupSessions();
       log34("CORE", "MAIN", "Cleaned up old session for", prevLocation);
       this.createChannelSession();
       this.doExtensionCompatibilityChecks();
@@ -25867,7 +25875,7 @@ var NipahClient = class {
       });
     });
   }
-  cleanupSessions(oldLocation) {
+  cleanupSessions() {
     for (const session of this.sessions) {
       log34(
         "CORE",
