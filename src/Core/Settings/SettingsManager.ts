@@ -193,6 +193,17 @@ export default class SettingsManager {
 					label: 'Emotes',
 					children: [
 						{
+							label: 'General',
+							children: [
+								{
+									label: 'Show emotes in chat',
+									key: 'chat.emote_providers.kick.show_emotes',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
 							label: 'Emote appearance',
 							children: [
 								{
@@ -338,18 +349,12 @@ export default class SettingsManager {
 					]
 				},
 				{
-					label: 'Emote Providers',
+					label: 'Emote Sets',
 					children: [
 						{
-							label: 'Kick',
+							label: 'Kick emote sets',
 							description: 'These settings require a page refresh to take effect.',
 							children: [
-								{
-									label: 'Show emotes in chat',
-									key: 'chat.emote_providers.kick.show_emotes',
-									default: true,
-									type: 'checkbox'
-								},
 								{
 									label: 'Show global emote set in emote menu',
 									key: 'emote_menu.emote_providers.kick.show_global',
@@ -375,35 +380,11 @@ export default class SettingsManager {
 									type: 'checkbox'
 								}
 							]
-						},
-						{
-							label: '7TV',
-							description: 'These settings require a page refresh to take effect.',
-							children: [
-								{
-									label: 'Show emotes in chat',
-									key: 'chat.emote_providers.7tv.show_emotes',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Show global emote set in emote menu',
-									key: 'emote_menu.emote_providers.7tv.show_global',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Show current channel emote set in emote menu',
-									key: 'emote_menu.emote_providers.7tv.show_current_channel',
-									default: true,
-									type: 'checkbox'
-								}
-							]
 						}
 					]
 				},
 				{
-					label: 'Input field',
+					label: 'Input Field',
 					children: [
 						{
 							label: 'Behavior',
@@ -417,7 +398,7 @@ export default class SettingsManager {
 							]
 						},
 						{
-							label: 'Recent Messages',
+							label: 'Recent messages',
 							children: [
 								{
 									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages',
@@ -670,6 +651,70 @@ export default class SettingsManager {
 			]
 		},
 		{
+			label: 'Add-ons',
+			children: [
+				{
+					label: '7TV',
+					children: [
+						{
+							label: 'General',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Enable 7TV add-on',
+									key: 'ext.7tv.enabled',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Appearance',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Enable username paint cosmetics in chat',
+									key: 'ext.7tv.cosmetics.paints.enabled',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable shadows for username paint cosmetics in chat (potentially high performance impact)',
+									key: 'ext.7tv.cosmetics.paints.shadows.enabled',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Emote sets',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Show emotes in chat',
+									key: 'chat.emote_providers.7tv.show_emotes',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show global emote set in emote menu',
+									key: 'emote_menu.emote_providers.7tv.show_global',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show current channel emote set in emote menu',
+									key: 'emote_menu.emote_providers.7tv.show_current_channel',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
 			label: 'Moderators',
 			children: [
 				{
@@ -744,6 +789,8 @@ export default class SettingsManager {
 	}
 
 	async loadSettings() {
+		if (this.isLoaded) return true
+
 		const { database, rootEventBus: eventBus } = this
 
 		// TODO get by global and platform ID primary keys instead of everything
@@ -841,6 +888,13 @@ export default class SettingsManager {
 		this.settingsMap.set(id, value)
 	}
 
+	/**
+	 * Setting resolution order:
+	 * {{platformId}}.{{channelId}}.key
+	 * {{platformId}}.shared.key
+	 * global.{{channelId}}.key
+	 * global.shared.key
+	 */
 	getSetting(channelId: SettingDocument['channelId'], key: string, bubbleChannel = true, bubblePlatform = true) {
 		const platformId = PLATFORM
 		const id = `${platformId}.${channelId}.${key}`
@@ -859,6 +913,12 @@ export default class SettingsManager {
 	getGlobalSetting(key: string) {
 		if (this.settingsMap.has(`global.shared.${key}`)) return this.settingsMap.get(`global.shared.${key}`)
 		return error('CORE', 'SETTINGS', 'Setting not registered:', key)
+	}
+
+	async getSettingFromDatabase(key: string) {
+		return this.database.settings
+			.getRecord(key)
+			.then(res => (res !== undefined ? res.value : this.settingsMap.get(key)))
 	}
 
 	// getSettingsForPlatform(platformId: SettingDocument['platformId']) {}

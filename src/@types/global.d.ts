@@ -3,17 +3,18 @@ import type InputCompletionStrategyManager from '../Core/Input/Completion/InputC
 import type InputExecutionStrategyRegister from '../Core/Input/Execution/InputExecutionStrategyRegister'
 import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from '../Core/Common/constants'
 import type { ReactivePropsFromMain, RESTFromMain } from '../Core/Common/utils'
+import type RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
 import type AnnouncementService from '../Core/Services/AnnouncementService'
 import type AbstractUserInterface from '../Core/UI/AbstractUserInterface'
+import type { NetworkInterface } from '../Core/Common/NetworkInterface'
 import type SettingsManager from '../Core/Settings/SettingsManager'
-import type { Badge, IBadgeProvider } from '../Core/Emotes/BadgeProvider'
-import { NetworkInterface } from '../Core/Common/NetworkInterface'
+import type { IBadgeProvider } from '../Core/Emotes/BadgeProvider'
 import type { EventService } from '../Core/Common/EventService'
 import type EmotesManager from '../Core/Emotes/EmotesManager'
 import type UsersManager from '../Core/Users/UsersManager'
 import type Publisher from '../Core/Common/Publisher'
 import type Database from '../Database/Database'
-import { User } from '@core/Users/UsersDatastore'
+import type { User } from '@core/Users/UsersDatastore'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -60,6 +61,7 @@ declare global {
 		settingsManager: SettingsManager
 		announcementService: AnnouncementService
 		eventService: EventService
+		renderMessagePipeline: RenderMessagePipeline
 	}
 
 	interface Session {

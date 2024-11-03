@@ -1771,6 +1771,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			// ntvMessagePartsWrapperEl.className = 'ntv__chat-message__parts-wrapper'
 			// ntvMessagePartsWrapperEl.append(...messagePartNodes)
 
+			this.rootContext.renderMessagePipeline.process(messageObject, ntvBadgesEl, ntvUsernameEl, messageParts)
+
 			ntvMessageInnerEl.className = 'ntv__chat-message__inner'
 			ntvMessageInnerEl.append(ntvIdentityWrapperEl)
 			ntvMessageInnerEl.append(...this.renderMessageParts(messageParts))

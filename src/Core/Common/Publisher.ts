@@ -95,12 +95,12 @@ export default class Publisher {
 		listeners.splice(index, 1)
 	}
 
-	publish(topic: string, data?: any) {
+	publish(topic: string, data?: any, suppressLog?: boolean) {
 		if (!topic) return error('EVENTS', this.type, 'Invalid event topic, discarding event..')
 		const dto = new DTO(topic, data)
 
 		this.firedEvents.set(dto.topic, dto)
-		log('EVENTS', this.type, dto.topic)
+		if (!suppressLog) log('EVENTS', this.type, dto.topic)
 
 		if (this.onceListeners.has(dto.topic)) {
 			const listeners = this.onceListeners.get(dto.topic)

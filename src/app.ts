@@ -4,6 +4,7 @@ import DefaultExecutionStrategy from './Core/Input/Execution/Strategies/DefaultE
 import CommandExecutionStrategy from './Core/Input/Execution/Strategies/CommandExecutionStrategy'
 import InputCompletionStrategyRegister from './Core/Input/Completion/InputCompletionStrategyRegister'
 import { DatabaseProxyFactory, DatabaseProxy } from './Database/DatabaseProxy'
+import RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
 import AnnouncementService from './Core/Services/AnnouncementService'
 import AbstractUserInterface from './Core/UI/AbstractUserInterface'
 import TwitchEventService from './Sites/Twitch/TwitchEventService'
@@ -130,12 +131,6 @@ class NipahClient {
 		Object.freeze(DEVICE)
 		Object.freeze(SUPPORTS_AVIF)
 
-		// Log various types
-		// info('CORE', 'INIT', 'Initializing Nipah client [1.5.54]...')
-		// logger.success('CORE', 'UI', 'Loaded 4 emote sets from Kick')
-		// logger.warning('EVENT', 'SESSION', 'Session data loading may be slow')
-		// error('DATABASE', 'SESSION', { error: 'Connection failed' }) // Logs with console.error
-
 		this.attachPageNavigationListener()
 		this.setupDatabase().then(async () => {
 			// Initialize the RESTFromMainService because it needs to
@@ -229,7 +224,8 @@ class NipahClient {
 			database,
 			settingsManager,
 			eventService,
-			announcementService: new AnnouncementService(rootEventBus, settingsManager)
+			announcementService: new AnnouncementService(rootEventBus, settingsManager),
+			renderMessagePipeline: new RenderMessagePipeline()
 		}
 
 		this.loadExtensions()
@@ -280,23 +276,35 @@ class NipahClient {
 	}
 
 	async loadExtensions() {
-		// Dynamically load extensions according to enabled extensions
 		const rootContext = this.rootContext
 		if (!rootContext) throw new Error('Root context is not initialized.')
 
 		const { settingsManager } = rootContext
-		const enabledExtensions: Set<new (rootContext: RootContext, sessions: Session[]) => Extension> = new Set()
 
-		const isSevenTVExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.7tv.enabled')
-		if (isSevenTVExtensionEnabled) enabledExtensions.add(SevenTVExtension)
-
-		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
-		if (isBotrixExtensionEnabled) enabledExtensions.add(BotrixExtension)
-
-		for (const enabledExtension of enabledExtensions) {
-			const extObject = new enabledExtension(rootContext, this.sessions)
-			extObject.onEnable()
+		let sevenTVExtension: SevenTVExtension | null = null
+		const enableSevenTVExtension = () => {
+			sevenTVExtension = new SevenTVExtension(rootContext, this.sessions)
+			sevenTVExtension.onEnable()
 		}
+		const isSevenTVExtensionEnabled = await settingsManager.getSettingFromDatabase('global.shared.ext.7tv.enabled')
+		if (isSevenTVExtensionEnabled) enableSevenTVExtension()
+		rootContext.eventBus.subscribe(
+			'ntv.settings.change.ext.7tv.enabled',
+			({ value, prevValue }: { value: boolean; prevValue: boolean }) => {
+				if (value && !prevValue) enableSevenTVExtension()
+				else if (sevenTVExtension) {
+					sevenTVExtension.onDisable()
+					sevenTVExtension = null
+				}
+			}
+		)
+
+		const enableBotrixExtension = () => {
+			const extension = new BotrixExtension(rootContext, this.sessions)
+			extension.onEnable()
+		}
+		const isBotrixExtensionEnabled = true //await settingsManager.getSettingFromDatabase('shared', 'extensions.botrix.enabled')
+		if (isBotrixExtensionEnabled) enableBotrixExtension()
 	}
 
 	doExtensionCompatibilityChecks() {
@@ -357,34 +365,32 @@ class NipahClient {
 		} else {
 			throw new Error('Unsupported platform')
 		}
+
 		const networkInterface = session.networkInterface
-
-		this.sessions.push(session)
-
-		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
-
 		const promiseRes = await Promise.allSettled([
 			this.loadSettingsManagerPromise,
 			networkInterface.loadMeData().catch(err => {
-				throw new Error(`Couldn't load me data because: ${err.message}`)
+				throw `Couldn't load me data because: ${err.message}`
 			}),
 			networkInterface.loadChannelData().catch(err => {
-				throw new Error(`Couldn't load channel data because: ${err.message}`)
+				throw `Couldn't load channel data because: ${err.message}`
 			})
 		])
 
 		// Check if any of these promises failed and bubble up the error
-		promiseRes.forEach(res => {
-			if (res.status === 'rejected') throw res.reason
-		})
+		for (const res of promiseRes) {
+			if (res.status === 'rejected') return error('CORE', 'MAIN', 'Failed to create session because:', res.reason)
+		}
 
 		if (!session.meData) throw new Error('Failed to load me user data.')
 		if (!session.channelData) throw new Error('Failed to load channel data.')
 
+		this.sessions.push(session)
+
 		const channelData = session.channelData
 		eventBus.publish('ntv.channel.loaded.channel_data', channelData)
 
-		const disableModCreatorView = await settingsManager.getSetting(
+		const disableModCreatorView = settingsManager.getSetting(
 			channelData.channelId,
 			'moderators.mod_creator_view.disable_ntv'
 		)
@@ -439,8 +445,6 @@ class NipahClient {
 
 		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
 		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
-
-		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 	}
 
 	loadReloadUIHack() {
@@ -452,9 +456,11 @@ class NipahClient {
 			this.sessions.forEach(session => {
 				session.isDestroyed = true
 				session.eventBus.publish('ntv.session.destroy')
+				session.eventBus.publish('ntv.session.restore_original')
+				this.rootContext?.eventBus.publish('ntv.session.destroy', session)
 			})
 			this.sessions = []
-			this.createChannelSession()
+			setTimeout(() => this.createChannelSession(), 1000)
 		})
 	}
 
@@ -466,7 +472,7 @@ class NipahClient {
 		rootContext.eventService.subToChatroomEvents(channelData)
 
 		rootContext.eventService.addEventListener(channelData, 'MESSAGE', message => {
-			eventBus.publish('ntv.chat.message.new', message)
+			eventBus.publish('ntv.chat.message.new', message, true)
 		})
 
 		rootContext.eventService.addEventListener(channelData, 'CHATROOM_UPDATED', chatroomData => {
@@ -584,8 +590,12 @@ class NipahClient {
 			// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
 			if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
 
-			const oldLocation = locationURL
+			const prevLocation = locationURL
+			const prevChannelName = channelName
 			const newLocation = window.location.href
+
+			locationURL = newLocation
+			log('CORE', 'MAIN', 'Navigated to:', newLocation)
 
 			const activeSession = this.sessions[0]
 			if (!activeSession) return this.createChannelSession()
@@ -598,17 +608,16 @@ class NipahClient {
 				!newLocationIsVod &&
 				!activeSession.isDestroyed &&
 				!activeSession.userInterface?.isContentEditableEditorDestroyed() &&
-				channelName &&
-				channelName === newLocationChannelName
+				prevChannelName &&
+				prevChannelName === newLocationChannelName
 			)
 				return
 
-			locationURL = newLocation
 			channelName = newLocationChannelName
 			info('CORE', 'MAIN', 'Navigated to:', locationURL)
 
-			this.cleanupSession(oldLocation)
-			log('CORE', 'MAIN', 'Cleaned up old session for', oldLocation)
+			this.cleanupSession(prevLocation)
+			log('CORE', 'MAIN', 'Cleaned up old session for', prevLocation)
 			this.createChannelSession()
 
 			this.doExtensionCompatibilityChecks()
