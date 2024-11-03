@@ -253,7 +253,6 @@ class NipahClient {
 		this.loadAppUpdateBehaviour(rootEventBus)
 		this.doExtensionCompatibilityChecks()
 		this.createChannelSession()
-		this.loadReloadUIHack()
 	}
 
 	loadAppUpdateBehaviour(rootEventBus: Publisher) {
@@ -286,7 +285,7 @@ class NipahClient {
 			sevenTVExtension = new SevenTVExtension(rootContext, this.sessions)
 			sevenTVExtension.onEnable()
 		}
-		const isSevenTVExtensionEnabled = await settingsManager.getSettingFromDatabase('global.shared.ext.7tv.enabled')
+		const isSevenTVExtensionEnabled = false //await settingsManager.getSettingFromDatabase('global.shared.ext.7tv.enabled')
 		if (isSevenTVExtensionEnabled) enableSevenTVExtension()
 		rootContext.eventBus.subscribe(
 			'ntv.settings.change.ext.7tv.enabled',
@@ -445,23 +444,17 @@ class NipahClient {
 
 		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
 		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
-	}
 
-	loadReloadUIHack() {
-		const rootContext = this.rootContext
-		if (!rootContext) throw new Error('Root context is not initialized.')
+		//! Dirty reload UI hack to check if UI elements of session is destroyed and reload it
+		eventBus.subscribe(
+			'ntv.session.reload',
+			debounce(() => {
+				if (session.isDestroyed) return
 
-		rootContext.eventBus.subscribe('ntv.reload_sessions', () => {
-			// Destroy all sessions and recreate them
-			this.sessions.forEach(session => {
-				session.isDestroyed = true
-				session.eventBus.publish('ntv.session.destroy')
-				session.eventBus.publish('ntv.session.restore_original')
-				this.rootContext?.eventBus.publish('ntv.session.destroy', session)
-			})
-			this.sessions = []
-			setTimeout(() => this.createChannelSession(), 1000)
-		})
+				this.cleanupSessions(true)
+				this.createChannelSession()
+			}, 1000)
+		)
 	}
 
 	attachEventServiceListeners(rootContext: RootContext, session: Session) {
@@ -631,16 +624,11 @@ class NipahClient {
 		window.addEventListener('beforeunload', () => {
 			info('CORE', 'MAIN', 'User is navigating away from the page, cleaning up sessions before leaving..')
 			this.rootContext?.eventService.disconnectAll()
-
-			this.sessions.forEach(session => {
-				session.isDestroyed = true
-				session.eventBus.publish('ntv.session.destroy')
-				this.rootContext?.eventBus.publish('ntv.session.destroy', session)
-			})
+			this.cleanupSessions()
 		})
 	}
 
-	cleanupSessions() {
+	cleanupSessions(restoreOriginalUI = false) {
 		for (const session of this.sessions) {
 			log(
 				'CORE',
@@ -651,10 +639,13 @@ class NipahClient {
 			)
 			session.isDestroyed = true
 			session.eventBus.publish('ntv.session.destroy')
+			if (restoreOriginalUI) session.eventBus.publish('ntv.session.restore_original')
 			this.rootContext?.eventBus.publish('ntv.session.destroy', session)
 			session.eventBus.destroy()
 			// TODO after session is destroyed, all session event listeners attached to rootEventBus should be removed as well
 		}
+
+		this.sessions = []
 	}
 }
 

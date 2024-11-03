@@ -399,8 +399,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!this.emoteMenuButton!.element.isConnected) {
 				info('KICK', 'UI', 'Emote menu button got removed. Reloading session to reinitialize UI.')
 				this.destroy()
-				//! Does not respect multiple sessions framework structure
-				this.rootContext.eventBus.publish('ntv.reload_sessions')
+				this.session.eventBus.publish('ntv.session.reload')
 			}
 		}, 700)
 	}
