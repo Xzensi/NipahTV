@@ -345,24 +345,18 @@ export default class SevenTVExtension extends Extension {
 				this.eventAPI = new SevenTVEventAPI(this.rootContext, this.datastore!)
 				this.eventAPI.connect()
 
-				const paintCosmeticsEnabledSetting = settingsManager.getSetting(
-					'shared',
-					'ext.7tv.cosmetics.paints.enabled'
+				this.eventAPI.addEventListener(
+					'paint_created',
+					((event: Event) => {
+						this.handlePaintCreated(event as CustomEvent)
+					}).bind(this)
 				)
-				if (paintCosmeticsEnabledSetting) {
-					this.eventAPI.addEventListener(
-						'paint_created',
-						((event: Event) => {
-							this.handlePaintCreated(event as CustomEvent)
-						}).bind(this)
-					)
-					this.eventAPI.addEventListener(
-						'paint_entitled',
-						((event: Event) => {
-							this.handlePaintEntitled(event as CustomEvent)
-						}).bind(this)
-					)
-				}
+				this.eventAPI.addEventListener(
+					'paint_entitled',
+					((event: Event) => {
+						this.handlePaintEntitled(event as CustomEvent)
+					}).bind(this)
+				)
 
 				if (rootEventBus.hasFiredEvent('ntv.session.create'))
 					this.sessions.forEach(this.onSessionCreate.bind(this))
@@ -409,91 +403,88 @@ export default class SevenTVExtension extends Extension {
 		if (!this.eventAPI)
 			return error('EXT:STV', 'MAIN', 'Event API is not initialized, cannot add session:', session)
 
-		const paintCosmeticsEnabledSetting = settingsManager.getSetting('shared', 'ext.7tv.cosmetics.paints.enabled')
-		if (paintCosmeticsEnabledSetting) {
-			const STV_ID_NULL = '00000000000000000000000000'
-			const platformId = getStvPlatformId()
+		const STV_ID_NULL = '00000000000000000000000000'
+		const platformId = getStvPlatformId()
 
-			// Fetch both our own 7TV user and the platform channel user
-			let promises = []
-			if (!this.cachedStvMeUser) {
-				promises.push(
-					getUserCosmeticDataByConnection(platformId, platformMeUserId)
-						.then(res => res?.userByConnection ?? { id: STV_ID_NULL })
-						.then(user => {
-							if (user.id === STV_ID_NULL)
-								info(
-									'EXT:STV',
-									'MAIN',
-									"SevenTV failed to get user, looks like you don't have a 7TV account.."
-								)
-							return (this.cachedStvMeUser = user)
-						})
-						.then(user => {
-							if (user.id === STV_ID_NULL) return // No need to wait for this to finish before continuing
-							;(async () => {
-								// Immediately entitle the current user to their cosmetics, if they have any
-								const paint = user.style?.paint
-								if (paint) {
-									datastore.createEntitlement({
-										id: STV_ID_NULL,
-										kind: 'PAINT',
-										ref_id: paint.id,
-										user: user
-									})
-									datastore!.createCosmetic({
-										id: paint.id,
-										kind: 'PAINT',
-										data: paint
-									})
-									this.handlePaintCreated(new CustomEvent('paint_created', { detail: paint }))
-								}
-							})()
-						})
-						.catch(err => (this.cachedStvMeUser = { id: STV_ID_NULL }))
-				)
-			}
-
+		// Fetch both our own 7TV user and the platform channel user
+		let promises = []
+		if (!this.cachedStvMeUser) {
 			promises.push(
-				getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId)
-					.then(res => res ?? { id: STV_ID_NULL })
-					.catch(err => {
-						id: STV_ID_NULL
+				getUserCosmeticDataByConnection(platformId, platformMeUserId)
+					.then(res => res?.userByConnection ?? { id: STV_ID_NULL })
+					.then(user => {
+						if (user.id === STV_ID_NULL)
+							info(
+								'EXT:STV',
+								'MAIN',
+								"SevenTV failed to get user, looks like you don't have a 7TV account.."
+							)
+						return (this.cachedStvMeUser = user)
 					})
+					.then(user => {
+						if (user.id === STV_ID_NULL) return // No need to wait for this to finish before continuing
+						;(async () => {
+							// Immediately entitle the current user to their cosmetics, if they have any
+							const paint = user.style?.paint
+							if (paint) {
+								datastore.createEntitlement({
+									id: STV_ID_NULL,
+									kind: 'PAINT',
+									ref_id: paint.id,
+									user: user
+								})
+								datastore!.createCosmetic({
+									id: paint.id,
+									kind: 'PAINT',
+									data: paint
+								})
+								this.handlePaintCreated(new CustomEvent('paint_created', { detail: paint }))
+							}
+						})()
+					})
+					.catch(err => (this.cachedStvMeUser = { id: STV_ID_NULL }))
 			)
+		}
 
-			const promiseRes = await Promise.allSettled(promises)
-			const channelUser = (
-				promiseRes[promiseRes.length - 1].status === 'fulfilled'
-					? //@ts-ignore
-					  promiseRes[promiseRes.length - 1].value
-					: { id: STV_ID_NULL }
-			) as { id: string } | Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>
-
-			let activeEmoteSet: SevenTV.EmoteSet | undefined
-			if (channelUser.id !== STV_ID_NULL && 'emote_sets' in channelUser && channelUser.emote_sets) {
-				activeEmoteSet = channelUser.emote_sets.find(
-					set => set.id === channelUser.connections?.find(c => c.platform === platformId)?.emote_set_id
-				)
-			}
-
-			const stvMeUserId =
-				!this.cachedStvMeUser || this.cachedStvMeUser.id === STV_ID_NULL ? undefined : this.cachedStvMeUser.id
-
-			/**
-			 * Channel user here is the platform user, not the 7TV user
-			 * activeEmoteSet is the emote set that the channel user has selected
-			 * stvMeUser is the current user's 7TV user
-			 */
-			const room = this.eventAPI.registerRoom(channelUserId, stvMeUserId, activeEmoteSet?.id)
-
-			if (room && room.userId && room.userId !== STV_ID_NULL) {
-				eventBus.subscribe('ntv.chat.message.new', (message: NTVMessageEvent) => {
-					if (message.sender.id !== platformMeUserId) {
-						this.eventAPI?.sendPresence(room)
-					}
+		promises.push(
+			getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId)
+				.then(res => res ?? { id: STV_ID_NULL })
+				.catch(err => {
+					id: STV_ID_NULL
 				})
-			}
+		)
+
+		const promiseRes = await Promise.allSettled(promises)
+		const channelUser = (
+			promiseRes[promiseRes.length - 1].status === 'fulfilled'
+				? //@ts-ignore
+				  promiseRes[promiseRes.length - 1].value
+				: { id: STV_ID_NULL }
+		) as { id: string } | Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>
+
+		let activeEmoteSet: SevenTV.EmoteSet | undefined
+		if (channelUser.id !== STV_ID_NULL && 'emote_sets' in channelUser && channelUser.emote_sets) {
+			activeEmoteSet = channelUser.emote_sets.find(
+				set => set.id === channelUser.connections?.find(c => c.platform === platformId)?.emote_set_id
+			)
+		}
+
+		const stvMeUserId =
+			!this.cachedStvMeUser || this.cachedStvMeUser.id === STV_ID_NULL ? undefined : this.cachedStvMeUser.id
+
+		/**
+		 * Channel user here is the platform user, not the 7TV user
+		 * activeEmoteSet is the emote set that the channel user has selected
+		 * stvMeUser is the current user's 7TV user
+		 */
+		const room = this.eventAPI.registerRoom(channelUserId, stvMeUserId, activeEmoteSet?.id)
+
+		if (room && room.userId && room.userId !== STV_ID_NULL) {
+			eventBus.subscribe('ntv.chat.message.new', (message: NTVMessageEvent) => {
+				if (message.sender.id !== platformMeUserId) {
+					this.eventAPI?.sendPresence(room)
+				}
+			})
 		}
 	}
 
@@ -508,17 +499,55 @@ export default class SevenTVExtension extends Extension {
 	}
 
 	hookRenderMessagePipeline(datastore: SevenTVDatastore) {
+		const { settingsManager } = this.rootContext
 		const renderMessagePipeline = this.rootContext.renderMessagePipeline
+
 		this.renderMessageMiddleware = renderMessagePipeline.use(
 			(message, badgesEl, usernameEl, messageParts, next) => {
 				const user = datastore.getUserByName(message.username)
 				if (!user) return next()
 
-				const paint = datastore.getUserPaint(user.id)
-				if (paint) {
-					usernameEl.setAttribute('seventv-painted-content', 'true')
-					usernameEl.setAttribute('seventv-paint-id', paint.id)
-					usernameEl.style.removeProperty('color')
+				const paintCosmeticsEnabledSetting = settingsManager.getSetting(
+					'shared',
+					'ext.7tv.cosmetics.paints.enabled'
+				)
+				if (paintCosmeticsEnabledSetting) {
+					const paint = datastore.getUserPaint(user.id)
+					if (paint) {
+						usernameEl.setAttribute('seventv-painted-content', 'true')
+						usernameEl.setAttribute('seventv-paint-id', paint.id)
+						usernameEl.style.removeProperty('color')
+					}
+				}
+
+				const badgeCosmeticsEnabledSetting = settingsManager.getSetting(
+					'shared',
+					'ext.7tv.cosmetics.badges.enabled'
+				)
+				if (badgeCosmeticsEnabledSetting) {
+					const badge = datastore.getUserBadge(user.id)
+					if (badge) {
+						log('EXT:STV', 'RENDER', 'User:', user, 'Badge:', badge)
+
+						const file = badge.host.files.filter(f => f.format === 'WEBP')[0]
+						if (file) {
+							const badgeEl = document.createElement('img')
+							badgeEl.classList.add('ntv__badge')
+							const hostUrl = badge.host.url
+							badgeEl.setAttribute('title', badge.tooltip)
+							badgeEl.setAttribute(
+								'srcset',
+								`${hostUrl}/1x.webp 32w 32h, ${hostUrl}/2x.webp 64w 64h, ${hostUrl}/3x.webp 96w 96h, ${hostUrl}/4x.webp 128w 128h`
+							)
+							badgeEl.setAttribute('loading', 'lazy')
+							badgeEl.setAttribute('decoding', 'async')
+							badgeEl.setAttribute('draggable', 'false')
+							badgeEl.setAttribute('height', '' + file.height)
+							badgeEl.setAttribute('width', '' + file.width)
+
+							badgesEl.appendChild(badgeEl)
+						}
+					}
 				}
 
 				next()

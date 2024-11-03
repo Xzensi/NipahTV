@@ -670,7 +670,6 @@ export default class SettingsManager {
 						},
 						{
 							label: 'Appearance',
-							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
 									label: 'Enable username paint cosmetics in chat',
@@ -681,6 +680,12 @@ export default class SettingsManager {
 								{
 									label: 'Enable shadows for username paint cosmetics in chat (potentially high performance impact)',
 									key: 'ext.7tv.cosmetics.paints.shadows.enabled',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable user subscriber badges in chat',
+									key: 'ext.7tv.cosmetics.badges.enabled',
 									default: true,
 									type: 'checkbox'
 								}
@@ -709,6 +714,15 @@ export default class SettingsManager {
 									type: 'checkbox'
 								}
 							]
+						}
+					]
+				},
+				{
+					label: 'Botrix',
+					children: [
+						{
+							label: 'General',
+							children: []
 						}
 					]
 				}

@@ -26,14 +26,13 @@ export default class SevenTVPaintStyleGenerator {
 
 		const gradientStops = paint.stops.map(SevenTVPaintStyleGenerator.createColorStop)
 		const prefix = paint.repeat ? 'repeating-' : ''
-		return [
-			`background-image: ${prefix}radial-gradient(circle, ${gradientStops.join(', ')});`,
-			'background-size: 100% auto;'
-		].join('\n')
+		return `background-image: ${prefix}radial-gradient(circle, ${gradientStops.join(
+			', '
+		)});\nbackground-size: 100% auto;`
 	}
 
 	private static createImageBackground(imageUrl: string): string {
-		return [`background-image: url('${imageUrl}');`, 'background-size: 100% auto;'].join('\n')
+		return `background-image: url('${imageUrl}');\nbackground-size: 100% auto;`
 	}
 
 	private static createShadowEffects(shadows: Shadow[]): string {

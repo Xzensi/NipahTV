@@ -704,7 +704,7 @@ export default class SevenTVEventAPI {
 	}
 
 	private onDispatchEvent(event: DispatchEvent<DispatchEventType>) {
-		// log('EXT:STV', 'EVENTAPI', `[DISPATCH] <${event.type}>`, event.body.object)
+		log('EXT:STV', 'EVENTAPI', `[DISPATCH] <${event.type}>`, event.body.object)
 
 		switch (event.type) {
 			case DispatchEventType.SYSTEM_ANNOUNCEMENT:

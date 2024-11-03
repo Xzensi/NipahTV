@@ -264,6 +264,10 @@ export default class SettingsModal extends AbstractModal {
 					;(<HTMLElement>el2).style.display = 'none'
 				})
 				this.panelsEl!.querySelector(`[data-panel="${panelId}"]`)?.setAttribute('style', 'display: block')
+
+				// Scroll to top of this.panelsEl. The sidebar goes on top of panelsEl in mobile mode so top of panelsEl is not top of modalBodyEl.
+				const top = this.panelsEl!.getBoundingClientRect().top
+				this.modalBodyEl.scrollTo({ top, behavior: 'smooth' })
 			})
 		})
 
