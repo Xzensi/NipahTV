@@ -284,7 +284,7 @@ export default class SevenTVExtension extends Extension {
 	private sessionCreateCb: (session: Session) => void
 	private sessionDestroyCb: (session: Session) => void
 	private renderMessageMiddleware?: ReturnType<RenderMessagePipeline['use']>
-	private cssSheet: CSSStyleSheet | null = null
+	private paintSheet: CSSStyleSheet | null = null
 
 	private eventAPI: SevenTVEventAPI | null = null
 	private cachedStvMeUser:
@@ -560,31 +560,40 @@ export default class SevenTVExtension extends Extension {
 	}
 
 	handlePaintCreated(event: CustomEvent) {
-		if (!this.cssSheet) {
-			this.cssSheet = new CSSStyleSheet()
-			this.cssSheet.insertRule(
+		if (!this.paintSheet) {
+			// Broken in Firefox, as usual
+			// this.cssSheet = new CSSStyleSheet()
+
+			const styleEl = document.createElement('style')
+			styleEl.id = 'ntv__ext-7tv__paint-styles'
+			;(document.head || document.documentElement).appendChild(styleEl)
+
+			this.paintSheet = styleEl.sheet
+			if (!this.paintSheet) return error('EXT:STV', 'MAIN', 'Failed to create CSSStyleSheet', styleEl)
+
+			this.paintSheet.insertRule(
 				`[seventv-painted-content="true"] {
 							background-color: currentcolor;
 						}`,
-				this.cssSheet.cssRules.length
+				this.paintSheet.cssRules.length
 			)
-			this.cssSheet.insertRule(
+			this.paintSheet.insertRule(
 				`[seventv-paint-id] { 
 							-webkit-text-fill-color: transparent;
 							background-clip: text !important;
 							-webkit-background-clip: text !important;
 							font-weight: 700;
 						}`,
-				this.cssSheet.cssRules.length
+				this.paintSheet.cssRules.length
 			)
 
-			document.adoptedStyleSheets.push(this.cssSheet)
+			// document.adoptedStyleSheets = [this.paintSheet]
 		}
 
 		const paint: SevenTV.CosmeticPaint = event.detail
 		const selector = `[seventv-paint-id="${paint.id}"]`
-		for (let i = 0; i < this.cssSheet.cssRules.length; i++) {
-			const rule = this.cssSheet.cssRules[i]
+		for (let i = 0; i < this.paintSheet.cssRules.length; i++) {
+			const rule = this.paintSheet.cssRules[i]
 			// If the rule already exists, don't add it again
 			if (rule instanceof CSSStyleRule && rule.selectorText === selector) return
 		}
@@ -594,7 +603,7 @@ export default class SevenTVExtension extends Extension {
 			'ext.7tv.cosmetics.paints.shadows.enabled'
 		)
 		const cssRules = SevenTVPaintStyleGenerator.generateCSSRules(paint, paintShadowsEnabledSetting)
-		this.cssSheet.insertRule(`${selector} {${cssRules}}`, this.cssSheet.cssRules.length)
+		this.paintSheet.insertRule(`${selector} {${cssRules}}`, this.paintSheet.cssRules.length)
 	}
 
 	handlePaintEntitled(event: CustomEvent) {
@@ -607,6 +616,7 @@ export default class SevenTVExtension extends Extension {
 		const chatMessages = document.querySelectorAll(
 			`.ntv__chat-message__username[title="${displayName}"]`
 		) as NodeListOf<HTMLElement>
+
 		for (const message of chatMessages) {
 			message.setAttribute('seventv-painted-content', 'true')
 			message.setAttribute('seventv-paint-id', paint.id)
