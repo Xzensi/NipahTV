@@ -266,8 +266,12 @@ export default class SevenTVEventAPI {
 		this.connectionState = ConnectionState.CONNECTING
 		this.shouldReconnect = true
 
+		const url = new URL('wss://events.7tv.io/v3')
+		url.searchParams.append('app', 'NipahTV')
+		url.searchParams.append('version', APP_VERSION)
+
 		try {
-			this.socket = new WebSocket('wss://events.7tv.io/v3')
+			this.socket = new WebSocket(url)
 
 			this.connectionTimeoutId = setTimeout(() => {
 				if (this.connectionState === ConnectionState.CONNECTING) {
