@@ -653,7 +653,6 @@ class NipahClient {
 			)
 			prevSession.isDestroyed = true
 			prevSession.eventBus.publish('ntv.session.destroy')
-			prevSession.eventBus.publish('ntv.session.ui.restore_original')
 			this.rootContext?.eventBus.publish('ntv.session.destroy', prevSession)
 			prevSession.eventBus.destroy()
 			// TODO after session is destroyed, all session event listeners attached to rootEventBus should be removed as well

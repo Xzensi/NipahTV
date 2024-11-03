@@ -603,9 +603,9 @@ export default class SevenTVExtension extends Extension {
 		const paint = this.datastore?.getUserPaint(user.id)
 		if (!paint) return
 
-		const displayName = user.display_name
+		const displayName = user.display_name.replaceAll('"', '&quot;').replaceAll("'", '&apos;')
 		const chatMessages = document.querySelectorAll(
-			`.ntv__chat-message__username[title=${displayName}]`
+			`.ntv__chat-message__username[title="${displayName}"]`
 		) as NodeListOf<HTMLElement>
 		for (const message of chatMessages) {
 			message.setAttribute('seventv-painted-content', 'true')
