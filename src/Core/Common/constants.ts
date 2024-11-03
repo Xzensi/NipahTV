@@ -8,7 +8,8 @@ export enum PLATFORM_ENUM {
 export enum PROVIDER_ENUM {
 	NULL,
 	KICK,
-	SEVENTV
+	SEVENTV,
+	BETTERTTV
 }
 
 export enum BROWSER_ENUM {
