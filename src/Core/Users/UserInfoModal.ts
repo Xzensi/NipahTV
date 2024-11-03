@@ -1,8 +1,12 @@
-import { SteppedInputSliderComponent } from '../UI/Components/SteppedInputSliderComponent'
-import { log, error, REST, parseHTML, cleanupHTML, formatRelativeTime } from '../Common/utils'
+import { SteppedInputSliderComponent } from '@core/UI/Components/SteppedInputSliderComponent'
+import { parseHTML, cleanupHTML, formatRelativeTime } from '@core/Common/utils'
 import type { UserChannelInfo, UserInfo } from '../Common/NetworkInterface'
-import { AbstractModal, ModalGeometry } from '../UI/Modals/AbstractModal'
-import type { Toaster } from '../Common/Toaster'
+import { AbstractModal, ModalGeometry } from '@core/UI/Modals/AbstractModal'
+import type { Toaster } from '@core/Common/Toaster'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class UserInfoModal extends AbstractModal {
 	private rootContext: RootContext
@@ -275,7 +279,7 @@ export default class UserInfoModal extends AbstractModal {
 		this.actionFollowEl?.addEventListener('click', this.clickFollowHandler.bind(this))
 		this.actionMuteEl?.addEventListener('click', this.clickMuteHandler.bind(this))
 		this.actionReportEl?.addEventListener('click', () => {
-			log('Report button clicked')
+			log('CORE', 'UI', 'Report button clicked')
 		})
 
 		this.modActionButtonBanEl?.addEventListener('click', this.clickBanHandler.bind(this))
@@ -342,11 +346,11 @@ export default class UserInfoModal extends AbstractModal {
 		if (!user) return
 
 		if (user.muted) {
-			log('Unmuting user:', username)
+			log('CORE', 'UI', 'Unmuting user:', username)
 			usersManager.unmuteUserById(user.id)
 			this.actionMuteEl!.textContent = 'Mute'
 		} else {
-			log('Muting user:', username)
+			log('CORE', 'UI', 'Muting user:', username)
 			usersManager.muteUserById(user.id)
 			this.actionMuteEl!.textContent = 'Unmute'
 		}
@@ -424,7 +428,7 @@ export default class UserInfoModal extends AbstractModal {
 
 			this.updateModStatusPage()
 
-			log(`Successfully timed out user: ${this.username} for ${duration} minutes`)
+			log('CORE', 'UI', `Successfully timed out user: ${this.username} for ${duration} minutes`)
 		})
 	}
 
@@ -442,13 +446,13 @@ export default class UserInfoModal extends AbstractModal {
 		this.modActionButtonVIPEl!.classList.add('ntv__icon-button--disabled')
 
 		if (this.isUserVIP()) {
-			log(`Attempting to remove VIP status from user: ${userInfo.username}..`)
+			log('CORE', 'UI', `Attempting to remove VIP status from user: ${userInfo.username}..`)
 
 			try {
 				await this.session.networkInterface.executeCommand('unvip', this.session.channelData.channelName, [
 					userInfo.username
 				])
-				log('Successfully removed VIP status from user:', userInfo.username)
+				log('CORE', 'UI', 'Successfully removed VIP status from user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
 					this.toaster.addToast(
@@ -469,13 +473,13 @@ export default class UserInfoModal extends AbstractModal {
 			this.removeUserVIPStatus()
 			this.modActionButtonVIPEl?.removeAttribute('active')
 		} else {
-			log(`Attempting to give VIP status to user: ${userInfo.username}..`)
+			log('CORE', 'UI', `Attempting to give VIP status to user: ${userInfo.username}..`)
 
 			try {
 				await this.session.networkInterface.executeCommand('vip', this.session.channelData.channelName, [
 					userInfo.username
 				])
-				log('Successfully gave VIP status to user:', userInfo.username)
+				log('CORE', 'UI', 'Successfully gave VIP status to user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
 					this.toaster.addToast('Failed to give VIP status to user: ' + err.errors.join(' '), 6_000, 'error')
@@ -511,13 +515,13 @@ export default class UserInfoModal extends AbstractModal {
 		this.modActionButtonModEl!.classList.add('ntv__icon-button--disabled')
 
 		if (this.isUserPrivileged()) {
-			log(`Attempting to remove mod status from user: ${userInfo.username}..`)
+			log('CORE', 'UI', `Attempting to remove mod status from user: ${userInfo.username}..`)
 
 			try {
 				await this.session.networkInterface.executeCommand('unmod', this.session.channelData.channelName, [
 					userInfo.username
 				])
-				log('Successfully removed mod status from user:', userInfo.username)
+				log('CORE', 'UI', 'Successfully removed mod status from user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
 					this.toaster.addToast(
@@ -538,13 +542,13 @@ export default class UserInfoModal extends AbstractModal {
 			this.removeUserModStatus()
 			this.modActionButtonModEl?.removeAttribute('active')
 		} else {
-			log(`Attempting to give mod status to user: ${userInfo.username}..`)
+			log('CORE', 'UI', `Attempting to give mod status to user: ${userInfo.username}..`)
 
 			try {
 				await this.session.networkInterface.executeCommand('mod', this.session.channelData.channelName, [
 					userInfo.username
 				])
-				log('Successfully gave mod status to user:', userInfo.username)
+				log('CORE', 'UI', 'Successfully gave mod status to user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
 					this.toaster.addToast('Failed to give mod status to user: ' + err.errors.join(' '), 6_000, 'error')
@@ -576,13 +580,13 @@ export default class UserInfoModal extends AbstractModal {
 		if (!userInfo || !userChannelInfo) return
 
 		if (userChannelInfo.banned) {
-			log(`Attempting to unban user: ${userInfo.username}..`)
+			log('CORE', 'UI', `Attempting to unban user: ${userInfo.username}..`)
 
 			try {
 				await this.session.networkInterface.executeCommand('unban', this.session.channelData.channelName, [
 					userInfo.username
 				])
-				log('Successfully unbanned user:', userInfo.username)
+				log('CORE', 'UI', 'Successfully unbanned user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
 					this.toaster.addToast('Failed to unban user: ' + err.errors.join(' '), 6_000, 'error')
@@ -599,13 +603,13 @@ export default class UserInfoModal extends AbstractModal {
 			delete userChannelInfo.banned
 			this.modActionButtonBanEl!.removeAttribute('active')
 		} else {
-			log(`Attempting to ban user: ${userInfo.username}..`)
+			log('CORE', 'UI', `Attempting to ban user: ${userInfo.username}..`)
 
 			try {
 				await this.session.networkInterface.executeCommand('ban', this.session.channelData.channelName, [
 					userInfo.username
 				])
-				log('Successfully banned user:', userInfo.username)
+				log('CORE', 'UI', 'Successfully banned user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
 					this.toaster.addToast('Failed to ban user: ' + err.errors.join(' '), 6_000, 'error')
@@ -645,7 +649,7 @@ export default class UserInfoModal extends AbstractModal {
 
 		modLogsPageEl.appendChild(messagesHistoryEl)
 
-		log(`Fetching user messages of ${userInfo.username}..`)
+		log('CORE', 'UI', `Fetching user messages of ${userInfo.username}..`)
 		await this.loadMoreMessagesHistory()
 
 		messagesHistoryEl.scrollTop = 9999

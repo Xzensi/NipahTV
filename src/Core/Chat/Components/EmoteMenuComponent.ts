@@ -1,6 +1,10 @@
-import { AbstractComponent } from '../../UI/Components/AbstractComponent'
-import { error, cleanupHTML, parseHTML, log } from '../../Common/utils'
-import { DEVICE_ENUM } from '../../Common/constants'
+import { AbstractComponent } from '@core/UI/Components/AbstractComponent'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
+import { DEVICE_ENUM } from '@core/Common/constants'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class EmoteMenuComponent extends AbstractComponent {
 	private toggleStates = {}
@@ -127,7 +131,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				entries.forEach(entry => {
 					const emoteSetId = entry.target.getAttribute('data-id')
 					const sidebarIcon = this.emoteSetSidebarEls.get(emoteSetId!)
-					if (!sidebarIcon) return error('Invalid emote set sidebar element')
+					if (!sidebarIcon) return error('CORE', 'UI', 'Invalid emote set sidebar element')
 
 					sidebarIcon.style.backgroundColor = `rgba(255, 255, 255, ${
 						entry.intersectionRect.height / this.scrollableHeight / 7
@@ -176,7 +180,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			if (!emoteBoxEl) return
 
 			const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
-			if (!emoteHid) return error('Invalid emote hid')
+			if (!emoteHid) return error('CORE', 'UI', 'Invalid emote hid')
 
 			if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
 			if (skipClickEvent) {
@@ -201,7 +205,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 					if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
 
 					const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
-					if (!emoteHid) return error('Unable to start dragging emote, invalid emote hid')
+					if (!emoteHid) return error('CORE', 'UI', 'Unable to start dragging emote, invalid emote hid')
 
 					mouseDownTimeout = setTimeout(() => {
 						// Double check that emote still exists
@@ -308,7 +312,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			const emoteSetEl = this.containerEl?.querySelector(
 				`.ntv__emote-set[data-id="${emoteSetId}"]`
 			) as HTMLElement
-			if (!emoteSetEl) return error('Invalid emote set element')
+			if (!emoteSetEl) return error('CORE', 'UI', 'Invalid emote set element')
 
 			const headerHeight = emoteSetEl.querySelector('.ntv__emote-set__header')?.clientHeight || 0
 			scrollableEl.scrollTo({
@@ -410,7 +414,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		}
 
 		const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20))
-		log(`Searching for emotes, found ${emotesResult.length} matches"`)
+		log('CORE', 'UI', `Searching for emotes, found ${emotesResult.length} matches"`)
 
 		// More performant than innerHTML
 		while (this.panels.search?.firstChild) {
@@ -427,7 +431,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid)
 			if (!emoteSet) {
-				error('Emote set not found for emote', emote.name)
+				error('CORE', 'UI', 'Emote set not found for emote', emote.name)
 				continue
 			}
 
@@ -474,7 +478,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		const { sidebarSetsEl, scrollableEl } = this
 		const channelId = this.session.channelData.channelId
 		const emotesPanelEl = this.panels.emotes
-		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
+		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('CORE', 'UI', 'Invalid emote menu elements')
 
 		const { settingsManager } = this.rootContext
 		if (!settingsManager.getSetting(channelId, 'emote_menu.show_favorites')) return
@@ -512,7 +516,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		const { settingsManager } = this.rootContext
 		const channelId = this.session.channelData.channelId
 		if (!settingsManager.getSetting(channelId, 'emote_menu.show_favorites')) return
-		if (!this.favoritesEmoteSetEl) return error('Invalid favorites emote set element')
+		if (!this.favoritesEmoteSetEl) return error('CORE', 'UI', 'Invalid favorites emote set element')
 
 		const { emotesManager } = this.session
 
@@ -525,7 +529,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			return
 		}
 
-		log('Rendering favorite emote set in emote menu..')
+		log('CORE', 'UI', 'Rendering favorite emote set in emote menu..')
 
 		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => b.orderIndex - a.orderIndex)
 
@@ -555,17 +559,17 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	}
 
 	addEmoteSet(emoteSet: EmoteSet) {
-		log(`Adding emote set "${emoteSet.name}" to emote menu..`)
+		log('CORE', 'UI', `Adding emote set "${emoteSet.name}" to emote menu..`)
 
 		const { sidebarSetsEl, scrollableEl, rootContext } = this
 		const { emotesManager, channelData } = this.session
 		const channelId = channelData.channelId
 		const emotesPanelEl = this.panels.emotes
-		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('Invalid emote menu elements')
+		if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error('CORE', 'UI', 'Invalid emote menu elements')
 
 		// Check if emote set is already added and remove it
 		if (this.emoteSetEls.has(emoteSet.id)) {
-			error(`Emote set "${emoteSet.name}" already exists, removing it before re-adding..`)
+			error('CORE', 'UI', `Emote set "${emoteSet.name}" already exists, removing it before re-adding..`)
 			this.emoteSetEls.get(emoteSet.id)?.remove()
 			this.emoteSetEls.delete(emoteSet.id)
 			this.emoteSetSidebarEls.get(emoteSet.id)?.remove()
@@ -574,7 +578,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 		const emoteSets = emotesManager.getMenuEnabledEmoteSets()
 		if (!emoteSets.find(set => set.id === emoteSet.id)) {
-			log(`Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`)
+			log('CORE', 'UI', `Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`)
 			return
 		}
 
@@ -666,7 +670,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			if (isUnavailable || isLocked) return
 
 			const emote = emotesManager.getEmote(emoteHid)
-			if (!emote) return error('Emote not found')
+			if (!emote) return error('CORE', 'UI', 'Emote not found')
 
 			// User wants to use an emote
 			eventBus.publish('ntv.ui.emote.click', { emoteHid })
@@ -684,8 +688,9 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	}
 
 	startDragFavoriteEmote(event: MouseEvent, emoteBoxEl: HTMLElement) {
-		if (!this.favoritesEmoteSetEl) return error('Unable to drag emote, favorites emote set does not exist..')
-		log('Starting emote drag mode..')
+		if (!this.favoritesEmoteSetEl)
+			return error('CORE', 'UI', 'Unable to drag emote, favorites emote set does not exist..')
+		log('CORE', 'UI', 'Starting emote drag mode..')
 
 		this.isDraggingEmote = true
 		this.favoritesEmoteSetEl.classList.add('ntv__emote-set--dragging-emote')
@@ -738,8 +743,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 	stopDragFavoriteEmote(emoteBoxEl: HTMLElement, emoteHid: string) {
 		if (!this.favoritesEmoteSetEl)
-			return error('Unable to stop dragging emote, favorites emote set does not exist..')
-		log('Stopped emote drag mode')
+			return error('CORE', 'UI', 'Unable to stop dragging emote, favorites emote set does not exist..')
+		log('CORE', 'UI', 'Stopped emote drag mode')
 
 		this.favoritesEmoteSetEl.classList.remove('ntv__emote-set--dragging-emote')
 		emoteBoxEl?.classList.remove('ntv__emote-box--dragging')

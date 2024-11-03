@@ -2,12 +2,7 @@ import { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from './constants'
 import { Logger } from './Logger'
 
 const logger = new Logger()
-export const log = logger.log.bind(logger)
-export const logEvent = logger.logEvent.bind(logger)
-export const logNow = logger.logNow.bind(logger)
-export const info = logger.info.bind(logger)
-export const error = logger.error.bind(logger)
-export const errorNow = logger.errorNow.bind(logger)
+const { error } = logger.destruct()
 
 export const CHAR_ZWSP = '\uFEFF'
 
@@ -137,7 +132,9 @@ export class REST {
 				if (xhr.status >= 200 && xhr.status < 300) {
 					if (xhr.responseText) {
 						try {
-							resolve(JSON.parse(xhr.responseText))
+							const data = JSON.parse(xhr.responseText)
+							if (data['error'] || data['errors']) reject(data)
+							else resolve(data)
 						} catch (e) {
 							reject()
 						}
@@ -479,6 +476,27 @@ export function countStringOccurrences(str: string, substr: string) {
 	return count
 }
 
+/**
+ * UUIDv4 generator
+ */
+export function uuid() {
+	const hex = '0123456789ABCDEF'
+	const buffer = new Uint8Array(16)
+
+	crypto.getRandomValues(buffer)
+
+	buffer[6] = 0x40 | (buffer[6] & 0xf)
+	buffer[8] = 0x80 | (buffer[8] & 0xf)
+
+	let str = ''
+	for (let i = 0; i < 16; ++i) {
+		str += hex[(buffer[i] >> 4) & 0xf] + hex[(buffer[i] >> 0) & 0xf]
+		if (i == 3 || i == 5 || i == 7 || i == 9) str += '-'
+	}
+
+	return str
+}
+
 export async function getBrowser() {
 	return (async function (agent) {
 		// @ts-expect-error
@@ -708,6 +726,6 @@ export function formatRelativeTime(date: Date) {
 		duration /= division.amount
 	}
 
-	error('Unable to format relative time', date)
+	error('UTILS', '-', 'Unable to format relative time', date)
 	return 'error'
 }

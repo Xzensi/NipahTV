@@ -1,3 +1,34 @@
+export type NTVMessageType = 'MESSAGE' | 'REPLY'
+
+interface MessageEventBase {
+	id: string
+	content: string
+	type: NTVMessageType
+	createdAt: string
+	sender: {
+		id: string
+		username: string
+		slug: string
+	}
+}
+
+interface MessageEventMessage extends MessageEventBase {
+	type: 'MESSAGE'
+}
+
+interface MessageEventReply extends MessageEventBase {
+	type: 'REPLY'
+	replyTo: {
+		id: string
+		content: string
+		userId: string
+		username: string
+	}
+}
+
+// TODO this stuff is a mess, there's global ChatMessage as well
+export type NTVMessageEvent = MessageEventMessage | MessageEventReply
+
 export interface UserBannedEvent {
 	// id: string
 	user: {
@@ -32,11 +63,13 @@ export interface UserUnbannedEvent {
 
 type ChatroomUpdatedEvent = ChatroomData
 
+export type EventType = keyof EventData
+
 export interface EventData {
-	chatroom_updated: ChatroomUpdatedEvent
-	user_banned: UserBannedEvent
-	user_unbanned: UserUnbannedEvent
-	message: {}
+	CHATROOM_UPDATED: ChatroomUpdatedEvent
+	MESSAGE: NTVMessageEvent
+	USER_BANNED: UserBannedEvent
+	USER_UNBANNED: UserUnbannedEvent
 }
 
 export interface EventService {

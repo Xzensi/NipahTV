@@ -1,17 +1,15 @@
-import {
-	countStringOccurrences,
-	error,
-	eventKeyIsLetterDigitPuncSpaceChar,
-	log,
-	parseHTML
-} from '../../../Common/utils'
-import NavigatableListWindowManager from '../../../Common/NavigatableListWindowManager'
+import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
 import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
-import type { ContentEditableEditor } from '../../ContentEditableEditor'
-import { CommandEntry } from '../../../Common/Commands'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
+import { CommandEntry } from '@core/Common/Commands'
+import { parseHTML } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
 
 // TODO un-hardcode this
 import { KICK_COMMANDS } from '../../../../Sites/Kick/KickCommands'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class CommandCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'commands'
@@ -171,29 +169,29 @@ export default class CommandCompletionStrategy extends AbstractInputCompletionSt
 	}
 
 	renderInlineCompletion() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
+		if (!this.navWindow) return error('CORE', 'COMCOMS', 'Tab completion window does not exist yet')
 
 		const selectedEntry = this.navWindow.getSelectedEntry()
-		if (!selectedEntry) return error('No selected entry to render completion')
+		if (!selectedEntry) return error('CORE', 'COMCOMS', 'No selected entry to render completion')
 
 		const { name } = selectedEntry as { name: string }
 		this.contentEditableEditor.setInputContent('/' + name)
 	}
 
 	moveSelectorUp() {
-		if (!this.navWindow) return error('No tab completion window to move selector up')
+		if (!this.navWindow) return error('CORE', 'COMCOMS', 'No tab completion window to move selector up')
 		this.navWindow.moveSelectorUp()
 		this.renderInlineCompletion()
 	}
 
 	moveSelectorDown() {
-		if (!this.navWindow) return error('No tab completion window to move selector down')
+		if (!this.navWindow) return error('CORE', 'COMCOMS', 'No tab completion window to move selector down')
 		this.navWindow.moveSelectorDown()
 		this.renderInlineCompletion()
 	}
 
 	handleBlockingKeyDownEvent(event: KeyboardEvent) {
-		log('CommandCompletionStrategy.handleBlockingKeyDownEvent', event.key)
+		log('CORE', 'COMCOMS', 'CommandCompletionStrategy.handleBlockingKeyDownEvent', event.key)
 	}
 
 	handleKeyDownEvent(event: KeyboardEvent) {

@@ -1,4 +1,4 @@
-import { parseHTML, cleanupHTML, log } from '../../Common/utils'
+import { parseHTML, cleanupHTML } from '@core/Common/utils'
 import { AbstractComponent } from './AbstractComponent'
 
 export class CheckboxComponent extends AbstractComponent {

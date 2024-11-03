@@ -1,8 +1,11 @@
-import AbstractInputCompletionStrategy from '../../Core/Input/Completion/Strategies/AbstractInputCompletionStrategy'
-import NavigatableListWindowManager from '../../Core/Common/NavigatableListWindowManager'
-import type { ContentEditableEditor } from '../../Core/Input/ContentEditableEditor'
-import { error, log } from '../../Core/Common/utils'
+import AbstractInputCompletionStrategy from '@core/Input/Completion/Strategies/AbstractInputCompletionStrategy'
+import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
+import { Logger } from '@core/Common/Logger'
 import { BotrixSessionManager } from '.'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export class BotrixInputCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'botrix'
@@ -39,14 +42,14 @@ export class BotrixInputCompletionStrategy extends AbstractInputCompletionStrate
 	}
 
 	updateCompletionEntries() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
+		if (!this.navWindow) return error('EXT:BTX', 'MAIN', 'Tab completion window does not exist yet')
 	}
 
 	renderInlineCompletion() {
-		if (!this.navWindow) return error('Tab completion window does not exist yet')
+		if (!this.navWindow) return error('EXT:BTX', 'MAIN', 'Tab completion window does not exist yet')
 
 		const selectedEntry = this.navWindow.getSelectedEntry()
-		if (!selectedEntry) return error('No selected entry to render completion')
+		if (!selectedEntry) return error('EXT:BTX', 'MAIN', 'No selected entry to render completion')
 
 		const { name } = selectedEntry as { name: string }
 		this.contentEditableEditor.clearInput()
@@ -54,13 +57,13 @@ export class BotrixInputCompletionStrategy extends AbstractInputCompletionStrate
 	}
 
 	moveSelectorUp() {
-		if (!this.navWindow) return error('No tab completion window to move selector up')
+		if (!this.navWindow) return error('EXT:BTX', 'MAIN', 'No tab completion window to move selector up')
 		this.navWindow.moveSelectorUp()
 		this.renderInlineCompletion()
 	}
 
 	moveSelectorDown() {
-		if (!this.navWindow) return error('No tab completion window to move selector down')
+		if (!this.navWindow) return error('EXT:BTX', 'MAIN', 'No tab completion window to move selector down')
 		this.navWindow.moveSelectorDown()
 		this.renderInlineCompletion()
 	}

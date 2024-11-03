@@ -1,8 +1,12 @@
-import { SettingDocument } from '../../Database/Models/SettingsModel'
-import { DatabaseProxy } from '../../Database/DatabaseProxy'
+import { SettingDocument } from '@database/Models/SettingsModel'
+import { DatabaseProxy } from '@database/DatabaseProxy'
 import SettingsModal from './Modals/SettingsModal'
-import { error, log } from '../Common/utils'
-import Publisher from '../Common/Publisher'
+import Publisher from '@core/Common/Publisher'
+import { Logger } from '@core/Common/Logger'
+import Database from '@database/Database'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 interface UISettingBase {
 	label: string
@@ -189,6 +193,17 @@ export default class SettingsManager {
 					label: 'Emotes',
 					children: [
 						{
+							label: 'General',
+							children: [
+								{
+									label: 'Show emotes in chat',
+									key: 'chat.emote_providers.kick.show_emotes',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
 							label: 'Emote appearance',
 							children: [
 								{
@@ -334,18 +349,12 @@ export default class SettingsManager {
 					]
 				},
 				{
-					label: 'Emote Providers',
+					label: 'Emote Sets',
 					children: [
 						{
-							label: 'Kick',
+							label: 'Kick emote sets',
 							description: 'These settings require a page refresh to take effect.',
 							children: [
-								{
-									label: 'Show emotes in chat',
-									key: 'chat.emote_providers.kick.show_emotes',
-									default: true,
-									type: 'checkbox'
-								},
 								{
 									label: 'Show global emote set in emote menu',
 									key: 'emote_menu.emote_providers.kick.show_global',
@@ -371,35 +380,11 @@ export default class SettingsManager {
 									type: 'checkbox'
 								}
 							]
-						},
-						{
-							label: '7TV',
-							description: 'These settings require a page refresh to take effect.',
-							children: [
-								{
-									label: 'Show emotes in chat',
-									key: 'chat.emote_providers.7tv.show_emotes',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Show global emote set in emote menu',
-									key: 'emote_menu.emote_providers.7tv.show_global',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Show current channel emote set in emote menu',
-									key: 'emote_menu.emote_providers.7tv.show_current_channel',
-									default: true,
-									type: 'checkbox'
-								}
-							]
 						}
 					]
 				},
 				{
-					label: 'Input field',
+					label: 'Input Field',
 					children: [
 						{
 							label: 'Behavior',
@@ -413,7 +398,7 @@ export default class SettingsManager {
 							]
 						},
 						{
-							label: 'Recent Messages',
+							label: 'Recent messages',
 							children: [
 								{
 									label: 'Enable navigation of chat history by pressing up/down arrow keys to recall previously sent chat messages',
@@ -666,6 +651,84 @@ export default class SettingsManager {
 			]
 		},
 		{
+			label: 'Add-ons',
+			children: [
+				{
+					label: '7TV',
+					children: [
+						{
+							label: 'General',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Enable 7TV add-on',
+									key: 'ext.7tv.enabled',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Appearance',
+							children: [
+								{
+									label: 'Enable username paint cosmetics in chat',
+									key: 'ext.7tv.cosmetics.paints.enabled',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable shadows for username paint cosmetics in chat (potentially high performance impact)',
+									key: 'ext.7tv.cosmetics.paints.shadows.enabled',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Enable user subscriber badges in chat',
+									key: 'ext.7tv.cosmetics.badges.enabled',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Emote sets',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Show emotes in chat',
+									key: 'chat.emote_providers.7tv.show_emotes',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show global emote set in emote menu',
+									key: 'emote_menu.emote_providers.7tv.show_global',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show current channel emote set in emote menu',
+									key: 'emote_menu.emote_providers.7tv.show_current_channel',
+									default: true,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				},
+				{
+					label: 'Botrix',
+					children: [
+						{
+							label: 'General',
+							children: []
+						}
+					]
+				}
+			]
+		},
+		{
 			label: 'Moderators',
 			children: [
 				{
@@ -712,13 +775,13 @@ export default class SettingsManager {
 	] as [string, any][])
 
 	private isShowingModal = false
-	private database: DatabaseProxy
+	private database: DatabaseProxy<Database>
 	private rootEventBus: Publisher
 	private modal?: SettingsModal
 
 	isLoaded = false
 
-	constructor({ database, rootEventBus }: { database: DatabaseProxy; rootEventBus: Publisher }) {
+	constructor({ database, rootEventBus }: { database: DatabaseProxy<Database>; rootEventBus: Publisher }) {
 		this.database = database
 		this.rootEventBus = rootEventBus
 	}
@@ -740,6 +803,8 @@ export default class SettingsManager {
 	}
 
 	async loadSettings() {
+		if (this.isLoaded) return true
+
 		const { database, rootEventBus: eventBus } = this
 
 		// TODO get by global and platform ID primary keys instead of everything
@@ -798,7 +863,7 @@ export default class SettingsManager {
 	) {
 		const id = `${platformId}.${channelId}.${key}`
 
-		if (this.settingsMap.has(id)) return error('Setting already registered:', id)
+		if (this.settingsMap.has(id)) return error('CORE', 'SETTINGS', 'Setting already registered:', id)
 		this.settingsMap.set(id, defaultVal)
 	}
 
@@ -809,29 +874,41 @@ export default class SettingsManager {
 		value: any
 	) {
 		if (!platformId || !channelId || !key || typeof value === 'undefined')
-			return error('Unable to set setting, invalid parameters:', { platformId, channelId, key, value })
+			return error('CORE', 'SETTINGS', 'Unable to set setting, invalid parameters:', {
+				platformId,
+				channelId,
+				key,
+				value
+			})
 
 		const id = `${platformId}.${channelId}.${key}`
-		if (!this.settingsMap.has(id)) return error('Setting not registered:', id)
+		if (!this.settingsMap.has(id)) return error('CORE', 'SETTINGS', 'Setting not registered:', id)
 
 		this.database.settings
 			.putRecord({ id, platformId, channelId, key, value })
-			.catch((err: Error) => error('Failed to save setting to database.', err.message))
+			.catch((err: Error) => error('CORE', 'SETTINGS', 'Failed to save setting to database.', err.message))
 
 		this.settingsMap.set(id, value)
 	}
 
 	setGlobalSetting(key: string, value: any) {
 		const id = `global.shared.${key}`
-		if (!this.settingsMap.has(id)) return error('Setting not registered:', id)
+		if (!this.settingsMap.has(id)) return error('CORE', 'SETTINGS', 'Setting not registered:', id)
 
 		this.database.settings
 			.putRecord({ id, platformId: 'global', channelId: 'shared', key, value })
-			.catch((err: Error) => error('Failed to save global setting to database.', err.message))
+			.catch((err: Error) => error('CORE', 'SETTINGS', 'Failed to save global setting to database.', err.message))
 
 		this.settingsMap.set(id, value)
 	}
 
+	/**
+	 * Setting resolution order:
+	 * {{platformId}}.{{channelId}}.key
+	 * {{platformId}}.shared.key
+	 * global.{{channelId}}.key
+	 * global.shared.key
+	 */
 	getSetting(channelId: SettingDocument['channelId'], key: string, bubbleChannel = true, bubblePlatform = true) {
 		const platformId = PLATFORM
 		const id = `${platformId}.${channelId}.${key}`
@@ -844,12 +921,18 @@ export default class SettingsManager {
 		else if (bubblePlatform && bubbleChannel && this.settingsMap.has(`global.shared.${key}`))
 			return this.settingsMap.get(`global.shared.${key}`)
 
-		return error('Setting not registered:', id)
+		return error('CORE', 'SETTINGS', 'Setting not registered:', id)
 	}
 
 	getGlobalSetting(key: string) {
 		if (this.settingsMap.has(`global.shared.${key}`)) return this.settingsMap.get(`global.shared.${key}`)
-		return error('Setting not registered:', key)
+		return error('CORE', 'SETTINGS', 'Setting not registered:', key)
+	}
+
+	async getSettingFromDatabase(key: string) {
+		return this.database.settings
+			.getRecord(key)
+			.then(res => (res !== undefined ? res.value : this.settingsMap.get(key)))
 	}
 
 	// getSettingsForPlatform(platformId: SettingDocument['platformId']) {}
@@ -862,6 +945,8 @@ export default class SettingsManager {
 	showModal(bool: boolean = true) {
 		if (!this.isLoaded) {
 			return error(
+				'CORE',
+				'SETTINGS',
 				'Unable to show settings modal because the settings are not loaded yet, please wait for it to load first.'
 			)
 		}

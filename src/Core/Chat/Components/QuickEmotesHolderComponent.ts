@@ -1,5 +1,9 @@
-import { log, info, error, assertArgDefined, parseHTML } from '../../Common/utils'
-import { AbstractComponent } from '../../UI/Components/AbstractComponent'
+import { AbstractComponent } from '@core/UI/Components/AbstractComponent'
+import { assertArgDefined, parseHTML } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class QuickEmotesHolderComponent extends AbstractComponent {
 	private element!: HTMLElement
@@ -64,7 +68,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 				null
 
 			if (!emoteBoxEl) {
-				return error('Invalid emote box element')
+				return error('CORE', 'UI', 'Invalid emote box element')
 			}
 
 			if (
@@ -74,7 +78,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 				return
 
 			const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
-			if (!emoteHid) return error('Invalid emote hid')
+			if (!emoteHid) return error('CORE', 'UI', 'Invalid emote hid')
 
 			this.handleEmoteClick(emoteHid, !!(<MouseEvent>evt).ctrlKey)
 		})
@@ -93,7 +97,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 					if (mouseDownTimeout) clearTimeout(mouseDownTimeout)
 
 					const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
-					if (!emoteHid) return error('Unable to start dragging emote, invalid emote hid')
+					if (!emoteHid) return error('CORE', 'UI', 'Unable to start dragging emote, invalid emote hid')
 
 					mouseDownTimeout = setTimeout(() => {
 						// Double check that emote still exists
@@ -193,7 +197,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		const { eventBus, emotesManager, channelData } = this.session
 
 		const emote = emotesManager.getEmote(emoteHid)
-		if (!emote) return error('Invalid emote')
+		if (!emote) return error('CORE', 'UI', 'Invalid emote')
 
 		const channelId = channelData.channelId
 		if (this.rootContext.settingsManager.getSetting(channelId, 'chat.quick_emote_holder.send_immediately')) {
@@ -204,7 +208,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	}
 
 	startDragFavoriteEmote(event: MouseEvent, emoteBoxEl: HTMLElement) {
-		log('Starting emote drag mode..')
+		log('CORE', 'UI', 'Starting emote drag mode..')
 
 		this.isDraggingEmote = true
 		this.element.classList.add('ntv__quick-emotes-holder--dragging-emote')
@@ -254,7 +258,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	}
 
 	stopDragFavoriteEmote(emoteBoxEl: HTMLElement, emoteHid: string) {
-		log('Stopped emote drag mode')
+		log('CORE', 'UI', 'Stopped emote drag mode')
 
 		this.element.classList.remove('ntv__quick-emotes-holder--dragging-emote')
 		emoteBoxEl?.classList.remove('ntv__emote-box--dragging')
@@ -327,7 +331,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		if (this.lastDraggedEmoteEl === emoteHid) {
 			this.lastDraggedEmoteEl = null
-			log('Prevented reordering of dragged emote')
+			log('CORE', 'UI', 'Prevented reordering of dragged emote')
 			return
 		}
 
@@ -337,15 +341,15 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		const emoteIndex = favoriteEmotes.findIndex(({ emoteHid: hid }) => hid === emoteHid)
 
 		if (emoteIndex === -1) {
-			log('Unable to reorder favorited emote because it does not exist:', emoteHid)
+			log('CORE', 'UI', 'Unable to reorder favorited emote because it does not exist:', emoteHid)
 			return
 		}
 
 		const emoteEl = this.favoritesEl.querySelector(`[data-emote-hid="${emoteHid}"]`)
 		if (!emoteEl) {
-			error('Unable to reorder favorited emote, emote does not exist..')
+			error('CORE', 'UI', 'Unable to reorder favorited emote, emote does not exist..')
 			// const favoriteEmoteDocument = emotesManager.getFavoriteEmoteDocument(emoteHid)
-			// if (!favoriteEmoteDocument) return error('Unable to reorder favorited emote, emote does not exist..')
+			// if (!favoriteEmoteDocument) return error('CORE', 'UI','Unable to reorder favorited emote, emote does not exist..')
 			// this.favoritesEl.appendChild(
 			// 	parseHTML(
 			// 		emotesManager.getRenderableEmote(favoriteEmoteDocument.emote, 'ntv__emote')!
@@ -356,7 +360,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		const emoteBoxEl = emoteEl.parentElement
 		if (!emoteBoxEl?.classList.contains('ntv__emote-box')) {
-			return error('Invalid emote box element')
+			return error('CORE', 'UI', 'Invalid emote box element')
 		}
 
 		emoteBoxEl.remove()
@@ -394,7 +398,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			if (!emoteSet || !emote) {
 				// Don't complain about missing emotes if not all providers are loaded yet
 				if (emotesManager.hasLoadedProviders()) {
-					error('Unable to render commonly used emote, unkown emote hid:', emoteHid)
+					error('CORE', 'UI', 'Unable to render commonly used emote, unkown emote hid:', emoteHid)
 				}
 				continue
 			}
@@ -442,6 +446,8 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		if (emoteIndex === -1) {
 			log(
+				'CORE',
+				'UI',
 				'Skipped emote not found in the emote usage counts, probably stale emote that has been cleaned up from database.'
 			)
 			return
@@ -450,7 +456,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		if (!emoteEl) {
 			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid)
 			const emote = emotesManager.getEmote(emoteHid)
-			if (!emoteSet || !emote) return error('Unable to render commonly used emote:', emoteHid)
+			if (!emoteSet || !emote) return error('CORE', 'UI', 'Unable to render commonly used emote:', emoteHid)
 
 			const isSubscribed = emoteSet.isSubscribed
 			const isMenuEnabled = emoteSet.enabledInMenu
@@ -463,7 +469,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 				emote,
 				(emote.isZeroWidth && 'ntv__emote--zero-width') || ''
 			)
-			if (!emoteHTML) return error('Unable to render commonly used emote:', emoteHid)
+			if (!emoteHTML) return error('CORE', 'UI', 'Unable to render commonly used emote:', emoteHid)
 
 			const emoteBoxEl = document.createElement('div')
 			emoteBoxEl.className = 'ntv__emote-box'

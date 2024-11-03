@@ -1,4 +1,4 @@
-import { cleanupHTML, log, parseHTML } from '../../Common/utils'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
 import { AbstractComponent } from './AbstractComponent'
 
 export class ColorComponent extends AbstractComponent {

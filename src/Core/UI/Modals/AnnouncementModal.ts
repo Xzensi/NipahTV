@@ -1,6 +1,6 @@
-import { Announcement } from '../../Services/AnnouncementService'
+import { Announcement } from '@core/Services/AnnouncementService'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
-import { cleanupHTML, parseHTML } from '../../Common/utils'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
 
 export default class AnnouncementModal extends AbstractModal {
 	eventTarget = new EventTarget()
