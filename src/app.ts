@@ -591,35 +591,34 @@ class NipahClient {
 			if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
 
 			const prevLocation = locationURL
-			const prevChannelName = channelName
 			const newLocation = window.location.href
 
 			locationURL = newLocation
 			log('CORE', 'MAIN', 'Navigated to:', newLocation)
 
-			const activeSession = this.sessions[0]
-			if (!activeSession) return this.createChannelSession()
-
-			const newLocationChannelName = activeSession.networkInterface.getChannelName()
-			const newLocationIsVod = activeSession.networkInterface.isVOD()
+			// It's ugly, but prev session is guaranteed to exist at this point
+			const prevSession = this.sessions[0]
+			const prevChannelName = prevSession.channelData.channelName
+			const newLocationChannelName = prevSession.networkInterface.getChannelName()
+			const newLocationIsVod = prevSession.networkInterface.isVOD()
 
 			// Check if session UI is actually destroyed or just part of page has changed
 			if (
 				!newLocationIsVod &&
-				!activeSession.isDestroyed &&
-				!activeSession.userInterface?.isContentEditableEditorDestroyed() &&
-				prevChannelName &&
+				prevSession &&
+				!prevSession.isDestroyed &&
+				!prevSession.userInterface?.isContentEditableEditorDestroyed() &&
 				prevChannelName === newLocationChannelName
 			)
-				return
+				return log('CORE', 'MAIN', 'Session UI is not destroyed, only part of page has changed..')
 
 			channelName = newLocationChannelName
 			info('CORE', 'MAIN', 'Navigated to:', locationURL)
 
-			this.cleanupSession(prevLocation)
+			this.cleanupSessions(prevLocation)
 			log('CORE', 'MAIN', 'Cleaned up old session for', prevLocation)
-			this.createChannelSession()
 
+			this.createChannelSession()
 			this.doExtensionCompatibilityChecks()
 		}
 
@@ -641,23 +640,22 @@ class NipahClient {
 		})
 	}
 
-	cleanupSession(oldLocation: string) {
-		const prevSession = this.sessions.shift()
-		if (prevSession) {
+	cleanupSessions(oldLocation: string) {
+		// if (!this.sessions.length) return log('CORE', 'MAIN', `No session to clean up for ${oldLocation}..`)
+
+		for (const session of this.sessions) {
 			log(
 				'CORE',
 				'MAIN',
 				`Cleaning up previous session for channel ${
-					prevSession?.channelData?.channelName || '[CHANNEL NOT LOADED]'
+					session?.channelData?.channelName || '[CHANNEL NOT LOADED]'
 				}...`
 			)
-			prevSession.isDestroyed = true
-			prevSession.eventBus.publish('ntv.session.destroy')
-			this.rootContext?.eventBus.publish('ntv.session.destroy', prevSession)
-			prevSession.eventBus.destroy()
+			session.isDestroyed = true
+			session.eventBus.publish('ntv.session.destroy')
+			this.rootContext?.eventBus.publish('ntv.session.destroy', session)
+			session.eventBus.destroy()
 			// TODO after session is destroyed, all session event listeners attached to rootEventBus should be removed as well
-		} else {
-			log('CORE', 'MAIN', `No session to clean up for ${oldLocation}..`)
 		}
 	}
 }

@@ -87,7 +87,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 
 	isVOD() {
 		const pathArr = window.location.pathname.substring(1).split('/')
-		return pathArr[1] === 'videos'
+		return pathArr[1] === 'videos' && !!pathArr[2]
 	}
 
 	async loadMeData() {
