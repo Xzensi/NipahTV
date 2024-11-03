@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.56
+// @version 1.5.58
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11956,6 +11956,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.57",
+    date: "2024-11-03",
+    description: `
+                  Fix: Clip links not working in chat messages
+                  Fix: Another attempt at fixing the async session reload issues
+            `
+  },
+  {
     version: "1.5.56",
     date: "2024-11-03",
     description: `
@@ -11969,10 +11977,10 @@ var CHANGELOG = [
     description: `
                   I'm currently preparing for a big rewrite of the UI framework, which is a big part of the codebase, because I want to get rid of technical debt and keep the codebase more maintainable. There's currently a lot of legacy code due to decisions made during the rapid prototyping and version iterating of the early stages of NipahTV. This will take some time, but it will allow me to better support features like translating NipahTV to other languages and finally do a full replace of the chat, instead of the dirty injection method it's doing now (causing all kinds of unsolvable issues).
 
-                  But before that, enjoy the new features and fixes! We now have support for 7TV nametag paints and subscriber badges.
+                  But before that, enjoy the new features and fixes! We now have support for 7TV nametag paints and 7TV supporter badges.
 
                   Feat: Added support for 7TV namepaint cosmetics
-                  Feat: Added support for 7TV badge cosmetics
+                  Feat: Added support for 7TV supporter badge cosmetics
                   Feat: Extensions can now manage private database
                   Fix: Settings menu modal not scrolling to top on category panel change
                   Fix: Page navigation resulting in sessions firing too many session destoyed events
@@ -13961,7 +13969,7 @@ var SettingsManager = class {
                   type: "checkbox"
                 },
                 {
-                  label: "Enable user subscriber badges in chat",
+                  label: "Enable user supporter badges in chat",
                   key: "ext.7tv.cosmetics.badges.enabled",
                   default: true,
                   type: "checkbox"
@@ -22070,7 +22078,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       if (!this.emoteMenuButton.element.isConnected) {
         info23("KICK", "UI", "Emote menu button got removed. Reloading session to reinitialize UI.");
         this.destroy();
-        this.rootContext.eventBus.publish("ntv.reload_sessions");
+        this.session.eventBus.publish("ntv.session.reload");
       }
     }, 700);
   }
@@ -22917,7 +22925,7 @@ var KickUserInterface = class extends AbstractUserInterface {
           });
         }
       }
-      const contentWrapperNode = messageBodyWrapper.lastElementChild;
+      const contentWrapperNode = messageBodyWrapper.querySelector("span:last-of-type");
       if (!contentWrapperNode) {
         messageNode.classList.remove("ntv__chat-message--unrendered");
         error25("KICK", "UI", "Chat message content wrapper node not found", messageNode);
@@ -23043,6 +23051,19 @@ var KickUserInterface = class extends AbstractUserInterface {
         } else {
           messageParts.push(contentNode.cloneNode(true));
         }
+      }
+      const clipAttachmentEl = contentWrapperNode.nextElementSibling;
+      if (clipAttachmentEl && clipAttachmentEl.nodeName === "BUTTON") {
+        const clipPreviewBtnEl = clipAttachmentEl.cloneNode(true);
+        clipPreviewBtnEl.addEventListener("click", (evt) => {
+          evt.preventDefault();
+          evt.stopPropagation();
+          evt.stopImmediatePropagation();
+          const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+          Object.defineProperty(event, "target", { value: clipAttachmentEl, enumerable: true });
+          clipAttachmentEl.dispatchEvent(event);
+        });
+        messageParts.push(clipPreviewBtnEl);
       }
       messageObject.content = messageParts;
       groupElementNode.style.display = "none";
@@ -25442,7 +25463,7 @@ var BotrixExtension = class extends Extension {
 var logger35 = new Logger();
 var { log: log34, info: info33, error: error35 } = logger35.destruct();
 var NipahClient = class {
-  VERSION = "1.5.56";
+  VERSION = "1.5.58";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -25584,7 +25605,6 @@ var NipahClient = class {
     this.loadAppUpdateBehaviour(rootEventBus);
     this.doExtensionCompatibilityChecks();
     this.createChannelSession();
-    this.loadReloadUIHack();
   }
   loadAppUpdateBehaviour(rootEventBus) {
     rootEventBus.subscribe("ntv.app.update", () => {
@@ -25734,20 +25754,14 @@ var NipahClient = class {
     }
     const providerOverrideOrder = [2 /* SEVENTV */, 1 /* KICK */];
     emotesManager.loadProviderEmotes(channelData, providerOverrideOrder);
-  }
-  loadReloadUIHack() {
-    const rootContext = this.rootContext;
-    if (!rootContext) throw new Error("Root context is not initialized.");
-    rootContext.eventBus.subscribe("ntv.reload_sessions", () => {
-      this.sessions.forEach((session) => {
-        session.isDestroyed = true;
-        session.eventBus.publish("ntv.session.destroy");
-        session.eventBus.publish("ntv.session.restore_original");
-        this.rootContext?.eventBus.publish("ntv.session.destroy", session);
-      });
-      this.sessions = [];
-      setTimeout(() => this.createChannelSession(), 1e3);
-    });
+    eventBus.subscribe(
+      "ntv.session.reload",
+      debounce(() => {
+        if (session.isDestroyed) return;
+        this.cleanupSessions(true);
+        this.createChannelSession();
+      }, 1e3)
+    );
   }
   attachEventServiceListeners(rootContext, session) {
     const { eventBus, channelData, meData } = session;
@@ -25868,14 +25882,10 @@ var NipahClient = class {
     window.addEventListener("beforeunload", () => {
       info33("CORE", "MAIN", "User is navigating away from the page, cleaning up sessions before leaving..");
       this.rootContext?.eventService.disconnectAll();
-      this.sessions.forEach((session) => {
-        session.isDestroyed = true;
-        session.eventBus.publish("ntv.session.destroy");
-        this.rootContext?.eventBus.publish("ntv.session.destroy", session);
-      });
+      this.cleanupSessions();
     });
   }
-  cleanupSessions() {
+  cleanupSessions(restoreOriginalUI = false) {
     for (const session of this.sessions) {
       log34(
         "CORE",
@@ -25884,9 +25894,11 @@ var NipahClient = class {
       );
       session.isDestroyed = true;
       session.eventBus.publish("ntv.session.destroy");
+      if (restoreOriginalUI) session.eventBus.publish("ntv.session.restore_original");
       this.rootContext?.eventBus.publish("ntv.session.destroy", session);
       session.eventBus.destroy();
     }
+    this.sessions = [];
   }
 };
 (() => {
@@ -25913,7 +25925,7 @@ var NipahClient = class {
 })();
 //! Temporary migration code
 //! Temporary patch for message spacing setting
-//! Does not respect multiple sessions framework structure
+//! Dirty reload UI hack to check if UI elements of session is destroyed and reload it
 /*! Bundled license information:
 
 pusher-js/dist/web/pusher.js:

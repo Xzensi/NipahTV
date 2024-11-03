@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.57',
+		date: '2024-11-03',
+		description: `
+                  Fix: Clip links not working in chat messages
+                  Fix: Another attempt at fixing the async session reload issues
+            `
+	},
+	{
 		version: '1.5.56',
 		date: '2024-11-03',
 		description: `
@@ -17,10 +25,10 @@ export const CHANGELOG: {
 		description: `
                   I'm currently preparing for a big rewrite of the UI framework, which is a big part of the codebase, because I want to get rid of technical debt and keep the codebase more maintainable. There's currently a lot of legacy code due to decisions made during the rapid prototyping and version iterating of the early stages of NipahTV. This will take some time, but it will allow me to better support features like translating NipahTV to other languages and finally do a full replace of the chat, instead of the dirty injection method it's doing now (causing all kinds of unsolvable issues).
 
-                  But before that, enjoy the new features and fixes! We now have support for 7TV nametag paints and subscriber badges.
+                  But before that, enjoy the new features and fixes! We now have support for 7TV nametag paints and 7TV supporter badges.
 
                   Feat: Added support for 7TV namepaint cosmetics
-                  Feat: Added support for 7TV badge cosmetics
+                  Feat: Added support for 7TV supporter badge cosmetics
                   Feat: Extensions can now manage private database
                   Fix: Settings menu modal not scrolling to top on category panel change
                   Fix: Page navigation resulting in sessions firing too many session destoyed events

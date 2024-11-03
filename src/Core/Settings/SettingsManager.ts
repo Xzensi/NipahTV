@@ -684,7 +684,7 @@ export default class SettingsManager {
 									type: 'checkbox'
 								},
 								{
-									label: 'Enable user subscriber badges in chat',
+									label: 'Enable user supporter badges in chat',
 									key: 'ext.7tv.cosmetics.badges.enabled',
 									default: true,
 									type: 'checkbox'
