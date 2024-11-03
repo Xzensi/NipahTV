@@ -481,9 +481,11 @@ export default class SevenTVExtension extends Extension {
 
 		if (room && room.userId && room.userId !== STV_ID_NULL) {
 			eventBus.subscribe('ntv.chat.message.new', (message: NTVMessageEvent) => {
-				if (message.sender.id !== platformMeUserId) {
-					this.eventAPI?.sendPresence(room)
-				}
+				// if (message.sender.id !== platformMeUserId) {
+				// 	this.eventAPI?.sendPresence(room)
+				// }
+				// We need to send presence on every message to be able to discover our own cosmetic changes
+				this.eventAPI?.sendPresence(room)
 			})
 		}
 	}
@@ -527,18 +529,16 @@ export default class SevenTVExtension extends Extension {
 				if (badgeCosmeticsEnabledSetting) {
 					const badge = datastore.getUserBadge(user.id)
 					if (badge) {
-						log('EXT:STV', 'RENDER', 'User:', user, 'Badge:', badge)
-
 						const file = badge.host.files.filter(f => f.format === 'WEBP')[0]
 						if (file) {
 							const badgeEl = document.createElement('img')
 							badgeEl.classList.add('ntv__badge')
 							const hostUrl = badge.host.url
-							badgeEl.setAttribute('title', badge.tooltip)
 							badgeEl.setAttribute(
 								'srcset',
 								`${hostUrl}/1x.webp 32w 32h, ${hostUrl}/2x.webp 64w 64h, ${hostUrl}/3x.webp 96w 96h, ${hostUrl}/4x.webp 128w 128h`
 							)
+							badgeEl.setAttribute('title', badge.tooltip)
 							badgeEl.setAttribute('loading', 'lazy')
 							badgeEl.setAttribute('decoding', 'async')
 							badgeEl.setAttribute('draggable', 'false')
