@@ -1,8 +1,12 @@
-import { error, eventKeyIsLetterDigitPuncChar, log, parseHTML } from '../../../Common/utils'
-import NavigatableListWindowManager from '../../../Common/NavigatableListWindowManager'
+import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
 import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
-import type { ContentEditableEditor } from '../../ContentEditableEditor'
-import { Caret } from '../../../UI/Caret'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
+import { parseHTML } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+import { Caret } from '@core/UI/Caret'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class ColonEmoteCompletionStrategy extends AbstractInputCompletionStrategy {
 	protected id = 'colon_emotes'
@@ -151,7 +155,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	}
 
 	moveSelectorUp() {
-		if (!this.navWindow) return error('No tab completion window to move selector up')
+		if (!this.navWindow) return error('CORE', 'EMCOMPS', 'No tab completion window to move selector up')
 		if (this.hasNavigated) this.navWindow.moveSelectorUp()
 		else this.navWindow.setSelectedIndex(0)
 		this.renderInlineCompletion()
@@ -159,7 +163,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	}
 
 	moveSelectorDown() {
-		if (!this.navWindow) return error('No tab completion window to move selector down')
+		if (!this.navWindow) return error('CORE', 'EMCOMPS', 'No tab completion window to move selector down')
 		if (this.hasNavigated) this.navWindow.moveSelectorDown()
 		else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1)
 		this.renderInlineCompletion()
@@ -167,18 +171,18 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	}
 
 	renderInlineCompletion() {
-		if (!this.navWindow) return error('No tab completion window to render inline completion')
+		if (!this.navWindow) return error('CORE', 'EMCOMPS', 'No tab completion window to render inline completion')
 
 		const selectedEntry = this.navWindow.getSelectedEntry()
-		if (!selectedEntry) return error('No selected entry to render completion')
+		if (!selectedEntry) return error('CORE', 'EMCOMPS', 'No selected entry to render completion')
 
 		const { emoteHid } = selectedEntry as { emoteHid: string }
-		if (!emoteHid) return error('No emote hid to render inline emote')
+		if (!emoteHid) return error('CORE', 'EMCOMPS', 'No emote hid to render inline emote')
 
 		if (this.emoteComponent) {
 			this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid)
 		} else {
-			if (!this.node) return error('Invalid node to restore original text')
+			if (!this.node) return error('CORE', 'EMCOMPS', 'Invalid node to restore original text')
 
 			const range = document.createRange()
 			range.setStart(this.node, this.start)
@@ -198,7 +202,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 
 	restoreOriginalText() {
 		if (this.word) {
-			if (!this.emoteComponent) return error('Invalid embed node to restore original text')
+			if (!this.emoteComponent) return error('CORE', 'EMCOMPS', 'Invalid embed node to restore original text')
 
 			this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word)
 		}

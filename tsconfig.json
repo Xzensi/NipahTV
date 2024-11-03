@@ -7,7 +7,15 @@
 		"noEmit": true,
 		// "skipLibCheck": true,
 		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": "./src",
+		"paths": {
+			// "~/*": ["*"],
+			"@core/*": ["Core/*"],
+			"@database/*": ["Database/*"],
+			"@extensions/*": ["Extensions/*"],
+			"@sites/*": ["Sites/*"]
+		}
 	},
 	"typeRoots": ["node_modules/@types", "node_modules/dexie"],
 	"include": ["src/**/*"]

@@ -1,5 +1,5 @@
 import { InputIntentDTO, InputExecutionStrategy as InputExecutionStrategy } from '../InputExecutionStrategy'
-import type { ContentEditableEditor } from '../../ContentEditableEditor'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
 
 export default class DefaultExecutionStrategy implements InputExecutionStrategy {
 	constructor(private rootContext: RootContext, private session: Session) {}

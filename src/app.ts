@@ -4,6 +4,7 @@ import DefaultExecutionStrategy from './Core/Input/Execution/Strategies/DefaultE
 import CommandExecutionStrategy from './Core/Input/Execution/Strategies/CommandExecutionStrategy'
 import InputCompletionStrategyRegister from './Core/Input/Completion/InputCompletionStrategyRegister'
 import { DatabaseProxyFactory, DatabaseProxy } from './Database/DatabaseProxy'
+import RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
 import AnnouncementService from './Core/Services/AnnouncementService'
 import AbstractUserInterface from './Core/UI/AbstractUserInterface'
 import TwitchEventService from './Sites/Twitch/TwitchEventService'
@@ -17,9 +18,6 @@ import Database from './Database/Database'
 
 // Utils
 import {
-	log,
-	info,
-	error,
 	RESTFromMain,
 	debounce,
 	getPlatformId,
@@ -40,8 +38,12 @@ import TwitchNetworkInterface from './Sites/Twitch/TwitchNetworkInterface'
 
 // Extensions
 import { Extension } from './Extensions/Extension'
-import SevenTVExtension from './Extensions/7tv'
+import SevenTVExtension from './Extensions/SevenTV'
 import BotrixExtension from './Extensions/Botrix'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 class NipahClient {
 	VERSION = '1.5.54'
@@ -60,21 +62,21 @@ class NipahClient {
 	rootContext: RootContext | null = null
 	loadSettingsManagerPromise: Promise<void> | null = null
 
-	private database: DatabaseProxy | null = null
+	private database: DatabaseProxy<Database> | null = null
 	private sessions: Session[] = []
 
 	async initialize() {
 		const { ENV_VARS } = this
 
-		info(`Initializing Nipah client [${this.VERSION}]..`)
+		info('CORE', 'INIT', `Initializing Nipah client [${this.VERSION}]..`)
 
 		let resourceRoot: string
 		if (__USERSCRIPT__ && __LOCAL__) {
-			info('Running in debug mode enabled..')
+			info('CORE', 'INIT', 'Running in debug mode enabled..')
 			resourceRoot = ENV_VARS.LOCAL_RESOURCE_ROOT
 			window.NipahTV = this
 		} else if (!__USERSCRIPT__) {
-			info('Running in extension mode..')
+			info('CORE', 'INIT', 'Running in extension mode..')
 			resourceRoot = browser.runtime.getURL('/')
 		} else {
 			resourceRoot = ENV_VARS.GITHUB_ROOT + '/' + ENV_VARS.RELEASE_BRANCH + '/'
@@ -82,13 +84,13 @@ class NipahClient {
 
 		let platform = getPlatformId()
 		if (platform === PLATFORM_ENUM.KICK) {
-			info('Platform detected: Kick')
+			info('CORE', 'INIT', 'Platform detected: Kick')
 		} else if (platform === PLATFORM_ENUM.TWITCH) {
-			info('Platform detected: Twitch')
+			info('CORE', 'INIT', 'Platform detected: Twitch')
 		} else if (platform === PLATFORM_ENUM.YOUTUBE) {
-			info('Platform detected: Youtube')
+			info('CORE', 'INIT', 'Platform detected: Youtube')
 		} else {
-			return error('Unsupported platform', window.location.host)
+			return error('CORE', 'INIT', 'Unsupported platform', window.location.host)
 		}
 
 		// Set global variables
@@ -137,7 +139,9 @@ class NipahClient {
 			window.ReactivePropsFromMain = new ReactivePropsFromMain()
 			await this.injectPageScript()
 
-			this.setupClientEnvironment().catch(err => error('Failed to setup client environment.\n\n', err.message))
+			this.setupClientEnvironment().catch(err =>
+				error('CORE', 'INIT', 'Failed to setup client environment.\n\n', err.message)
+			)
 		})
 	}
 
@@ -153,7 +157,7 @@ class NipahClient {
 					resolve(void 0)
 				}
 				s.onerror = function () {
-					error('Failed to load page script..')
+					error('CORE', 'INIT', 'Failed to load page script..')
 					reject(void 0)
 				}
 				;(document.head || document.documentElement).appendChild(s)
@@ -168,28 +172,28 @@ class NipahClient {
 		// if (navigator.storage && navigator.storage.persist) {
 		// 	navigator.storage.persist().then(persistent => {
 		// 		if (persistent) {
-		// 			info('Storage will not be cleared except by explicit user action')
+		// 			info('CORE', 'INIT','Storage will not be cleared except by explicit user action')
 		// 		} else {
-		// 			info('Storage may be cleared by the UA under storage pressure.')
+		// 			info('CORE', 'INIT','Storage may be cleared by the UA under storage pressure.')
 		// 		}
 		// 	})
 		// }
 
 		return new Promise((resolve, reject) => {
 			const database: Database = __USERSCRIPT__
-				? DatabaseProxyFactory.create(new Database())
-				: DatabaseProxyFactory.create()
+				? DatabaseProxyFactory.create('NipahTV', new Database())
+				: DatabaseProxyFactory.create('NipahTV')
 
 			database
 				.checkCompatibility()
 				.then(() => {
-					log('Database passed compatibility check.')
+					log('CORE', 'INIT', 'Database passed compatibility check.')
 					this.database = database
 
 					resolve(void 0)
 				})
 				.catch((err: Error) => {
-					error('Failed to open database because:', err)
+					error('CORE', 'INIT', 'Failed to open database because:', err)
 					reject()
 				})
 		})
@@ -199,9 +203,9 @@ class NipahClient {
 		const { database } = this
 		if (!database) throw new Error('Database is not initialized.')
 
-		info('Setting up client environment..')
+		info('CORE', 'INIT', 'Setting up client environment..')
 
-		const rootEventBus = new Publisher('root')
+		const rootEventBus = new Publisher('ROOT')
 		const settingsManager = new SettingsManager({ database, rootEventBus })
 		settingsManager.initialize()
 
@@ -220,7 +224,8 @@ class NipahClient {
 			database,
 			settingsManager,
 			eventService,
-			announcementService: new AnnouncementService(rootEventBus, settingsManager)
+			announcementService: new AnnouncementService(rootEventBus, settingsManager),
+			renderMessagePipeline: new RenderMessagePipeline()
 		}
 
 		this.loadExtensions()
@@ -228,7 +233,7 @@ class NipahClient {
 		this.loadSettingsManagerPromise = settingsManager
 			.loadSettings()
 			.then(() => {
-				log('Settings loaded successfully.')
+				log('CORE', 'SETUP', 'Settings loaded successfully.')
 
 				const appVersion = settingsManager.getGlobalSetting('app.version')
 				if (!appVersion || appVersion !== this.VERSION) {
@@ -253,45 +258,57 @@ class NipahClient {
 
 	loadAppUpdateBehaviour(rootEventBus: Publisher) {
 		rootEventBus.subscribe('ntv.app.update', () => {
-			info('Extension update has been requested, reloading extension..')
+			info('CORE', 'MAIN', 'Extension update has been requested, reloading extension..')
 
 			browser.runtime
 				.sendMessage({
 					action: 'runtime.reload'
 				})
 				.then(() => {
-					info('Reloading page after runtime reload..')
+					info('CORE', 'MAIN', 'Reloading page after runtime reload..')
 					location.reload()
 				})
 				.catch(err => {
-					error('Failed to reload extension.', err)
+					error('CORE', 'MAIN', 'Failed to reload extension.', err)
 					location.reload()
 				})
 		})
 	}
 
 	async loadExtensions() {
-		// Dynamically load extensions according to enabled extensions
 		const rootContext = this.rootContext
 		if (!rootContext) throw new Error('Root context is not initialized.')
 
 		const { settingsManager } = rootContext
-		const enabledExtensions: Set<new (rootContext: RootContext, sessions: Session[]) => Extension> = new Set()
 
-		const is7tvExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.7tv.enabled')
-		if (is7tvExtensionEnabled) enabledExtensions.add(SevenTVExtension)
-
-		const isBotrixExtensionEnabled = true //await settingsManager.getSetting('shared', 'extensions.botrix.enabled')
-		if (isBotrixExtensionEnabled) enabledExtensions.add(BotrixExtension)
-
-		for (const enabledExtension of enabledExtensions) {
-			const extObject = new enabledExtension(rootContext, this.sessions)
-			extObject.onEnable()
+		let sevenTVExtension: SevenTVExtension | null = null
+		const enableSevenTVExtension = () => {
+			sevenTVExtension = new SevenTVExtension(rootContext, this.sessions)
+			sevenTVExtension.onEnable()
 		}
+		const isSevenTVExtensionEnabled = await settingsManager.getSettingFromDatabase('global.shared.ext.7tv.enabled')
+		if (isSevenTVExtensionEnabled) enableSevenTVExtension()
+		rootContext.eventBus.subscribe(
+			'ntv.settings.change.ext.7tv.enabled',
+			({ value, prevValue }: { value: boolean; prevValue: boolean }) => {
+				if (value && !prevValue) enableSevenTVExtension()
+				else if (sevenTVExtension) {
+					sevenTVExtension.onDisable()
+					sevenTVExtension = null
+				}
+			}
+		)
+
+		const enableBotrixExtension = () => {
+			const extension = new BotrixExtension(rootContext, this.sessions)
+			extension.onEnable()
+		}
+		const isBotrixExtensionEnabled = true //await settingsManager.getSettingFromDatabase('shared', 'extensions.botrix.enabled')
+		if (isBotrixExtensionEnabled) enableBotrixExtension()
 	}
 
 	doExtensionCompatibilityChecks() {
-		info('Checking for extension compatibility issues..')
+		info('CORE', 'INIT', 'Checking for extension compatibility issues..')
 
 		const rootContext = this.rootContext
 		if (!rootContext) throw new Error('Root context is not initialized.')
@@ -299,7 +316,7 @@ class NipahClient {
 
 		waitForElements(['#seventv-site-hosted'], 6000)
 			.then(() => {
-				log('Detected SevenTV extension')
+				log('CORE', 'INIT', 'Detected SevenTV extension')
 				const platformName = PLATFORM[0].toUpperCase() + PLATFORM.slice(1)
 
 				announcementService.registerAnnouncement({
@@ -323,14 +340,14 @@ class NipahClient {
 	}
 
 	async createChannelSession() {
-		log(`Creating new session for ${window.location.href}...`)
+		log('CORE', 'MAIN', `Creating new session for ${window.location.href}...`)
 
 		const rootContext = this.rootContext
 		if (!rootContext) throw new Error('Root context is not initialized.')
 
 		const { settingsManager, eventBus: rootEventBus } = rootContext
 
-		const eventBus = new Publisher('session')
+		const eventBus = new Publisher('SESSION')
 		const usersManager = new UsersManager({ eventBus, settingsManager })
 
 		const session = {
@@ -348,37 +365,37 @@ class NipahClient {
 		} else {
 			throw new Error('Unsupported platform')
 		}
+
 		const networkInterface = session.networkInterface
-
-		this.sessions.push(session)
-
-		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
-
 		const promiseRes = await Promise.allSettled([
 			this.loadSettingsManagerPromise,
 			networkInterface.loadMeData().catch(err => {
-				throw new Error(`Couldn't load me data because: ${err.message}`)
+				throw `Couldn't load me data because: ${err.message}`
 			}),
 			networkInterface.loadChannelData().catch(err => {
-				throw new Error(`Couldn't load channel data because: ${err.message}`)
+				throw `Couldn't load channel data because: ${err.message}`
 			})
 		])
 
 		// Check if any of these promises failed and bubble up the error
-		promiseRes.forEach(res => {
-			if (res.status === 'rejected') throw res.reason
-		})
+		for (const res of promiseRes) {
+			if (res.status === 'rejected') return error('CORE', 'MAIN', 'Failed to create session because:', res.reason)
+		}
 
 		if (!session.meData) throw new Error('Failed to load me user data.')
 		if (!session.channelData) throw new Error('Failed to load channel data.')
-		const channelData = session.channelData
 
-		const disableModCreatorView = await settingsManager.getSetting(
+		this.sessions.push(session)
+
+		const channelData = session.channelData
+		eventBus.publish('ntv.channel.loaded.channel_data', channelData)
+
+		const disableModCreatorView = settingsManager.getSetting(
 			channelData.channelId,
 			'moderators.mod_creator_view.disable_ntv'
 		)
 		if (disableModCreatorView && (channelData.isModView || channelData.isCreatorView)) {
-			info('NipahTV is disabled for this channel in mod/creator view.')
+			info('CORE', 'MAIN', 'NipahTV is disabled for this channel in mod/creator view.')
 			return
 		}
 
@@ -400,7 +417,7 @@ class NipahClient {
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			userInterface = new KickUserInterface(rootContext, session)
 		} else {
-			return error('Platform has no user interface implemented..', PLATFORM)
+			return error('CORE', 'MAIN', 'Platform has no user interface implemented..', PLATFORM)
 		}
 
 		session.userInterface = userInterface
@@ -421,15 +438,13 @@ class NipahClient {
 					this.stylesLoaded = true
 					userInterface.loadInterface()
 				})
-				.catch(response => error('Failed to load styles.', response))
+				.catch(response => error('CORE', 'INIT', 'Failed to load styles.', response))
 		} else {
 			userInterface.loadInterface()
 		}
 
 		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
 		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
-
-		if (this.sessions.length > 1) this.cleanupSession(this.sessions[0].channelData.channelName)
 	}
 
 	loadReloadUIHack() {
@@ -441,9 +456,11 @@ class NipahClient {
 			this.sessions.forEach(session => {
 				session.isDestroyed = true
 				session.eventBus.publish('ntv.session.destroy')
+				session.eventBus.publish('ntv.session.restore_original')
+				this.rootContext?.eventBus.publish('ntv.session.destroy', session)
 			})
 			this.sessions = []
-			this.createChannelSession()
+			setTimeout(() => this.createChannelSession(), 1000)
 		})
 	}
 
@@ -454,7 +471,11 @@ class NipahClient {
 
 		rootContext.eventService.subToChatroomEvents(channelData)
 
-		rootContext.eventService.addEventListener(channelData, 'chatroom_updated', chatroomData => {
+		rootContext.eventService.addEventListener(channelData, 'MESSAGE', message => {
+			eventBus.publish('ntv.chat.message.new', message, true)
+		})
+
+		rootContext.eventService.addEventListener(channelData, 'CHATROOM_UPDATED', chatroomData => {
 			const oldChatroomData = channelData.chatroom
 
 			if (oldChatroomData?.emotesMode?.enabled !== chatroomData.emotesMode?.enabled) {
@@ -478,11 +499,11 @@ class NipahClient {
 		})
 
 		let unbanTimeoutHandle: NodeJS.Timeout | null = null
-		rootContext.eventService.addEventListener(channelData, 'user_banned', data => {
+		rootContext.eventService.addEventListener(channelData, 'USER_BANNED', data => {
 			eventBus.publish('ntv.channel.chatroom.user.banned', data)
 
 			if (data.user.id === meData.userId) {
-				log('You have been banned from the channel..')
+				log('CORE', 'MAIN', 'You have been banned from the channel..')
 
 				session.channelData.me.isBanned = {
 					bannedAt: new Date().toISOString(),
@@ -502,12 +523,12 @@ class NipahClient {
 			}
 		})
 
-		rootContext.eventService.addEventListener(channelData, 'user_unbanned', data => {
+		rootContext.eventService.addEventListener(channelData, 'USER_UNBANNED', data => {
 			eventBus.publish('ntv.channel.chatroom.user.unbanned', data)
 
 			if (data.user.id === meData.userId) {
 				if (unbanTimeoutHandle) clearTimeout(unbanTimeoutHandle)
-				log('You have been unbanned from the channel..')
+				log('CORE', 'MAIN', 'You have been unbanned from the channel..')
 
 				delete session.channelData.me.isBanned
 				eventBus.publish('ntv.channel.chatroom.me.unbanned')
@@ -519,7 +540,7 @@ class NipahClient {
 		if (__EXTENSION__) return Promise.resolve()
 
 		return new Promise((resolve, reject) => {
-			info('Injecting styles..')
+			info('CORE', 'INIT', 'Injecting styles..')
 
 			if (__LOCAL__) {
 				// * Add permission for GM_xmlhttpRequest to make
@@ -530,7 +551,7 @@ class NipahClient {
 					url: RESOURCE_ROOT + 'dist/userscript/kick.css',
 					onerror: () => reject('Failed to load local stylesheet'),
 					onload: function (response: any) {
-						log('Loaded styles from local resource..')
+						log('CORE', 'MAIN', 'Loaded styles from local resource..')
 						GM_addStyle(response.responseText)
 						resolve(void 0)
 					}
@@ -559,7 +580,7 @@ class NipahClient {
 	}
 
 	attachPageNavigationListener() {
-		info('Current URL:', window.location.href)
+		info('CORE', 'MAIN', 'Current URL:', window.location.href)
 		let locationURL = window.location.href
 		let channelName: string | null = null
 
@@ -569,8 +590,12 @@ class NipahClient {
 			// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
 			if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) return
 
-			const oldLocation = locationURL
+			const prevLocation = locationURL
+			const prevChannelName = channelName
 			const newLocation = window.location.href
+
+			locationURL = newLocation
+			log('CORE', 'MAIN', 'Navigated to:', newLocation)
 
 			const activeSession = this.sessions[0]
 			if (!activeSession) return this.createChannelSession()
@@ -583,17 +608,16 @@ class NipahClient {
 				!newLocationIsVod &&
 				!activeSession.isDestroyed &&
 				!activeSession.userInterface?.isContentEditableEditorDestroyed() &&
-				channelName &&
-				channelName === newLocationChannelName
+				prevChannelName &&
+				prevChannelName === newLocationChannelName
 			)
 				return
 
-			locationURL = newLocation
 			channelName = newLocationChannelName
-			info('Navigated to:', locationURL)
+			info('CORE', 'MAIN', 'Navigated to:', locationURL)
 
-			this.cleanupSession(oldLocation)
-			log('Cleaned up old session for', oldLocation)
+			this.cleanupSession(prevLocation)
+			log('CORE', 'MAIN', 'Cleaned up old session for', prevLocation)
 			this.createChannelSession()
 
 			this.doExtensionCompatibilityChecks()
@@ -606,8 +630,14 @@ class NipahClient {
 		}
 
 		window.addEventListener('beforeunload', () => {
-			info('User is navigating away from the page, cleaning up sessions before leaving..')
+			info('CORE', 'MAIN', 'User is navigating away from the page, cleaning up sessions before leaving..')
 			this.rootContext?.eventService.disconnectAll()
+
+			this.sessions.forEach(session => {
+				session.isDestroyed = true
+				session.eventBus.publish('ntv.session.destroy')
+				this.rootContext?.eventBus.publish('ntv.session.destroy', session)
+			})
 		})
 	}
 
@@ -615,16 +645,20 @@ class NipahClient {
 		const prevSession = this.sessions.shift()
 		if (prevSession) {
 			log(
+				'CORE',
+				'MAIN',
 				`Cleaning up previous session for channel ${
 					prevSession?.channelData?.channelName || '[CHANNEL NOT LOADED]'
 				}...`
 			)
 			prevSession.isDestroyed = true
 			prevSession.eventBus.publish('ntv.session.destroy')
+			prevSession.eventBus.publish('ntv.session.ui.restore_original')
 			this.rootContext?.eventBus.publish('ntv.session.destroy', prevSession)
+			prevSession.eventBus.destroy()
 			// TODO after session is destroyed, all session event listeners attached to rootEventBus should be removed as well
 		} else {
-			log(`No session to clean up for ${oldLocation}..`)
+			log('CORE', 'MAIN', `No session to clean up for ${oldLocation}..`)
 		}
 	}
 }
@@ -632,18 +666,18 @@ class NipahClient {
 ;(() => {
 	// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
 	if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) {
-		log('KPSDK URL detected, bailing out..')
+		log('CORE', 'MAIN', 'KPSDK URL detected, bailing out..')
 		return
 	}
 
 	if (__USERSCRIPT__) {
-		info('Running in userscript mode..')
+		info('CORE', 'INIT', 'Running in userscript mode..')
 	}
 
 	if (!__USERSCRIPT__) {
 		if (!window['browser'] && !globalThis['browser']) {
 			if (typeof chrome === 'undefined') {
-				return error('Unsupported browser, please use a modern browser to run NipahTV.')
+				return error('CORE', 'INIT', 'Unsupported browser, please use a modern browser to run NipahTV.')
 			}
 			//@ts-ignore
 			window.browser = chrome

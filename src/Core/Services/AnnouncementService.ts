@@ -1,7 +1,10 @@
-import AnnouncementModal from '../UI/Modals/AnnouncementModal'
-import type SettingsManager from '../Settings/SettingsManager'
-import type Publisher from '../Common/Publisher'
-import { log } from '../Common/utils'
+import AnnouncementModal from '@core/UI/Modals/AnnouncementModal'
+import type SettingsManager from '@core/Settings/SettingsManager'
+import type Publisher from '@core/Common/Publisher'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export interface Announcement {
 	id: string
@@ -31,7 +34,8 @@ export default class AnnouncementService {
 	}
 
 	registerAnnouncement(announcement: Announcement) {
-		if (this.announcements[announcement.id]) return log('Announcement already registered:', announcement.id)
+		if (this.announcements[announcement.id])
+			return log('SERVICE', 'ANNOUNCE', 'Announcement already registered:', announcement.id)
 
 		const isClosed = this.closedAnnouncements[announcement.id] !== undefined
 		if (isClosed) return

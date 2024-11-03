@@ -1,9 +1,13 @@
 import { InputIntentDTO, InputExecutionStrategy } from '../InputExecutionStrategy'
-import { log, error, countStringOccurrences } from '../../../Common/utils'
-import type { ContentEditableEditor } from '../../ContentEditableEditor'
+import { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
+import { countStringOccurrences } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
 
 // TODO un-hardcode this
 import { KICK_COMMANDS } from '../../../../Sites/Kick/KickCommands'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class CommandExecutionStrategy implements InputExecutionStrategy {
 	constructor(private rootContext: RootContext, private session: Session) {}
@@ -35,7 +39,7 @@ export default class CommandExecutionStrategy implements InputExecutionStrategy 
 				dontClearInput || contentEditableEditor.clearInput()
 			})
 		} else {
-			log('Executing command', commandData)
+			log('CORE', 'COMEXS', 'Executing command', commandData)
 			return networkInterface
 				.executeCommand(commandData!.name, this.session.channelData.channelName, commandData!.args)
 				.then(() => {
@@ -104,11 +108,11 @@ export default class CommandExecutionStrategy implements InputExecutionStrategy 
 		const availableCommands = this.getAvailableCommands()
 		let commandEntry = availableCommands.find(n => n.name === inputCommandName)
 
-		if (!commandEntry) return [error('Command not found.')]
+		if (!commandEntry) return [error('CORE', 'COMEXS', 'Command not found.')]
 
 		if (commandEntry.alias) {
 			commandEntry = availableCommands.find(n => n.name === commandEntry!.name)
-			if (!commandEntry) return [error('Command alias not found.')]
+			if (!commandEntry) return [error('CORE', 'COMEXS', 'Command alias not found.')]
 		}
 
 		const argCount = countStringOccurrences(commandEntry.params || '', '<')

@@ -1,7 +1,7 @@
 import { SteppedInputSliderComponent } from '../Components/SteppedInputSliderComponent'
-import { cleanupHTML, log, parseHTML } from '../../Common/utils'
 import { AbstractModal, ModalGeometry } from './AbstractModal'
-import { Toaster } from '../../Common/Toaster'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
+import { Toaster } from '@core/Common/Toaster'
 
 export default class PollModal extends AbstractModal {
 	private rootContext: RootContext

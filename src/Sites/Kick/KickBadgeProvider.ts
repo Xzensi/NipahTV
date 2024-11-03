@@ -1,5 +1,9 @@
-import { Badge, IBadgeProvider } from '../../Core/Emotes/BadgeProvider'
-import { error, REST } from '../../Core/Common/utils'
+import { Badge, IBadgeProvider } from '@core/Emotes/BadgeProvider'
+import { Logger } from '@core/Common/Logger'
+import { REST } from '@core/Common/utils'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class KickBadgeProvider implements IBadgeProvider {
 	rootContext: RootContext
@@ -18,9 +22,18 @@ export default class KickBadgeProvider implements IBadgeProvider {
 		const { channelName } = this.channelData
 
 		const channelInfo = await REST.get(`https://kick.com/api/v2/channels/${channelName}`)
-		if (!channelInfo) return error('Unable to fetch channel info from Kick API for badge provider initialization.')
+		if (!channelInfo)
+			return error(
+				'KICK',
+				'BADGE:PROV',
+				'Unable to fetch channel info from Kick API for badge provider initialization.'
+			)
 		if (!channelInfo.subscriber_badges)
-			return error('No subscriber badges found in channel info from Kick API for badge provider initialization.')
+			return error(
+				'KICK',
+				'BADGE:PROV',
+				'No subscriber badges found in channel info from Kick API for badge provider initialization.'
+			)
 
 		const subscriber_badges = channelInfo.subscriber_badges
 

@@ -1,5 +1,5 @@
 import { AbstractComponent } from '../Components/AbstractComponent'
-import { cleanupHTML, log, parseHTML } from '../../Common/utils'
+import { cleanupHTML, parseHTML } from '@core/Common/utils'
 
 export type ModalGeometry = {
 	width?: string

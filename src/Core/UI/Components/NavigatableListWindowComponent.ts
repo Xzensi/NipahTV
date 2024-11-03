@@ -1,5 +1,5 @@
 import { AbstractComponent } from './AbstractComponent'
-import { log, parseHTML } from '../../Common/utils'
+import { parseHTML } from '@core/Common/utils'
 
 /**
  * The purpose of this class is to provide a window component that

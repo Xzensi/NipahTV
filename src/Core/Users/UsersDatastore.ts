@@ -1,6 +1,9 @@
-import { error, log } from '../Common/utils'
-import Publisher from '../Common/Publisher'
+import { Logger } from '@core/Common/Logger'
+import Publisher from '@core/Common/Publisher'
 import Fuse from 'fuse.js'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export type User = {
 	id: string
@@ -49,11 +52,15 @@ export default class UsersDatastore {
 	}
 
 	registerUser(id: string, name: string) {
-		typeof id === 'string' || error('Invalid user id:', id)
+		typeof id === 'string' || error('CORE', 'USER:STORE', 'Invalid user id:', id)
 
 		if (this.usersIdMap.has(id)) return
 		if (this.usersCount >= this.maxUsers) {
-			error(`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`)
+			error(
+				'CORE',
+				'USER:STORE',
+				`UsersDatastore: Max users of ${this.maxUsers} reached. Ignoring new user registration.`
+			)
 			return
 		}
 

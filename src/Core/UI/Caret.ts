@@ -1,4 +1,7 @@
-import { log, error } from '../Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export class Caret {
 	static moveCaretTo(container: Node, offset: number) {
@@ -14,7 +17,7 @@ export class Caret {
 
 	static collapseToEndOfNode(node: Node) {
 		const selection = window.getSelection()
-		if (!selection) return error('Unable to get selection, cannot collapse to end of node', node)
+		if (!selection) return error('CORE', 'UI', 'Unable to get selection, cannot collapse to end of node', node)
 
 		const range = document.createRange()
 		if (node instanceof Text) {
@@ -221,29 +224,29 @@ export class Caret {
 	}
 
 	static insertNodeAtCaret(range: Range, node: Node) {
-		// log('Embedding node', node)
+		// log('CORE', 'UI', 'Embedding node', node)
 
 		if (!node.nodeType || (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE)) {
-			return error('Invalid node type', node)
+			return error('CORE', 'UI', 'Invalid node type', node)
 		}
 
-		// log('Caret is in element', range.startContainer)
-		// log('At position', range.startOffset)
+		// log('CORE', 'UI', 'Caret is in element', range.startContainer)
+		// log('CORE', 'UI', 'At position', range.startOffset)
 
 		// Caret is inside text node, we insert at startOffset position
 		if (range.startContainer.nodeType === Node.TEXT_NODE) {
-			// log('Inserting in text node')
+			// log('CORE', 'UI', 'Inserting in text node')
 			range.insertNode(node)
 			range.startContainer?.parentElement?.normalize()
 		}
 
 		// Caret is inbetween text nodes, we insert after the childNode at index startOffset
 		else {
-			// log('Inserting after text node')
+			// log('CORE', 'UI', 'Inserting after text node')
 
 			// When caret is at start of container, prepend node
 			if (range.startOffset - 1 === -1) {
-				// log('Prepending node at start of container')
+				// log('CORE', 'UI', 'Prepending node at start of container')
 				;(range.startContainer as Element).prepend(node)
 				return
 			}
@@ -253,12 +256,12 @@ export class Caret {
 			// Should never happen, but just in case
 			// If theres no childnode, thus startOffset 0, the rule above should have caught it
 			if (!childNode) {
-				// log('Child node is null, appending node at end of container')
+				// log('CORE', 'UI', 'Child node is null, appending node at end of container')
 				range.startContainer.appendChild(node)
 				return
 			}
 
-			// log('Inserting after child node', childNode)
+			// log('CORE', 'UI', 'Inserting after child node', childNode)
 
 			childNode.after(node)
 		}
@@ -269,7 +272,7 @@ export class Caret {
 	// Replacement can be a string or an element node.
 	static replaceTextInRange(container: Node, start: number, end: number, replacement: string): number {
 		if (container.nodeType !== Node.TEXT_NODE) {
-			error('Invalid container node type', container)
+			error('CORE', 'UI', 'Invalid container node type', container)
 			return 0
 		}
 

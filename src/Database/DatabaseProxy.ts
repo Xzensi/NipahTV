@@ -1,4 +1,4 @@
-import type Database from '../Database/Database'
+import DatabaseAbstract from './DatabaseAbstract'
 
 /**
  * For userscripts:
@@ -9,35 +9,42 @@ import type Database from '../Database/Database'
  */
 
 // export type DatabaseProxy = ReturnType<typeof DatabaseProxyFactory.create>
-export type DatabaseProxy = Database
+export type DatabaseProxy<T extends DatabaseAbstract> = T
 
 interface DatabaseMessage {
 	action: string
+	db: string
 	stack: string[]
 	args?: any[]
 }
 
 const extensionProxyHandler: ProxyHandler<{}> = {
-	get(target: [] | { (): any; stack: string[] }, prop: string, receiver: ProxyConstructor) {
-		// @ts-ignore
+	/**
+	 * [dbName] gets passed as the first argument to the Proxy constructor
+	 *   to initialize the database name, then stack is tacked on as
+	 *   empty array to keep track of the callstack.
+	 */
+	get(target: { (): any; db: string; stack: string[] }, prop: string, receiver: ProxyConstructor) {
 		if (target.prototype === undefined) {
 			// @ts-ignore
+			const db = target[0]
+			// @ts-ignore
 			target = function () {}
-			// @ts-ignore
 			target.stack = [prop]
+			target.db = db
 		} else {
-			// @ts-ignore
 			target.stack.push(prop)
 		}
 
 		return new Proxy(target, extensionProxyHandler)
 	},
 
-	apply(target: { (): any; stack: string[] }, thisArg: any, args: any[]) {
+	apply(target: { (): any; db: string; stack: string[] }, thisArg: any, args: any[]) {
 		return new Promise((resolve, reject) => {
 			browser.runtime
 				.sendMessage(<DatabaseMessage>{
 					action: 'database',
+					db: target.db,
 					stack: target.stack,
 					args
 				})
@@ -49,16 +56,8 @@ const extensionProxyHandler: ProxyHandler<{}> = {
 }
 
 export class DatabaseProxyFactory {
-	static create(database?: Database): DatabaseProxy {
-		if (__USERSCRIPT__) {
-			if (!database) throw new Error('Database instance required for userscripts.')
-			return database
-		}
-
-		if (__EXTENSION__) {
-			return new Proxy([], extensionProxyHandler) as DatabaseProxy
-		} else {
-			throw new Error('Unable to create database handle for unknown environment.')
-		}
+	static create<T extends DatabaseAbstract>(dbName: string, database?: T): DatabaseProxy<T> {
+		if (database) return database
+		else return new Proxy([dbName], extensionProxyHandler) as DatabaseProxy<T>
 	}
 }

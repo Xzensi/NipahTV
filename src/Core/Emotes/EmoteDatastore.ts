@@ -1,8 +1,12 @@
-import type { FavoriteEmoteDocument } from '../../Database/Models/FavoriteEmotesModel'
-import type { EmoteUsagesDocument } from '../../Database/Models/EmoteUsagesModel'
-import { log, info, error, isEmpty } from '../Common/utils'
+import type { FavoriteEmoteDocument } from '@database/Models/FavoriteEmotesModel'
+import type { EmoteUsagesDocument } from '@database/Models/EmoteUsagesModel'
 import { PROVIDER_ENUM } from '../Common/constants'
+import { Logger } from '@core/Common/Logger'
+import { isEmpty } from '../Common/utils'
 import Fuse from 'fuse.js'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export class EmoteDatastore {
 	private emoteMap = new Map<string, Emote>()
@@ -55,7 +59,7 @@ export class EmoteDatastore {
 	}
 
 	async loadDatabase() {
-		info('Reading out emotes data from database..')
+		info('CORE', 'EMOT:STORE', 'Reading out emotes data from database..')
 		const { database } = this.rootContext
 		const { eventBus } = this.session
 
@@ -81,7 +85,7 @@ export class EmoteDatastore {
 					this.favoriteEmoteDocuments.push(favoriteEmote)
 				}
 				this.favoriteEmoteDocuments.sort((a, b) => a.orderIndex - b.orderIndex)
-				log(`Loaded ${favoriteEmotes.length} favorite emotes from database`)
+				log('CORE', 'EMOT:STORE', `Loaded ${favoriteEmotes.length} favorite emotes from database`)
 			})
 			.then(() => eventBus.publish('ntv.datastore.emotes.favorites.loaded'))
 			.catch(err => error('Failed to load favorite emote data from database.', err.message))
@@ -105,7 +109,11 @@ export class EmoteDatastore {
 		const emoteUsageDeletes: [PlatformId, ChannelId, EmoteHid][] = []
 
 		if (!isEmpty(pendingEmoteUsageChanges))
-			info(`Syncing ${Object.keys(pendingEmoteUsageChanges).length} emote usage changes to database..`)
+			info(
+				'CORE',
+				'EMOT:STORE',
+				`Syncing ${Object.keys(pendingEmoteUsageChanges).length} emote usage changes to database..`
+			)
 
 		for (const emoteHid in pendingEmoteUsageChanges) {
 			const action = pendingEmoteUsageChanges[emoteHid]
@@ -128,7 +136,11 @@ export class EmoteDatastore {
 		const favoriteEmoteDeletes: { platformId: string; emoteHid: string }[] = []
 
 		if (!isEmpty(pendingFavoriteEmoteChanges))
-			info(`Syncing ${Object.keys(pendingFavoriteEmoteChanges).length} favorite emote changes to database..`)
+			info(
+				'CORE',
+				'EMOT:STORE',
+				`Syncing ${Object.keys(pendingFavoriteEmoteChanges).length} favorite emote changes to database..`
+			)
 
 		for (const emoteHid in pendingFavoriteEmoteChanges) {
 			const action = pendingFavoriteEmoteChanges[emoteHid]
@@ -167,7 +179,7 @@ export class EmoteDatastore {
 		if (favoriteEmoteReorders.length) database.favoriteEmotes.bulkOrderRecords(favoriteEmoteReorders)
 		if (favoriteEmoteDeletes.length) database.favoriteEmotes.bulkDeleteRecordsByHid(favoriteEmoteDeletes)
 
-		log('Synced emote data changes to database')
+		log('CORE', 'EMOT:STORE', 'Synced emote data changes to database')
 
 		this.hasPendingChanges = false
 	}
@@ -190,7 +202,7 @@ export class EmoteDatastore {
 				!emote.name ||
 				typeof emote.provider === 'undefined'
 			) {
-				return error('Invalid emote data', emote)
+				return error('CORE', 'EMOT:STORE', 'Invalid emote data', emote)
 			}
 
 			this.emoteIdMap.set(emote.id, emote)
@@ -233,7 +245,9 @@ export class EmoteDatastore {
 					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet)
 				) {
 					log(
-						`Registered ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV '} ${
+						'CORE',
+						'EMOT:STORE',
+						`Registered ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							storedEmoteSet.isGlobalSet ? 'global' : 'channel'
 						} emote override for ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							emoteSet.isGlobalSet ? 'global' : 'channel'
@@ -253,7 +267,7 @@ export class EmoteDatastore {
 				} else {
 					// Remove the emote from the emote set because we already have a higher priority emote
 					emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1)
-					log('Skipped overridden emote', emote.name)
+					log('CORE', 'EMOT:STORE', 'Skipped overridden emote', emote.name)
 				}
 			} else {
 				this.emoteMap.set(emote.hid, emote)

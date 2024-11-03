@@ -1,6 +1,6 @@
-import type NavigatableListWindowComponent from '../../../UI/Components/NavigatableListWindowComponent'
-import type NavigatableListWindowManager from '../../../Common/NavigatableListWindowManager'
-import type { ContentEditableEditor } from '../../ContentEditableEditor'
+import type NavigatableListWindowComponent from '@core/UI/Components/NavigatableListWindowComponent'
+import type NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
 
 export default abstract class AbstractInputCompletionStrategy {
 	protected abstract id: string

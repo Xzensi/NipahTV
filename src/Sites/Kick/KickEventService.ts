@@ -1,7 +1,10 @@
 import Pusher, { Channel } from 'pusher-js'
 
-import { EventData, EventService } from '../../Core/Common/EventService'
-import { error } from '../../Core/Common/utils'
+import { EventData, EventService, EventType, NTVMessageEvent } from '@core/Common/EventService'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export default class KickEventService implements EventService {
 	private pusher: Pusher
@@ -27,25 +30,60 @@ export default class KickEventService implements EventService {
 
 	subToChatroomEvents(channelData: ChannelData) {
 		const { chatroom } = channelData
-		if (!chatroom) return error('Chatroom data is missing from channelData')
+		if (!chatroom) return error('KICK', 'EVENTS', 'Chatroom data is missing from channelData')
 
 		const channelId = chatroom.id
 		this.chatroomChannelsMap.set(channelId, this.pusher.subscribe(`chatrooms.${channelId}.v2`))
 	}
 
-	addEventListener<K extends keyof EventData>(
-		channelData: ChannelData,
-		event: K,
-		callback: (data: EventData[K]) => void
-	) {
+	addEventListener<K extends EventType>(channelData: ChannelData, event: K, callback: (data: EventData[K]) => void) {
 		const { chatroom } = channelData
-		if (!chatroom) return error('Chatroom data is missing from channelData')
+		if (!chatroom) return error('KICK', 'EVENTS', 'Chatroom data is missing from channelData')
 
 		const channel = this.chatroomChannelsMap.get(chatroom.id)
-		if (!channel) return error('Unable to find channel for EventService chatroom', chatroom.id)
+		if (!channel) return error('KICK', 'EVENTS', 'Unable to find channel for EventService chatroom', chatroom.id)
 
-		if (event === 'message') {
-		} else if (event === 'chatroom_updated') {
+		if (event === 'MESSAGE') {
+			channel.bind('App\\Events\\ChatMessageEvent', (data: any) => {
+				let res: NTVMessageEvent
+
+				if (data.type === 'message') {
+					res = {
+						id: '' + data.id,
+						content: data.content,
+						type: 'MESSAGE',
+						createdAt: data.created_at,
+						sender: {
+							id: '' + data.sender.id,
+							username: data.sender.username,
+							slug: '' + data.sender.slug
+						}
+					}
+				} else if (data.type === 'reply') {
+					res = {
+						id: '' + data.id,
+						content: data.content,
+						type: 'REPLY',
+						createdAt: data.created_at,
+						sender: {
+							id: '' + data.sender.id,
+							username: data.sender.username,
+							slug: '' + data.sender.slug
+						},
+						replyTo: {
+							id: '' + data.metadata.original_message.id,
+							content: data.metadata.original_message.content,
+							userId: '' + data.metadata.original_sender.id,
+							username: data.metadata.original_sender.username
+						}
+					}
+				} else {
+					throw new Error(`Unknown message type: ${data.type}`)
+				}
+
+				callback(res as unknown as EventData[K])
+			})
+		} else if (event === 'CHATROOM_UPDATED') {
 			channel.bind('App\\Events\\ChatroomUpdatedEvent', (data: any) => {
 				callback({
 					id: '' + data.id,
@@ -65,7 +103,7 @@ export default class KickEventService implements EventService {
 					}
 				} as unknown as EventData[K])
 			})
-		} else if (event === 'user_banned') {
+		} else if (event === 'USER_BANNED') {
 			channel.bind('App\\Events\\UserBannedEvent', (data: any) => {
 				callback({
 					id: '' + data.id,
@@ -84,7 +122,7 @@ export default class KickEventService implements EventService {
 					expiresAt: data.expires_at || ''
 				} as unknown as EventData[K])
 			})
-		} else if (event === 'user_unbanned') {
+		} else if (event === 'USER_UNBANNED') {
 			channel.bind('App\\Events\\UserUnbannedEvent', (data: any) => {
 				callback({
 					id: '' + data.id,
@@ -106,7 +144,7 @@ export default class KickEventService implements EventService {
 
 	disconnect(channelData: ChannelData) {
 		const { chatroom } = channelData
-		if (!chatroom) return error('Chatroom data is missing from channelData')
+		if (!chatroom) return error('KICK', 'EVENTS', 'Chatroom data is missing from channelData')
 
 		const channel = this.chatroomChannelsMap.get(chatroom.id)
 		if (channel) {

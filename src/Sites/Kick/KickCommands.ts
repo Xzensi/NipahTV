@@ -1,5 +1,9 @@
-import type { CommandEntry } from '../../Core/Common/Commands'
-import { isStringNumber, log } from '../../Core/Common/utils'
+import type { CommandEntry } from '@core/Common/Commands'
+import { isStringNumber } from '@core/Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 export const KICK_COMMANDS: readonly CommandEntry[] = [
 	{
@@ -66,7 +70,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
 		},
 		execute: async (deps: RootContext & Session, args) => {
-			log('User command executed with args:', args)
+			log('KICK', 'COMMANDS', 'User command executed with args:', args)
 			const { eventBus } = deps
 			eventBus.publish('ntv.ui.show_modal.user_info', { username: args[0] })
 		}
@@ -206,7 +210,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		execute: async (deps: RootContext & Session, args) => {
 			const { eventBus } = deps
 			eventBus.publish('ntv.ui.timers.add', { duration: args[0], description: args[1] })
-			log('Timer command executed with args:', args)
+			log('KICK', 'COMMANDS', 'Timer command executed with args:', args)
 		}
 	},
 	{

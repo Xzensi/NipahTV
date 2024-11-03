@@ -1,9 +1,13 @@
-import { error, info, log, splitEmoteName } from '../Common/utils'
 import type SettingsManager from '../Settings/SettingsManager'
 import { AbstractEmoteProvider, EmoteProviderStatus } from './AbstractEmoteProvider'
 import { parse as twemojiParse } from '@twemoji/parser'
 import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../Common/constants'
 import { EmoteDatastore } from './EmoteDatastore'
+import { splitEmoteName } from '../Common/utils'
+import { Logger } from '@core/Common/Logger'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
 
@@ -32,7 +36,7 @@ export default class EmotesManager {
 				// this.session.eventBus.subscribe(
 				// 	'ntv.providers.loaded',
 				// 	(allProvidersLoadedSuccessfully: boolean) => {
-				// 		log('Cleaning up stale emote data..', allProvidersLoadedSuccessfully)
+				// 		log('CORE', 'EMOT:MGR', 'Cleaning up stale emote data..', allProvidersLoadedSuccessfully)
 				// 		// We only cleanup the database if all providers loaded successfully
 				// 		if (!allProvidersLoadedSuccessfully) return
 				// 		// Remove emote useage data of emotes that are no longer in any emote set
@@ -40,7 +44,7 @@ export default class EmotesManager {
 				// 		for (const [emoteHid] of emoteUsage) {
 				// 			const emote = this.datastore.getEmote(emoteHid)
 				// 			if (!emote) {
-				// 				log('Removing stale emote usage data of emote', emoteHid)
+				// 				log('CORE', 'EMOT:MGR', 'Removing stale emote usage data of emote', emoteHid)
 				// 				this.datastore.removeEmoteUsage(emoteHid)
 				// 			}
 				// 		}
@@ -48,7 +52,7 @@ export default class EmotesManager {
 				// 	true
 				// )
 			})
-			.catch(err => error('Failed to load emote data from database.', err.message))
+			.catch(err => error('CORE', 'EMOT:MGR', 'Failed to load emote data from database.', err.message))
 	}
 
 	registerProvider(providerConstructor: new (settingsManager: SettingsManager) => AbstractEmoteProvider) {
@@ -64,7 +68,7 @@ export default class EmotesManager {
 		const { datastore, providers } = this
 		const { eventBus } = this.session
 
-		info('Indexing emote providers..')
+		info('CORE', 'EMOT:MGR', 'Indexing emote providers..')
 
 		const fetchEmoteProviderPromises: Array<Promise<void | EmoteSet[]>> = []
 		providers.forEach(provider => {
@@ -91,7 +95,7 @@ export default class EmotesManager {
 				})
 				.catch(err => {
 					this.session.userInterface?.toastError(`Failed to fetch emotes from provider ${provider.name}`)
-					error('Failed to fetch emotes from provider', provider.id, err.message)
+					error('CORE', 'EMOT:MGR', 'Failed to fetch emotes from provider', provider.id, err.message)
 				})
 		})
 
@@ -181,14 +185,14 @@ export default class EmotesManager {
 
 	getRenderableEmote(emote: Emote, classes = '', srcSetWidthDescriptor?: boolean) {
 		const provider = this.providers.get(emote.provider)
-		if (!provider) return error('Provider not found for emote', emote)
+		if (!provider) return error('CORE', 'EMOT:MGR', 'Provider not found for emote', emote)
 
 		return provider.getRenderableEmote(emote, classes, srcSetWidthDescriptor)
 	}
 
 	getRenderableEmoteByHid(emoteHid: string, classes = '', srcSetWidthDescriptor?: boolean) {
 		const emote = this.getEmote(emoteHid)
-		if (!emote) return error('Emote not found')
+		if (!emote) return error('CORE', 'EMOT:MGR', 'Emote not found')
 
 		const provider = this.providers.get(emote.provider)!
 		return provider.getRenderableEmote(emote, classes, srcSetWidthDescriptor)
@@ -196,7 +200,7 @@ export default class EmotesManager {
 
 	getEmoteEmbeddable(emoteHid: string, spacingBefore = false) {
 		const emote = this.getEmote(emoteHid)
-		if (!emote) return error('Emote not found')
+		if (!emote) return error('CORE', 'EMOT:MGR', 'Emote not found')
 
 		const provider = this.providers.get(emote.provider)!
 		if (spacingBefore && emote.spacing) {
@@ -224,7 +228,7 @@ export default class EmotesManager {
 
 	isEmoteMenuEnabled(emoteHid: string) {
 		const emoteSet = this.datastore.getEmoteSetByEmoteHid(emoteHid)
-		if (!emoteSet) return error('Emote set not found for emote', emoteHid)
+		if (!emoteSet) return error('CORE', 'EMOT:MGR', 'Emote set not found for emote', emoteHid)
 		return emoteSet.enabledInMenu
 	}
 

@@ -1,16 +1,18 @@
 import {
-	log,
-	error,
 	assertArgDefined,
 	CHAR_ZWSP,
 	debounce,
 	eventKeyIsLetterDigitPuncSpaceChar,
 	parseHTML
-} from '../Common/utils'
-import { PriorityEventTarget } from '../Common/PriorityEventTarget'
+} from '@core/Common/utils'
+import { PriorityEventTarget } from '@core/Common/PriorityEventTarget'
 import MessagesHistory from './MessagesHistory'
-import Clipboard2 from '../Common/Clipboard'
-import { Caret } from '../UI/Caret'
+import Clipboard2 from '@core/Common/Clipboard'
+import { Logger } from '@core/Common/Logger'
+import { Caret } from '@core/UI/Caret'
+
+const logger = new Logger()
+const { log, info, error } = logger.destruct()
 
 /**
  * Inserts a space character before the component if there is no space character before it.
@@ -182,7 +184,7 @@ export class ContentEditableEditor {
 
 		// inputNode.addEventListener('selectstart', (evt: Event) => {
 		// 	const selection = (evt.target as any)?.value
-		// 	log('SelectStart', selection)
+		// 	log('CORE', 'EDITOR', 'SelectStart', selection)
 		// })
 
 		document.addEventListener('selectionchange', (evt: Event) => {
@@ -213,7 +215,7 @@ export class ContentEditableEditor {
 					if (emoteHid) {
 						const emoteEmbed = this.createEmoteComponent(emoteHid)
 						if (!emoteEmbed) {
-							error('Failed to create emote component for', token)
+							error('CORE', 'EDITOR', 'Failed to create emote component for', token)
 							continue
 						}
 						newNodes.push(emoteEmbed)
@@ -269,10 +271,10 @@ export class ContentEditableEditor {
 			this.adjustSelectionForceOutOfComponent()
 		})
 		// inputNode.addEventListener('compositionupdate', event => {
-		// 	log('Composition update', event)
+		// 	log('CORE', 'EDITOR', 'Composition update', event)
 		// })
 		// inputNode.addEventListener('compositionend', event => {
-		// 	log('Composition end', event)
+		// 	log('CORE', 'EDITOR', 'Composition end', event)
 		// })
 	}
 
@@ -538,7 +540,7 @@ export class ContentEditableEditor {
 				!component.childNodes[1] ||
 				(component.childNodes[1] as HTMLElement).className !== 'ntv__input-component__body'
 			) {
-				log('!! Cleaning up empty component', component)
+				log('CORE', 'EDITOR', '!! Cleaning up empty component', component)
 				component.remove()
 			}
 		}
@@ -548,10 +550,10 @@ export class ContentEditableEditor {
 		const emotesManager = this.session.emotesManager
 
 		const emote = emotesManager.getEmote(emoteHID)
-		if (!emote) return error('Emote not found for HID', emoteHID)
+		if (!emote) return error('CORE', 'EDITOR', 'Emote not found for HID', emoteHID)
 
 		const emoteHTML = emotesManager.getRenderableEmote(emote, (emote.isZeroWidth && 'ntv__emote--zero-width') || '')
-		if (!emoteHTML) return error('Failed to get renderable emote for HID', emoteHID)
+		if (!emoteHTML) return error('CORE', 'EDITOR', 'Failed to get renderable emote for HID', emoteHID)
 
 		const component = document.createElement('span')
 		component.className = 'ntv__input-component'
@@ -612,7 +614,7 @@ export class ContentEditableEditor {
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
 				const componentBody = node.childNodes[1]
 				if (!componentBody) {
-					error('Invalid component node', node)
+					error('CORE', 'EDITOR', 'Invalid component node', node)
 					continue
 				}
 				const emoteBox = componentBody.childNodes[0]
@@ -626,10 +628,10 @@ export class ContentEditableEditor {
 						emotesInMessage.add(emoteHid)
 						buffer.push(emotesManager.getEmoteEmbeddable(emoteHid))
 					} else {
-						error('Invalid emote node, missing HID', emoteBox)
+						error('CORE', 'EDITOR', 'Invalid emote node, missing HID', emoteBox)
 					}
 				} else {
-					error('Invalid component node', componentBody.childNodes)
+					error('CORE', 'EDITOR', 'Invalid component node', componentBody.childNodes)
 				}
 			}
 		}
@@ -649,7 +651,7 @@ export class ContentEditableEditor {
 		const { inputNode } = this
 
 		const selection = document.getSelection()
-		if (!selection || !selection.rangeCount) return error('No ranges found in selection')
+		if (!selection || !selection.rangeCount) return error('CORE', 'EDITOR', 'No ranges found in selection')
 
 		const { focusNode, focusOffset } = selection
 		if (focusNode === inputNode && focusOffset === 0) {
@@ -722,7 +724,7 @@ export class ContentEditableEditor {
 		const { inputNode } = this
 
 		const selection = document.getSelection()
-		if (!selection || !selection.rangeCount) return error('No ranges found in selection')
+		if (!selection || !selection.rangeCount) return error('CORE', 'EDITOR', 'No ranges found in selection')
 
 		let range = selection.getRangeAt(0)
 
@@ -900,7 +902,11 @@ export class ContentEditableEditor {
 				}
 			}
 		} else {
-			error('Unadjusted selection focus somehow reached inside component. This should never happen.')
+			error(
+				'CORE',
+				'EDITOR',
+				'Unadjusted selection focus somehow reached inside component. This should never happen.'
+			)
 		}
 	}
 
@@ -1027,7 +1033,11 @@ export class ContentEditableEditor {
 		if (!selection) {
 			inputNode.appendChild(component)
 			this.hasUnprocessedContentChanges = true
-			return error('Selection API is not available, please use a modern browser supports the Selection API.')
+			return error(
+				'CORE',
+				'EDITOR',
+				'Selection API is not available, please use a modern browser supports the Selection API.'
+			)
 		}
 
 		if (!selection.rangeCount) {
@@ -1093,7 +1103,14 @@ export class ContentEditableEditor {
 		else if (startContainer instanceof Text) {
 			range.insertNode(component)
 		} else {
-			return error('Encountered unexpected unprocessable node', component, startContainer, range)
+			return error(
+				'CORE',
+				'EDITOR',
+				'Encountered unexpected unprocessable node',
+				component,
+				startContainer,
+				range
+			)
 		}
 
 		range.setEnd(component.childNodes[2], 1)
@@ -1119,7 +1136,7 @@ export class ContentEditableEditor {
 
 		const emoteComponent = this.createEmoteComponent(emoteHid)
 		if (!emoteComponent) {
-			error('Invalid emote embed')
+			error('CORE', 'EDITOR', 'Invalid emote embed')
 			return null
 		}
 
@@ -1135,13 +1152,13 @@ export class ContentEditableEditor {
 
 		const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid)
 		if (!emoteHTML) {
-			error('Invalid emote embed')
+			error('CORE', 'EDITOR', 'Invalid emote embed')
 			return null
 		}
 
 		const emoteBox = component.querySelector('.ntv__inline-emote-box')
 		if (!emoteBox) {
-			error('Component does not contain emote box')
+			error('CORE', 'EDITOR', 'Component does not contain emote box')
 			return null
 		}
 
