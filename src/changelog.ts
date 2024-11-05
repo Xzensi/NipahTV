@@ -4,10 +4,18 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.60',
+		date: '2024-11-03',
+		description: `
+                  Feat: New settings option to move chat to left side of layout
+            `
+	},
+	{
 		version: '1.5.59',
 		date: '2024-11-03',
 		description: `
                   Fix: 7TV emotes without files breaking runtime
+                  Fix: Emote sets sometimes not loading due to network/UI racing conditions
                   Fix: Emote tooltip images not working for other channel Kick emotes you are not subscribed to
                   Fix: Settings menu not scrolling to top correctly
                   Chore: Adjusted event API reconnect max duration to 2 hours
