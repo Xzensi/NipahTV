@@ -777,18 +777,53 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		const channelId = this.session.channelData.channelId
 
-		// Handle changing the overlay chat setting
-		const chatOverlayModeSetting = settingsManager.getSetting(channelId, 'appearance.layout.overlay_chat')
-		if (chatOverlayModeSetting && chatOverlayModeSetting !== 'none') {
-			waitForElements(['body > div[data-theatre]'], 10_000)
-				.then(([containerEl]) => {
+		waitForElements(['body > div[data-theatre]'], 10_000)
+			.then(([containerEl]) => {
+				const chatPositionModeSetting = settingsManager.getSetting(channelId, 'chat.position')
+				if (chatPositionModeSetting && chatPositionModeSetting !== 'none') {
+					containerEl.classList.add('ntv__chat-position--' + chatPositionModeSetting)
+				}
+
+				const chatOverlayModeSetting = settingsManager.getSetting(channelId, 'appearance.layout.overlay_chat')
+				if (chatOverlayModeSetting && chatOverlayModeSetting !== 'none') {
 					containerEl.classList.add('ntv__theatre-overlay__mode')
 					containerEl.classList.add(
 						'ntv__theatre-overlay__mode--' + chatOverlayModeSetting.replaceAll('_', '-')
 					)
-				})
-				.catch(() => {})
-		}
+				}
+
+				const chatOverlayPositionSetting = settingsManager.getSetting(
+					channelId,
+					'appearance.layout.overlay_chat.position'
+				)
+				if (chatOverlayPositionSetting) {
+					containerEl.classList.add(
+						'ntv__theatre-overlay__position--' + chatOverlayPositionSetting.replaceAll('_', '-')
+					)
+				}
+
+				const videoAlignmentModeSetting = settingsManager.getSetting(
+					channelId,
+					'appearance.layout.video_alignment'
+				)
+				if (videoAlignmentModeSetting && videoAlignmentModeSetting !== 'none') {
+					containerEl.classList.add(
+						'ntv__theatre-overlay__video-alignment--' + videoAlignmentModeSetting.replaceAll('_', '-')
+					)
+				}
+			})
+			.catch(() => {})
+
+		rootEventBus.subscribe(
+			'ntv.settings.change.chat.position',
+			({ value, prevValue }: { value: string; prevValue?: string }) => {
+				const containerEl = document.querySelector('body > div[data-theatre]')
+				if (!containerEl) return error('KICK', 'UI', 'Theatre container not found')
+
+				if (prevValue && prevValue !== 'none') containerEl.classList.remove('ntv__chat-position--' + prevValue)
+				if (value && value !== 'none') containerEl.classList.add('ntv__chat-position--' + value)
+			}
+		)
 
 		rootEventBus.subscribe(
 			'ntv.settings.change.appearance.layout.overlay_chat',
@@ -809,22 +844,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		const videoAlignmentModeSetting = settingsManager.getSetting(
-			channelId,
-			'appearance.layout.overlay_chat.video_alignment'
-		)
-		if (videoAlignmentModeSetting && videoAlignmentModeSetting !== 'none') {
-			waitForElements(['body > div[data-theatre]'], 10_000)
-				.then(([containerEl]) => {
-					containerEl.classList.add(
-						'ntv__theatre-overlay__video-alignment--' + videoAlignmentModeSetting.replaceAll('_', '-')
-					)
-				})
-				.catch(() => {})
-		}
-
 		rootEventBus.subscribe(
-			'ntv.settings.change.appearance.layout.overlay_chat.video_alignment',
+			'ntv.settings.change.appearance.layout.video_alignment',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
 				if (!containerEl) return error('KICK', 'UI', 'Theatre container not found')
@@ -840,20 +861,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}
 		)
-
-		const chatOverlayPositionSetting = settingsManager.getSetting(
-			channelId,
-			'appearance.layout.overlay_chat.position'
-		)
-		if (chatOverlayPositionSetting) {
-			waitForElements(['body > div[data-theatre]'], 10_000)
-				.then(([containerEl]) => {
-					containerEl.classList.add(
-						'ntv__theatre-overlay__position--' + chatOverlayPositionSetting.replaceAll('_', '-')
-					)
-				})
-				.catch(() => {})
-		}
 
 		rootEventBus.subscribe(
 			'ntv.settings.change.appearance.layout.overlay_chat.position',

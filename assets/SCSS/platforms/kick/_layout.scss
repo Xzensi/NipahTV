@@ -1,0 +1,9 @@
+body > [data-theatre].ntv {
+	&__chat-position {
+		&--left {
+			:has(> #channel-chatroom) {
+				flex-direction: row-reverse;
+			}
+		}
+	}
+}
