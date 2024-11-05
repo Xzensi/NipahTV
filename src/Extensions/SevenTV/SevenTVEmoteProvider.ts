@@ -74,7 +74,11 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			return
 		}
 
-		const emotesMapped = globalData.emotes.map((emote: any) => {
+		let emotesMapped = globalData.emotes.map((emote: any) => {
+			if (!emote.data?.host?.files || !emote.data.host.files.length) {
+				error('EXT:STV', 'EMOT:PROV', 'Emote has no files:', emote)
+				return
+			}
 			const file = emote.data.host.files[0]
 			let size
 			switch (true) {
@@ -102,6 +106,9 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			} as Emote
 		})
 
+		// removed undefined entries from the array
+		emotesMapped = emotesMapped.filter(Boolean)
+
 		const isMenuEnabled = !!this.settingsManager.getSetting(channelId, 'emote_menu.emote_providers.7tv.show_global')
 
 		return [
@@ -128,7 +135,11 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			return
 		}
 
-		const emotesMapped = userData.emote_set.emotes.map((emote: any) => {
+		let emotesMapped = userData.emote_set.emotes.map((emote: any) => {
+			if (!emote.data?.host?.files || !emote.data.host.files.length) {
+				error('EXT:STV', 'EMOT:PROV', 'Emote has no files:', emote)
+				return
+			}
 			const file = emote.data.host.files[0]
 			const size = (file.width / 24 + 0.5) << 0
 
@@ -144,6 +155,9 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				size
 			} as Emote
 		})
+
+		// removed undefined entries from the array
+		emotesMapped = emotesMapped.filter(Boolean)
 
 		const isMenuEnabled = !!this.settingsManager.getSetting(
 			channelId,

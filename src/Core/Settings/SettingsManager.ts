@@ -87,7 +87,57 @@ export default class SettingsManager {
 					label: 'Layout',
 					children: [
 						{
-							label: 'Appearance',
+							label: 'Layout',
+							children: [
+								{
+									label: 'Chat position alignment',
+									key: 'chat.position',
+									default: 'center',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Default',
+											value: 'none'
+										},
+										{
+											label: 'Left',
+											value: 'left'
+										},
+										{
+											label: 'Right',
+											value: 'right'
+										}
+									]
+								}
+							]
+						},
+						{
+							label: 'Theatre mode',
+							children: [
+								{
+									label: 'Alignment position of the stream video in theatre mode (only has effect if video player is smaller than screen)',
+									key: 'appearance.layout.overlay_chat.video_alignment',
+									default: 'center',
+									type: 'dropdown',
+									options: [
+										{
+											label: 'Centered',
+											value: 'center'
+										},
+										{
+											label: 'Aligned to left of screen',
+											value: 'aligned_left'
+										},
+										{
+											label: 'Aligned to right of screen',
+											value: 'aligned_right'
+										}
+									]
+								}
+							]
+						},
+						{
+							label: 'Translucent overlay chat',
 							children: [
 								{
 									label: 'Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)',
@@ -126,26 +176,6 @@ export default class SettingsManager {
 										{
 											label: 'Left',
 											value: 'left'
-										}
-									]
-								},
-								{
-									label: 'Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen)',
-									key: 'appearance.layout.overlay_chat.video_alignment',
-									default: 'center',
-									type: 'dropdown',
-									options: [
-										{
-											label: 'Centered',
-											value: 'center'
-										},
-										{
-											label: 'Aligned to left of screen',
-											value: 'aligned_left'
-										},
-										{
-											label: 'Aligned to right of screen',
-											value: 'aligned_right'
 										}
 									]
 								}

@@ -37,6 +37,7 @@ export function getPlatformId(): PLATFORM_ENUM {
 
 export class REST {
 	static get(url: string) {
+		// TODO maybe do a second request if first one fails, just to add some robustness
 		return this.fetch(url)
 	}
 	static post(url: string, data?: object) {

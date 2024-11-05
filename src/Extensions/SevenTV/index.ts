@@ -458,7 +458,7 @@ export default class SevenTVExtension extends Extension {
 		const channelUser = (
 			promiseRes[promiseRes.length - 1].status === 'fulfilled'
 				? //@ts-ignore
-				  promiseRes[promiseRes.length - 1].value
+				  promiseRes[promiseRes.length - 1].value || { id: STV_ID_NULL }
 				: { id: STV_ID_NULL }
 		) as { id: string } | Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>
 

@@ -229,6 +229,7 @@ export class EmoteDatastore {
 			const storedEmote = this.emoteNameMap.get(emote.name)
 			const storedEmoteSet = this.emoteEmoteSetMap.get(emote.hid)
 
+			// TODO what if all emotes are overridden leaving no emotes in the set? Might happen with personal emote sets overriding small channel emote sets
 			if (storedEmote && storedEmoteSet) {
 				const isHigherProviderOrder =
 					providerOverrideOrder.indexOf(emoteSet.provider) >

@@ -155,6 +155,12 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				})()
 			}
 		)
+
+		// Load already loaded emote sets from the session
+		const emoteSets = this.session.emotesManager.getEmoteSets()
+		for (const emoteSet of emoteSets) {
+			this.addEmoteSet(emoteSet)
+		}
 	}
 
 	attachEventHandlers() {

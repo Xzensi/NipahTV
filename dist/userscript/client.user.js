@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.58
+// @version 1.5.60
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-b2825067.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-1a18c181.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11956,6 +11956,25 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.60",
+    date: "2024-11-03",
+    description: `
+                  Feat: New settings option to move chat to left side of layout
+            `
+  },
+  {
+    version: "1.5.59",
+    date: "2024-11-03",
+    description: `
+                  Fix: 7TV emotes without files breaking runtime
+                  Fix: Emote sets sometimes not loading due to network/UI racing conditions
+                  Fix: Emote tooltip images not working for other channel Kick emotes you are not subscribed to
+                  Fix: Settings menu not scrolling to top correctly
+                  Chore: Adjusted event API reconnect max duration to 2 hours
+                  Chore: Turned my doorbell into a time machine
+            `
+  },
+  {
     version: "1.5.57",
     date: "2024-11-03",
     description: `
@@ -13338,8 +13357,7 @@ var SettingsModal = class extends AbstractModal {
           el2.style.display = "none";
         });
         this.panelsEl.querySelector(`[data-panel="${panelId}"]`)?.setAttribute("style", "display: block");
-        const top = this.panelsEl.getBoundingClientRect().top;
-        this.modalBodyEl.scrollTo({ top, behavior: "smooth" });
+        this.modalBodyEl.scrollTop = 0;
       });
     });
     this.sidebarBtnEl.addEventListener("click", () => {
@@ -13372,7 +13390,57 @@ var SettingsManager = class {
           label: "Layout",
           children: [
             {
-              label: "Appearance",
+              label: "Layout",
+              children: [
+                {
+                  label: "Chat position alignment",
+                  key: "chat.position",
+                  default: "center",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "Default",
+                      value: "none"
+                    },
+                    {
+                      label: "Left",
+                      value: "left"
+                    },
+                    {
+                      label: "Right",
+                      value: "right"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              label: "Theatre mode",
+              children: [
+                {
+                  label: "Alignment position of the stream video in theatre mode (only has effect if video player is smaller than screen)",
+                  key: "appearance.layout.overlay_chat.video_alignment",
+                  default: "center",
+                  type: "dropdown",
+                  options: [
+                    {
+                      label: "Centered",
+                      value: "center"
+                    },
+                    {
+                      label: "Aligned to left of screen",
+                      value: "aligned_left"
+                    },
+                    {
+                      label: "Aligned to right of screen",
+                      value: "aligned_right"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              label: "Translucent overlay chat",
               children: [
                 {
                   label: "Overlay the chat transparently on top of the stream when in theatre mode (EXPERIMENTAL)",
@@ -13411,26 +13479,6 @@ var SettingsManager = class {
                     {
                       label: "Left",
                       value: "left"
-                    }
-                  ]
-                },
-                {
-                  label: "Alignment of the stream video in overlay mode (shifted to left or centered under chat, only has effect if video player is smaller than screen)",
-                  key: "appearance.layout.overlay_chat.video_alignment",
-                  default: "center",
-                  type: "dropdown",
-                  options: [
-                    {
-                      label: "Centered",
-                      value: "center"
-                    },
-                    {
-                      label: "Aligned to left of screen",
-                      value: "aligned_left"
-                    },
-                    {
-                      label: "Aligned to right of screen",
-                      value: "aligned_right"
                     }
                   ]
                 }
@@ -17261,6 +17309,10 @@ var EmoteMenuComponent = class extends AbstractComponent {
         })()
       }
     );
+    const emoteSets = this.session.emotesManager.getEmoteSets();
+    for (const emoteSet of emoteSets) {
+      this.addEmoteSet(emoteSet);
+    }
   }
   attachEventHandlers() {
     const { eventBus: rootEventBus, settingsManager } = this.rootContext;
@@ -21862,6 +21914,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.loadAnnouncements();
     this.loadSettings();
     this.loadStylingVariables();
+    this.loadDocumentPatches();
     if (channelData.isModView || channelData.isCreatorView) {
       waitForElements(["#message-input", "#chatroom-footer .send-row > button"], 15e3, abortSignal).then((foundElements) => {
         if (this.session.isDestroyed) return;
@@ -22356,20 +22409,62 @@ var KickUserInterface = class extends AbstractUserInterface {
       { passive: true }
     );
   }
+  loadDocumentPatches() {
+    const { settingsManager, eventBus: rootEventBus } = this.rootContext;
+    const channelId = this.session.channelData.channelId;
+    waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+      const chatPositionModeSetting = settingsManager.getSetting(channelId, "chat.position");
+      if (chatPositionModeSetting && chatPositionModeSetting !== "none") {
+        containerEl.classList.add("ntv__chat-position--" + chatPositionModeSetting);
+      }
+    }).catch(() => {
+    });
+    rootEventBus.subscribe(
+      "ntv.settings.change.chat.position",
+      ({ value, prevValue }) => {
+        const containerEl = document.querySelector("body > div[data-theatre]");
+        if (!containerEl) return error25("KICK", "UI", "Theatre container not found");
+        if (prevValue && prevValue !== "none") containerEl.classList.remove("ntv__chat-position--" + prevValue);
+        if (value && value !== "none") containerEl.classList.add("ntv__chat-position--" + value);
+      }
+    );
+  }
   loadTheatreModeBehaviour() {
     if (this.session.isDestroyed) return;
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const channelId = this.session.channelData.channelId;
-    const chatOverlayModeSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
-    if (chatOverlayModeSetting && chatOverlayModeSetting !== "none") {
-      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+    waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+      const chatPositionModeSetting = settingsManager.getSetting(channelId, "chat.position");
+      if (chatPositionModeSetting && chatPositionModeSetting !== "none") {
+        containerEl.classList.add("ntv__chat-position--" + chatPositionModeSetting);
+      }
+      const chatOverlayModeSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
+      if (chatOverlayModeSetting && chatOverlayModeSetting !== "none") {
         containerEl.classList.add("ntv__theatre-overlay__mode");
         containerEl.classList.add(
           "ntv__theatre-overlay__mode--" + chatOverlayModeSetting.replaceAll("_", "-")
         );
-      }).catch(() => {
-      });
-    }
+      }
+      const chatOverlayPositionSetting = settingsManager.getSetting(
+        channelId,
+        "appearance.layout.overlay_chat.position"
+      );
+      if (chatOverlayPositionSetting) {
+        containerEl.classList.add(
+          "ntv__theatre-overlay__position--" + chatOverlayPositionSetting.replaceAll("_", "-")
+        );
+      }
+      const videoAlignmentModeSetting = settingsManager.getSetting(
+        channelId,
+        "appearance.layout.video_alignment"
+      );
+      if (videoAlignmentModeSetting && videoAlignmentModeSetting !== "none") {
+        containerEl.classList.add(
+          "ntv__theatre-overlay__video-alignment--" + videoAlignmentModeSetting.replaceAll("_", "-")
+        );
+      }
+    }).catch(() => {
+    });
     rootEventBus.subscribe(
       "ntv.settings.change.appearance.layout.overlay_chat",
       ({ value, prevValue }) => {
@@ -22386,20 +22481,8 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     );
-    const videoAlignmentModeSetting = settingsManager.getSetting(
-      channelId,
-      "appearance.layout.overlay_chat.video_alignment"
-    );
-    if (videoAlignmentModeSetting && videoAlignmentModeSetting !== "none") {
-      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
-        containerEl.classList.add(
-          "ntv__theatre-overlay__video-alignment--" + videoAlignmentModeSetting.replaceAll("_", "-")
-        );
-      }).catch(() => {
-      });
-    }
     rootEventBus.subscribe(
-      "ntv.settings.change.appearance.layout.overlay_chat.video_alignment",
+      "ntv.settings.change.appearance.layout.video_alignment",
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
         if (!containerEl) return error25("KICK", "UI", "Theatre container not found");
@@ -22413,18 +22496,6 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     );
-    const chatOverlayPositionSetting = settingsManager.getSetting(
-      channelId,
-      "appearance.layout.overlay_chat.position"
-    );
-    if (chatOverlayPositionSetting) {
-      waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
-        containerEl.classList.add(
-          "ntv__theatre-overlay__position--" + chatOverlayPositionSetting.replaceAll("_", "-")
-        );
-      }).catch(() => {
-      });
-    }
     rootEventBus.subscribe(
       "ntv.settings.change.appearance.layout.overlay_chat.position",
       ({ value, prevValue }) => {
@@ -22562,13 +22633,21 @@ var KickUserInterface = class extends AbstractUserInterface {
           span.textContent = "Zero Width";
           tooltipEl.appendChild(span);
         }
-        if (showTooltipImage && emote) {
-          const imageNode = parseHTML(
-            this.session.emotesManager.getRenderableEmote(emote, "", true),
-            true
-          );
-          imageNode.className = "ntv__emote";
-          tooltipEl.prepend(imageNode);
+        if (showTooltipImage) {
+          if (emote) {
+            const imageNode = parseHTML(
+              this.session.emotesManager.getRenderableEmote(emote, "", true),
+              true
+            );
+            imageNode.className = "ntv__emote";
+            tooltipEl.prepend(imageNode);
+          } else {
+            const imgEl = target.cloneNode(true);
+            imgEl.className = "ntv__emote";
+            imgEl.setAttribute("loading", "lazy");
+            imgEl.setAttribute("decoding", "async");
+            tooltipEl.prepend(imgEl);
+          }
         }
         const rect = target.getBoundingClientRect();
         tooltipEl.style.left = `${rect.x + rect.width / 2}px`;
@@ -24196,7 +24275,11 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       error29("EXT:STV", "EMOT:PROV", "No global emotes found for SevenTV provider");
       return;
     }
-    const emotesMapped = globalData.emotes.map((emote) => {
+    let emotesMapped = globalData.emotes.map((emote) => {
+      if (!emote.data?.host?.files || !emote.data.host.files.length) {
+        error29("EXT:STV", "EMOT:PROV", "Emote has no files:", emote);
+        return;
+      }
       const file = emote.data.host.files[0];
       let size;
       switch (true) {
@@ -24223,6 +24306,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         size
       };
     });
+    emotesMapped = emotesMapped.filter(Boolean);
     const isMenuEnabled = !!this.settingsManager.getSetting(channelId, "emote_menu.emote_providers.7tv.show_global");
     return [
       {
@@ -24246,7 +24330,11 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       log28("EXT:STV", "EMOT:PROV", "No user emotes found for SevenTV provider");
       return;
     }
-    const emotesMapped = userData.emote_set.emotes.map((emote) => {
+    let emotesMapped = userData.emote_set.emotes.map((emote) => {
+      if (!emote.data?.host?.files || !emote.data.host.files.length) {
+        error29("EXT:STV", "EMOT:PROV", "Emote has no files:", emote);
+        return;
+      }
       const file = emote.data.host.files[0];
       const size = file.width / 24 + 0.5 << 0;
       const sanitizedEmoteName = emote.name.replaceAll("<", "&lt;").replaceAll('"', "&quot;");
@@ -24261,6 +24349,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         size
       };
     });
+    emotesMapped = emotesMapped.filter(Boolean);
     const isMenuEnabled = !!this.settingsManager.getSetting(
       channelId,
       "emote_menu.emote_providers.7tv.show_current_channel"
@@ -24450,9 +24539,14 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     this.rootContext = rootContext;
     this.datastore = datastore;
   }
-  static MAX_RECONNECT_ATTEMPTS = 5;
   static CONNECTION_TIMEOUT = 15e3;
   // 15s
+  static MAX_RECONNECT_DELAY = 1e4;
+  // 10s
+  static MAX_RECONNECT_ATTEMPTS = 360 * 2;
+  // 2 hours (360 * 2 * MAX_RECONNECT_DELAY)
+  static PRESENCE_THROTTLE_INTERVAL = 1e4;
+  // 10s
   connectionTimeoutId;
   socket = null;
   msgBuffer = [];
@@ -24601,7 +24695,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
   scheduleReconnect(useBackoff) {
     if (this.connectionState !== 0 /* DISCONNECTED */) return;
     const jitter = (Math.min(this.reconnectAttempts, 1) * 800 + Math.min(this.reconnectAttempts ** 2 * 100, 1200)) * Math.random();
-    const delay = useBackoff ? Math.min(this.reconnectAttempts ** 2 * 500 + jitter, 1e4) : 0;
+    const delay = useBackoff ? Math.min(this.reconnectAttempts ** 2 * 500 + jitter, _SevenTVEventAPI.MAX_RECONNECT_DELAY) : 0;
     this.reconnectAttempts++;
     log29(
       "EXT:STV",
@@ -24709,7 +24803,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     if (!userId) return error30("EXT:STV", "EVENTAPI", "No user ID provided for presence update");
     if (!force) {
       const now = Date.now();
-      if (room.presenceTimestamp > now - 1e3 * 10) return;
+      if (room.presenceTimestamp > now - _SevenTVEventAPI.PRESENCE_THROTTLE_INTERVAL) return;
       room.presenceTimestamp = now;
     }
     REST.post(`https://7tv.io/v3/users/${userId}/presences`, {
@@ -25176,7 +25270,7 @@ var SevenTVExtension = class extends Extension {
     const promiseRes = await Promise.allSettled(promises);
     const channelUser = promiseRes[promiseRes.length - 1].status === "fulfilled" ? (
       //@ts-ignore
-      promiseRes[promiseRes.length - 1].value
+      promiseRes[promiseRes.length - 1].value || { id: STV_ID_NULL }
     ) : { id: STV_ID_NULL };
     let activeEmoteSet;
     if (channelUser.id !== STV_ID_NULL && "emote_sets" in channelUser && channelUser.emote_sets) {
@@ -25463,7 +25557,7 @@ var BotrixExtension = class extends Extension {
 var logger35 = new Logger();
 var { log: log34, info: info33, error: error35 } = logger35.destruct();
 var NipahClient = class {
-  VERSION = "1.5.58";
+  VERSION = "1.5.60";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

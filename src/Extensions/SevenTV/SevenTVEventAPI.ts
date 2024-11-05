@@ -200,8 +200,10 @@ enum ConnectionState {
 }
 
 export default class SevenTVEventAPI {
-	private static readonly MAX_RECONNECT_ATTEMPTS = 5
 	private static readonly CONNECTION_TIMEOUT = 15_000 // 15s
+	private static readonly MAX_RECONNECT_DELAY = 10_000 // 10s
+	private static readonly MAX_RECONNECT_ATTEMPTS = 360 * 2 // 2 hours (360 * 2 * MAX_RECONNECT_DELAY)
+	private static readonly PRESENCE_THROTTLE_INTERVAL = 10_000 // 10s
 	private connectionTimeoutId?: NodeJS.Timeout
 
 	private socket: WebSocket | null = null
@@ -383,7 +385,9 @@ export default class SevenTVEventAPI {
 		const jitter =
 			(Math.min(this.reconnectAttempts, 1) * 800 + Math.min(this.reconnectAttempts ** 2 * 100, 1200)) *
 			Math.random()
-		const delay = useBackoff ? Math.min(this.reconnectAttempts ** 2 * 500 + jitter, 10_000) : 0
+		const delay = useBackoff
+			? Math.min(this.reconnectAttempts ** 2 * 500 + jitter, SevenTVEventAPI.MAX_RECONNECT_DELAY)
+			: 0
 
 		this.reconnectAttempts++
 
@@ -530,7 +534,7 @@ export default class SevenTVEventAPI {
 		if (!force) {
 			// Limit presence updates to 10 seconds interval
 			const now = Date.now()
-			if (room.presenceTimestamp > now - 1000 * 10) return
+			if (room.presenceTimestamp > now - SevenTVEventAPI.PRESENCE_THROTTLE_INTERVAL) return
 			room.presenceTimestamp = now
 		}
 
