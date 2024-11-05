@@ -46,7 +46,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 class NipahClient {
-	VERSION = '1.5.58'
+	VERSION = '1.5.59'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',

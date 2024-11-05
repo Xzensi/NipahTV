@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.59',
+		date: '2024-11-03',
+		description: `
+                  Fix: 7TV emotes without files breaking runtime
+                  Fix: Emote tooltip images not working for other channel Kick emotes you are not subscribed to
+                  Fix: Settings menu not scrolling to top correctly
+                  Chore: Adjusted event API reconnect max duration to 2 hours
+                  Chore: Turned my doorbell into a time machine
+            `
+	},
+	{
 		version: '1.5.57',
 		date: '2024-11-03',
 		description: `
