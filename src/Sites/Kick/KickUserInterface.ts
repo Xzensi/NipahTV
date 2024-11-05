@@ -74,6 +74,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.loadAnnouncements()
 		this.loadSettings()
 		this.loadStylingVariables()
+		this.loadDocumentPatches()
 
 		if (channelData.isModView || channelData.isCreatorView) {
 			// Wait for text input & submit button to load
@@ -771,6 +772,31 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 	}
 
+	loadDocumentPatches() {
+		const { settingsManager, eventBus: rootEventBus } = this.rootContext
+		const channelId = this.session.channelData.channelId
+
+		waitForElements(['body > div[data-theatre]'], 10_000)
+			.then(([containerEl]) => {
+				const chatPositionModeSetting = settingsManager.getSetting(channelId, 'chat.position')
+				if (chatPositionModeSetting && chatPositionModeSetting !== 'none') {
+					containerEl.classList.add('ntv__chat-position--' + chatPositionModeSetting)
+				}
+			})
+			.catch(() => {})
+
+		rootEventBus.subscribe(
+			'ntv.settings.change.chat.position',
+			({ value, prevValue }: { value: string; prevValue?: string }) => {
+				const containerEl = document.querySelector('body > div[data-theatre]')
+				if (!containerEl) return error('KICK', 'UI', 'Theatre container not found')
+
+				if (prevValue && prevValue !== 'none') containerEl.classList.remove('ntv__chat-position--' + prevValue)
+				if (value && value !== 'none') containerEl.classList.add('ntv__chat-position--' + value)
+			}
+		)
+	}
+
 	loadTheatreModeBehaviour() {
 		if (this.session.isDestroyed) return
 
@@ -813,17 +839,6 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			})
 			.catch(() => {})
-
-		rootEventBus.subscribe(
-			'ntv.settings.change.chat.position',
-			({ value, prevValue }: { value: string; prevValue?: string }) => {
-				const containerEl = document.querySelector('body > div[data-theatre]')
-				if (!containerEl) return error('KICK', 'UI', 'Theatre container not found')
-
-				if (prevValue && prevValue !== 'none') containerEl.classList.remove('ntv__chat-position--' + prevValue)
-				if (value && value !== 'none') containerEl.classList.add('ntv__chat-position--' + value)
-			}
-		)
 
 		rootEventBus.subscribe(
 			'ntv.settings.change.appearance.layout.overlay_chat',
