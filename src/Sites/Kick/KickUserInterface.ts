@@ -1046,13 +1046,22 @@ export class KickUserInterface extends AbstractUserInterface {
 					tooltipEl.appendChild(span)
 				}
 
-				if (showTooltipImage && emote) {
-					const imageNode = parseHTML(
-						this.session.emotesManager.getRenderableEmote(emote, '', true) as string,
-						true
-					) as HTMLElement
-					imageNode.className = 'ntv__emote'
-					tooltipEl.prepend(imageNode)
+				if (showTooltipImage) {
+					if (emote) {
+						const imageNode = parseHTML(
+							this.session.emotesManager.getRenderableEmote(emote, '', true) as string,
+							true
+						) as HTMLElement
+
+						imageNode.className = 'ntv__emote'
+						tooltipEl.prepend(imageNode)
+					} else {
+						const imgEl = target.cloneNode(true) as HTMLElement
+						imgEl.className = 'ntv__emote'
+						imgEl.setAttribute('loading', 'lazy')
+						imgEl.setAttribute('decoding', 'async')
+						tooltipEl.prepend(imgEl)
+					}
 				}
 
 				const rect = target.getBoundingClientRect()
