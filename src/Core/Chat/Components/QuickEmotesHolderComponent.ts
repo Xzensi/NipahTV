@@ -167,14 +167,12 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			}
 		)
 
-		rootEventBus.subscribe(
-			'ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites',
-			this.renderFavoriteEmotes.bind(this)
+		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites', () =>
+			this.renderFavoriteEmotes()
 		)
 
-		rootEventBus.subscribe(
-			'ntv.settings.change.quick_emote_holder.show_favorites',
-			this.renderFavoriteEmotes.bind(this)
+		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.show_favorites', () =>
+			this.renderFavoriteEmotes()
 		)
 
 		rootEventBus.subscribe(
