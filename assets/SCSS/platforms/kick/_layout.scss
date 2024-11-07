@@ -1,8 +1,14 @@
 body > [data-theatre].ntv {
 	&__chat-position {
 		&--left {
+			// Selects parent of #channel-chatroom
 			:has(> #channel-chatroom) {
 				flex-direction: row-reverse;
+			}
+
+			#video-player + div {
+				left: auto;
+				right: 0;
 			}
 		}
 	}
