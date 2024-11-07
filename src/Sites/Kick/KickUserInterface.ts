@@ -830,7 +830,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				const videoAlignmentModeSetting = settingsManager.getSetting(
 					channelId,
-					'appearance.layout.video_alignment'
+					'appearance.layout.overlay_chat.video_alignment'
 				)
 				if (videoAlignmentModeSetting && videoAlignmentModeSetting !== 'none') {
 					containerEl.classList.add(
@@ -860,7 +860,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		rootEventBus.subscribe(
-			'ntv.settings.change.appearance.layout.video_alignment',
+			'ntv.settings.change.appearance.layout.overlay_chat.video_alignment',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
 				if (!containerEl) return error('KICK', 'UI', 'Theatre container not found')
