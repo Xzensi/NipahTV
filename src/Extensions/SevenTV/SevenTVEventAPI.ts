@@ -697,6 +697,7 @@ export default class SevenTVEventAPI {
 		if (
 			[
 				ServerCloseCodes.SERVER_ERROR,
+				ServerCloseCodes.RECONNECT,
 				ServerCloseCodes.RESTART,
 				ServerCloseCodes.MAINTENANCE,
 				ServerCloseCodes.TIMEOUT

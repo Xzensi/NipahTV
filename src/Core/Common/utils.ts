@@ -19,7 +19,7 @@ export const assertArray = (arg: Array<any>) => {
 }
 
 export const assertArgDefined = (arg: any) => {
-	if (typeof arg === 'undefined') {
+	if (undefined === arg) {
 		throw new Error('Invalid argument, expected defined value')
 	}
 }

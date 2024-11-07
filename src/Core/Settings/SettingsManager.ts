@@ -379,41 +379,6 @@ export default class SettingsManager {
 					]
 				},
 				{
-					label: 'Emote Sets',
-					children: [
-						{
-							label: 'Kick emote sets',
-							description: 'These settings require a page refresh to take effect.',
-							children: [
-								{
-									label: 'Show global emote set in emote menu',
-									key: 'emote_menu.emote_providers.kick.show_global',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Show current channel emote set in emote menu',
-									key: 'emote_menu.emote_providers.kick.show_current_channel',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Show other channel emote sets in emote menu',
-									key: 'emote_menu.emote_providers.kick.show_other_channels',
-									default: true,
-									type: 'checkbox'
-								},
-								{
-									label: 'Show Emoji emote set in emote menu',
-									key: 'emote_menu.emote_providers.kick.show_emojis',
-									default: false,
-									type: 'checkbox'
-								}
-							]
-						}
-					]
-				},
-				{
 					label: 'Input Field',
 					children: [
 						{
@@ -681,6 +646,46 @@ export default class SettingsManager {
 			]
 		},
 		{
+			label: 'Kick',
+			children: [
+				{
+					label: 'Emote Menu',
+					children: [
+						{
+							label: 'Emote Sets',
+							description: 'These settings require a page refresh to take effect.',
+							children: [
+								{
+									label: 'Show global emote set in emote menu',
+									key: 'emote_menu.emote_providers.kick.show_global',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show current channel emote set in emote menu',
+									key: 'emote_menu.emote_providers.kick.show_current_channel',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show other channel emote sets in emote menu',
+									key: 'emote_menu.emote_providers.kick.show_other_channels',
+									default: true,
+									type: 'checkbox'
+								},
+								{
+									label: 'Show Emoji emote set in emote menu',
+									key: 'emote_menu.emote_providers.kick.show_emojis',
+									default: false,
+									type: 'checkbox'
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
 			label: 'Add-ons',
 			children: [
 				{
@@ -903,7 +908,7 @@ export default class SettingsManager {
 		key: string,
 		value: any
 	) {
-		if (!platformId || !channelId || !key || typeof value === 'undefined')
+		if (!platformId || !channelId || !key || undefined === value)
 			return error('CORE', 'SETTINGS', 'Unable to set setting, invalid parameters:', {
 				platformId,
 				channelId,

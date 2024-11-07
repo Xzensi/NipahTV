@@ -6,7 +6,7 @@ import { isEmpty } from '../Common/utils'
 import Fuse from 'fuse.js'
 
 const logger = new Logger()
-const { log, info, error } = logger.destruct()
+const { log, logNow, info, error } = logger.destruct()
 
 export class EmoteDatastore {
 	private emoteMap = new Map<string, Emote>()
@@ -200,7 +200,7 @@ export class EmoteDatastore {
 				!emote.id ||
 				typeof emote.id !== 'string' ||
 				!emote.name ||
-				typeof emote.provider === 'undefined'
+				undefined === emote.provider
 			) {
 				return error('CORE', 'EMOT:STORE', 'Invalid emote data', emote)
 			}
@@ -333,52 +333,50 @@ export class EmoteDatastore {
 			platformId: PLATFORM,
 			channelId: this.channelId,
 			emoteHid: emoteHid,
-			orderIndex: 0,
+			orderIndex: this.favoriteEmoteDocuments.length,
 			emote
 		}
 
 		this.favoriteEmotesDocumentsMap.set(emoteHid, favoriteEmote)
-		this.favoriteEmoteDocuments.unshift(favoriteEmote)
-
-		/** NOTE
-		 *  As result of this implementation, every time emotes get
-		 *   ordered as first (last because reversed list order)
-		 *   the highest order index will get bumped by 1. As result, the
-		 *   highest order index can potentially become a very high number.
-		 */
-		for (let i = 1; i < this.favoriteEmoteDocuments.length; i++) {
-			const emote = this.favoriteEmoteDocuments[i]
-
-			// Skip emotes that are added new or removed
-			if (this.pendingFavoriteEmoteChanges[emote.emoteHid]) continue
-
-			emote.orderIndex = i
-			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reordered'
-		}
+		this.favoriteEmoteDocuments.push(favoriteEmote)
 
 		this.pendingFavoriteEmoteChanges[emoteHid] = 'added'
 		this.hasPendingChanges = true
 		this.session.eventBus.publish('ntv.datastore.emotes.favorites.changed', { added: emoteHid })
 	}
 
+	getFavoriteEmoteOrderIndex(emoteHid: string) {
+		const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
+		if (!favoriteEmote) return error('Unable to get favorite emote order index, emote not found', emoteHid)
+
+		return favoriteEmote.orderIndex
+	}
+
 	updateFavoriteEmoteOrderIndex(emoteHid: string, orderIndex: number) {
 		const favoriteEmote = this.favoriteEmotesDocumentsMap.get(emoteHid)
 		if (!favoriteEmote) return error('Unable to reorder favorite emote, emote not found', emoteHid)
 
-		orderIndex = this.favoriteEmoteDocuments.length - 1 - orderIndex
-
+		// Remove the emote from the current position
 		const oldIndex = this.favoriteEmoteDocuments.indexOf(favoriteEmote)
-		const newIndex = Math.max(0, Math.min(this.favoriteEmoteDocuments.length - 1, orderIndex))
-
 		this.favoriteEmoteDocuments.splice(oldIndex, 1)
+
+		let newIndex = this.favoriteEmoteDocuments.findIndex(emote => emote.orderIndex >= orderIndex)
+		if (newIndex === -1) newIndex = this.favoriteEmoteDocuments.length
+
+		// Insert the emote at the new position
 		this.favoriteEmoteDocuments.splice(newIndex, 0, favoriteEmote)
 
+		// Re-index the changed emote order indices
 		for (let i = Math.min(oldIndex, newIndex); i < this.favoriteEmoteDocuments.length; i++) {
 			const emote = this.favoriteEmoteDocuments[i]
 			emote.orderIndex = i
 
 			// Skip emotes that are added new or removed
-			if (this.pendingFavoriteEmoteChanges[emote.emoteHid]) continue
+			if (
+				this.pendingFavoriteEmoteChanges[emote.emoteHid] === 'added' ||
+				this.pendingFavoriteEmoteChanges[emote.emoteHid] === 'removed'
+			)
+				continue
 
 			this.pendingFavoriteEmoteChanges[emote.emoteHid] = 'reordered'
 		}

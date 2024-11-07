@@ -46,7 +46,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 class NipahClient {
-	VERSION = '1.5.60'
+	VERSION = '1.5.61'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -662,7 +662,7 @@ class NipahClient {
 
 	if (!__USERSCRIPT__) {
 		if (!window['browser'] && !globalThis['browser']) {
-			if (typeof chrome === 'undefined') {
+			if (undefined === chrome) {
 				return error('CORE', 'INIT', 'Unsupported browser, please use a modern browser to run NipahTV.')
 			}
 			//@ts-ignore

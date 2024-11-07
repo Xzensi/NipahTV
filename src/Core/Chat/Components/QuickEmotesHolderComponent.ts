@@ -14,6 +14,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	private dragHandleEmoteEl: HTMLElement | null = null
 	private dragEmoteNewIndex: number | null = null
 	private lastDraggedEmoteEl: string | null = null
+	private favoriteEmoteElHIDMap: Map<HTMLElement, string> = new Map()
 
 	constructor(private rootContext: RootContext, private session: Session, private placeholder: HTMLElement) {
 		super()
@@ -167,14 +168,12 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			}
 		)
 
-		rootEventBus.subscribe(
-			'ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites',
-			this.renderFavoriteEmotes.bind(this)
+		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites', () =>
+			this.renderFavoriteEmotes()
 		)
 
-		rootEventBus.subscribe(
-			'ntv.settings.change.quick_emote_holder.show_favorites',
-			this.renderFavoriteEmotes.bind(this)
+		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.show_favorites', () =>
+			this.renderFavoriteEmotes()
 		)
 
 		rootEventBus.subscribe(
@@ -230,8 +229,8 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			dragHandleEmoteEl.style.top = `${evt.clientY}px`
 
 			// When dragging emote over another emote, set new index to index of the hovered emote
-			const favoriteEmotes = Array.from(this.favoritesEl.children)
-			const hoveredEmote = favoriteEmotes.find(el => {
+			const favoriteEmoteEls = Array.from(this.favoritesEl.children)
+			const hoveredEmoteEl = favoriteEmoteEls.find(el => {
 				const rect = el.getBoundingClientRect()
 				return (
 					evt.clientX > rect.left &&
@@ -241,16 +240,23 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 				)
 			}) as HTMLElement | undefined
 
-			if (hoveredEmote && hoveredEmote !== emoteBoxEl) {
-				const hoveredEmoteIndex = favoriteEmotes.indexOf(hoveredEmote)
-				const emoteIndex = favoriteEmotes.indexOf(emoteBoxEl)
+			if (hoveredEmoteEl && hoveredEmoteEl !== emoteBoxEl) {
+				const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl)
+				const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl)
 
-				this.dragEmoteNewIndex = hoveredEmoteIndex
+				const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl)
+				if (!hoveredEmoteHid) return error('CORE', 'UI', 'Invalid favorite emote hid while dragging emote..')
+
+				const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid)
+				if (undefined === hoveredEmoteOrderIndex)
+					return error('CORE', 'UI', 'Invalid favorite emote order index..')
 
 				if (hoveredEmoteIndex > emoteIndex) {
-					hoveredEmote.after(emoteBoxEl)
+					hoveredEmoteEl.after(emoteBoxEl)
+					this.dragEmoteNewIndex = hoveredEmoteOrderIndex + 1
 				} else {
-					hoveredEmote.before(emoteBoxEl)
+					hoveredEmoteEl.before(emoteBoxEl)
+					this.dragEmoteNewIndex = hoveredEmoteOrderIndex
 				}
 			}
 		}
@@ -293,10 +299,11 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		// Clear the current emotes
 		while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove()
+		this.favoriteEmoteElHIDMap = new Map()
 
 		if (!settingsManager.getSetting(channelId, 'quick_emote_holder.show_favorites')) return
 
-		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => b.orderIndex - a.orderIndex)
+		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => a.orderIndex - b.orderIndex)
 
 		// Render the emotes
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
@@ -309,16 +316,20 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			if (!emoteSet?.isSubscribed && maybeFavoriteEmote?.isSubscribersOnly)
 				emoteBoxClasses += ' ntv__emote-box--locked'
 
-			this.favoritesEl.append(
-				parseHTML(
-					`<div class="ntv__emote-box ntv__emote-box--favorite${emoteBoxClasses}" size="${
-						maybeFavoriteEmote.size
-					}">${emotesManager.getRenderableEmote(
-						maybeFavoriteEmote,
-						(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
-					)}</div>`
-				)
-			)
+			const emoteBoxEl = parseHTML(
+				`<div class="ntv__emote-box ntv__emote-box--favorite${emoteBoxClasses}" size="${
+					maybeFavoriteEmote.size
+				}">${emotesManager.getRenderableEmote(
+					maybeFavoriteEmote,
+					(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
+				)}</div>`,
+				true
+			) as HTMLElement
+
+			// We store element references to be able to reorder them later
+			this.favoriteEmoteElHIDMap.set(emoteBoxEl, maybeFavoriteEmote.hid)
+
+			this.favoritesEl.append(emoteBoxEl)
 		}
 	}
 
@@ -336,7 +347,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		}
 
 		const favoriteEmotes = [...emotesManager.getFavoriteEmoteDocuments()].sort(
-			(a, b) => b.orderIndex - a.orderIndex
+			(a, b) => a.orderIndex - b.orderIndex
 		)
 		const emoteIndex = favoriteEmotes.findIndex(({ emoteHid: hid }) => hid === emoteHid)
 

@@ -163,7 +163,7 @@ export default class SettingsModal extends AbstractModal {
 
 						let settingComponent: any
 						let settingValue = settingsMap.get(settingId)
-						if (typeof settingValue === 'undefined') settingValue = setting.default || null
+						if (undefined === settingValue) settingValue = setting.default || null
 
 						switch (setting.type) {
 							case 'checkbox':
