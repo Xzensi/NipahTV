@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.61',
+		date: '2024-11-03',
+		description: `
+                  Fix: Re-arranging favorites resulting in randomized order
+                  Fix: 7TV event API not reconnecting
+                  Fix: Issue in toggling quick emote holder settings
+                  Chore: Minor changes to settings menu structure
+            `
+	},
+	{
 		version: '1.5.60',
 		date: '2024-11-03',
 		description: `
