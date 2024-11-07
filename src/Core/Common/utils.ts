@@ -161,7 +161,7 @@ export class REST {
 				reject('Request timed out')
 			}
 
-			xhr.timeout = 15000
+			xhr.timeout = 25000
 			if (options.body) xhr.send(options.body as string)
 			else xhr.send()
 		}) as Promise<any | void>

@@ -851,40 +851,35 @@ export default class SettingsManager {
 		}
 
 		//! Temporary migration code
-		;[
-			['chat.appearance.messages_style', 'chat.messages.style'],
-			['chat.appearance.highlight_first_message', 'chat.messages.highlight_first_time'],
-			['chat.appearance.seperators', 'chat.messages.seperators'],
-			['chat.appearance.show_timestamps', 'chat.messages.show_timestamps'],
-			['chat.appearance.highlight_color', 'chat.messages.highlight_color'],
-			['chat.appearance.alternating_background', 'chat.messages.alternating_background'],
-			['chat.appearance.emote_menu_ctrl_spacebar', 'chat.emote_menu.open_ctrl_spacebar'],
-			['chat.appearance.emote_menu_ctrl_e', 'chat.emote_menu.open_ctrl_e']
-		].forEach(async ([oldKey, newKey]) => {
-			if (this.settingsMap.has('global.shared.' + oldKey)) {
-				const val = this.settingsMap.get('global.shared.' + oldKey)
-				await database.settings.deleteRecord('global.shared.' + oldKey)
-				this.setSetting('global', 'shared', newKey, val)
-			}
-		})
+		// ;[
+		// 	['chat.appearance.messages_style', 'chat.messages.style'],
+		// 	['chat.appearance.highlight_first_message', 'chat.messages.highlight_first_time'],
+		// 	['chat.appearance.seperators', 'chat.messages.seperators']
+		// ].forEach(async ([oldKey, newKey]) => {
+		// 	if (this.settingsMap.has('global.shared.' + oldKey)) {
+		// 		const val = this.settingsMap.get('global.shared.' + oldKey)
+		// 		await database.settings.deleteRecord('global.shared.' + oldKey)
+		// 		this.setSetting('global', 'shared', newKey, val)
+		// 	}
+		// })
 
 		//! Temporary delete old settings records
-		;['global.shared.chat.appearance.messages_spacing'].forEach(key => {
-			if (!this.settingsMap.has(key)) return
-			database.settings.deleteRecord(key)
-		})
+		// ;['global.shared.chat.appearance.messages_spacing'].forEach(key => {
+		// 	if (!this.settingsMap.has(key)) return
+		// 	database.settings.deleteRecord(key)
+		// })
 
 		//! Temporary patch for message spacing setting
-		const messageSpacingSetting = this.settingsMap.get('global.shared.chat.messages.spacing')
-		if (
-			messageSpacingSetting === 'none' ||
-			messageSpacingSetting === 'little-spacing' ||
-			messageSpacingSetting === 'large-spacing'
-		) {
-			const key = 'global.shared.chat.messages.spacing'
-			this.settingsMap.delete(key)
-			database.settings.deleteRecord(key)
-		}
+		// const messageSpacingSetting = this.settingsMap.get('global.shared.chat.messages.spacing')
+		// if (
+		// 	messageSpacingSetting === 'none' ||
+		// 	messageSpacingSetting === 'little-spacing' ||
+		// 	messageSpacingSetting === 'large-spacing'
+		// ) {
+		// 	const key = 'global.shared.chat.messages.spacing'
+		// 	this.settingsMap.delete(key)
+		// 	database.settings.deleteRecord(key)
+		// }
 
 		this.isLoaded = true
 		eventBus.publish('ntv.settings.loaded')
