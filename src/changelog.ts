@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.62',
+		date: '2024-11-07',
+		description: `
+                  Fix: Video alignment setting not working
+                  Fix: Video control bar overlapping left side positioned chat
+                  Fix: Raised network request timeout to absurdly high levels
+            `
+	},
+	{
 		version: '1.5.61',
 		date: '2024-11-07',
 		description: `

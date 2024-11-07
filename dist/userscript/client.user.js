@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.61
+// @version 1.5.62
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-1a18c181.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-c86dfa4d.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -10353,7 +10353,7 @@ var REST = class {
       xhr.ontimeout = function() {
         reject("Request timed out");
       };
-      xhr.timeout = 15e3;
+      xhr.timeout = 25e3;
       if (options.body) xhr.send(options.body);
       else xhr.send();
     });
@@ -11955,6 +11955,15 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.62",
+    date: "2024-11-07",
+    description: `
+                  Fix: Video alignment setting not working
+                  Fix: Video control bar overlapping left side positioned chat
+                  Fix: Raised network request timeout to absurdly high levels
+            `
+  },
   {
     version: "1.5.61",
     date: "2024-11-07",
@@ -14149,33 +14158,6 @@ var SettingsManager = class {
     for (const setting of settingsRecords) {
       const { id, value } = setting;
       this.settingsMap.set(id, value);
-    }
-    ;
-    [
-      ["chat.appearance.messages_style", "chat.messages.style"],
-      ["chat.appearance.highlight_first_message", "chat.messages.highlight_first_time"],
-      ["chat.appearance.seperators", "chat.messages.seperators"],
-      ["chat.appearance.show_timestamps", "chat.messages.show_timestamps"],
-      ["chat.appearance.highlight_color", "chat.messages.highlight_color"],
-      ["chat.appearance.alternating_background", "chat.messages.alternating_background"],
-      ["chat.appearance.emote_menu_ctrl_spacebar", "chat.emote_menu.open_ctrl_spacebar"],
-      ["chat.appearance.emote_menu_ctrl_e", "chat.emote_menu.open_ctrl_e"]
-    ].forEach(async ([oldKey, newKey]) => {
-      if (this.settingsMap.has("global.shared." + oldKey)) {
-        const val = this.settingsMap.get("global.shared." + oldKey);
-        await database.settings.deleteRecord("global.shared." + oldKey);
-        this.setSetting("global", "shared", newKey, val);
-      }
-    });
-    ["global.shared.chat.appearance.messages_spacing"].forEach((key) => {
-      if (!this.settingsMap.has(key)) return;
-      database.settings.deleteRecord(key);
-    });
-    const messageSpacingSetting = this.settingsMap.get("global.shared.chat.messages.spacing");
-    if (messageSpacingSetting === "none" || messageSpacingSetting === "little-spacing" || messageSpacingSetting === "large-spacing") {
-      const key = "global.shared.chat.messages.spacing";
-      this.settingsMap.delete(key);
-      database.settings.deleteRecord(key);
     }
     this.isLoaded = true;
     eventBus.publish("ntv.settings.loaded");
@@ -22501,7 +22483,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
       const videoAlignmentModeSetting = settingsManager.getSetting(
         channelId,
-        "appearance.layout.video_alignment"
+        "appearance.layout.overlay_chat.video_alignment"
       );
       if (videoAlignmentModeSetting && videoAlignmentModeSetting !== "none") {
         containerEl.classList.add(
@@ -22527,7 +22509,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     rootEventBus.subscribe(
-      "ntv.settings.change.appearance.layout.video_alignment",
+      "ntv.settings.change.appearance.layout.overlay_chat.video_alignment",
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
         if (!containerEl) return error25("KICK", "UI", "Theatre container not found");
@@ -25603,7 +25585,7 @@ var BotrixExtension = class extends Extension {
 var logger35 = new Logger();
 var { log: log34, info: info33, error: error35 } = logger35.destruct();
 var NipahClient = class {
-  VERSION = "1.5.61";
+  VERSION = "1.5.62";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -26064,6 +26046,7 @@ var NipahClient = class {
   nipahClient.initialize();
 })();
 //! Temporary migration code
+//! Temporary delete old settings records
 //! Temporary patch for message spacing setting
 //! Dirty reload UI hack to check if UI elements of session is destroyed and reload it
 /*! Bundled license information:
