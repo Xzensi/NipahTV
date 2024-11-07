@@ -903,7 +903,7 @@ export default class SettingsManager {
 		key: string,
 		value: any
 	) {
-		if (!platformId || !channelId || !key || typeof value === 'undefined')
+		if (!platformId || !channelId || !key || undefined === value)
 			return error('CORE', 'SETTINGS', 'Unable to set setting, invalid parameters:', {
 				platformId,
 				channelId,

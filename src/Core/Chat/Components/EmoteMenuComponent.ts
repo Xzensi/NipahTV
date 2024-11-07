@@ -35,6 +35,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	private dragHandleEmoteEl: HTMLElement | null = null
 	private dragEmoteNewIndex: number | null = null
 	private lastDraggedEmoteEl: string | null = null
+	private favoriteEmoteElHIDMap: Map<HTMLElement, string> = new Map()
 
 	constructor(rootContext: RootContext, session: Session, container: HTMLElement) {
 		super()
@@ -526,10 +527,10 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 		const { emotesManager } = this.session
 
-		const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments()
+		const favoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments()
 		if (
 			emoteSet &&
-			!unsortedFavoriteEmoteDocuments.some(doc => emoteSet.emotes.find(emote => emote.hid === doc.emote.hid))
+			!favoriteEmoteDocuments.some(doc => emoteSet.emotes.find(emote => emote.hid === doc.emote.hid))
 		) {
 			// No need to re-render if the emote set is not in the favorites
 			return
@@ -537,10 +538,9 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 		log('CORE', 'UI', 'Rendering favorite emote set in emote menu..')
 
-		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => b.orderIndex - a.orderIndex)
-
 		const emotesEl = this.favoritesEmoteSetEl.getElementsByClassName('ntv__emote-set__emotes')[0]
 		while (emotesEl.firstChild) emotesEl.removeChild(emotesEl.firstChild)
+		this.favoriteEmoteElHIDMap = new Map()
 
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
 			const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid)
@@ -551,16 +551,20 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			let emoteBoxClasses = emote ? '' : ' ntv__emote-box--unavailable'
 			emoteBoxClasses += !emoteSet?.isSubscribed && emote?.isSubscribersOnly ? 'ntv__emote-box--locked' : ''
 
-			emotesEl.append(
-				parseHTML(
-					`<div class="ntv__emote-box ${emoteBoxClasses}" size="${
-						maybeFavoriteEmote.size
-					}">${emotesManager.getRenderableEmote(
-						maybeFavoriteEmote,
-						(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
-					)}</div>`
-				)
-			)
+			const emoteBoxEl = parseHTML(
+				`<div class="ntv__emote-box ${emoteBoxClasses}" size="${
+					maybeFavoriteEmote.size
+				}">${emotesManager.getRenderableEmote(
+					maybeFavoriteEmote,
+					(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
+				)}</div>`,
+				true
+			) as HTMLElement
+
+			// We store element references to be able to reorder them later
+			this.favoriteEmoteElHIDMap.set(emoteBoxEl, maybeFavoriteEmote.hid)
+
+			emotesEl.append(emoteBoxEl)
 		}
 	}
 
@@ -720,8 +724,8 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			dragHandleEmoteEl.style.top = `${evt.clientY}px`
 
 			// When dragging emote over another emote, set new index to index of the hovered emote
-			const favoriteEmotesEls = Array.from(favoriteEmotesSetBodyEl.children)
-			const hoveredEmoteEl = favoriteEmotesEls.find(el => {
+			const favoriteEmoteEls = Array.from(favoriteEmotesSetBodyEl.children)
+			const hoveredEmoteEl = favoriteEmoteEls.find(el => {
 				const rect = el.getBoundingClientRect()
 				return (
 					evt.clientX > rect.left &&
@@ -732,15 +736,22 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			}) as HTMLElement | undefined
 
 			if (hoveredEmoteEl && hoveredEmoteEl !== emoteBoxEl) {
-				const hoveredEmoteIndex = favoriteEmotesEls.indexOf(hoveredEmoteEl)
-				const emoteIndex = favoriteEmotesEls.indexOf(emoteBoxEl)
+				const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl)
+				const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl)
 
-				this.dragEmoteNewIndex = hoveredEmoteIndex
+				const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl)
+				if (!hoveredEmoteHid) return error('CORE', 'UI', 'Invalid favorite emote hid while dragging emote..')
+
+				const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid)
+				if (undefined === hoveredEmoteOrderIndex)
+					return error('CORE', 'UI', 'Invalid favorite emote order index..')
 
 				if (hoveredEmoteIndex > emoteIndex) {
 					hoveredEmoteEl.after(emoteBoxEl)
+					this.dragEmoteNewIndex = hoveredEmoteOrderIndex + 1
 				} else {
 					hoveredEmoteEl.before(emoteBoxEl)
+					this.dragEmoteNewIndex = hoveredEmoteOrderIndex
 				}
 			}
 		}

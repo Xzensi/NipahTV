@@ -662,7 +662,7 @@ class NipahClient {
 
 	if (!__USERSCRIPT__) {
 		if (!window['browser'] && !globalThis['browser']) {
-			if (typeof chrome === 'undefined') {
+			if (undefined === chrome) {
 				return error('CORE', 'INIT', 'Unsupported browser, please use a modern browser to run NipahTV.')
 			}
 			//@ts-ignore

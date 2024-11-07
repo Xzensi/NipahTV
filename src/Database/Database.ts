@@ -93,6 +93,24 @@ export default class Database extends DatabaseAbstract {
 					})
 			})
 
+		this.idb.version(5).upgrade(async tx => {
+			// We flip the order indices of favorite emotes because highest order index was first favorite (desc order), now it's last (asc order)
+			return tx
+				.table('favoriteEmotes')
+				.toArray()
+				.then(async records => {
+					const updates = records.map((record, index) => {
+						return tx
+							.table('favoriteEmotes')
+							.update([record.platformId, record.channelId, record.emoteHid], {
+								orderIndex: records.length - index
+							})
+					})
+
+					return Promise.all(updates)
+				})
+		})
+
 		this.settings = new SettingsModel(this.idb)
 		this.emoteUsages = new EmoteUsagesModel(this.idb)
 		this.favoriteEmotes = new FavoriteEmotesModel(this.idb)

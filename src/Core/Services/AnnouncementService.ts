@@ -53,7 +53,7 @@ export default class AnnouncementService {
 			}
 		}
 
-		if (typeof announcement.showDontShowAgainButton === 'undefined') {
+		if (undefined === announcement.showDontShowAgainButton) {
 			announcement.showDontShowAgainButton = true
 		}
 

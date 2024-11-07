@@ -214,6 +214,10 @@ export default class EmotesManager {
 		this.datastore.addEmoteToFavorites(emoteHid)
 	}
 
+	getFavoriteEmoteOrderIndex(emoteHid: string) {
+		return this.datastore.getFavoriteEmoteOrderIndex(emoteHid)
+	}
+
 	updateFavoriteEmoteOrderIndex(emoteHid: string, orderIndex: number) {
 		this.datastore.updateFavoriteEmoteOrderIndex(emoteHid, orderIndex)
 	}
