@@ -5,7 +5,7 @@ export const CHANGELOG: {
 }[] = [
 	{
 		version: '1.5.61',
-		date: '2024-11-03',
+		date: '2024-11-07',
 		description: `
                   Fix: Re-arranging favorites resulting in randomized order
                   Fix: 7TV event API not reconnecting
@@ -15,14 +15,14 @@ export const CHANGELOG: {
 	},
 	{
 		version: '1.5.60',
-		date: '2024-11-03',
+		date: '2024-11-05',
 		description: `
                   Feat: New settings option to move chat to left side of layout
             `
 	},
 	{
 		version: '1.5.59',
-		date: '2024-11-03',
+		date: '2024-11-05',
 		description: `
                   Fix: 7TV emotes without files breaking runtime
                   Fix: Emote sets sometimes not loading due to network/UI racing conditions
