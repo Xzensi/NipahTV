@@ -68,7 +68,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 		)
 	}
 
-	xhr.timeout = 15000
+	xhr.timeout = 25000
 	if (options.body) xhr.send(options.body)
 	else xhr.send()
 })
