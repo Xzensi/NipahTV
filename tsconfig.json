@@ -11,9 +11,10 @@
 		"baseUrl": "./src",
 		"jsx": "preserve",
 		"jsxImportSource": "solid-js",
-		"types": ["vite/client"],
+		"types": ["vite/client", "chrome", "firefox-webext-browser", "dexie"],
 		"noEmit": true,
 		"isolatedModules": true,
+		"skipLibCheck": true,
 		"paths": {},
 		"lib": ["DOM", "DOM.Iterable", "ESNext"]
 	},
