@@ -1,0 +1,17 @@
+{
+	"name": "NipahTV",
+	"description": "Extension description",
+	"permissions": ["https://kick.com/*", "https://7tv.io/*", "https://botrix.live/api/*"],
+	"icons": {
+		"16": "assets/img/NTV_icon_16.png",
+		"48": "assets/img/NTV_icon_48.png",
+		"96": "assets/img/NTV_icon_96.png",
+		"128": "assets/img/NTV_icon_128.png"
+	},
+	"web_accessible_resources": [
+		{
+			"resources": ["assets/img/*.png", "assets/img/*.svg", "assets/img/btn/*.png"],
+			"matches": ["https://kick.com/*"]
+		}
+	]
+}

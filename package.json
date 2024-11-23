@@ -1,0 +1,32 @@
+{
+	"name": "nipahtv",
+	"displayName": "NipahTV",
+	"version": "2.0.0",
+	"description": "Better Kick and 7TV Emote Integration for Kick",
+	"author": "Xzensi",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev:chrome": "cross-env BUILD_TARGET=chrome vite --config configs/vite.extension.ts",
+		"dev:firefox": "cross-env BUILD_TARGET=firefox vite --config configs/vite.extension.ts",
+		"dev:userscript": "vite --config configs/vite.userscript.ts",
+		"build:chrome": "cross-env BUILD_TARGET=chrome vite build --config configs/vite.extension.ts",
+		"build:firefox": "cross-env BUILD_TARGET=firefox vite build --config configs/vite.extension.ts",
+		"build:userscript": "vite build --config configs/vite.userscript.ts",
+		"build:all": "npm run build:chrome && npm run build:firefox && npm run build:userscript"
+	},
+	"devDependencies": {
+		"@types/node": "^22.9.1",
+		"cross-env": "^7.0.3",
+		"typescript": "^5.4.5",
+		"vite": "^5.2.12",
+		"vite-plugin-monkey": "^4.0.0",
+		"vite-plugin-solid": "^2.10.2",
+		"vite-plugin-zip-pack": "^1.2.4",
+		"@crxjs/vite-plugin": "^2.0.0-beta.28"
+	},
+	"dependencies": {
+		"solid-devtools": "^0.30.1",
+		"solid-js": "^1.8.17"
+	}
+}

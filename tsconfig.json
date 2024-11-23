@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": "./src",
+		"jsx": "preserve",
+		"jsxImportSource": "solid-js",
+		"types": ["vite/client"],
+		"noEmit": true,
+		"isolatedModules": true,
+		"paths": {},
+		"lib": ["DOM", "DOM.Iterable", "ESNext"]
+	},
+	"typeRoots": ["node_modules/@types", "node_modules/dexie"]
+}

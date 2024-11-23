@@ -1,0 +1,15 @@
+{
+	"manifest_version": 3,
+	"minimum_chrome_version": "123",
+	"background": {
+		"service_worker": "src/background/worker.tsx",
+		"type": "module"
+	},
+	"content_scripts": [
+		{
+			"js": ["src/index.tsx"],
+			"css": [],
+			"matches": ["https://kick.com/*"]
+		}
+	]
+}
