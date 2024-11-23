@@ -1,7 +1,7 @@
 .vscode/settings.json
 node_modules
 vendor
-@excluded
+.excluded
 dist/**/*
 assets/**/*.css
 !dist/userscript

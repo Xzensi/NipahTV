@@ -3,7 +3,6 @@
 	"version": "1.0.0",
 	"description": "Better Kick and 7TV Emote Integration for Kick",
 	"author": "Xzensi",
-	"license": "AGPL-3.0-only",
 	"scripts": {
 		"serve-files": "node build-tasks/task-serve-files.js",
 		"sass": "node build-tasks/task-compile-sass.js",
