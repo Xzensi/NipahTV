@@ -224,6 +224,10 @@ export default class KickNetworkInterface implements NetworkInterface {
 				pathArr.shift()
 			}
 
+			if (pathArr[0] === 'moderator') {
+				pathArr.shift()
+			}
+
 			// We extract channel name from the URL
 			let channelName = pathArr[0]
 			if (!channelName) throw new Error('Failed to extract channel name from URL')
