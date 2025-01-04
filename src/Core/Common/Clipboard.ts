@@ -44,8 +44,6 @@ export default class Clipboard2 {
 		const fragment = document.createDocumentFragment()
 		const nodeList = []
 
-		log('CORE', 'UI', `Selection range count: ${selection.rangeCount}`, fragment)
-
 		for (let i = 0; i < selection.rangeCount; i++) {
 			fragment.append(selection.getRangeAt(i).cloneContents())
 		}
@@ -64,7 +62,6 @@ export default class Clipboard2 {
 
 		const copyString = nodeList
 			.map(node => {
-				log('CORE', 'UI', `Node: ${node}`, node)
 				if (node instanceof Text) {
 					return node.textContent?.trim()
 				} else if (node instanceof HTMLElement && node.dataset.emoteName) {
