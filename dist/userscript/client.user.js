@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.63
+// @version 1.5.64
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -25695,7 +25695,7 @@ var BotrixExtension = class extends Extension {
 var logger36 = new Logger();
 var { log: log35, info: info34, error: error36 } = logger36.destruct();
 var NipahClient = class {
-  VERSION = "1.5.63";
+  VERSION = "1.5.64";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

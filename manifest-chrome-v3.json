@@ -22,18 +22,18 @@
 			"world": "MAIN",
 			"js": ["page.js"],
 			"run_at": "document_start",
-			"matches": ["https://kick.com/*", "https://dashboard.kick.com/*"]
+			"matches": ["https://*.kick.com/*"]
 		},
 		{
 			"js": ["index.js"],
 			"css": ["style.min.css"],
-			"matches": ["https://kick.com/*", "https://dashboard.kick.com/*"]
+			"matches": ["https://*.kick.com/*"]
 		}
 	],
 	"web_accessible_resources": [
 		{
 			"resources": ["assets/img/*.png", "assets/img/*.svg", "assets/img/btn/*.png"],
-			"matches": ["https://kick.com/*", "https://dashboard.kick.com/*"]
+			"matches": ["https://*.kick.com/*"]
 		}
 	]
 }
