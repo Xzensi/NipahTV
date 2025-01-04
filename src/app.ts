@@ -347,14 +347,14 @@ class NipahClient {
 		const { settingsManager, eventBus: rootEventBus } = rootContext
 
 		const eventBus = new Publisher('SESSION')
-		const usersManager = new UsersManager({ eventBus, settingsManager })
 
 		const session = {
 			eventBus,
-			usersManager,
 			inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
 			inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
 		} as Session
+
+		session.usersManager = new UsersManager(rootContext, session)
 
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			session.networkInterface = new KickNetworkInterface(session)

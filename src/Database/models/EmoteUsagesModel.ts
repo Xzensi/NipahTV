@@ -3,8 +3,8 @@ import { databaseExtended } from '../Database'
 export const emoteUsagesSchema = '&[platformId+channelId+emoteHid], platformId, channelId, emoteHid'
 
 export interface EmoteUsagesDocument {
-	platformId: string
-	channelId: string
+	platformId: PlatformId
+	channelId: ChannelId
 	emoteHid: string
 	count: number
 }
@@ -16,19 +16,19 @@ export default class EmoteUsagesModel {
 		this.db = db
 	}
 
-	async getRecords(platformId: PlatformId, channelId: string) {
+	async getRecords(platformId: PlatformId, channelId: ChannelId) {
 		return this.db.emoteUsages.where({ platformId, channelId }).toArray()
 	}
 
-	async updateRecord(platformId: string, channelId: string, emoteHid: string, count: number) {
+	async updateRecord(platformId: PlatformId, channelId: ChannelId, emoteHid: string, count: number) {
 		return this.db.emoteUsages.where({ platformId, channelId, emoteHid }).modify({ count })
 	}
 
-	async deleteRecord(platformId: string, channelId: string, emoteHid: string) {
+	async deleteRecord(platformId: PlatformId, channelId: ChannelId, emoteHid: string) {
 		return this.db.emoteUsages.delete([platformId, channelId, emoteHid])
 	}
 
-	async deleteRecordByHid(platformId: string, emoteHid: string) {
+	async deleteRecordByHid(platformId: PlatformId, emoteHid: string) {
 		return this.db.emoteUsages.where({ platformId, emoteHid }).delete()
 	}
 
@@ -40,7 +40,7 @@ export default class EmoteUsagesModel {
 		return this.db.emoteUsages.bulkDelete(records)
 	}
 
-	async bulkDeleteRecordsByHid(records: { platformId: string; emoteHid: string }[]) {
+	async bulkDeleteRecordsByHid(records: { platformId: PlatformId; emoteHid: string }[]) {
 		return Promise.all(records.map(record => this.deleteRecordByHid(record.platformId, record.emoteHid)))
 	}
 }

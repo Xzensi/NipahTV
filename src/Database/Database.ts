@@ -1,5 +1,6 @@
 import FavoriteEmotesModel, { favoriteEmotesSchema, FavoriteEmoteDocument } from './Models/FavoriteEmotesModel'
 import EmoteUsagesModel, { emoteUsagesSchema, EmoteUsagesDocument } from './Models/EmoteUsagesModel'
+import MutedUsersModel, { MutedUserDocument, mutedUsersSchema } from './Models/MutedUsersModel'
 import Dexie, { DexieConstructor, type Table, type EntityTable } from 'dexie'
 import { SettingDocument, settingsSchema } from './Models/SettingsModel'
 import SettingsModel from './Models/SettingsModel'
@@ -7,8 +8,9 @@ import DatabaseAbstract from './DatabaseAbstract'
 
 export type databaseExtended = Dexie & {
 	settings: EntityTable<SettingDocument, 'id'>
-	emoteUsages: Table<EmoteUsagesDocument, [string, string, string]>
-	favoriteEmotes: Table<FavoriteEmoteDocument, [string, string, string]>
+	emoteUsages: Table<EmoteUsagesDocument, [PlatformId, ChannelId, string]>
+	favoriteEmotes: Table<FavoriteEmoteDocument, [PlatformId, ChannelId, string]>
+	mutedUsers: Table<MutedUserDocument, [PlatformId, UserId]>
 }
 
 export default class Database extends DatabaseAbstract {
@@ -18,6 +20,7 @@ export default class Database extends DatabaseAbstract {
 	settings: SettingsModel
 	emoteUsages: EmoteUsagesModel
 	favoriteEmotes: FavoriteEmotesModel
+	mutedUsers: MutedUsersModel
 
 	constructor(SWDexie?: DexieConstructor) {
 		super()
@@ -111,8 +114,13 @@ export default class Database extends DatabaseAbstract {
 				})
 		})
 
+		this.idb.version(6).stores({
+			mutedUsers: mutedUsersSchema
+		})
+
 		this.settings = new SettingsModel(this.idb)
 		this.emoteUsages = new EmoteUsagesModel(this.idb)
 		this.favoriteEmotes = new FavoriteEmotesModel(this.idb)
+		this.mutedUsers = new MutedUsersModel(this.idb)
 	}
 }

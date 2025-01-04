@@ -1703,6 +1703,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			if (!channelData.isVod && username) {
 				if (usersManager.hasMutedUser(username)) {
+					messageNode.classList.add('ntv__chat-message--muted')
 					return
 				}
 

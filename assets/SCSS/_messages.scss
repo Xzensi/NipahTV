@@ -13,7 +13,6 @@
 		overflow: hidden;
 		padding: 4px 0;
 	}
-
 	&__attachment {
 		color: var(--ntv-text-color-disabled-emphasis);
 		margin-bottom: 0.5em;
@@ -110,6 +109,10 @@
 	}
 
 	&--unrendered {
+	}
+
+	&--muted {
+		display: none !important;
 	}
 
 	&--seperator {
