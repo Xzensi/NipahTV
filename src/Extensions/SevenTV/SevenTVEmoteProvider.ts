@@ -123,7 +123,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				isCurrentChannel: false,
 				isOtherChannel: false,
 				isSubscribed: false,
-				icon: globalData.owner?.avatar_url || 'https://7tv.app/favicon.ico',
+				icon: globalData.owner?.avatar_url || 'https://7tv.app/favicon.svg',
 				id: '7tv_global'
 			} as EmoteSet
 		]
@@ -176,7 +176,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				isCurrentChannel: true,
 				isOtherChannel: false,
 				isSubscribed: false,
-				icon: userData.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.ico',
+				icon: userData.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.svg',
 				id: '7tv_' + userData.emote_set.id
 			} as EmoteSet
 		]
