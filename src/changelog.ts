@@ -4,6 +4,25 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.63',
+		date: '2025-01-04',
+		description: `
+                  It's a new year and a new update! I hope you all had a great holiday season and are ready for a fresh new year. I'll kick it off with some fixes as I get back to picking up the pace. The next milestone still remains the complete rewrite of the extension with the new UI framework as version 2.0. As you can imagine this is quite a bit of work so don't think I'm dead if you don't see updates for a little while. I'm still here, just working on the big stuff!
+
+                  I'll still be picking up important bug fixes in the meantime, so don't hesitate to report any issues you encounter.
+
+                  ===! HELP WANTED !===
+                  That being said, Kick has recently rolled out a new update that allows you to share your sub anniversary in chat. As I'm currently unable to reproduce this, I'm looking for someone who can help me out with this. If you currently have this button on any of your subbed channels, please reach out to me on the NTV Discord Community server (https://discord.gg/u2gEQZrB6h) if you're willing to help provide some screenshots. This will help me implement support for this feature in NTV. Thanks in advance!
+                  ===! HELP WANTED !===
+
+                  Feat: Re-implement user mute/block feature after Kick broke it, now actually remembers muted users #191
+                  Fix: New Kick update breaking admin dashboard again #195
+                  Fix: Unable to copy emojis in chat to clipboard #194
+                  Fix: Broken 7TV emoteset icon #197
+                  Fix: Stream buffering overlay showing on top of chat #159
+            `
+	},
+	{
 		version: '1.5.62',
 		date: '2024-11-07',
 		description: `

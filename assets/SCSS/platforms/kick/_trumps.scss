@@ -1,0 +1,8 @@
+// Fix stream buffering overlaying on top of chat
+#video-player + .z-player {
+	z-index: 1;
+}
+
+#channel-chatroom {
+	z-index: 1;
+}

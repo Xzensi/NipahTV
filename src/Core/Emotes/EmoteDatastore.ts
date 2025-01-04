@@ -97,7 +97,7 @@ export class EmoteDatastore {
 		// info('Syncing emote data changes to database..')
 
 		const { database } = this.rootContext
-		const platformSlug = PLATFORM
+		const platformId = PLATFORM
 
 		// Clone the pending changes to prevent changes during the sync
 		const pendingEmoteUsageChanges = structuredClone(this.pendingEmoteUsageChanges)
@@ -121,19 +121,19 @@ export class EmoteDatastore {
 			if (action === 'changed') {
 				const emoteUsages = this.emoteUsage.get(emoteHid) || 0
 				emoteUsagePuts.push({
-					platformId: platformSlug,
+					platformId: platformId,
 					channelId: this.channelId,
 					emoteHid,
 					count: emoteUsages
 				})
 			} else if (action === 'removed') {
-				emoteUsageDeletes.push([platformSlug, this.channelId, emoteHid])
+				emoteUsageDeletes.push([platformId, this.channelId, emoteHid])
 			}
 		}
 
 		const favoriteEmotePuts: FavoriteEmoteDocument[] = []
-		const favoriteEmoteReorders: { platformId: string; emoteHid: string; orderIndex: number }[] = []
-		const favoriteEmoteDeletes: { platformId: string; emoteHid: string }[] = []
+		const favoriteEmoteReorders: { platformId: PlatformId; emoteHid: string; orderIndex: number }[] = []
+		const favoriteEmoteDeletes: { platformId: PlatformId; emoteHid: string }[] = []
 
 		if (!isEmpty(pendingFavoriteEmoteChanges))
 			info(
@@ -162,12 +162,12 @@ export class EmoteDatastore {
 				}
 
 				favoriteEmoteReorders.push({
-					platformId: platformSlug,
+					platformId: platformId,
 					emoteHid,
 					orderIndex: favoriteEmote.orderIndex
 				})
 			} else if (action === 'removed') {
-				favoriteEmoteDeletes.push({ platformId: platformSlug, emoteHid })
+				favoriteEmoteDeletes.push({ platformId: platformId, emoteHid })
 			} else {
 				error('Unknown favorite emote database action', action)
 			}

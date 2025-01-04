@@ -66,6 +66,8 @@ export default class Clipboard2 {
 					return node.textContent?.trim()
 				} else if (node instanceof HTMLElement && node.dataset.emoteName) {
 					return node.dataset.emoteName || 'UNSET_EMOTE_NAME'
+				} else if (node instanceof HTMLElement && node.tagName === 'IMG' && node.hasAttribute('alt')) {
+					return node.getAttribute('alt')
 				}
 			})
 			.filter((text): text is string => typeof text === 'string' && text.length > 0)

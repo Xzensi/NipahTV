@@ -46,7 +46,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 class NipahClient {
-	VERSION = '1.5.62'
+	VERSION = '1.5.63'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
@@ -347,14 +347,14 @@ class NipahClient {
 		const { settingsManager, eventBus: rootEventBus } = rootContext
 
 		const eventBus = new Publisher('SESSION')
-		const usersManager = new UsersManager({ eventBus, settingsManager })
 
 		const session = {
 			eventBus,
-			usersManager,
 			inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
 			inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
 		} as Session
+
+		session.usersManager = new UsersManager(rootContext, session)
 
 		if (PLATFORM === PLATFORM_ENUM.KICK) {
 			session.networkInterface = new KickNetworkInterface(session)

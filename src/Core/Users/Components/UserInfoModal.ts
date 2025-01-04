@@ -339,7 +339,8 @@ export default class UserInfoModal extends AbstractModal {
 		if (!userInfo) return
 
 		const { id, username } = userInfo
-		const { usersManager } = this.session
+		const { usersManager, channelData } = this.session
+		const channelId = channelData.channelId
 
 		// TODO change to user ID after replacing chat system
 		const user = usersManager.getUserById(username)
@@ -351,7 +352,7 @@ export default class UserInfoModal extends AbstractModal {
 			this.actionMuteEl!.textContent = 'Mute'
 		} else {
 			log('CORE', 'UI', 'Muting user:', username)
-			usersManager.muteUserById(user.id)
+			usersManager.muteUserById(user.id, channelId)
 			this.actionMuteEl!.textContent = 'Unmute'
 		}
 	}

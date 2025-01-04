@@ -12,7 +12,12 @@
 		"96": "assets/img/NTV_icon_96.png",
 		"128": "assets/img/NTV_icon_128.png"
 	},
-	"permissions": ["https://kick.com/*", "https://7tv.io/*", "https://botrix.live/api/*"],
+	"permissions": [
+		"https://kick.com/*",
+		"https://dashboard.kick.com/*",
+		"https://7tv.io/*",
+		"https://botrix.live/api/*"
+	],
 	"background": {
 		"scripts": ["service-worker.js"],
 		"persistent": false,
@@ -20,7 +25,7 @@
 	},
 	"content_scripts": [
 		{
-			"matches": ["https://kick.com/*"],
+			"matches": ["https://kick.com/*", "https://dashboard.kick.com/*"],
 			"js": ["index.js"],
 			"css": ["style.min.css"]
 		}

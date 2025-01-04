@@ -419,7 +419,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 			const user = usersManager.getUserByName('' + args[0])
 			if (!user) throw new Error('User not found')
 			else if (user.muted) throw new Error('User is already muted')
-			else usersManager.muteUserById(user.id)
+			else usersManager.muteUserById(user.id, deps.channelData.channelId)
 			return 'User has been muted.'
 		}
 	},

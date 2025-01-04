@@ -12,12 +12,11 @@ export type User = {
 }
 
 export default class UsersDatastore {
-	private eventBus: Publisher
-
 	private usersLowerCaseNameMap: Map<string, User> = new Map()
 	private usersIdMap: Map<string, User> = new Map()
 	private users: Array<User> = []
 	private usersCount = 0
+	private mutedUsersMap: Map<UserId, User> = new Map()
 	private maxUsers = 50_000
 
 	private fuse = new Fuse<User>([], {
@@ -30,14 +29,44 @@ export default class UsersDatastore {
 		keys: [['name']]
 	})
 
-	constructor({ eventBus }: { eventBus: Publisher }) {
-		this.eventBus = eventBus
-
-		eventBus.subscribe('ntv.session.destroy', () => {
+	constructor(private rootContext: RootContext, private session: Session) {
+		this.session.eventBus.subscribe('ntv.session.destroy', () => {
 			this.users.length = 0
 			this.usersIdMap.clear()
 			this.usersLowerCaseNameMap.clear()
 		})
+	}
+
+	async loadDatabase() {
+		info('CORE', 'USER:STORE', 'Reading out user data from database..')
+		const { database } = this.rootContext
+		const { eventBus, channelData } = this.session
+		const channelId = channelData.channelId
+
+		database.mutedUsers
+			.getRecords(PLATFORM)
+			.then(mutedUserRecords => {
+				if (mutedUserRecords.length) {
+					for (const record of mutedUserRecords) {
+						const user = this.registerUser(record.userId, record.userName)
+						if (!user) {
+							error('CORE', 'USER:STORE', 'Failed to register muted user:', record.userId)
+							continue
+						}
+						user.muted = true
+						this.mutedUsersMap.set(record.userId, user)
+					}
+
+					log(
+						'CORE',
+						'USER:STORE',
+						`Loaded ${mutedUserRecords.length} muted users from database.`,
+						this.mutedUsersMap
+					)
+				}
+			})
+			.then(() => eventBus.publish('ntv.datastore.users.muted.loaded'))
+			.catch(err => error('Failed to load muted users data from database.', err.message))
 	}
 
 	hasUser(id: string): boolean {
@@ -70,6 +99,8 @@ export default class UsersDatastore {
 		this.users.push(user)
 		this.fuse.add(user)
 		this.usersCount++
+
+		return user
 	}
 
 	getUserById(id: string) {
@@ -84,21 +115,32 @@ export default class UsersDatastore {
 		return this.fuse.search(searchVal)
 	}
 
-	muteUserById(id: string) {
-		const user = this.usersIdMap.get(id + '')
+	muteUserById(userId: UserId, channelId: ChannelId) {
+		const user = this.usersIdMap.get(userId + '')
 		if (!user) return
+
+		const { database } = this.rootContext
+		database.mutedUsers.putRecord({
+			platformId: PLATFORM,
+			channelId: channelId,
+			userId: user.id,
+			userName: user.name
+		})
 
 		user.muted = true
 
-		this.eventBus.publish('ntv.user.muted', user)
+		this.session.eventBus.publish('ntv.user.muted', user)
 	}
 
-	unmuteUserById(id: string) {
-		const user = this.usersIdMap.get(id + '')
+	unmuteUserById(userId: UserId) {
+		const user = this.usersIdMap.get(userId + '')
 		if (!user) return
+
+		const { database } = this.rootContext
+		database.mutedUsers.deleteRecord(PLATFORM, userId)
 
 		user.muted = false
 
-		this.eventBus.publish('ntv.user.unmuted', user)
+		this.session.eventBus.publish('ntv.user.unmuted', user)
 	}
 }
