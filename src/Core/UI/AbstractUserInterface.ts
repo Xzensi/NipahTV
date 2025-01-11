@@ -24,6 +24,10 @@ export default abstract class AbstractUserInterface {
 	protected messageHistory = new MessagesHistory()
 	protected submitButtonPriorityEventTarget = new PriorityEventTarget()
 
+	protected celebrationData?: {
+		id: string
+	}
+
 	protected replyMessageData?: {
 		chatEntryId: string
 		chatEntryContentString: string
@@ -408,7 +412,11 @@ export default abstract class AbstractUserInterface {
 
 		eventBus.publish('ntv.ui.submit_input', { suppressEngagementEvent })
 
-		if (this.replyMessageData) {
+		if (this.celebrationData) {
+			const celebrationId = this.celebrationData.id
+		}
+
+		if (this.replyMessageData && !this.celebrationData) {
 			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData
 
 			inputExecutionStrategyRegister
@@ -452,11 +460,23 @@ export default abstract class AbstractUserInterface {
 					contentEditableEditor,
 					{
 						input: messageContent,
-						isReply: false
+						isReply: false,
+						celebrationRefs: this.celebrationData
 					},
 					dontClearInput
 				)
 				.then(successMessage => {
+					const celebrationData = this.celebrationData
+					if (celebrationData) {
+						const celebrations = this.session.channelData.me.celebrations
+						if (celebrations) {
+							this.session.channelData.me.celebrations = celebrations.filter(
+								c => c.id !== celebrationData.id
+							)
+						}
+						delete this.celebrationData
+					}
+
 					if (successMessage) {
 						if (typeof successMessage !== 'string')
 							throw new Error('Success message returned by input execution strategy is not a string.')

@@ -90,6 +90,20 @@
 	}
 }
 
+.kick__chat-input-container--share-celebration {
+	padding: 0 0.75rem 0.75rem 0.75rem;
+	border: 1px solid #ff9d00;
+	border-top: none;
+}
+
+.ntv__celebrations:has(~ .kick__chat-input-container--share-celebration) {
+	.ntv__celebration {
+		border-bottom-right-radius: 0;
+		border-bottom-left-radius: 0;
+		margin-bottom: 0;
+	}
+}
+
 // Hide celebration banners
 #chatroom-footer div:not(.ntv__celebrations):has(path[d='M19 4H13V10H19V4Z']) > div.relative {
 	display: none;

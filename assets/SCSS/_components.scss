@@ -417,3 +417,41 @@
 	height: 1.25em;
 	width: 1.25em;
 }
+
+.ntv__vertical-menu {
+	transform: translate(-100%, -120%);
+	box-shadow: shadow_elevation(2);
+	background-color: #232628;
+	flex-direction: column;
+	min-width: max-content;
+	border-radius: 0.25rem;
+	position: fixed;
+	padding: 0.5rem;
+	display: flex;
+	z-index: 100;
+	gap: 0.25rem;
+	left: 0;
+	top: 0;
+
+	button {
+		justify-content: flex-start;
+		padding-bottom: 0.375rem;
+		border-radius: 0.25rem;
+		padding-right: 0.75rem;
+		padding-left: 0.75rem;
+		padding-top: 0.375rem;
+		display: inline-flex;
+		line-height: 1.25rem;
+		white-space: nowrap;
+		font-size: 0.875rem;
+		align-items: center;
+		user-select: none;
+		font-weight: 600;
+		color: white;
+		width: 100%;
+
+		&:hover {
+			background-color: #313538;
+		}
+	}
+}

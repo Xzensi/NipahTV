@@ -13,10 +13,12 @@ interface InputIntentDTOWithReply extends InputIntentDTOBase {
 		senderId: string
 		senderUsername: string
 	}
+	readonly celebrationRefs?: { id: string }
 }
 
 interface InputIntentDTONoReply extends InputIntentDTOBase {
 	readonly isReply: false
+	readonly celebrationRefs?: { id: string }
 }
 
 export type InputIntentDTO = InputIntentDTOWithReply | InputIntentDTONoReply
