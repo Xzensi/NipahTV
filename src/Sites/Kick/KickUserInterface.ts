@@ -5,7 +5,8 @@ import {
 	parseHTML,
 	findNodeWithTextContent,
 	waitForTargetedElements,
-	isElementInDOM
+	isElementInDOM,
+	cleanupHTML
 } from '@core/Common/utils'
 import QuickEmotesHolderComponent from '@core/Chat/Components/QuickEmotesHolderComponent'
 import EmoteMenuButtonComponent from '@core/Chat/Components/EmoteMenuButtonComponent'
@@ -102,8 +103,12 @@ export class KickUserInterface extends AbstractUserInterface {
 					footerEl.append(timersContainer)
 					this.elm.timersContainer = timersContainer
 
-					const quickEmotesHolderEl = footerEl.querySelector('& > .quick-emotes-holder') as HTMLElement
-					this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
+					waitForElements(['#quick-emotes-holder'], 10_000, abortSignal)
+						.then(foundElements => {
+							const [quickEmotesHolderEl] = foundElements as HTMLElement[]
+							this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
+						})
+						.catch(() => {})
 
 					waitForElements(['#chatroom-footer .send-row'], 15_000, abortSignal)
 						.then(foundElements => {
@@ -181,8 +186,12 @@ export class KickUserInterface extends AbstractUserInterface {
 					footerEl.append(timersContainer)
 					this.elm.timersContainer = timersContainer
 
-					const quickEmotesHolderEl = footerEl.querySelector('& > .overflow-hidden') as HTMLElement
-					this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
+					waitForElements(['#quick-emotes-holder'], 10_000, abortSignal)
+						.then(foundElements => {
+							const [quickEmotesHolderEl] = foundElements as HTMLElement[]
+							this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
+						})
+						.catch(() => {})
 
 					waitForElements(
 						[`${footerSelector} > div.flex > .flex.items-center > .items-center`],
@@ -412,10 +421,19 @@ export class KickUserInterface extends AbstractUserInterface {
 		const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, 'quick_emote_holder.enabled')
 
 		if (quickEmotesHolderEnabled) {
-			const placeholder = document.createElement('div')
-			kickFooterEl.prepend(placeholder)
+			const quickEmotesHolderPlaceholder = document.createElement('div')
+			kickFooterEl.prepend(quickEmotesHolderPlaceholder)
 			kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
-			this.quickEmotesHolder = new QuickEmotesHolderComponent(this.rootContext, this.session, placeholder).init()
+
+			const celebrationsPlaceholder = document.createElement('div')
+			quickEmotesHolderPlaceholder.after(celebrationsPlaceholder)
+			// this.loadCelebrationsBehaviour(celebrationsPlaceholder)
+
+			this.quickEmotesHolder = new QuickEmotesHolderComponent(
+				this.rootContext,
+				this.session,
+				quickEmotesHolderPlaceholder
+			).init()
 		}
 
 		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
@@ -892,6 +910,91 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}
 		)
+	}
+
+	loadCelebrationsBehaviour(placeholderEl: HTMLElement) {
+		const { settingsManager, eventBus: rootEventBus } = this.rootContext
+		const { channelData } = this.session
+
+		const inputController = this.inputController
+		if (!inputController) return error('KICK', 'UI', 'Input controller not loaded for celebrations behaviour')
+
+		channelData.me.celebrations = [
+			{
+				createdAt: '2024-01-08T21:29:07.268773Z',
+				deferred: false,
+				id: 'chceleb_AAAAAAAAAAAAAAAAAAAAAAA',
+				type: 'subscription_renewed',
+				metadata: {
+					streakMonths: 96,
+					totalMonths: 96
+				}
+			}
+		]
+
+		const celebrations = channelData.me.celebrations
+		log('KICK', 'UI', '@@@@@@@@@@ Loading celebrations..', celebrations)
+		if (!celebrations) return
+
+		const celebrationsContainerEl = document.createElement('div')
+		celebrationsContainerEl.classList.add('ntv__celebrations')
+
+		for (const celebration of celebrations) {
+			if (celebration.type === 'subscription_renewed') {
+				const months = celebration.metadata.totalMonths
+
+				// Blatantly copy pasted because imminent NTV V2.0 reworks it anyway. Got to love how Tailwind classes make it unreadable garbage.
+				// TODO NOTE: The celebration banner cards should change color based on months subbed.
+				const celebrationEl = parseHTML(
+					cleanupHTML(`
+					<div class="ntv__celebration ntv__celebration--subscription-renewed relative flex min-h-[60px] flex-row flex-nowrap items-center justify-between gap-2 rounded p-2 text-black [&>svg]:fill-black mb-2" style="background-color: #ff9d00">
+						<div class="flex h-full flex-row flex-nowrap items-center gap-2 empty:hidden shrink grow">
+							<svg width="32" height="32" viewBox="0 0 32 32" class="size-6 shrink-0 grow-0 fill-black" fill="white" xmlns="http://www.w3.org/2000/svg" class="size-6 shrink-0 grow-0 fill-black"><path d="M5.00215 17.5057L12.6433 13.9772C13.2297 13.7058 13.7024 13.233 13.9737 12.6464L17.5011 5.00286L21.0285 12.6464C21.2998 13.233 21.7724 13.7058 22.3589 13.9772L30 17.5057L22.3589 21.0342C21.7724 21.3056 21.2998 21.7784 21.0285 22.365L17.5011 30.0085L13.9737 22.365C13.7024 21.7784 13.2297 21.3056 12.6433 21.0342L4.9934 17.5057H5.00215Z"></path><path d="M2 7.37587L5.29104 5.86117C5.54487 5.74735 5.74618 5.54597 5.85997 5.29207L7.37419 2L8.88842 5.29207C9.0022 5.54597 9.20352 5.74735 9.45735 5.86117L12.7484 7.37587L9.45735 8.89057C9.20352 9.0044 9.0022 9.20577 8.88842 9.45968L7.37419 12.7517L5.85997 9.46844C5.74618 9.21453 5.54487 9.01315 5.29104 8.89933L2 7.38463V7.37587Z"></path></svg>
+							<div class="relative flex h-full grow flex-col justify-center">
+								<span class="text-sm font-medium leading-5 absolute left-0">It's your ${months} month sub anniversary!</span>
+							</div>
+						</div>
+
+						<div class="flex h-full flex-row flex-nowrap items-center gap-2 empty:hidden ml-auto shrink-0 grow-0">
+							<button class="group inline-flex gap-1.5 items-center justify-center rounded font-semibold box-border relative transition-all betterhover:active:scale-[0.98] disabled:pointer-events-none select-none whitespace-nowrap [&amp;_svg]:size-[1em] outline-transparent outline outline-2 outline-offset-2 focus-visible:outline-grey-300 text-white [&amp;_svg]:fill-current focus-visible:bg-secondary/40 disabled:bg-transparent disabled:opacity-30 px-3 py-1.5 text-sm betterhover:hover:bg-surface-base bg-surface-tint" dir="ltr">Share</button>
+							<button class="group relative box-border flex shrink-0 grow-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded font-semibold ring-0 transition-all focus-visible:outline-none active:scale-[0.95] disabled:pointer-events-none [&amp;_svg]:size-[1em] bg-transparent focus-visible:outline-grey-300 [&amp;_svg]:fill-current lg:data-[state=open]:bg-surface-tint data-[state=active]:bg-surface-tint disabled:text-grey-600 disabled:bg-grey-1000 size-8 text-sm leading-none betterhover:hover:bg-black/10 text-black" data-state="closed" type="button" id="radix-:r8t:" aria-haspopup="menu" aria-expanded="true" aria-controls="radix-:r8u:" data-aria-hidden="true" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M19 4H13V10H19V4Z" fill="current"></path><path d="M19 13H13V19H19V13Z" fill="current"></path><path d="M19 22H13V28H19V22Z" fill="current"></path></svg></button>
+						</div>
+					</div>
+				`)
+				)
+
+				const shareBtn = celebrationEl.querySelector('button') as HTMLButtonElement
+				const hamburgerBtn = celebrationEl.querySelector('button:last-child') as HTMLButtonElement
+
+				shareBtn.addEventListener('click', () => {
+					log('KICK', 'UI', 'Share button clicked')
+
+					const message = inputController.contentEditableEditor.getMessageContent()
+					this.session.networkInterface
+						.sendCelebrationAction(celebration.id, message)
+						.then(() => {
+							log('KICK', 'UI', 'Celebration action sent')
+
+							// Remove celebration
+							;(celebrationEl as HTMLElement).remove()
+							const celebrationId = celebration.id
+							this.session.channelData.me.celebrations = celebrations.filter(c => c.id !== celebrationId)
+						})
+						.catch(err => {
+							error('KICK', 'UI', 'Failed to send celebration action', err)
+							this.toastError(err.message)
+						})
+				})
+
+				hamburgerBtn.addEventListener('click', () => {
+					log('KICK', 'UI', 'Hamburger button clicked')
+				})
+
+				celebrationsContainerEl.append(celebrationEl)
+			}
+		}
+
+		placeholderEl.replaceWith(celebrationsContainerEl)
 	}
 
 	getMessageContentString(chatMessageEl: HTMLElement) {

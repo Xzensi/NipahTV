@@ -58,6 +58,7 @@ export interface NetworkInterface {
 		originalSenderUsername: string,
 		noUtag?: boolean
 	): Promise<any>
+	sendCelebrationAction(celebrationId: string, message: string, action?: 'defer' | 'cancel'): Promise<any>
 	executeCommand(commandName: string, channelName: string, args: Array<string | number>): Promise<string | void>
 	createPoll(
 		channelName: string,

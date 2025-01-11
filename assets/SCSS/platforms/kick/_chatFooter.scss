@@ -90,6 +90,11 @@
 	}
 }
 
+// Hide celebration banners
+#chatroom-footer div:not(.ntv__celebrations):has(path[d='M19 4H13V10H19V4Z']) > div.relative {
+	display: none;
+}
+
 ////////////////////////////////////////////////////////////
 /// For moderator & creator view still using old design
 #chatroom-footer {
