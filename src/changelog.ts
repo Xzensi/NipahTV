@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.66',
+		date: '2025-01-11',
+		description: `
+                  Added partial support for sub anniversary celebrations. Still need more test data to fully implement this feature. If you have this feature on any of your subbed channels, please reach out to me on the NTV Discord Community server (https://discord.gg/u2gEQZrB6h) if you're willing to help provide some screenshots. This will help me implement support for this feature in NTV. Thanks in advance!
+
+                  Feat: Partial support for sub anniversary celebrations
+            `
+	},
+	{
 		version: '1.5.65',
 		date: '2025-01-11',
 		description: `

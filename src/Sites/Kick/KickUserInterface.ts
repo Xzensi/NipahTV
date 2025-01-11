@@ -19,6 +19,7 @@ import InputController from '@core/Input/InputController'
 import type { Badge } from '@core/Emotes/BadgeProvider'
 import { Logger } from '@core/Common/Logger'
 import { Caret } from '@core/UI/Caret'
+import { VerticalMenuComponent } from '@core/UI/Components/VerticalMenuComponent'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -427,7 +428,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			const celebrationsPlaceholder = document.createElement('div')
 			quickEmotesHolderPlaceholder.after(celebrationsPlaceholder)
-			// this.loadCelebrationsBehaviour(celebrationsPlaceholder)
+			this.loadCelebrationsBehaviour(celebrationsPlaceholder)
 
 			this.quickEmotesHolder = new QuickEmotesHolderComponent(
 				this.rootContext,
@@ -919,21 +920,20 @@ export class KickUserInterface extends AbstractUserInterface {
 		const inputController = this.inputController
 		if (!inputController) return error('KICK', 'UI', 'Input controller not loaded for celebrations behaviour')
 
-		channelData.me.celebrations = [
-			{
-				createdAt: '2024-01-08T21:29:07.268773Z',
-				deferred: false,
-				id: 'chceleb_AAAAAAAAAAAAAAAAAAAAAAA',
-				type: 'subscription_renewed',
-				metadata: {
-					streakMonths: 96,
-					totalMonths: 96
-				}
-			}
-		]
+		// channelData.me.celebrations = [
+		// 	{
+		// 		createdAt: '2024-01-08T21:29:07.268773Z',
+		// 		deferred: false,
+		// 		id: 'chceleb_AAAAAAAAAAAAAAAAAAAAAAA',
+		// 		type: 'subscription_renewed',
+		// 		metadata: {
+		// 			streakMonths: 96,
+		// 			totalMonths: 96
+		// 		}
+		// 	}
+		// ]
 
 		const celebrations = channelData.me.celebrations
-		log('KICK', 'UI', '@@@@@@@@@@ Loading celebrations..', celebrations)
 		if (!celebrations) return
 
 		const celebrationsContainerEl = document.createElement('div')
@@ -960,34 +960,78 @@ export class KickUserInterface extends AbstractUserInterface {
 							<button class="group relative box-border flex shrink-0 grow-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded font-semibold ring-0 transition-all focus-visible:outline-none active:scale-[0.95] disabled:pointer-events-none [&amp;_svg]:size-[1em] bg-transparent focus-visible:outline-grey-300 [&amp;_svg]:fill-current lg:data-[state=open]:bg-surface-tint data-[state=active]:bg-surface-tint disabled:text-grey-600 disabled:bg-grey-1000 size-8 text-sm leading-none betterhover:hover:bg-black/10 text-black" data-state="closed" type="button" id="radix-:r8t:" aria-haspopup="menu" aria-expanded="true" aria-controls="radix-:r8u:" data-aria-hidden="true" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M19 4H13V10H19V4Z" fill="current"></path><path d="M19 13H13V19H19V13Z" fill="current"></path><path d="M19 22H13V28H19V22Z" fill="current"></path></svg></button>
 						</div>
 					</div>
-				`)
-				)
+				`),
+					true
+				) as HTMLElement
 
 				const shareBtn = celebrationEl.querySelector('button') as HTMLButtonElement
-				const hamburgerBtn = celebrationEl.querySelector('button:last-child') as HTMLButtonElement
+				const hamburgerBtn = celebrationEl.querySelector('button:last-of-type') as HTMLButtonElement
 
 				shareBtn.addEventListener('click', () => {
-					log('KICK', 'UI', 'Share button clicked')
+					log('KICK', 'UI', 'Share celebration button clicked')
 
-					const message = inputController.contentEditableEditor.getMessageContent()
-					this.session.networkInterface
-						.sendCelebrationAction(celebration.id, message)
-						.then(() => {
-							log('KICK', 'UI', 'Celebration action sent')
+					const kickFooterInputContainer = document.querySelector(
+						'#quick-emotes-holder ~ div:has(#chat-input-wrapper)'
+					)
+					if (!kickFooterInputContainer) return error('KICK', 'UI', 'Kick footer input container not found')
 
-							// Remove celebration
-							;(celebrationEl as HTMLElement).remove()
-							const celebrationId = celebration.id
-							this.session.channelData.me.celebrations = celebrations.filter(c => c.id !== celebrationId)
-						})
-						.catch(err => {
-							error('KICK', 'UI', 'Failed to send celebration action', err)
-							this.toastError(err.message)
-						})
+					kickFooterInputContainer.classList.add('kick__chat-input-container--share-celebration')
+
+					this.celebrationData = {
+						id: celebration.id
+					}
+
+					const channelName = this.session.channelData.channelName
+					const textEl = parseHTML(
+						cleanupHTML(`
+						<span class="text-sm leading-5 font-medium" style="padding-top: 8px">Let <span class="font-bold">${channelName}</span> know you've been subbed for ${months} months</span>
+						`),
+						true
+					) as HTMLElement
+					kickFooterInputContainer.prepend(textEl)
+
+					celebrationEl.querySelector('span')!.textContent = 'Share sub anniversary'
+					celebrationEl.querySelector('& > div:last-of-type')!.remove()
+
+					this.session.eventBus.subscribe(
+						'ntv.ui.submitted_input',
+						() => {
+							log('KICK', 'UI', 'Submitted input', this.celebrationData)
+
+							celebrationEl.remove()
+							textEl.remove()
+							kickFooterInputContainer.classList.remove('kick__chat-input-container--share-celebration')
+						},
+						false,
+						true
+					)
 				})
 
 				hamburgerBtn.addEventListener('click', () => {
-					log('KICK', 'UI', 'Hamburger button clicked')
+					const menu = new VerticalMenuComponent(hamburgerBtn, [
+						{
+							label: 'Share later',
+							value: 'share_later'
+						},
+						{
+							label: 'Skip for this month',
+							value: 'skip'
+						}
+					]).init()
+
+					menu.addEventListener('action', evt => {
+						const customEvent = evt as CustomEvent
+						const action = customEvent.detail
+
+						log('KICK', 'UI', 'Menu action', action)
+						this.toastError(
+							"This feature is not yet implemented. If you're willing to help do a couple tests for the sub anniversary so I can implement this feature, please reach out to us in the Discord server!"
+						)
+					})
+
+					menu.addEventListener('close', evt => {
+						delete this.celebrationData
+					})
 				})
 
 				celebrationsContainerEl.append(celebrationEl)
