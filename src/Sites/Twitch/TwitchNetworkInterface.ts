@@ -42,6 +42,10 @@ export default class TwitchNetworkInterface implements NetworkInterface {
 		throw new Error('Method not implemented.')
 	}
 
+	async sendCelebrationAction(celebrationId: string, message: string, action?: 'defer' | 'cancel') {
+		throw new Error('Method not implemented.')
+	}
+
 	async executeCommand(commandName: string, channelName: string, args: Array<string | number>) {
 		throw new Error('Method not implemented.')
 	}

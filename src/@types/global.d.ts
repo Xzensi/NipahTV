@@ -108,7 +108,28 @@ declare global {
 				permanent: boolean
 				reason: string
 			}
+
+			celebrations?: Celebration<CelebrationType>[]
 		}
+	}
+
+	type CelebrationType = 'subscription_renewed'
+
+	interface Celebration<T extends CelebrationType> {
+		id: string
+		createdAt: string
+		deferred: boolean
+		type: T
+		metadata: {
+			subscription_renewed: {
+				streakMonths: number
+				totalMonths: number
+			}
+			streak: {
+				streakMonths: number
+				totalMonths: number
+			}
+		}[T]
 	}
 
 	interface ChatroomData {

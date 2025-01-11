@@ -6,6 +6,20 @@ import { Logger } from '@core/Common/Logger'
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
+namespace Kick {
+	export interface Celebration {
+		created_at: string
+		deferred: boolean
+		id: string
+		metadata: {
+			provider: string
+			streak_months: number
+			total_months: number
+		}
+		type: string
+	}
+}
+
 function tryParseErrorMessage(res: { [key: string]: any }) {
 	// Sometimes response format is like:
 	// {"status":{"code":404,"message":"Poll not found","error":true},"data":null}
@@ -321,6 +335,24 @@ export default class KickNetworkInterface implements NetworkInterface {
 					reason: responseChannelMeData.banned.reason
 				}
 			}
+
+			if (responseChannelMeData.celebrations && responseChannelMeData.celebrations.length) {
+				channelData.me.celebrations = responseChannelMeData.celebrations.map(
+					(celebration: Kick.Celebration) => {
+						return {
+							createdAt: celebration.created_at,
+							deferred: celebration.deferred,
+							id: celebration.id,
+							type: celebration.type,
+							metadata: {
+								provider: celebration.metadata.provider,
+								streakMonths: celebration.metadata.streak_months,
+								totalMonths: celebration.metadata.total_months
+							}
+						}
+					}
+				)
+			}
 		} else {
 			info('KICK', 'NET', 'User is not logged in.')
 		}
@@ -387,6 +419,27 @@ export default class KickNetworkInterface implements NetworkInterface {
 			})
 			.catch(err => {
 				handleApiError(err, 'Failed to reply to message.')
+			})
+	}
+
+	async sendCelebrationAction(celebrationId: string, message: string, action?: 'defer' | 'cancel') {
+		if (!this.session.channelData) throw new Error('Channel data is not loaded yet.')
+		const chatroomId = this.session.channelData.chatroom?.id
+
+		return RESTFromMainService.post(
+			`https://kick.com/api/v2/chatrooms/${chatroomId}/celebrations/${celebrationId}/action`,
+			{
+				action: 'consume',
+				message
+			}
+		)
+			.then(res => {
+				const parsedError = tryParseErrorMessage(res)
+				if (parsedError) throw new Error(parsedError)
+				// No need to return anything
+			})
+			.catch(err => {
+				handleApiError(err, 'Failed to perform celebration action.')
 			})
 	}
 

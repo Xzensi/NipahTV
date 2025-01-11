@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.65',
+		date: '2025-01-11',
+		description: `
+                  Temporarily hidden the share subscription anniversary feature for now because it only gets in the way. Now I got the necessary data to implement it, I'll ship it tomorrow.
+
+                  Fix: Temporarily hiding the share celebration feature
+                  Fix: Native Kick quick emotes holder sometimes not hiding properly on page load
+            `
+	},
+	{
 		version: '1.5.63',
 		date: '2025-01-04',
 		description: `
