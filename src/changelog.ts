@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.67',
+		date: '2025-01-21',
+		description: `
+                  Turns out I done a bit of an oopsie and nobody told me about it. I accidentally commented out the share celebration netcode, that's why sharing celebrations didn't actually send the message.. Whoops! It's fixed now, so go ahead and share those celebrations! 🎉
+
+                  Please do report issues or bugs you encounter! I can't fix issues nobody bothers to report. 😅
+
+                  Fix: Uncommented the share celebration netcode
+            `
+	},
+	{
 		version: '1.5.66',
 		date: '2025-01-11',
 		description: `
