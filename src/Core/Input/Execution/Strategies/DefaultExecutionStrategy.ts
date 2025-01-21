@@ -23,8 +23,8 @@ export default class DefaultExecutionStrategy implements InputExecutionStrategy 
 		dontClearInput || contentEditableEditor.clearInput()
 
 		if (inputIntentDTO.celebrationRefs) {
-			log('Input', 'Execution', 'Sending celebration message')
-			// await networkInterface.sendCelebrationAction(inputIntentDTO.celebrationRefs.id, inputIntentDTO.input)
+			// log('Input', 'Execution', 'Sending celebration message')
+			await networkInterface.sendCelebrationAction(inputIntentDTO.celebrationRefs.id, inputIntentDTO.input)
 		} else if (inputIntentDTO.isReply) {
 			if (!inputIntentDTO.replyRefs) throw new Error('ReplyRefs are required for reply messages.')
 
