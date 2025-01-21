@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.66
+// @version 1.5.67
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10173,7 +10173,7 @@ var DefaultExecutionStrategy = class {
     const { networkInterface } = session;
     dontClearInput || contentEditableEditor.clearInput();
     if (inputIntentDTO.celebrationRefs) {
-      log("Input", "Execution", "Sending celebration message");
+      await networkInterface.sendCelebrationAction(inputIntentDTO.celebrationRefs.id, inputIntentDTO.input);
     } else if (inputIntentDTO.isReply) {
       if (!inputIntentDTO.replyRefs) throw new Error("ReplyRefs are required for reply messages.");
       await networkInterface.sendReply(
@@ -11960,6 +11960,17 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.67",
+    date: "2025-01-21",
+    description: `
+                  Turns out I done a bit of an oopsie and nobody told me about it. I accidentally commented out the share celebration netcode, that's why sharing celebrations didn't actually send the message.. Whoops! It's fixed now, so go ahead and share those celebrations! \u{1F389}
+
+                  Please do report issues or bugs you encounter! I can't fix issues nobody bothers to report. \u{1F605}
+
+                  Fix: Uncommented the share celebration netcode
+            `
+  },
   {
     version: "1.5.66",
     date: "2025-01-11",
@@ -25921,7 +25932,7 @@ var BotrixExtension = class extends Extension {
 var logger38 = new Logger();
 var { log: log37, info: info36, error: error38 } = logger38.destruct();
 var NipahClient = class {
-  VERSION = "1.5.66";
+  VERSION = "1.5.67";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
