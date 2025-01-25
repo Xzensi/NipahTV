@@ -1,9 +1,11 @@
 import { version as pkgVersion } from '../package.json'
 import type { ConfigEnv, UserConfig } from 'vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
 import solidPlugin from 'vite-plugin-solid'
 import devtools from 'solid-devtools/vite'
 import zipPack from 'vite-plugin-zip-pack'
 import { crx } from '@crxjs/vite-plugin'
+import { Features } from 'lightningcss'
 
 export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConfig> => {
 	const buildTarget = process.env.BUILD_TARGET as 'chrome' | 'firefox'
@@ -19,7 +21,7 @@ export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConf
 	manifest.version = pkgVersion
 	manifest.name = isDev ? `${manifest.name} Dev` : manifest.name
 
-	const plugins = [devtools(), solidPlugin(), crx({ manifest, browser: buildTarget })]
+	const plugins = [devtools(), solidPlugin(), crx({ manifest, browser: buildTarget }), tsconfigPaths()]
 	if (!isDev) {
 		plugins.push(
 			zipPack({
@@ -60,10 +62,13 @@ export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConf
 		},
 		css: {
 			devSourcemap: isDev,
-			preprocessorMaxWorkers: 2
+			preprocessorMaxWorkers: 2,
 			// https://vite.dev/config/shared-options.html#css-transformer
-			// transformer: 'lightningcss'
+			transformer: 'lightningcss',
 			// https://vite.dev/guide/features#postcss
+			lightningcss: {
+				include: Features.Nesting
+			}
 		},
 		resolve: {
 			conditions: ['browser', isDev ? 'development' : 'production']

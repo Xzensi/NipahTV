@@ -1,8 +1,10 @@
 import { name as pkgName, displayName as pkgDisplayName, version as pkgVersion } from '../package.json'
 import type { ConfigEnv, UserConfig } from 'vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
 import solidPlugin from 'vite-plugin-solid'
 import devtools from 'solid-devtools/vite'
 import monkey from 'vite-plugin-monkey'
+import { Features } from 'lightningcss'
 
 export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConfig> => {
 	const isDev = mode !== 'production'
@@ -19,6 +21,7 @@ export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConf
 		},
 		plugins: [
 			devtools(),
+			tsconfigPaths(),
 			solidPlugin(),
 			monkey({
 				entry: 'src/index.tsx',
@@ -47,6 +50,16 @@ export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConf
 			minify: 'esbuild',
 			sourcemap: isDev,
 			outDir: isDev ? 'dist/userscript-dev' : 'dist/userscript'
+		},
+		css: {
+			devSourcemap: isDev,
+			preprocessorMaxWorkers: 2,
+			// https://vite.dev/config/shared-options.html#css-transformer
+			transformer: 'lightningcss',
+			// https://vite.dev/guide/features#postcss
+			lightningcss: {
+				include: Features.Nesting
+			}
 		},
 		resolve: {
 			conditions: ['browser', mode === 'production' ? 'production' : 'development']

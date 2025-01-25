@@ -1,0 +1,40 @@
+:root {
+	color-scheme: dark;
+}
+
+html {
+	height: 100%;
+}
+
+body {
+	background: #111;
+	min-height: 100%;
+	color: #fbfbfe;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+a,
+a:link,
+a:visited {
+	color: #fbfbfe;
+}
+
+div {
+	border-radius: initial;
+	box-shadow: initial;
+	background: initial;
+	padding: initial;
+	margin: initial;
+	width: initial;
+}
+
+.chatContainer {
+	background-color: rgb(15, 14, 19);
+	overflow-y: auto;
+	overflow-x: auto;
+	width: 500px;
+	height: 90vh;
+}

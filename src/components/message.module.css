@@ -1,0 +1,16 @@
+.message {
+	background: rgba(255, 255, 255, 0.086);
+	border-radius: 0.5em;
+	padding: 0.618em 1em;
+	/* margin: 0.3em 0; */
+	position: absolute;
+	max-width: 100%;
+	right: 0;
+	left: 0;
+	top: 0;
+}
+
+.username {
+	margin-right: 0.618em;
+	color: #f0f;
+}

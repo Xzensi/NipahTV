@@ -8,15 +8,18 @@
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
-		"baseUrl": "./src",
 		"jsx": "preserve",
 		"jsxImportSource": "solid-js",
 		"types": ["vite/client", "chrome", "firefox-webext-browser", "dexie"],
+		"lib": ["DOM", "DOM.Iterable", "ESNext"],
 		"noEmit": true,
 		"isolatedModules": true,
 		"skipLibCheck": true,
-		"paths": {},
-		"lib": ["DOM", "DOM.Iterable", "ESNext"]
+		"baseUrl": "./src",
+		"paths": {
+			"@Components/*": ["Components/*"]
+		}
 	},
-	"typeRoots": ["node_modules/@types", "node_modules/dexie"]
+	"typeRoots": ["node_modules/@types", "node_modules/dexie"],
+	"include": ["src/**/*.tsx", "src/**/*.d.ts"]
 }

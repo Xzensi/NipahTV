@@ -9,7 +9,7 @@
 		{
 			"js": ["src/index.tsx"],
 			"css": [],
-			"matches": ["https://kick.com/*"]
+			"matches": ["https://example.com/*"]
 		}
 	]
 }
