@@ -1,5 +1,8 @@
-import { CustomEventTarget, TypedCustomEvent } from 'TypedCustomEvent'
+import { CustomEventTarget, TypedCustomEvent } from 'Common/TypedCustomEvent'
 import { Message } from 'Components/Message'
+import { ulid } from 'utils'
+
+const { log, error } = console
 
 const randomMessagePayloads = [
 	'Ayy lmao',
@@ -25,6 +28,7 @@ const randomMessagePayloads = [
 
 function getRandomMessage() {
 	return {
+		id: ulid(),
 		username: 'John Smith',
 		content: randomMessagePayloads[Math.floor(Math.random() * randomMessagePayloads.length)]
 	}
@@ -40,6 +44,7 @@ interface ChatControllerEventMap {
 export default class ChatController {
 	eventTarget = new EventTarget() as CustomEventTarget<ChatControllerEventMap>
 	messages: Message[] = []
+	count: number = 0
 
 	addEventListener<T extends keyof ChatControllerEventMap>(
 		type: T,
@@ -50,15 +55,42 @@ export default class ChatController {
 	}
 
 	getChunk(startIndex: number, endIndex: number) {
+		if (startIndex < 0) startIndex = 0
+		if (endIndex < 0) endIndex = 0
+		if (endIndex < startIndex) endIndex = startIndex
 		return this.messages.slice(startIndex, endIndex)
+	}
+
+	getChunkId(id: string, count: number) {
+		if (count < 1) {
+			error('Attempted to get a chunk of messages with a count less than 1')
+			count = 1
+		}
+
+		const index = this.messages.findLastIndex(message => message.id === id)
+		if (index === -1) return null
+
+		return this.messages.slice(index, index + count)
 	}
 
 	getHeadIndex() {
 		return this.messages.length - 1
 	}
 
+	getHeadId() {
+		return this.messages[this.messages.length - 1]?.id
+	}
+
+	getAheadCountById(id: string) {
+		const index = this.messages.findLastIndex(message => message.id === id)
+		if (index === -1) return 0
+
+		return this.messages.length - index - 1
+	}
+
 	simulateMessage() {
 		const message = getRandomMessage()
+		message.content = `[${++this.count}] ` + message.content
 		this.messages.push(message)
 
 		if (this.messages.length > messagesDataStoreMaxCapacity) {

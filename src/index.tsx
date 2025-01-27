@@ -3,7 +3,7 @@
 
 import { render } from 'solid-js/web'
 import styles from './styles.module.css'
-import ChatListComponent from '@Components/ChatList'
+import ChatWindow from '@Components/ChatList'
 import ChatController from 'ChatController'
 
 const { log, error } = console
@@ -13,12 +13,34 @@ const chatController = new ChatController()
 // Simulate new messages being added to chat
 setInterval(() => {
 	chatController.simulateMessage()
-}, 200)
+}, 100)
+
+// setTimeout(() => {
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	chatController.simulateMessage()
+// 	// chatController.simulateMessage()
+// }, 10)
 
 function App() {
 	return (
 		<div class={styles.chatContainer}>
-			<ChatListComponent chatController={chatController} />
+			<ChatWindow chatController={chatController} />
 		</div>
 	)
 }
