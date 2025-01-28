@@ -279,6 +279,10 @@ export class ContentEditableEditor {
 	}
 
 	handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+			event.stopPropagation()
+		}
+
 		if (event.ctrlKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
 			return this.handleCtrlArrowKeyDown(event)
 		}

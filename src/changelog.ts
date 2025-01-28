@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.68',
+		date: '2025-01-28',
+		description: `
+                  Looks like Kick made some unfathomably dumb change again where someone in their infinite wisdom decided it would be a good idea to steal focus away from the chat input when you press the arrow keys, just to scrub the stream back and forth. I patched it so it doesn't steal focus anymore from chat input.
+
+                  Fix: Kick stealing focus on arrow key during input
+            `
+	},
+	{
 		version: '1.5.67',
 		date: '2025-01-21',
 		description: `
