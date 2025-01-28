@@ -370,7 +370,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 	function catchUpEntries(skipToEnd = false) {
 		// Note: entriesSinceUnsticky does not mean that we have to catch up on that many entries
 		if (!entriesSinceUnsticky) {
-			log('No entries to catch up on')
+			// log('No entries to catch up on')
 			return
 		}
 
@@ -389,7 +389,6 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 			const aheadCount = chatController.getAheadCountById(lastEntryId)
 			if (!aheadCount) return
 
-			log('Ahead count:', aheadCount, entriesSinceUnsticky)
 			entries = chatController.getChunkId(lastEntryId, viewportOverflowBuffer)
 		}
 
@@ -428,7 +427,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 			const lastEntryId = chunkEntries[chunkEntries.length - 1]?.message.id
 			// log('Ahead count', chatController.getAheadCountById(lastEntryId))
 			if (lastEntryId && !chatController.getAheadCountById(lastEntryId)) {
-				log('Caught up to the end, setting sticky')
+				log('Caught up to the end, setting sticky', scrollDir)
 				entriesSinceUnsticky = 0
 				setIsSticky(true)
 				scrollViewportToBottom()

@@ -8,8 +8,8 @@ html {
 
 body {
 	background: #111;
-	min-height: 100%;
 	color: #fbfbfe;
+	height: 100%;
 }
 
 * {
@@ -35,6 +35,6 @@ div {
 	background-color: rgb(15, 14, 19);
 	overflow-y: auto;
 	overflow-x: auto;
-	width: 500px;
-	height: 90vh;
+	height: 100%;
+	width: 100%;
 }
