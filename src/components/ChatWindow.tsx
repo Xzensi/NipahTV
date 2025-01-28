@@ -21,6 +21,9 @@ const viewportOverflowBuffer = 20
 // Smallest possible height of a message element
 const minMessageHeight = 40
 
+// Scroll distance in pixels from the bottom of the chat to trigger sticky mode
+const scrollStickyThreshold = 50
+
 let _uid = 0
 function uid() {
 	return _uid++
@@ -143,28 +146,14 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 		viewportHeight = viewportRect.height
 		calculatedViewportCapacity = Math.ceil(viewportHeight / minMessageHeight)
 
-		// window.addEventListener('wheel', e => {
-		// 	if (!scrollContainerRef.contains(e.target as Node) || e.target === scrollContainerRef) return
+		window.addEventListener('wheel', e => {
+			if (!scrollContainerRef.contains(e.target as Node) || e.target === scrollContainerRef) return
 
-		// 	const scrollDir = e.deltaY > 0 // true = down, false = up
-		// 	log('Wheel event', scrollDir, e.deltaY)
+			const scrollDir = e.deltaY > 0 // true = down, false = up
+			const isSticky = getIsSticky()
 
-		// 	const isSticky = getIsSticky()
-		// 	if (isSticky && scrollDir) return
-
-		// 	const scrollTop = scrollContainerRef.scrollTop + e.deltaY
-		// 	setScrollTop(scrollTop)
-
-		// 	if (isSticky && !scrollDir) {
-		// 		setIsSticky(false)
-		// 	} else if (!isSticky && scrollDir && scrollTop + viewportHeight >= getChunkHeight() - 50) {
-		// 		setIsSticky(true)
-		// 		scrollViewportToBottom()
-		// 		if (entriesSinceUnsticky) entriesSinceUnsticky = 0
-		// 	}
-
-		// 	updateViewport()
-		// })
+			if (isSticky && !scrollDir) setIsSticky(false)
+		})
 	})
 
 	onCleanup(() => {
@@ -180,9 +169,9 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 	 */
 	function addMessage(message: Message, ignoreSticky = false) {
 		if (!ignoreSticky && !getIsSticky()) {
-			if (entriesSinceUnsticky < maxChunkCapacity) entriesSinceUnsticky++
+			if (entriesSinceUnsticky < viewportOverflowBuffer) entriesSinceUnsticky++
 
-			if (entriesSinceUnsticky > viewportOverflowBuffer) {
+			if (entriesSinceUnsticky > viewportOverflowBuffer - 1) {
 				// log('More than 100 messages since unsticky, skipping', entriesSinceUnsticky)
 				return 0
 			}
@@ -244,10 +233,10 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 		}
 
 		if (!ignoreSticky && !getIsSticky()) {
-			if (entriesSinceUnsticky + messages.length > viewportOverflowBuffer) {
+			if (entriesSinceUnsticky + messages.length > viewportOverflowBuffer - 1) {
 				// log('More than 100 messages since unsticky, skipping', entriesSinceUnsticky)
 				const remainingCapacity = entriesSinceUnsticky - viewportOverflowBuffer
-				entriesSinceUnsticky = Math.min(maxChunkCapacity, entriesSinceUnsticky + messages.length)
+				entriesSinceUnsticky = Math.min(viewportOverflowBuffer, entriesSinceUnsticky + messages.length)
 
 				if (remainingCapacity) messages = messages.slice(0, remainingCapacity)
 				else return 0
@@ -260,6 +249,8 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 		}
 
 		// TODO confirm that chunkEntries is indeed empty when cleared before calling this function
+
+		// log('Batch adding messages', messages.length)
 
 		batch(() => {
 			// Truncate chunk if it's too large before adding new messages
@@ -377,6 +368,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 	 * @param skipToEnd Skip to the end of the chat
 	 */
 	function catchUpEntries(skipToEnd = false) {
+		// Note: entriesSinceUnsticky does not mean that we have to catch up on that many entries
 		if (!entriesSinceUnsticky) {
 			log('No entries to catch up on')
 			return
@@ -393,6 +385,11 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 			const lastEntryId = chunkEntries[chunkEntries.length - 1]?.message.id
 			if (!lastEntryId) return
 
+			// TODO consider waiting so long that chatController lost references to catch up on after waiting
+			const aheadCount = chatController.getAheadCountById(lastEntryId)
+			if (!aheadCount) return
+
+			log('Ahead count:', aheadCount, entriesSinceUnsticky)
 			entries = chatController.getChunkId(lastEntryId, viewportOverflowBuffer)
 		}
 
@@ -410,32 +407,39 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 	 * @param scrollTop The current scroll top position
 	 */
 	function handleScroll(scrollTop: number) {
-		if (Math.abs(getScrollTop() - scrollTop) < 2) return
-
 		const scrollDir = lastScrollTop < scrollTop // true = down, false = up
 		const isSticky = getIsSticky()
 
-		if (isSticky && !scrollDir && scrollTop + viewportHeight <= getChunkHeight() - 2) {
-			setIsSticky(false)
-		} else if (!isSticky && scrollDir && scrollTop + viewportHeight >= getChunkHeight() - 50) {
-			catchUpEntries()
+		// TODO what happens to lastScrollTop calculations when chunk gets unshifted?
+		lastScrollTop = scrollTop
 
+		// Skip scroll down events when sticky
+		// This filters out artificial scroll events created by sticky
+		if (isSticky && scrollDir) return
+
+		// log('Scrolling', scrollDir ? 'down' : 'up', isSticky, scrollTop + viewportHeight, getChunkHeight())
+
+		const distToEnd = getChunkHeight() - (scrollTop + viewportHeight)
+		if (distToEnd < scrollStickyThreshold) catchUpEntries()
+
+		if (isSticky && !scrollDir && distToEnd > 2) {
+			setIsSticky(false)
+		} else if (!isSticky && scrollDir && distToEnd < scrollStickyThreshold) {
 			const lastEntryId = chunkEntries[chunkEntries.length - 1]?.message.id
+			// log('Ahead count', chatController.getAheadCountById(lastEntryId))
 			if (lastEntryId && !chatController.getAheadCountById(lastEntryId)) {
+				log('Caught up to the end, setting sticky')
 				entriesSinceUnsticky = 0
 				setIsSticky(true)
 				scrollViewportToBottom()
 			}
 		} else if (isSticky) {
 			// We don't want to update viewport when sticky creates artificial scroll events
-			lastScrollTop = scrollTop
 			setScrollTop(scrollTop)
 			return
 		}
 
 		setScrollTop(scrollTop)
-		lastScrollTop = scrollTop
-
 		updateViewport()
 	}
 
