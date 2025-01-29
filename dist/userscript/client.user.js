@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.67
+// @version 1.5.68
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11961,6 +11961,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.68",
+    date: "2025-01-28",
+    description: `
+                  Looks like Kick made some unfathomably dumb change again where someone in their infinite wisdom decided it would be a good idea to steal focus away from the chat input when you press the arrow keys, just to scrub the stream back and forth. I patched it so it doesn't steal focus anymore from chat input.
+
+                  Fix: Kick stealing focus on arrow key during input
+            `
+  },
+  {
     version: "1.5.67",
     date: "2025-01-21",
     description: `
@@ -21227,6 +21236,9 @@ var ContentEditableEditor = class {
     });
   }
   handleKeydown(event) {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.stopPropagation();
+    }
     if (event.ctrlKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
       return this.handleCtrlArrowKeyDown(event);
     }
@@ -25932,7 +25944,7 @@ var BotrixExtension = class extends Extension {
 var logger38 = new Logger();
 var { log: log37, info: info36, error: error38 } = logger38.destruct();
 var NipahClient = class {
-  VERSION = "1.5.67";
+  VERSION = "1.5.68";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
