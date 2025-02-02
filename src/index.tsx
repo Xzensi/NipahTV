@@ -11,9 +11,15 @@ const { log, error } = console
 const chatController = new ChatController()
 
 // Simulate new messages being added to chat
-setInterval(() => {
+const loop = () => {
 	chatController.simulateMessage()
-}, 10)
+
+	const delay = 1 + (Math.sin(Date.now() / 8_000) / 2 + 0.5) * 300
+	// log(delay)
+	setTimeout(loop, delay)
+}
+
+loop()
 
 // setTimeout(() => {
 // 	chatController.simulateMessage()

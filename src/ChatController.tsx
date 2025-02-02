@@ -1,5 +1,6 @@
 import { CustomEventTarget, TypedCustomEvent } from 'Common/TypedCustomEvent'
-import { Message } from 'Components/Message'
+import Message, { MessageProps } from '@Components/Message'
+
 import { ulid } from 'utils'
 
 const { log, error } = console
@@ -210,12 +211,12 @@ const messagesDataStoreMaxCapacity = 10_000
 // const messagesDataStore = Array.from({ length: messagesDataStoreMaxCapacity }, getRandomMessage)
 
 interface ChatControllerEventMap {
-	message: Message
+	message: MessageProps
 }
 
 export default class ChatController {
 	eventTarget = new EventTarget() as CustomEventTarget<ChatControllerEventMap>
-	messages: Message[] = []
+	messages: MessageProps[] = []
 	count: number = 0
 
 	addEventListener<T extends keyof ChatControllerEventMap>(

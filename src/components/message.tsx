@@ -1,14 +1,14 @@
 import { createEffect, createSignal, For, Show } from 'solid-js'
-import styles from './message.module.css'
+import styles from './Message.module.css'
 
-export interface Message {
+export interface MessageProps {
 	id: string
 	username: string
 	content: string
 }
 
-export default function MessageComponent(
-	props: Message & { offset: number; ref: HTMLDivElement | ((el: HTMLDivElement) => void) }
+export default function Message(
+	props: MessageProps & { offset: number; ref: HTMLDivElement | ((el: HTMLDivElement) => void) }
 ) {
 	return (
 		<div
