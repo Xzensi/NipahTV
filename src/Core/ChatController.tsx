@@ -1,7 +1,7 @@
-import { CustomEventTarget, TypedCustomEvent } from 'Common/TypedCustomEvent'
-import Message, { MessageProps } from '@Components/Message'
-
-import { ulid } from 'utils'
+import { CustomEventTarget, TypedCustomEvent } from '@Core/Common/TypedCustomEvent'
+import { FeedController, FeedEventMap } from '@Core/Common/FeedController'
+import { MessageProps } from '@Core/Components/Message'
+import { ulid } from '@Core/Common/utils'
 
 const { log, error } = console
 
@@ -210,66 +210,21 @@ function getRandomMessage() {
 const messagesDataStoreMaxCapacity = 10_000
 // const messagesDataStore = Array.from({ length: messagesDataStoreMaxCapacity }, getRandomMessage)
 
-interface ChatControllerEventMap {
-	message: MessageProps
-}
-
-export default class ChatController {
-	eventTarget = new EventTarget() as CustomEventTarget<ChatControllerEventMap>
-	messages: MessageProps[] = []
+export default class ChatController extends FeedController<MessageProps> implements FeedController<MessageProps> {
+	eventTarget = new EventTarget() as CustomEventTarget<FeedEventMap<MessageProps>>
+	entries: MessageProps[] = []
 	count: number = 0
-
-	addEventListener<T extends keyof ChatControllerEventMap>(
-		type: T,
-		listener: (ev: CustomEvent<ChatControllerEventMap[T]>) => any,
-		options?: boolean | AddEventListenerOptions
-	) {
-		this.eventTarget.addEventListener(type, listener, options)
-	}
-
-	getChunk(startIndex: number, endIndex: number) {
-		if (startIndex < 0) startIndex = 0
-		if (endIndex < 0) endIndex = 0
-		if (endIndex < startIndex) endIndex = startIndex
-		return this.messages.slice(startIndex, endIndex)
-	}
-
-	getChunkId(id: string, count: number) {
-		if (count < 1) {
-			error('Attempted to get a chunk of messages with a count less than 1')
-			count = 1
-		}
-
-		const index = this.messages.findLastIndex(message => message.id === id)
-		if (index === -1) return null
-
-		return this.messages.slice(index, index + count)
-	}
-
-	getHeadIndex() {
-		return this.messages.length - 1
-	}
-
-	getHeadId() {
-		return this.messages[this.messages.length - 1]?.id
-	}
-
-	getAheadCountById(id: string) {
-		const index = this.messages.findLastIndex(message => message.id === id)
-		if (index === -1) return 0
-
-		return this.messages.length - index - 1
-	}
 
 	simulateMessage() {
 		const message = getRandomMessage()
 		message.content = `[${++this.count}] ` + message.content
-		this.messages.push(message)
+		Object.freeze(message) // For testing purposes
+		this.entries.push(message)
 
-		if (this.messages.length > messagesDataStoreMaxCapacity) {
-			this.messages.shift()
+		if (this.entries.length > messagesDataStoreMaxCapacity) {
+			this.entries.shift()
 		}
 
-		this.eventTarget.dispatchEvent(new TypedCustomEvent('message', { detail: message }))
+		this.eventTarget.dispatchEvent(new TypedCustomEvent('newEntry', { detail: message }))
 	}
 }

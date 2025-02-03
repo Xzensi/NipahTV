@@ -1,7 +1,7 @@
 import { createSignal, onMount, onCleanup, For, batch, createEffect } from 'solid-js'
-import Message, { MessageProps } from '@Components/Message'
+import Message, { MessageProps } from '@Core/Components/Message'
+import { FeedController } from '@Core/Common/FeedController'
 import { createStore } from 'solid-js/store'
-import ChatController from 'ChatController'
 import styles from './ChatList.module.css'
 
 const { log, error } = console
@@ -27,30 +27,24 @@ const scrollStickyThreshold = 50
 // Amount of entries to load per batch
 const batchLoadAmount = 20
 
-// Interval rate of new entry batch loading
-
-let _uid = 0
-function uid() {
-	return _uid++
-}
-
 interface WrappedEntry {
 	cachedHeight: number
 	offset: number
-	message: MessageProps
+	data: MessageProps
 }
 
-export default function ChatWindow(props: { chatController: ChatController }) {
+export default function FeedView(props: { chatController: FeedController<MessageProps> }) {
 	const [unloadedEntries, setUnloadedEntries] = createStore<WrappedEntry[]>([])
 	const [getCachedTotalHeight, setCachedTotalHeight] = createSignal(0)
 	const [viewportEntries, setViewportEntries] = createStore<WrappedEntry[]>([])
 	const [getScrollTop, setScrollTop] = createSignal(0)
 	const [getIsSticky, setIsSticky] = createSignal(true)
 
-	const entryIndexMap = new Map<string, number>()
+	// const
+	// const entryIndexMap = new Map<string, number>()
 
 	// TODO implement as signal
-	const throttlingEnabled = true
+	const throttlingEnabled = false
 
 	let viewportRect: DOMRect
 	let viewportHeight = 0
@@ -63,7 +57,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 		entryTickCount = 0
 
 	const chatController = props.chatController
-	chatController.addEventListener('message', e => queueMessage(e.detail))
+	chatController.addEventListener('newEntry', e => queueMessage(e.detail))
 
 	onMount(() => {
 		// setInterval(() => {
@@ -108,14 +102,14 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 			}
 
 			//? Could maybe turn into hashmap by using elements as hashmap keys, or cache height into DOM as attribute
-			const index = unloadedEntries.findLastIndex(entry => entry.message.id === entryUid)
+			const index = unloadedEntries.findLastIndex(entry => entry.data.id === entryUid)
 			if (index === -1) {
 				error('No entry found for message element', entryUid)
 				return
 			}
 
 			if (blockSize === 0) {
-				const viewportIndex = viewportEntries.findLastIndex(entry => entry.message.id === entryUid)
+				const viewportIndex = viewportEntries.findLastIndex(entry => entry.data.id === entryUid)
 				if (viewportIndex === -1) {
 					return // Element got unloaded, don't update height and reflow
 				}
@@ -217,7 +211,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 
 			if (entryTickRate <= 5) processEntryQueue()
 		} else {
-			batchAddMessages([message])
+			batchAddEntries([message])
 		}
 	}
 
@@ -233,10 +227,10 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 		entryQueue = []
 
 		// if (entries.length === 1)
-		batchAddMessages(entries)
+		batchAddEntries(entries)
 	}
 
-	function addMessage(message: MessageProps, ignoreSticky = false) {
+	function addEntry(entry: MessageProps, ignoreSticky = false) {
 		if (unloadedEntries.length > maxUnloadedEntries + unloadOverflowBuffer) {
 			const unloadedSlice = unloadedEntries.slice(-maxUnloadedEntries + 1)
 
@@ -255,7 +249,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 					{
 						cachedHeight: 0,
 						offset: lastEntry ? lastEntry.offset + lastEntry.cachedHeight : 0,
-						message
+						data: { ...entry }
 					}
 				])
 			})
@@ -266,7 +260,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 				{
 					cachedHeight: 0,
 					offset: lastEntry ? lastEntry.offset + lastEntry.cachedHeight : 0,
-					message
+					data: { ...entry }
 				}
 			])
 		}
@@ -279,31 +273,31 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 	}
 
 	/**
-	 * Batch add messages to the chat list
-	 * @param messages The messages to add
+	 * Batch add entries to the list
+	 * @param entries The entries to add
 	 * @param ignoreSticky Ignore sticky state when adding messages
-	 * @returns The amount of messages that were added
+	 * @returns The amount of entries that were added
 	 */
-	function batchAddMessages(messages: MessageProps[], ignoreSticky = false) {
-		if (!messages.length) {
+	function batchAddEntries(entries: MessageProps[], ignoreSticky = false) {
+		if (!entries.length) {
 			log('No messages to batch add...')
 			return 0
 		}
 
 		if (!ignoreSticky && !getIsSticky()) {
-			if (entriesSinceUnsticky + messages.length > viewportOverflowBuffer - 1) {
+			if (entriesSinceUnsticky + entries.length > viewportOverflowBuffer - 1) {
 				// log('More than 100 messages since unsticky, skipping', entriesSinceUnsticky)
 				const remainingCapacity = entriesSinceUnsticky - viewportOverflowBuffer
-				entriesSinceUnsticky = Math.min(viewportOverflowBuffer, entriesSinceUnsticky + messages.length)
+				entriesSinceUnsticky = Math.min(viewportOverflowBuffer, entriesSinceUnsticky + entries.length)
 
-				if (remainingCapacity) messages = messages.slice(0, remainingCapacity)
+				if (remainingCapacity) entries = entries.slice(0, remainingCapacity)
 				else return 0
 			}
 		}
 
-		if (messages.length > maxUnloadedEntries) {
-			error('Too many messages to batch add, truncating..', messages.length)
-			messages = messages.slice(-maxUnloadedEntries)
+		if (entries.length > maxUnloadedEntries) {
+			error('Too many entries to batch add, truncating..', entries.length)
+			entries = entries.slice(-maxUnloadedEntries)
 		}
 
 		// TODO confirm that unloadedEntries is indeed empty when cleared before calling this function
@@ -312,9 +306,9 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 
 		batch(() => {
 			// Truncate unloaded if it's too large before adding new messages
-			if (unloadedEntries.length + messages.length > maxUnloadedEntries + unloadOverflowBuffer) {
+			if (unloadedEntries.length + entries.length > maxUnloadedEntries + unloadOverflowBuffer) {
 				// TODO check if this is correct
-				const slicedUnloadedEntries = unloadedEntries.slice(maxUnloadedEntries - messages.length)
+				const slicedUnloadedEntries = unloadedEntries.slice(maxUnloadedEntries - entries.length)
 
 				// Shift offsets of sliced entries to 0
 				const firstOffset = slicedUnloadedEntries[0].offset
@@ -330,23 +324,23 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 			const lastEntry = unloadedEntries[lastIndex]
 			const lastOffset = lastEntry ? lastEntry.offset + lastEntry.cachedHeight : 0
 
-			const entries = []
-			for (const message of messages) {
-				entries.push({
+			const newEntries = []
+			for (const entryData of entries) {
+				newEntries.push({
 					cachedHeight: 0,
 					offset: lastOffset,
-					message
+					data: { ...entryData }
 				})
 			}
 
-			setUnloadedEntries([...unloadedEntries, ...entries])
+			setUnloadedEntries([...unloadedEntries, ...newEntries])
 		})
 
 		// Update cached height of all unloaded entries
 		//? getUnloadedHeight()
 		updateViewport()
 
-		return messages.length
+		return entries.length
 	}
 
 	/**
@@ -440,7 +434,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 			entries = chatController.getChunk(headIndex - maxUnloadedEntries, headIndex)
 			entriesSinceUnsticky = 0
 		} else {
-			const lastEntryId = unloadedEntries[unloadedEntries.length - 1]?.message.id
+			const lastEntryId = unloadedEntries[unloadedEntries.length - 1]?.data.id
 			if (!lastEntryId) return
 
 			// TODO consider waiting so long that chatController lost references to catch up on after waiting
@@ -455,7 +449,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 			return
 		}
 
-		batchAddMessages(entries, true)
+		batchAddEntries(entries, true)
 	}
 
 	let lastScrollTop = 0
@@ -482,7 +476,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 		if (isSticky && !scrollDir && distToEnd > 2) {
 			setIsSticky(false)
 		} else if (!isSticky && scrollDir && distToEnd < scrollStickyThreshold) {
-			const lastEntryId = unloadedEntries[unloadedEntries.length - 1]?.message.id
+			const lastEntryId = unloadedEntries[unloadedEntries.length - 1]?.data.id
 			// log('Ahead count', chatController.getAheadCountById(lastEntryId))
 			if (lastEntryId && !chatController.getAheadCountById(lastEntryId)) {
 				log('Caught up to the end, setting sticky', scrollDir)
@@ -523,7 +517,7 @@ export default function ChatWindow(props: { chatController: ChatController }) {
 				style={{ height: getUnloadedHeight() + 'px', position: 'relative' }}>
 				<For each={viewportEntries}>
 					{(entry, i) => (
-						<Message offset={entry.offset} {...entry.message} ref={el => onElementCreated(el, entry)} />
+						<Message offset={entry.offset} {...entry.data} ref={el => onElementCreated(el, entry)} />
 					)}
 				</For>
 			</div>

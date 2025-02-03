@@ -1,10 +1,10 @@
 /// <reference types="vite-plugin-monkey/client" />
 /* @refresh reload */
 
-import { render } from 'solid-js/web'
+import ChatController from '@Core/ChatController'
+import FeedView from '@Core/Components/FeedView'
 import styles from './styles.module.css'
-import ChatWindow from '@Components/ChatWindow'
-import ChatController from 'ChatController'
+import { render } from 'solid-js/web'
 
 const { log, error } = console
 
@@ -46,7 +46,7 @@ loop()
 function App() {
 	return (
 		<div class={styles.chatContainer}>
-			<ChatWindow chatController={chatController} />
+			<FeedView chatController={chatController} />
 		</div>
 	)
 }

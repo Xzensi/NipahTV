@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, Show } from 'solid-js'
-import styles from './Message.module.css'
+import styles from './CSS/Message.module.css'
 
 export interface MessageProps {
 	id: string
