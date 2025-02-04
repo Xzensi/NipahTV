@@ -1,3 +1,8 @@
+:root {
+	--ntv-chat-message-emote-size: 28px;
+	--ntv-chat-message-emote-overlap: -0.4em;
+}
+
 .container {
 	/* background: rgba(255, 255, 255, 0.086); */
 	border-radius: 0.5em;
@@ -11,7 +16,59 @@
 	top: 0;
 }
 
+.identity {
+	line-height: 1.65em;
+	margin-top: -0.13em;
+	margin-left: 0px;
+	display: inline;
+}
+
 .username {
-	margin-right: 0.618em;
+	text-overflow: ellipsis;
+	word-break: break-all;
+	font-weight: 700;
+	overflow: hidden;
+	cursor: pointer;
+	max-width: 17em;
+
 	color: #f0f;
+}
+
+.identitySeperator {
+	display: inline-block;
+	word-break: keep-all;
+	margin-right: 0.3em;
+}
+
+.contentPart {
+	word-break: break-word;
+	margin-right: 0.333em;
+	white-space: normal;
+	display: inline;
+}
+
+.emoteBox {
+	max-height: var(--ntv-chat-message-emote-size);
+	vertical-align: middle;
+	display: inline-grid;
+	object-fit: contain;
+	justify-content: center;
+	align-items: center;
+	margin: var(--ntv-chat-message-emote-overlap) 0;
+}
+
+.emoteBox img {
+	justify-self: center;
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.emote {
+	max-height: var(--ntv-chat-message-emote-size);
+	content-visibility: auto;
+	display: inline-block;
+	object-fit: contain;
+	user-select: none;
+	grid-column: 1;
+	grid-row: 1;
 }

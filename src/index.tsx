@@ -3,7 +3,7 @@
 
 import { FeedMessageEntryContentPartKind } from '@Core/Components/FeedMessage'
 import FeedProcessorPipeline from '@Core/Feed/FeedProcessorPipeline'
-import ChatFeedController from '@Core/ChatFeedController'
+import ChatFeedController from '@Core/Chat/ChatFeedController'
 import { FeedEntryKind } from '@Core/@types/feedTypes'
 import FeedView from '@Core/Components/FeedView'
 import styles from './styles.module.css'
@@ -17,10 +17,40 @@ const feedProcessor = new FeedProcessorPipeline({ view: 'chat_feed' })
 feedProcessor.use((executionContext, context, data) => {
 	if (context.kind === FeedEntryKind.Message) {
 		data.username = context.username
-		data.contentParts = context.content
-			.split(' ')
-			.map(word => ({ text: word, kind: FeedMessageEntryContentPartKind.Text }))
-		// log(data.contentParts)
+
+		const emotes = [
+			'KEKW',
+			'PogU',
+			'hmmge',
+			'OMEGALUL',
+			'SUSSY',
+			'xdd',
+			'Jigglin',
+			'DonkAim',
+			'OkaygeL',
+			'forsenCD'
+		]
+
+		// Split up the text between emotes as text and emotes as emotes
+		// E.g. "That was INSANE! PogU" -> [{text: 'That was INSANE!', kind: FeedMessageEntryContentPartKind.Text}, {id: 'abcc123', name: 'PogU', kind: FeedMessageEntryContentPartKind.Emote}]
+
+		const parts = context.content.split(' ')
+		data.contentParts = parts
+			.map(part => {
+				const emote = emotes.find(emote => part.includes(emote))
+				if (emote) {
+					const index = part.indexOf(emote)
+					const before = part.slice(0, index)
+					const after = part.slice(index + emote.length)
+					const result = []
+					if (before) result.push({ text: before, kind: FeedMessageEntryContentPartKind.Text })
+					result.push({ id: 'abcd123', name: emote, kind: FeedMessageEntryContentPartKind.Emote })
+					if (after) result.push({ text: after, kind: FeedMessageEntryContentPartKind.Text })
+					return result
+				}
+				return { text: part, kind: FeedMessageEntryContentPartKind.Text }
+			})
+			.flat()
 	}
 })
 
@@ -28,7 +58,7 @@ feedProcessor.use((executionContext, context, data) => {
 const loop = () => {
 	feedController.simulateMessage()
 
-	const delay = 1 + (Math.sin(Date.now() / 8_000) / 2 + 0.5) * 300
+	const delay = 1 + (Math.sin(Date.now() / 4_000) / 2 + 0.5) * 300
 	// const delay = 500
 	// log(delay)
 	setTimeout(loop, delay)
