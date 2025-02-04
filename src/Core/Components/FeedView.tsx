@@ -1,19 +1,23 @@
-import { createSignal, onMount, onCleanup, For, batch, createEffect } from 'solid-js'
-import Message, { MessageProps } from '@Core/Components/Message'
+import { createSignal, onMount, onCleanup, For, batch, createEffect, untrack } from 'solid-js'
+import { FeedEntry, FeedEntryProcessedData, FeedEntryKind } from '@Core/@types/feedTypes'
+import FeedProcessorPipeline from '@Core/Common/FeedProcessorPipeline'
 import { FeedController } from '@Core/Common/FeedController'
+import FeedMessage from '@Core/Components/FeedMessage'
 import { createStore } from 'solid-js/store'
+import { LRU } from '@Core/Common/LRU'
 import styles from './ChatList.module.css'
 
 const { log, error } = console
 
 // Maximum amount of entries to keep unloaded
-const maxUnloadedEntries = 1000
+const maxUnloadedEntries = 500
 
 // Amount of extra entries to keep unloaded before truncating
-const unloadOverflowBuffer = 200
+const unloadOverflowBuffer = 100
 
 // Maximum amount of visible entries to show in the viewport
-const maxViewportCapacity = 25
+// This helps incase many zero-height entries bunch up together causing a load explosion
+const maxViewportCapacity = 100
 
 // Amount of entries to load after the last visible entry
 const viewportOverflowBuffer = 20
@@ -27,21 +31,24 @@ const scrollStickyThreshold = 50
 // Amount of entries to load per batch
 const batchLoadAmount = 20
 
-interface WrappedEntry {
+interface WrappedFeedEntry {
 	cachedHeight: number
 	offset: number
-	data: MessageProps
+	data: FeedEntry
+	// processedData?: FeedEntryProcessedData
 }
 
-export default function FeedView(props: { chatController: FeedController<MessageProps> }) {
-	const [unloadedEntries, setUnloadedEntries] = createStore<WrappedEntry[]>([])
+export default function FeedView(props: {
+	feedController: FeedController<FeedEntry>
+	feedProcessor: FeedProcessorPipeline
+}) {
+	const [unloadedEntries, setUnloadedEntries] = createStore<WrappedFeedEntry[]>([])
 	const [getCachedTotalHeight, setCachedTotalHeight] = createSignal(0)
-	const [viewportEntries, setViewportEntries] = createStore<WrappedEntry[]>([])
+	const [viewportEntries, setViewportEntries] = createStore<WrappedFeedEntry[]>([])
 	const [getScrollTop, setScrollTop] = createSignal(0)
 	const [getIsSticky, setIsSticky] = createSignal(true)
 
-	// const
-	// const entryIndexMap = new Map<string, number>()
+	let processedDataCache = new LRU<string, FeedEntryProcessedData>(50)
 
 	// TODO implement as signal
 	const throttlingEnabled = false
@@ -52,12 +59,14 @@ export default function FeedView(props: { chatController: FeedController<Message
 	let entriesSinceUnsticky = 0
 	let resizeObserver: ResizeObserver
 	let calculatedViewportCapacity = 20
-	let entryQueue: MessageProps[] = []
+	let entryQueue: FeedEntry[] = []
 	let entryTickRate = 0,
 		entryTickCount = 0
 
-	const chatController = props.chatController
-	chatController.addEventListener('newEntry', e => queueMessage(e.detail))
+	const chatController = untrack(() => props.feedController)
+	chatController.addEventListener('newEntry', e => queueEntry(e.detail))
+
+	const feedProcessor = untrack(() => props.feedProcessor)
 
 	onMount(() => {
 		// setInterval(() => {
@@ -101,18 +110,18 @@ export default function FeedView(props: { chatController: FeedController<Message
 				return
 			}
 
-			//? Could maybe turn into hashmap by using elements as hashmap keys, or cache height into DOM as attribute
-			const index = unloadedEntries.findLastIndex(entry => entry.data.id === entryUid)
-			if (index === -1) {
-				error('No entry found for message element', entryUid)
-				return
-			}
-
 			if (blockSize === 0) {
 				const viewportIndex = viewportEntries.findLastIndex(entry => entry.data.id === entryUid)
 				if (viewportIndex === -1) {
 					return // Element got unloaded, don't update height and reflow
 				}
+			}
+
+			//? Could maybe turn into hashmap by using elements as hashmap keys, or cache height into DOM as attribute
+			const index = unloadedEntries.findLastIndex(entry => entry.data.id === entryUid)
+			if (index === -1) {
+				error('No entry found for entry element', entryUid)
+				return
 			}
 
 			const entry = unloadedEntries[index]
@@ -148,7 +157,10 @@ export default function FeedView(props: { chatController: FeedController<Message
 
 		viewportRect = scrollContainerRef.getBoundingClientRect()
 		viewportHeight = viewportRect.height
-		calculatedViewportCapacity = Math.ceil(viewportHeight / minMessageHeight)
+		calculatedViewportCapacity = Math.min(maxViewportCapacity, Math.ceil(viewportHeight / minMessageHeight))
+		processedDataCache = new LRU<string, FeedEntryProcessedData>(
+			Math.min(maxViewportCapacity, calculatedViewportCapacity * 2)
+		)
 
 		window.addEventListener('wheel', e => {
 			if (!scrollContainerRef.contains(e.target as Node) || e.target === scrollContainerRef) return
@@ -187,12 +199,12 @@ export default function FeedView(props: { chatController: FeedController<Message
 	})
 
 	/**
-	 * Add a message to the chat list
-	 * @param message The message to add
-	 * @param ignoreSticky Ignore sticky state when adding messages
-	 * @returns The amount of messages that were added
+	 * Add an entry to the chat list
+	 * @param entry The entry to add
+	 * @param ignoreSticky Ignore sticky state when adding entries
+	 * @returns The amount of entries that were added
 	 */
-	function queueMessage(message: MessageProps, ignoreSticky = false) {
+	function queueEntry(entry: FeedEntry, ignoreSticky = false) {
 		if (!ignoreSticky && !getIsSticky()) {
 			if (entriesSinceUnsticky < viewportOverflowBuffer) entriesSinceUnsticky++
 
@@ -207,11 +219,11 @@ export default function FeedView(props: { chatController: FeedController<Message
 		entryTickCount++
 
 		if (throttlingEnabled) {
-			entryQueue.push(message)
+			entryQueue.push(entry)
 
 			if (entryTickRate <= 5) processEntryQueue()
 		} else {
-			batchAddEntries([message])
+			batchAddEntries([entry])
 		}
 	}
 
@@ -219,7 +231,7 @@ export default function FeedView(props: { chatController: FeedController<Message
 		if (!entryQueue.length) return
 
 		if (entryQueue.length > maxUnloadedEntries) {
-			error('Too many messages to batch add, truncating..', entryQueue.length)
+			error('Too many entries to batch add, truncating..', entryQueue.length)
 			entryQueue = entryQueue.slice(-maxUnloadedEntries)
 		}
 
@@ -230,7 +242,7 @@ export default function FeedView(props: { chatController: FeedController<Message
 		batchAddEntries(entries)
 	}
 
-	function addEntry(entry: MessageProps, ignoreSticky = false) {
+	function addEntry(entry: FeedEntry, ignoreSticky = false) {
 		if (unloadedEntries.length > maxUnloadedEntries + unloadOverflowBuffer) {
 			const unloadedSlice = unloadedEntries.slice(-maxUnloadedEntries + 1)
 
@@ -278,7 +290,7 @@ export default function FeedView(props: { chatController: FeedController<Message
 	 * @param ignoreSticky Ignore sticky state when adding messages
 	 * @returns The amount of entries that were added
 	 */
-	function batchAddEntries(entries: MessageProps[], ignoreSticky = false) {
+	function batchAddEntries(entries: FeedEntry[], ignoreSticky = false) {
 		if (!entries.length) {
 			log('No messages to batch add...')
 			return 0
@@ -307,8 +319,7 @@ export default function FeedView(props: { chatController: FeedController<Message
 		batch(() => {
 			// Truncate unloaded if it's too large before adding new messages
 			if (unloadedEntries.length + entries.length > maxUnloadedEntries + unloadOverflowBuffer) {
-				// TODO check if this is correct
-				const slicedUnloadedEntries = unloadedEntries.slice(maxUnloadedEntries - entries.length)
+				const slicedUnloadedEntries = unloadedEntries.slice(-(maxUnloadedEntries - entries.length))
 
 				// Shift offsets of sliced entries to 0
 				const firstOffset = slicedUnloadedEntries[0].offset
@@ -324,7 +335,7 @@ export default function FeedView(props: { chatController: FeedController<Message
 			const lastEntry = unloadedEntries[lastIndex]
 			const lastOffset = lastEntry ? lastEntry.offset + lastEntry.cachedHeight : 0
 
-			const newEntries = []
+			const newEntries: WrappedFeedEntry[] = []
 			for (const entryData of entries) {
 				newEntries.push({
 					cachedHeight: 0,
@@ -348,7 +359,7 @@ export default function FeedView(props: { chatController: FeedController<Message
 	 * @param el The message element
 	 * @param entry The entry associated with the message element
 	 */
-	function onElementCreated(el: HTMLDivElement, entry: WrappedEntry) {
+	function onElementCreated(el: HTMLDivElement, entry: WrappedFeedEntry) {
 		resizeObserver.observe(el)
 
 		const isSticky = getIsSticky()
@@ -388,6 +399,7 @@ export default function FeedView(props: { chatController: FeedController<Message
 	 * Update the visible entries in the viewport
 	 */
 	function updateViewport() {
+		// TODO for performance flip findLastIndex to findIndex depending on scrollTop
 		const scrollTop = getScrollTop()
 		const endIndex = Math.max(
 			0,
@@ -403,7 +415,19 @@ export default function FeedView(props: { chatController: FeedController<Message
 			}
 		}
 
-		setViewportEntries(unloadedEntries.slice(startIndex, endIndex + viewportOverflowBuffer))
+		batch(() => {
+			const prevViewportEntries = viewportEntries
+			setViewportEntries(unloadedEntries.slice(startIndex, endIndex + viewportOverflowBuffer))
+
+			// for (let i = 0; i < viewportEntries.length; i++) {
+			// 	const entry = viewportEntries[i]
+			// 	if (!entry.processedData) {
+			// 		const processedData = {} //unwrap(entry.data) //{ ...entry.data }
+			// 		feedProcessor.process(entry.data, processedData)
+			// 		setViewportEntries(i, 'processedData', processedData)
+			// 	}
+			// }
+		})
 	}
 
 	/**
@@ -516,9 +540,30 @@ export default function FeedView(props: { chatController: FeedController<Message
 			<div /* used as a spacer to mimic full height of the entire message stack */
 				style={{ height: getUnloadedHeight() + 'px', position: 'relative' }}>
 				<For each={viewportEntries}>
-					{(entry, i) => (
-						<Message offset={entry.offset} {...entry.data} ref={el => onElementCreated(el, entry)} />
-					)}
+					{(entry, i) => {
+						// if (!entry.processedData) {
+						// 	error('No processed data found for entry', entry.data.id)
+						// 	return
+						// }
+
+						let processedData = processedDataCache.get(entry.data.id)
+						if (!processedData) {
+							processedData = {} as FeedEntryProcessedData
+							feedProcessor.process(entry.data, processedData)
+							processedDataCache.set(entry.data.id, processedData)
+						}
+
+						if (entry.data.kind === FeedEntryKind.Message) {
+							return (
+								<FeedMessage
+									offset={entry.offset}
+									data={entry.data}
+									processedData={processedData}
+									ref={el => onElementCreated(el, entry)}
+								/>
+							)
+						}
+					}}
 				</For>
 			</div>
 		</div>

@@ -1,6 +1,7 @@
 import { CustomEventTarget, TypedCustomEvent } from '@Core/Common/TypedCustomEvent'
 import { FeedController, FeedEventMap } from '@Core/Common/FeedController'
-import { MessageProps } from '@Core/Components/Message'
+import { FeedMessageEntry } from '@Core/Components/FeedMessage'
+import { FeedEntryKind } from './@types/feedTypes'
 import { ulid } from '@Core/Common/utils'
 
 const { log, error } = console
@@ -199,9 +200,11 @@ const randomUsernames = [
 	'RogueDucklings'
 ]
 
-function getRandomMessage() {
+function getRandomMessage(): FeedMessageEntry {
 	return {
 		id: ulid(),
+		kind: FeedEntryKind.Message,
+		timestamp: Date.now(),
 		username: randomUsernames[Math.floor(Math.random() * randomUsernames.length)],
 		content: randomMessages[Math.floor(Math.random() * randomMessages.length)]
 	}
@@ -210,9 +213,12 @@ function getRandomMessage() {
 const messagesDataStoreMaxCapacity = 10_000
 // const messagesDataStore = Array.from({ length: messagesDataStoreMaxCapacity }, getRandomMessage)
 
-export default class ChatController extends FeedController<MessageProps> implements FeedController<MessageProps> {
-	eventTarget = new EventTarget() as CustomEventTarget<FeedEventMap<MessageProps>>
-	entries: MessageProps[] = []
+export default class ChatFeedController
+	extends FeedController<FeedMessageEntry>
+	implements FeedController<FeedMessageEntry>
+{
+	eventTarget = new EventTarget() as CustomEventTarget<FeedEventMap<FeedMessageEntry>>
+	entries: FeedMessageEntry[] = []
 	count: number = 0
 
 	simulateMessage() {

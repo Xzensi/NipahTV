@@ -1,18 +1,32 @@
 /// <reference types="vite-plugin-monkey/client" />
 /* @refresh reload */
 
-import ChatController from '@Core/ChatController'
+import { FeedMessageEntryContentPartKind } from '@Core/Components/FeedMessage'
+import FeedProcessorPipeline from '@Core/Common/FeedProcessorPipeline'
+import ChatFeedController from '@Core/ChatFeedController'
+import { FeedEntryKind } from '@Core/@types/feedTypes'
 import FeedView from '@Core/Components/FeedView'
 import styles from './styles.module.css'
 import { render } from 'solid-js/web'
 
 const { log, error } = console
 
-const chatController = new ChatController()
+const feedController = new ChatFeedController()
+const feedProcessor = new FeedProcessorPipeline({ view: 'chat_feed' })
+
+feedProcessor.use((executionContext, context, data) => {
+	if (context.kind === FeedEntryKind.Message) {
+		data.username = context.username
+		data.contentParts = context.content
+			.split(' ')
+			.map(word => ({ text: word, kind: FeedMessageEntryContentPartKind.Text }))
+		// log(data.contentParts)
+	}
+})
 
 // Simulate new messages being added to chat
 const loop = () => {
-	chatController.simulateMessage()
+	feedController.simulateMessage()
 
 	const delay = 1 + (Math.sin(Date.now() / 8_000) / 2 + 0.5) * 300
 	// log(delay)
@@ -21,32 +35,10 @@ const loop = () => {
 
 loop()
 
-// setTimeout(() => {
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	chatController.simulateMessage()
-// 	// chatController.simulateMessage()
-// }, 10)
-
 function App() {
 	return (
 		<div class={styles.chatContainer}>
-			<FeedView chatController={chatController} />
+			<FeedView feedController={feedController} feedProcessor={feedProcessor} />
 		</div>
 	)
 }
