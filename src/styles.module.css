@@ -11,6 +11,13 @@ body {
 	color: #fbfbfe;
 	height: 100%;
 	margin: 0;
+
+	font-family: Poppins, 'Lucida Sans Unicode', serif;
+	font-variation-settings: 'wdth' 100;
+	font-optical-sizing: auto;
+	font-style: normal;
+	font-weight: 400;
+	font-size: 14px;
 }
 
 * {

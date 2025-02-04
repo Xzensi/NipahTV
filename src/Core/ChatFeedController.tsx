@@ -222,8 +222,9 @@ export default class ChatFeedController
 	count: number = 0
 
 	simulateMessage() {
+		const amount = 1
 		const messages = []
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < amount; i++) {
 			const message = getRandomMessage()
 			message.content = `[${++this.count}] ` + message.content
 			Object.freeze(message) // For testing purposes
