@@ -127,7 +127,7 @@ export default function FeedView(props: {
 			const entry = unloadedEntries[index]
 			if (entry.cachedHeight === blockSize) {
 				// log('Height is the same, no need to update', blockSize)
-				return
+				return index
 			}
 
 			// log('Updating height', entry.cachedHeight, blockSize)
@@ -143,8 +143,7 @@ export default function FeedView(props: {
 				batch(() => {
 					for (const resizeEntry of resizeEntries) {
 						const index = updateEntrySize(resizeEntry)
-						if (index && index < smallestIndex) smallestIndex = index
-						// smallestIndex = 0
+						if (index !== undefined && index < smallestIndex) smallestIndex = index
 					}
 				})
 			} else {

@@ -28,14 +28,13 @@ feedProcessor.use((executionContext, context, data) => {
 const loop = () => {
 	feedController.simulateMessage()
 
-	// const delay = 1 + (Math.sin(Date.now() / 8_000) / 2 + 0.5) * 300
+	const delay = 1 + (Math.sin(Date.now() / 8_000) / 2 + 0.5) * 300
 	// const delay = 500
 	// log(delay)
-	// setTimeout(loop, delay)
+	setTimeout(loop, delay)
 }
 
-setTimeout(loop, 100)
-// setTimeout(loop, 200)
+setTimeout(loop, 20)
 
 function App() {
 	return (
