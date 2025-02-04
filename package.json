@@ -7,6 +7,7 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
+		"dev:server": "node server/app.js",
 		"dev:chrome": "cross-env BUILD_TARGET=chrome vite --config configs/vite.extension.ts",
 		"dev:firefox": "cross-env BUILD_TARGET=firefox vite --config configs/vite.extension.ts",
 		"dev:userscript": "vite --config configs/vite.userscript.ts",
@@ -22,6 +23,7 @@
 		"@types/node": "^22.9.1",
 		"@types/twemoji-parser": "^13.1.4",
 		"cross-env": "^7.0.3",
+		"express": "^4.21.2",
 		"lightningcss": "^1.29.1",
 		"typescript": "^5.4.5",
 		"vite": "^5.2.12",

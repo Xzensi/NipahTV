@@ -1,7 +1,7 @@
 import { createSignal, onMount, onCleanup, For, batch, createEffect, untrack } from 'solid-js'
 import { FeedEntry, FeedEntryProcessedData, FeedEntryKind } from '@Core/@types/feedTypes'
-import FeedProcessorPipeline from '@Core/Common/FeedProcessorPipeline'
-import { FeedController } from '@Core/Common/FeedController'
+import FeedProcessorPipeline from '@Core/Feed/FeedProcessorPipeline'
+import { FeedController } from '@Core/Feed/FeedController'
 import FeedMessage from '@Core/Components/FeedMessage'
 import { createStore } from 'solid-js/store'
 import { LRU } from '@Core/Common/LRU'
@@ -64,7 +64,7 @@ export default function FeedView(props: {
 		entryTickCount = 0
 
 	const chatController = untrack(() => props.feedController)
-	chatController.addEventListener('newEntry', e => queueEntry(e.detail))
+	chatController.addEventListener('newEntry', e => queueEntries(e.detail))
 
 	const feedProcessor = untrack(() => props.feedProcessor)
 
@@ -144,6 +144,7 @@ export default function FeedView(props: {
 					for (const resizeEntry of resizeEntries) {
 						const index = updateEntrySize(resizeEntry)
 						if (index && index < smallestIndex) smallestIndex = index
+						// smallestIndex = 0
 					}
 				})
 			} else {
@@ -198,13 +199,16 @@ export default function FeedView(props: {
 
 	/**
 	 * Add an entry to the chat list
-	 * @param entry The entry to add
+	 * @param entries The entry to add
 	 * @param ignoreSticky Ignore sticky state when adding entries
 	 * @returns The amount of entries that were added
 	 */
-	function queueEntry(entry: FeedEntry, ignoreSticky = false) {
+	function queueEntries(entries: FeedEntry | FeedEntry[], ignoreSticky = false) {
+		const isArray = Array.isArray(entries)
+
 		if (!ignoreSticky && !getIsSticky()) {
-			if (entriesSinceUnsticky < viewportOverflowBuffer) entriesSinceUnsticky++
+			if (entriesSinceUnsticky < viewportOverflowBuffer)
+				entriesSinceUnsticky += isArray ? entries.length : 1
 
 			if (entriesSinceUnsticky > viewportOverflowBuffer - 1) {
 				// log('More than 100 messages since unsticky, skipping', entriesSinceUnsticky)
@@ -217,11 +221,12 @@ export default function FeedView(props: {
 		entryTickCount++
 
 		if (throttlingEnabled) {
-			entryQueue.push(entry)
+			if (isArray) entryQueue.push(...entries)
+			else entryQueue.push(entries)
 
 			if (entryTickRate <= 5) processEntryQueue()
 		} else {
-			batchAddEntries([entry])
+			batchAddEntries((isArray && entries) || [entries])
 		}
 	}
 

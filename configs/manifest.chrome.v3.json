@@ -9,7 +9,7 @@
 		{
 			"js": ["src/index.tsx"],
 			"css": [],
-			"matches": ["https://example.com/*"]
+			"matches": ["http://localhost:8080/*"]
 		}
 	]
 }

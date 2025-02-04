@@ -1,4 +1,4 @@
-import { CustomEventTarget } from './TypedCustomEvent'
+import { CustomEventTarget } from '@Core/Common/TypedCustomEvent'
 
 const { log, error } = console
 
@@ -7,7 +7,7 @@ interface Identifiable {
 }
 
 export interface FeedEventMap<T extends Identifiable> {
-	newEntry: T
+	newEntry: T | T[]
 }
 
 export interface FeedController<T extends Identifiable> {

@@ -1,5 +1,5 @@
 import { CustomEventTarget, TypedCustomEvent } from '@Core/Common/TypedCustomEvent'
-import { FeedController, FeedEventMap } from '@Core/Common/FeedController'
+import { FeedController, FeedEventMap } from '@Core/Feed/FeedController'
 import { FeedMessageEntry } from '@Core/Components/FeedMessage'
 import { FeedEntryKind } from './@types/feedTypes'
 import { ulid } from '@Core/Common/utils'
@@ -210,7 +210,7 @@ function getRandomMessage(): FeedMessageEntry {
 	}
 }
 
-const messagesDataStoreMaxCapacity = 10_000
+const messagesDataStoreMaxCapacity = 10_00_000
 // const messagesDataStore = Array.from({ length: messagesDataStoreMaxCapacity }, getRandomMessage)
 
 export default class ChatFeedController
@@ -222,15 +222,21 @@ export default class ChatFeedController
 	count: number = 0
 
 	simulateMessage() {
-		const message = getRandomMessage()
-		message.content = `[${++this.count}] ` + message.content
-		Object.freeze(message) // For testing purposes
-		this.entries.push(message)
+		const messages = []
+		for (let i = 0; i < 3; i++) {
+			const message = getRandomMessage()
+			message.content = `[${++this.count}] ` + message.content
+			Object.freeze(message) // For testing purposes
+			this.entries.push(message)
 
-		if (this.entries.length > messagesDataStoreMaxCapacity) {
-			this.entries.shift()
+			if (this.entries.length > messagesDataStoreMaxCapacity) {
+				this.entries.shift()
+			}
+			messages.push(message)
 		}
 
-		this.eventTarget.dispatchEvent(new TypedCustomEvent('newEntry', { detail: message }))
+		// log(this.entries.length)
+
+		this.eventTarget.dispatchEvent(new TypedCustomEvent('newEntry', { detail: messages }))
 	}
 }
