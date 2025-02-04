@@ -48,7 +48,7 @@ export default function FeedView(props: {
 	const [getScrollTop, setScrollTop] = createSignal(0)
 	const [getIsSticky, setIsSticky] = createSignal(true)
 
-	let processedDataCache = new LRU<string, FeedEntryProcessedData>(50)
+	const processedDataCache = new LRU<string, FeedEntryProcessedData>(50)
 
 	// TODO implement as signal
 	const throttlingEnabled = false
@@ -158,9 +158,7 @@ export default function FeedView(props: {
 		viewportRect = scrollContainerRef.getBoundingClientRect()
 		viewportHeight = viewportRect.height
 		calculatedViewportCapacity = Math.min(maxViewportCapacity, Math.ceil(viewportHeight / minMessageHeight))
-		processedDataCache = new LRU<string, FeedEntryProcessedData>(
-			Math.min(maxViewportCapacity, calculatedViewportCapacity * 2)
-		)
+		processedDataCache.setMax(Math.min(maxViewportCapacity, calculatedViewportCapacity * 2))
 
 		window.addEventListener('wheel', e => {
 			if (!scrollContainerRef.contains(e.target as Node) || e.target === scrollContainerRef) return
@@ -415,19 +413,20 @@ export default function FeedView(props: {
 			}
 		}
 
-		batch(() => {
-			const prevViewportEntries = viewportEntries
-			setViewportEntries(unloadedEntries.slice(startIndex, endIndex + viewportOverflowBuffer))
+		setViewportEntries(unloadedEntries.slice(startIndex, endIndex + viewportOverflowBuffer))
 
-			// for (let i = 0; i < viewportEntries.length; i++) {
-			// 	const entry = viewportEntries[i]
-			// 	if (!entry.processedData) {
-			// 		const processedData = {} //unwrap(entry.data) //{ ...entry.data }
-			// 		feedProcessor.process(entry.data, processedData)
-			// 		setViewportEntries(i, 'processedData', processedData)
-			// 	}
-			// }
-		})
+		// batch(() => {
+		// 	setViewportEntries(unloadedEntries.slice(startIndex, endIndex + viewportOverflowBuffer))
+
+		// 	for (let i = 0; i < viewportEntries.length; i++) {
+		// 		const entry = viewportEntries[i]
+		// 		if (!entry.processedData) {
+		// 			const processedData = {} //unwrap(entry.data) //{ ...entry.data }
+		// 			feedProcessor.process(entry.data, processedData)
+		// 			setViewportEntries(i, 'processedData', processedData)
+		// 		}
+		// 	}
+		// })
 	}
 
 	/**

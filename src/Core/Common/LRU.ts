@@ -1,7 +1,7 @@
 export class LRU<K, V> {
 	private cache = new Map()
 
-	constructor(private max = 10) {}
+	constructor(private max = 50) {}
 
 	/**
 	 * Get value from cache
@@ -29,5 +29,13 @@ export class LRU<K, V> {
 		// evict oldest
 		else if (this.cache.size === this.max) this.cache.delete(this.cache.keys().next().value)
 		this.cache.set(key, val)
+	}
+
+	/**
+	 * Set the maximum number of items to store in the cache
+	 * @param max The maximum number of items to store in the cache
+	 */
+	setMax(max: number) {
+		this.max = max
 	}
 }
