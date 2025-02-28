@@ -70,9 +70,15 @@
 		cursor: default;
 	}
 
-	& + button {
+	// Hide kick submit button
+	& ~ button {
 		display: none !important;
 	}
+}
+
+// Hide kick submit button
+#send-message-button {
+	display: none !important;
 }
 
 .kick__chat-footer {

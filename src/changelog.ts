@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.69',
+		date: '2025-02-28',
+		description: `
+                  Fix: Kick's chat submit button no longer hiding due to Kick website changes
+            `
+	},
+	{
 		version: '1.5.68',
 		date: '2025-01-28',
 		description: `
