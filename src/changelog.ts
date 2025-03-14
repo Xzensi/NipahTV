@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.70',
+		date: '2025-03-14',
+		description: `
+                  Fix: Creator dashboard view no longer working
+                  Chore: Decreased NTV badge size a tiny bit
+            `
+	},
+	{
 		version: '1.5.69',
 		date: '2025-02-28',
 		description: `
