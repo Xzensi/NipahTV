@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.69
+// @version 1.5.70
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-1c3529e4.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-84c94fe4.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11961,6 +11961,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.70",
+    date: "2025-03-14",
+    description: `
+                  Fix: Creator dashboard view no longer working
+                  Chore: Decreased NTV badge size a tiny bit
+            `
+  },
+  {
     version: "1.5.69",
     date: "2025-02-28",
     description: `
@@ -22166,119 +22174,70 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.loadSettings();
     this.loadStylingVariables();
     this.loadDocumentPatches();
-    if (channelData.isModView || channelData.isCreatorView) {
-      waitForElements(["#message-input", "#chatroom-footer .send-row > button"], 15e3, abortSignal).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        const [textFieldEl, submitButtonEl] = foundElements;
-        this.loadInputBehaviour(textFieldEl, submitButtonEl);
-        this.loadEmoteMenu();
+    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    waitForElements(
+      [
+        '#channel-chatroom .editor-input[contenteditable="true"]',
+        `${footerSelector} button.select-none.bg-green-500.rounded`
+      ],
+      15e3,
+      abortSignal
+    ).then((foundElements) => {
+      if (this.session.isDestroyed) return;
+      const [textFieldEl, submitButtonEl] = foundElements;
+      this.loadInputBehaviour(textFieldEl, submitButtonEl);
+      this.loadEmoteMenu();
+    }).catch(() => {
+    });
+    waitForElements([`${footerSelector}`], 15e3, abortSignal).then((foundElements) => {
+      if (this.session.isDestroyed) return;
+      const [footerEl] = foundElements;
+      footerEl.classList.add("kick__chat-footer");
+      const timersContainer = document.createElement("div");
+      timersContainer.id = "ntv__timers-container";
+      footerEl.append(timersContainer);
+      this.elm.timersContainer = timersContainer;
+      waitForElements(["#quick-emotes-holder"], 1e4, abortSignal).then((foundElements2) => {
+        const [quickEmotesHolderEl] = foundElements2;
+        this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
       }).catch(() => {
       });
-      waitForElements(["#chatroom-footer"], 15e3, abortSignal).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        const [footerEl] = foundElements;
-        footerEl.classList.add("kick__chat-footer");
-        const timersContainer = document.createElement("div");
-        timersContainer.id = "ntv__timers-container";
-        footerEl.append(timersContainer);
-        this.elm.timersContainer = timersContainer;
-        waitForElements(["#quick-emotes-holder"], 1e4, abortSignal).then((foundElements2) => {
-          const [quickEmotesHolderEl] = foundElements2;
-          this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
-        }).catch(() => {
-        });
-        waitForElements(["#chatroom-footer .send-row"], 15e3, abortSignal).then((foundElements2) => {
-          if (this.session.isDestroyed) return;
-          const [footerBottomBarEl] = foundElements2;
-          this.loadEmoteMenuButton(footerBottomBarEl);
-        }).catch(() => {
-        });
-      }).catch(() => {
-      });
-      waitForElements(["#chatroom-top + div.overflow-hidden > .overflow-x-hidden"], 15e3, abortSignal).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        const [chatMessagesContainerEl] = foundElements;
-        this.elm.chatMessagesContainer = chatMessagesContainerEl;
-        this.applyChatContainerClasses();
-        this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
-          this.clipboard.handleCopyEvent(evt);
-        });
-        eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
-        this.observeChatMessages(chatMessagesContainerEl);
-        if (channelData.isVod) {
-          this.loadVodBehaviour();
-        } else {
-          this.observeChatEntriesForDeletionEvents();
-        }
-        this.applyModViewFixes();
-      }).catch(() => {
-      });
-    } else {
-      const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
       waitForElements(
-        [
-          '#channel-chatroom .editor-input[contenteditable="true"]',
-          `${footerSelector} button.select-none.bg-green-500.rounded`
-        ],
+        [`${footerSelector} > div.flex > .flex.items-center > .items-center`],
         15e3,
         abortSignal
-      ).then((foundElements) => {
+      ).then((foundElements2) => {
         if (this.session.isDestroyed) return;
-        const [textFieldEl, submitButtonEl] = foundElements;
-        this.loadInputBehaviour(textFieldEl, submitButtonEl);
-        this.loadEmoteMenu();
+        const [footerBottomBarEl] = foundElements2;
+        this.loadEmoteMenuButton(footerBottomBarEl);
       }).catch(() => {
       });
-      waitForElements([`${footerSelector}`], 15e3, abortSignal).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        const [footerEl] = foundElements;
-        footerEl.classList.add("kick__chat-footer");
-        const timersContainer = document.createElement("div");
-        timersContainer.id = "ntv__timers-container";
-        footerEl.append(timersContainer);
-        this.elm.timersContainer = timersContainer;
-        waitForElements(["#quick-emotes-holder"], 1e4, abortSignal).then((foundElements2) => {
-          const [quickEmotesHolderEl] = foundElements2;
-          this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
-        }).catch(() => {
-        });
-        waitForElements(
-          [`${footerSelector} > div.flex > .flex.items-center > .items-center`],
-          15e3,
-          abortSignal
-        ).then((foundElements2) => {
-          if (this.session.isDestroyed) return;
-          const [footerBottomBarEl] = foundElements2;
-          this.loadEmoteMenuButton(footerBottomBarEl);
-        }).catch(() => {
-        });
-      }).catch(() => {
+    }).catch(() => {
+    });
+    const chatMessagesContainerSelector = "#chatroom-messages > .no-scrollbar";
+    waitForElements([chatMessagesContainerSelector], 15e3, abortSignal).then((foundElements) => {
+      if (this.session.isDestroyed) return;
+      const [chatMessagesContainerEl] = foundElements;
+      this.elm.chatMessagesContainer = chatMessagesContainerEl;
+      this.applyChatContainerClasses();
+      this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
+        this.clipboard.handleCopyEvent(evt);
       });
-      const chatMessagesContainerSelector = "#chatroom-messages > .no-scrollbar";
-      waitForElements([chatMessagesContainerSelector], 15e3, abortSignal).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        const [chatMessagesContainerEl] = foundElements;
-        this.elm.chatMessagesContainer = chatMessagesContainerEl;
-        this.applyChatContainerClasses();
-        this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
-          this.clipboard.handleCopyEvent(evt);
-        });
-        eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
-        this.observeChatMessages(chatMessagesContainerEl);
-        if (channelData.isVod) {
-          this.loadVodBehaviour();
-        } else {
-          this.observePinnedMessage();
-          this.observeChatEntriesForDeletionEvents();
-        }
-      }).catch(() => {
-      });
-      waitForElements(["#video-player", chatMessagesContainerSelector], 15e3, abortSignal).then((foundElements) => {
-        if (this.session.isDestroyed) return;
-        this.loadTheatreModeBehaviour();
-      }).catch(() => {
-      });
-    }
+      eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
+      this.observeChatMessages(chatMessagesContainerEl);
+      if (channelData.isVod) {
+        this.loadVodBehaviour();
+      } else {
+        this.observePinnedMessage();
+        this.observeChatEntriesForDeletionEvents();
+      }
+    }).catch(() => {
+    });
+    waitForElements(["#video-player", chatMessagesContainerSelector], 15e3, abortSignal).then((foundElements) => {
+      if (this.session.isDestroyed) return;
+      this.loadTheatreModeBehaviour();
+    }).catch(() => {
+    });
     eventBus.subscribe(
       "ntv.ui.emote.click",
       ({ emoteHid, sendImmediately }) => {
@@ -22541,14 +22500,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       true
     );
     textFieldWrapperEl.append(textFieldEl);
-    const { isModView, isCreatorView } = this.session.channelData;
-    if (isModView || isCreatorView) {
-      kickTextFieldEl.before(textFieldWrapperEl);
-      if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
-    } else {
-      kickTextFieldEl.parentElement.before(textFieldWrapperEl);
-      if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
-    }
+    kickTextFieldEl.parentElement.before(textFieldWrapperEl);
+    if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
     const inputController = this.inputController = new InputController(
       this.rootContext,
       this.session,
@@ -23030,7 +22983,6 @@ var KickUserInterface = class extends AbstractUserInterface {
       } else if (target.tagName === "SPAN") {
         evt.stopPropagation();
         if (!target.classList.contains("ntv__chat-message__username")) return;
-        if (channelData.isModView || channelData.isCreatorView) return;
         const usernameEl = target;
         const username = usernameEl?.textContent;
         const rect = usernameEl.getBoundingClientRect();
@@ -23046,59 +22998,31 @@ var KickUserInterface = class extends AbstractUserInterface {
    * TODO eventually replace this completely by a new funnel where receive message deletion events over websocket.
    */
   observeChatEntriesForDeletionEvents() {
-    const channelData = this.session.channelData;
-    if (!channelData.isModView && !channelData.isCreatorView) {
-      this.deletedChatEntryObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
-            const addedNode = mutation.addedNodes[0];
-            const chatMessageElement = addedNode.closest(".ntv__chat-message");
-            if (!chatMessageElement || chatMessageElement.classList.contains("ntv__chat-message--deleted"))
-              return;
-            chatMessageElement.classList.add("ntv__chat-message--deleted");
-            const chatMessageInnerEl = chatMessageElement.querySelector("& > .ntv__chat-message__inner");
-            if (addedNode.className === "line-through") {
-              chatMessageInnerEl.append(
-                parseHTML(`<span class="ntv__chat-message__part">(Deleted)</span>`, true)
-              );
-            } else {
-              Array.from(chatMessageElement.getElementsByClassName("ntv__chat-message__part")).forEach(
-                (node) => node.remove()
-              );
-              const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
-              chatMessageInnerEl.append(
-                parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
-              );
-            }
+    this.deletedChatEntryObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
+          const addedNode = mutation.addedNodes[0];
+          const chatMessageElement = addedNode.closest(".ntv__chat-message");
+          if (!chatMessageElement || chatMessageElement.classList.contains("ntv__chat-message--deleted"))
+            return;
+          chatMessageElement.classList.add("ntv__chat-message--deleted");
+          const chatMessageInnerEl = chatMessageElement.querySelector("& > .ntv__chat-message__inner");
+          if (addedNode.className === "line-through") {
+            chatMessageInnerEl.append(
+              parseHTML(`<span class="ntv__chat-message__part">(Deleted)</span>`, true)
+            );
+          } else {
+            Array.from(chatMessageElement.getElementsByClassName("ntv__chat-message__part")).forEach(
+              (node) => node.remove()
+            );
+            const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
+            chatMessageInnerEl.append(
+              parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
+            );
           }
-        });
+        }
       });
-    } else {
-      this.deletedChatEntryObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
-            const addedNode = mutation.addedNodes[0];
-            const chatEntryNode = addedNode.closest(".chat-entry");
-            if (!chatEntryNode.classList.contains("deleted-message-admin")) return;
-            chatEntryNode.parentElement.classList.add("ntv__chat-message--deleted");
-            const innerWrapperEl = chatEntryNode.querySelector(".ntv__chat-message__inner");
-            if (!innerWrapperEl) return error28("KICK", "UI", "Inner wrapper element not found");
-            const channelDataMe = this.session.channelData.me;
-            if (channelDataMe.isBroadcaster || channelDataMe.isModerator || channelDataMe.isSuperAdmin) {
-              innerWrapperEl.append(parseHTML(`<span class="ntv__chat-message__part"> (Deleted)</span>`));
-            } else {
-              Array.from(chatEntryNode.getElementsByClassName("ntv__chat-message__part")).forEach(
-                (node) => node.remove()
-              );
-              const deletedMessageContent = addedNode.textContent || "Deleted by a moderator";
-              innerWrapperEl.append(
-                parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`)
-              );
-            }
-          }
-        });
-      });
-    }
+    });
   }
   loadVodBehaviour() {
     log27("KICK", "UI", "Loading VOD behaviour..");
@@ -23257,566 +23181,359 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { emotesManager, usersManager } = this.session;
     const { channelData } = this.session;
     const channelId = channelData.channelId;
-    const isOldWebsiteLayout = channelData.isModView || channelData.isCreatorView;
-    if (!isOldWebsiteLayout) {
-      if (!messageNode.children || !messageNode.firstElementChild.classList.contains("group")) {
-        messageNode.classList.add("ntv__chat-message");
+    if (!messageNode.children || !messageNode.firstElementChild.classList.contains("group")) {
+      messageNode.classList.add("ntv__chat-message");
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      if (messageNode.firstElementChild?.classList.contains("items-center")) {
+        messageNode.classList.add("ntv__chat-message--history-breaker");
+      } else {
+        messageNode.classList.add("ntv__chat-message--history-breaker");
+      }
+      return;
+    }
+    const messageObject = {
+      username: "",
+      createdAt: "",
+      isReply: false,
+      isReplyToMe: false,
+      badges: [],
+      content: [],
+      style: {
+        color: ""
+      }
+    };
+    const ntvMessageInnerEl = document.createElement("div");
+    const ntvIdentityWrapperEl = document.createElement("div");
+    ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
+    let groupElementNode = messageNode.firstElementChild;
+    if (!groupElementNode?.classList.contains("group")) groupElementNode = groupElementNode?.nextElementSibling;
+    if (!groupElementNode?.classList.contains("group")) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Chat message content wrapper node not found", messageNode);
+      return;
+    }
+    const betterHoverEl = groupElementNode.firstElementChild;
+    if (!betterHoverEl) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Better hover element not found");
+      return;
+    }
+    const messageHasMentionedMe = betterHoverEl.classList.contains("border-green-500");
+    if (messageHasMentionedMe) {
+      messageNode.classList.add("ntv__chat-message--mentioned-me");
+    }
+    let isReply = false;
+    let isReplyToMe = false;
+    if (betterHoverEl.firstElementChild?.classList.contains("w-full")) {
+      isReply = true;
+      messageObject.isReply = true;
+      if (betterHoverEl.classList.contains("border-green-500")) {
+        isReplyToMe = true;
+        messageObject.isReplyToMe = true;
+        messageNode.classList.add("ntv__chat-message--reply-to-me");
+      }
+      const replyMessageAttachmentEl = betterHoverEl.firstElementChild;
+      if (!replyMessageAttachmentEl) {
         messageNode.classList.remove("ntv__chat-message--unrendered");
-        if (messageNode.firstElementChild?.classList.contains("items-center")) {
-          messageNode.classList.add("ntv__chat-message--history-breaker");
-        } else {
-          messageNode.classList.add("ntv__chat-message--history-breaker");
-        }
+        error28("KICK", "UI", "Reply message attachment element not found", messageNode);
         return;
       }
-      const messageObject = {
-        username: "",
-        createdAt: "",
-        isReply: false,
-        isReplyToMe: false,
-        badges: [],
-        content: [],
-        style: {
-          color: ""
-        }
-      };
-      const ntvMessageInnerEl = document.createElement("div");
-      const ntvIdentityWrapperEl = document.createElement("div");
-      ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
-      let groupElementNode = messageNode.firstElementChild;
-      if (!groupElementNode?.classList.contains("group")) groupElementNode = groupElementNode?.nextElementSibling;
-      if (!groupElementNode?.classList.contains("group")) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message content wrapper node not found", messageNode);
+      const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
+      ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
+      ntvMessageInnerEl.append(ntvMessageAttachmentEl);
+      replyMessageAttachmentEl.style.setProperty("display", "none", "important");
+      const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
+      ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
+      messageNode.append(ntvReplyMessageAttachmentEl);
+    }
+    const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl;
+    if (!messageBodyWrapper) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Chat message body wrapper node not found", messageNode);
+      return;
+    }
+    let ntvModBtnsWrapperEl = null;
+    if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
+      const modBtnsWrapperEl = messageBodyWrapper.firstElementChild;
+      if (modBtnsWrapperEl?.classList.contains("inline-flex")) {
+        ntvModBtnsWrapperEl = document.createElement("div");
+        ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
+        const modDeleteBtnEl = modBtnsWrapperEl.children[0];
+        const modTimeoutBtnEl = modBtnsWrapperEl.children[1];
+        const modBanBtnEl = modBtnsWrapperEl.children[2];
+        const ntvModDeleteBtnEl = modDeleteBtnEl.cloneNode(true);
+        const ntvModTimeoutBtnEl = modTimeoutBtnEl.cloneNode(true);
+        const ntvModBanBtnEl = modBanBtnEl.cloneNode(true);
+        ntvModBtnsWrapperEl.append(ntvModDeleteBtnEl, ntvModTimeoutBtnEl, ntvModBanBtnEl);
+        ntvModDeleteBtnEl.addEventListener("click", () => {
+          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+          Object.defineProperty(mEvent, "target", { value: modDeleteBtnEl, enumerable: true });
+          modDeleteBtnEl.dispatchEvent(mEvent);
+        });
+        ntvModTimeoutBtnEl.addEventListener("click", () => {
+          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+          Object.defineProperty(mEvent, "target", { value: modTimeoutBtnEl, enumerable: true });
+          modTimeoutBtnEl.dispatchEvent(mEvent);
+        });
+        ntvModBanBtnEl.addEventListener("click", () => {
+          const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+          Object.defineProperty(mEvent, "target", { value: modBanBtnEl, enumerable: true });
+          modBanBtnEl.dispatchEvent(mEvent);
+        });
+      }
+    }
+    const contentWrapperNode = messageBodyWrapper.querySelector("span:last-of-type");
+    if (!contentWrapperNode) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Chat message content wrapper node not found", messageNode);
+      return;
+    }
+    let timestampEl = messageBodyWrapper.firstElementChild;
+    while (timestampEl && timestampEl.tagName !== "SPAN") timestampEl = timestampEl.nextElementSibling;
+    if (!timestampEl) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Chat message timestamp node not found", messageNode);
+      return;
+    }
+    messageObject.createdAt = timestampEl.textContent || "00:00 AM";
+    const ntvTimestampEl = document.createElement("span");
+    ntvTimestampEl.className = "ntv__chat-message__timestamp";
+    ntvTimestampEl.textContent = messageObject.createdAt;
+    const identityEl = timestampEl?.nextElementSibling;
+    if (!identityEl) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Chat message identity node not found", messageNode);
+      return;
+    }
+    const ntvBadgesEl = document.createElement("span");
+    ntvBadgesEl.className = "ntv__chat-message__badges";
+    const badgesEl = identityEl.firstElementChild;
+    if (badgesEl && badgesEl.tagName !== "BUTTON") {
+      if (badgesEl.firstElementChild)
+        ntvBadgesEl.append(
+          ...Array.from(badgesEl.children).map((badgeWrapperEl) => {
+            const subWrapperEl = badgeWrapperEl.firstElementChild;
+            const svgEl = subWrapperEl?.firstElementChild;
+            svgEl?.setAttribute("class", "ntv__badge");
+            subWrapperEl?.setAttribute("class", "ntv__chat-message__badge");
+            return subWrapperEl || badgeWrapperEl;
+          })
+        );
+    }
+    let usernameEl = identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild;
+    while (usernameEl && usernameEl.tagName !== "BUTTON") usernameEl = usernameEl.nextElementSibling;
+    if (!usernameEl) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Chat message username node not found", messageNode);
+      return;
+    }
+    const username = usernameEl.title;
+    messageObject.username = username;
+    messageObject.style.color = usernameEl.style.color;
+    const ntvUsernameEl = document.createElement("span");
+    ntvUsernameEl.className = "ntv__chat-message__username";
+    ntvUsernameEl.title = username;
+    ntvUsernameEl.textContent = usernameEl.textContent || "Unknown user";
+    ntvUsernameEl.style.color = usernameEl.style.color;
+    if (!channelData.isVod && username) {
+      if (usersManager.hasMutedUser(username)) {
+        messageNode.classList.add("ntv__chat-message--muted");
         return;
       }
-      const betterHoverEl = groupElementNode.firstElementChild;
-      if (!betterHoverEl) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Better hover element not found");
-        return;
-      }
-      const messageHasMentionedMe = betterHoverEl.classList.contains("border-green-500");
-      if (messageHasMentionedMe) {
-        messageNode.classList.add("ntv__chat-message--mentioned-me");
-      }
-      let isReply = false;
-      let isReplyToMe = false;
-      if (betterHoverEl.firstElementChild?.classList.contains("w-full")) {
-        isReply = true;
-        messageObject.isReply = true;
-        if (betterHoverEl.classList.contains("border-green-500")) {
-          isReplyToMe = true;
-          messageObject.isReplyToMe = true;
-          messageNode.classList.add("ntv__chat-message--reply-to-me");
+      if (!usersManager.hasSeenUser(username)) {
+        const enableFirstMessageHighlight = settingsManager.getSetting(
+          channelId,
+          "chat.messages.highlight_first_time"
+        );
+        const highlightWhenModeratorOnly = settingsManager.getSetting(
+          channelId,
+          "chat.messages.highlight_first_moderator"
+        );
+        if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
+          messageNode.classList.add("ntv__chat-message--first-message");
         }
-        const replyMessageAttachmentEl = betterHoverEl.firstElementChild;
-        if (!replyMessageAttachmentEl) {
-          messageNode.classList.remove("ntv__chat-message--unrendered");
-          error28("KICK", "UI", "Reply message attachment element not found", messageNode);
-          return;
+        usersManager.registerUser(username, username);
+      }
+    }
+    const separatorEl = identityEl?.nextElementSibling;
+    if (!separatorEl || !separatorEl.hasAttribute("aria-hidden")) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error28("KICK", "UI", "Chat message separator node not found", separatorEl);
+      return;
+    }
+    const ntvSeparatorEl = document.createElement("span");
+    ntvSeparatorEl.className = "ntv__chat-message__separator";
+    ntvSeparatorEl.textContent = ":";
+    if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
+      const lastChildNode = contentWrapperNode.lastChild;
+      if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
+        const badgeEl = parseHTML(
+          this.session.badgeProvider.getBadge({ type: "nipahtv" }),
+          true
+        );
+        ntvBadgesEl.append(badgeEl);
+      }
+    }
+    if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
+    ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
+    const messageParts = [];
+    for (const contentNode of contentWrapperNode.childNodes) {
+      if (contentNode.nodeType === Node.TEXT_NODE) {
+        emotesManager.parseEmoteText(contentNode.textContent || "", messageParts);
+      } else if (contentNode instanceof HTMLElement && contentNode.tagName === "SPAN") {
+        const imgEl = contentNode.firstElementChild?.firstElementChild;
+        if (!imgEl || imgEl instanceof HTMLImageElement === false) {
+          error28("KICK", "UI", "Emote image element not found", imgEl);
+          continue;
         }
-        const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
-        ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
-        ntvMessageInnerEl.append(ntvMessageAttachmentEl);
-        replyMessageAttachmentEl.style.setProperty("display", "none", "important");
-        const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
-        ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
-        messageNode.append(ntvReplyMessageAttachmentEl);
-      }
-      const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl;
-      if (!messageBodyWrapper) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message body wrapper node not found", messageNode);
-        return;
-      }
-      let ntvModBtnsWrapperEl = null;
-      if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
-        const modBtnsWrapperEl = messageBodyWrapper.firstElementChild;
-        if (modBtnsWrapperEl?.classList.contains("inline-flex")) {
-          ntvModBtnsWrapperEl = document.createElement("div");
-          ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
-          const modDeleteBtnEl = modBtnsWrapperEl.children[0];
-          const modTimeoutBtnEl = modBtnsWrapperEl.children[1];
-          const modBanBtnEl = modBtnsWrapperEl.children[2];
-          const ntvModDeleteBtnEl = modDeleteBtnEl.cloneNode(true);
-          const ntvModTimeoutBtnEl = modTimeoutBtnEl.cloneNode(true);
-          const ntvModBanBtnEl = modBanBtnEl.cloneNode(true);
-          ntvModBtnsWrapperEl.append(ntvModDeleteBtnEl, ntvModTimeoutBtnEl, ntvModBanBtnEl);
-          ntvModDeleteBtnEl.addEventListener("click", () => {
-            const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
-            Object.defineProperty(mEvent, "target", { value: modDeleteBtnEl, enumerable: true });
-            modDeleteBtnEl.dispatchEvent(mEvent);
-          });
-          ntvModTimeoutBtnEl.addEventListener("click", () => {
-            const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
-            Object.defineProperty(mEvent, "target", { value: modTimeoutBtnEl, enumerable: true });
-            modTimeoutBtnEl.dispatchEvent(mEvent);
-          });
-          ntvModBanBtnEl.addEventListener("click", () => {
-            const mEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
-            Object.defineProperty(mEvent, "target", { value: modBanBtnEl, enumerable: true });
-            modBanBtnEl.dispatchEvent(mEvent);
-          });
+        const emoteId = contentNode.getAttribute("data-emote-id");
+        const emoteName = contentNode.getAttribute("data-emote-name");
+        if (!emoteId || !emoteName) {
+          error28("KICK", "UI", "Emote ID or name not found", contentNode);
+          continue;
         }
-      }
-      const contentWrapperNode = messageBodyWrapper.querySelector("span:last-of-type");
-      if (!contentWrapperNode) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message content wrapper node not found", messageNode);
-        return;
-      }
-      let timestampEl = messageBodyWrapper.firstElementChild;
-      while (timestampEl && timestampEl.tagName !== "SPAN") timestampEl = timestampEl.nextElementSibling;
-      if (!timestampEl) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message timestamp node not found", messageNode);
-        return;
-      }
-      messageObject.createdAt = timestampEl.textContent || "00:00 AM";
-      const ntvTimestampEl = document.createElement("span");
-      ntvTimestampEl.className = "ntv__chat-message__timestamp";
-      ntvTimestampEl.textContent = messageObject.createdAt;
-      const identityEl = timestampEl?.nextElementSibling;
-      if (!identityEl) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message identity node not found", messageNode);
-        return;
-      }
-      const ntvBadgesEl = document.createElement("span");
-      ntvBadgesEl.className = "ntv__chat-message__badges";
-      const badgesEl = identityEl.firstElementChild;
-      if (badgesEl && badgesEl.tagName !== "BUTTON") {
-        if (badgesEl.firstElementChild)
-          ntvBadgesEl.append(
-            ...Array.from(badgesEl.children).map((badgeWrapperEl) => {
-              const subWrapperEl = badgeWrapperEl.firstElementChild;
-              const svgEl = subWrapperEl?.firstElementChild;
-              svgEl?.setAttribute("class", "ntv__badge");
-              subWrapperEl?.setAttribute("class", "ntv__chat-message__badge");
-              return subWrapperEl || badgeWrapperEl;
-            })
-          );
-      }
-      let usernameEl = identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild;
-      while (usernameEl && usernameEl.tagName !== "BUTTON")
-        usernameEl = usernameEl.nextElementSibling;
-      if (!usernameEl) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message username node not found", messageNode);
-        return;
-      }
-      const username = usernameEl.title;
-      messageObject.username = username;
-      messageObject.style.color = usernameEl.style.color;
-      const ntvUsernameEl = document.createElement("span");
-      ntvUsernameEl.className = "ntv__chat-message__username";
-      ntvUsernameEl.title = username;
-      ntvUsernameEl.textContent = usernameEl.textContent || "Unknown user";
-      ntvUsernameEl.style.color = usernameEl.style.color;
-      if (!channelData.isVod && username) {
-        if (usersManager.hasMutedUser(username)) {
-          messageNode.classList.add("ntv__chat-message--muted");
-          return;
+        let emote = emotesManager.getEmoteByName(emoteName);
+        if (!emote) {
+          emote = {
+            id: emoteId,
+            name: emoteName,
+            isSubscribersOnly: true,
+            provider: 1 /* KICK */
+          };
         }
-        if (!usersManager.hasSeenUser(username)) {
-          const enableFirstMessageHighlight = settingsManager.getSetting(
-            channelId,
-            "chat.messages.highlight_first_time"
-          );
-          const highlightWhenModeratorOnly = settingsManager.getSetting(
-            channelId,
-            "chat.messages.highlight_first_moderator"
-          );
-          if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
-            messageNode.classList.add("ntv__chat-message--first-message");
-          }
-          usersManager.registerUser(username, username);
-        }
+        messageParts.push({
+          type: "emote",
+          emote
+        });
+      } else {
+        messageParts.push(contentNode.cloneNode(true));
       }
-      const separatorEl = identityEl?.nextElementSibling;
-      if (!separatorEl || !separatorEl.hasAttribute("aria-hidden")) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message separator node not found", separatorEl);
-        return;
-      }
-      const ntvSeparatorEl = document.createElement("span");
-      ntvSeparatorEl.className = "ntv__chat-message__separator";
-      ntvSeparatorEl.textContent = ":";
-      if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
-        const lastChildNode = contentWrapperNode.lastChild;
-        if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
-          const badgeEl = parseHTML(
-            this.session.badgeProvider.getBadge({ type: "nipahtv" }),
-            true
-          );
-          ntvBadgesEl.append(badgeEl);
-        }
-      }
-      if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
-      ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
-      const messageParts = [];
-      for (const contentNode of contentWrapperNode.childNodes) {
-        if (contentNode.nodeType === Node.TEXT_NODE) {
-          emotesManager.parseEmoteText(contentNode.textContent || "", messageParts);
-        } else if (contentNode instanceof HTMLElement && contentNode.tagName === "SPAN") {
-          const imgEl = contentNode.firstElementChild?.firstElementChild;
-          if (!imgEl || imgEl instanceof HTMLImageElement === false) {
-            error28("KICK", "UI", "Emote image element not found", imgEl);
-            continue;
-          }
-          const emoteId = contentNode.getAttribute("data-emote-id");
-          const emoteName = contentNode.getAttribute("data-emote-name");
-          if (!emoteId || !emoteName) {
-            error28("KICK", "UI", "Emote ID or name not found", contentNode);
-            continue;
-          }
-          let emote = emotesManager.getEmoteByName(emoteName);
-          if (!emote) {
-            emote = {
-              id: emoteId,
-              name: emoteName,
-              isSubscribersOnly: true,
-              provider: 1 /* KICK */
-            };
-          }
-          messageParts.push({
-            type: "emote",
-            emote
-          });
-        } else {
-          messageParts.push(contentNode.cloneNode(true));
-        }
-      }
-      const clipAttachmentEl = contentWrapperNode.nextElementSibling;
-      if (clipAttachmentEl && clipAttachmentEl.nodeName === "BUTTON") {
-        const clipPreviewBtnEl = clipAttachmentEl.cloneNode(true);
-        clipPreviewBtnEl.addEventListener("click", (evt) => {
+    }
+    const clipAttachmentEl = contentWrapperNode.nextElementSibling;
+    if (clipAttachmentEl && clipAttachmentEl.nodeName === "BUTTON") {
+      const clipPreviewBtnEl = clipAttachmentEl.cloneNode(true);
+      clipPreviewBtnEl.addEventListener("click", (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        evt.stopImmediatePropagation();
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "target", { value: clipAttachmentEl, enumerable: true });
+        clipAttachmentEl.dispatchEvent(event);
+      });
+      messageParts.push(clipPreviewBtnEl);
+    }
+    messageObject.content = messageParts;
+    groupElementNode.style.display = "none";
+    this.rootContext.renderMessagePipeline.process(messageObject, ntvBadgesEl, ntvUsernameEl, messageParts);
+    ntvMessageInnerEl.className = "ntv__chat-message__inner";
+    ntvMessageInnerEl.append(ntvIdentityWrapperEl);
+    ntvMessageInnerEl.append(...this.renderMessageParts(messageParts));
+    messageNode.append(ntvMessageInnerEl);
+    messageNode.classList.add("ntv__chat-message");
+    messageNode.classList.remove("ntv__chat-message--unrendered");
+    let chatMessageActionsEl = groupElementNode.lastElementChild;
+    while (chatMessageActionsEl && chatMessageActionsEl.id !== "chat-message-actions")
+      chatMessageActionsEl = chatMessageActionsEl.previousElementSibling;
+    if (chatMessageActionsEl) {
+      const ntvChatMessageActionsEl = document.createElement("div");
+      ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
+      ntvChatMessageActionsEl.classList.add("kick__chat-message__actions");
+      ntvChatMessageActionsEl.classList.remove("hidden");
+      const replyButtonEl = chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement;
+      if (replyButtonEl) replyButtonEl.classList.add("kick__reply-button");
+      for (const buttonEl of chatMessageActionsEl.children) {
+        const ntvBtnEl = buttonEl.cloneNode(true);
+        ntvBtnEl.addEventListener("click", (evt) => {
           evt.preventDefault();
           evt.stopPropagation();
           evt.stopImmediatePropagation();
-          const event = new MouseEvent("click", { bubbles: true, cancelable: true });
-          Object.defineProperty(event, "target", { value: clipAttachmentEl, enumerable: true });
-          clipAttachmentEl.dispatchEvent(event);
+          if (evt.target instanceof HTMLElement && evt.target.classList.contains("kick__reply-button")) {
+            this.handleMessageReplyBtnClick(messageNode, buttonEl);
+          } else {
+            const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+            Object.defineProperty(event, "target", { writable: false, value: buttonEl });
+            buttonEl.dispatchEvent(event);
+          }
         });
-        messageParts.push(clipPreviewBtnEl);
+        ntvChatMessageActionsEl.append(ntvBtnEl);
       }
-      messageObject.content = messageParts;
-      groupElementNode.style.display = "none";
-      this.rootContext.renderMessagePipeline.process(messageObject, ntvBadgesEl, ntvUsernameEl, messageParts);
-      ntvMessageInnerEl.className = "ntv__chat-message__inner";
-      ntvMessageInnerEl.append(ntvIdentityWrapperEl);
-      ntvMessageInnerEl.append(...this.renderMessageParts(messageParts));
-      messageNode.append(ntvMessageInnerEl);
-      messageNode.classList.add("ntv__chat-message");
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      let chatMessageActionsEl = groupElementNode.lastElementChild;
-      while (chatMessageActionsEl && chatMessageActionsEl.id !== "chat-message-actions")
-        chatMessageActionsEl = chatMessageActionsEl.previousElementSibling;
-      if (chatMessageActionsEl) {
-        const ntvChatMessageActionsEl = document.createElement("div");
-        ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
-        ntvChatMessageActionsEl.classList.add("kick__chat-message__actions");
-        ntvChatMessageActionsEl.classList.remove("hidden");
-        const replyButtonEl = chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement;
-        if (replyButtonEl) replyButtonEl.classList.add("kick__reply-button");
-        for (const buttonEl of chatMessageActionsEl.children) {
-          const ntvBtnEl = buttonEl.cloneNode(true);
-          ntvBtnEl.addEventListener("click", (evt) => {
-            evt.preventDefault();
-            evt.stopPropagation();
-            evt.stopImmediatePropagation();
-            if (evt.target instanceof HTMLElement && evt.target.classList.contains("kick__reply-button")) {
-              this.handleMessageReplyBtnClick(messageNode, buttonEl);
-            } else {
-              const event = new MouseEvent("click", { bubbles: true, cancelable: true });
-              Object.defineProperty(event, "target", { writable: false, value: buttonEl });
-              buttonEl.dispatchEvent(event);
-            }
-          });
-          ntvChatMessageActionsEl.append(ntvBtnEl);
-        }
-        messageNode.append(ntvChatMessageActionsEl);
-      }
-      ntvUsernameEl.addEventListener("click", (evt) => {
-        const event = new MouseEvent("click", { bubbles: true, cancelable: false });
-        Object.defineProperty(event, "target", { value: usernameEl, enumerable: true });
-        usernameEl.dispatchEvent(event);
-      });
-      this.deletedChatEntryObserver?.observe(contentWrapperNode, {
-        childList: true,
-        attributes: false,
-        subtree: false
-      });
-    } else {
-      if (messageNode.children && messageNode.children[0]?.classList.contains("chatroom-history-breaker")) {
-        messageNode.classList.add("ntv__chat-message--history-breaker");
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        return;
-      }
-      const chatEntryEl = messageNode.querySelector(".chat-entry");
-      if (!chatEntryEl) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        return error28("KICK", "UI", "Unable to render message, message has no content loaded..");
-      }
-      if (chatEntryEl.classList.contains("border-primary")) {
-        messageNode.classList.add("ntv__chat-message--mentioned-me");
-      }
-      let messageBodyNode;
-      let messageReplyAttachmentBodyNode = null;
-      if (messageNode.querySelector('[title*="Replying to"]')) {
-        messageReplyAttachmentBodyNode = chatEntryEl.children[0];
-        messageBodyNode = chatEntryEl.children[1];
-      } else {
-        messageBodyNode = chatEntryEl.children[0];
-      }
-      const chatMessageIdentityEl = messageNode.querySelector(".chat-message-identity");
-      if (!chatMessageIdentityEl) {
-        messageNode.classList.remove("ntv__chat-message--unrendered");
-        error28("KICK", "UI", "Chat message identity node not found", messageNode);
-        return;
-      }
-      const chatMessageWrapper = chatMessageIdentityEl.parentElement;
-      let timestampEl = chatMessageWrapper?.firstElementChild;
-      if (timestampEl && !timestampEl.classList.contains("text-gray-400")) timestampEl = null;
-      const modActionsEl = timestampEl && timestampEl.nextElementSibling || chatMessageWrapper?.firstElementChild;
-      const messageContentEl = chatMessageWrapper.lastElementChild;
-      let ntvModBtnsWrapperEl = null;
-      if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
-        if (modActionsEl?.classList.contains("stroke-gray-600")) {
-          ntvModBtnsWrapperEl = document.createElement("div");
-          ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
-          const modDeleteBtnEl = modActionsEl.children[0];
-          const modTimeoutBtnEl = modActionsEl.children[1];
-          const modBanBtnEl = modActionsEl.children[2];
-          ntvModBtnsWrapperEl.append(modDeleteBtnEl, modTimeoutBtnEl, modBanBtnEl);
-        }
-      }
-      const badgesEl = chatMessageIdentityEl.firstElementChild;
-      const usernameEl = badgesEl?.nextElementSibling;
-      const ntvBadgesEl = document.createElement("span");
-      ntvBadgesEl.className = "ntv__chat-message__badges";
-      for (const badgeWrapperEl of badgesEl?.children || []) {
-        const subWrapperEl = badgeWrapperEl.firstElementChild;
-        let imgOrSvgEl = subWrapperEl;
-        if (imgOrSvgEl && imgOrSvgEl.tagName !== "IMG" && imgOrSvgEl.tagName !== "svg")
-          imgOrSvgEl = imgOrSvgEl.firstElementChild;
-        if (imgOrSvgEl && imgOrSvgEl.tagName !== "IMG" && imgOrSvgEl.tagName !== "svg")
-          imgOrSvgEl = imgOrSvgEl.firstElementChild;
-        if (!imgOrSvgEl || imgOrSvgEl.tagName !== "IMG" && imgOrSvgEl.tagName !== "svg") {
-          error28("KICK", "UI", "Badge image or svg element not found", imgOrSvgEl, subWrapperEl);
-          continue;
-        }
-        const ntvBadgeEl = imgOrSvgEl?.cloneNode(true);
-        ntvBadgeEl.classList.add("ntv__badge");
-        ntvBadgesEl.append(ntvBadgeEl);
-      }
-      if (chatMessageIdentityEl) {
-        if (settingsManager.getSetting(channelId, "chat.badges.show_ntv_badge")) {
-          const lastElChild = messageBodyNode.lastElementChild;
-          if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
-            const badgesContainer = chatMessageIdentityEl.getElementsByClassName("items-center")[0];
-            if (badgesContainer) {
-              if (!badgesContainer.children.length) badgesContainer.classList.add("mr-1");
-              const ntvBadgeEl = parseHTML(
-                this.session.badgeProvider.getBadge({ type: "nipahtv" }),
-                true
-              );
-              ntvBadgeEl.setAttribute("class", "ntv__badge");
-              ntvBadgesEl.append(ntvBadgeEl);
-            }
-          }
-        }
-      }
-      const messageParts = [];
-      const messageContentNodes = Array.from(messageContentEl.children);
-      for (let i = 0; i < messageContentNodes.length; i++) {
-        const contentNode = messageContentNodes[i];
-        const componentNode = contentNode.children[0];
-        if (!componentNode) {
-          continue;
-        }
-        switch (componentNode.className) {
-          case "chat-entry-content":
-            if (!componentNode.textContent) continue;
-            if (!(componentNode instanceof Element)) {
-              error28("KICK", "UI", "Chat message content node not an Element?", componentNode);
-              continue;
-            }
-            emotesManager.parseEmoteText(componentNode.textContent || "", messageParts);
-            break;
-          case "chat-emote-container":
-            const imgEl = componentNode.querySelector("img");
-            if (!imgEl) continue;
-            const emoteId = imgEl.getAttribute("data-emote-id");
-            const emoteName = imgEl.getAttribute("data-emote-name");
-            if (!emoteId || !emoteName) {
-              error28("KICK", "UI", "Emote ID or name not found", contentNode);
-              continue;
-            }
-            let emote = emotesManager.getEmoteByName(emoteName);
-            if (!emote) {
-              emote = {
-                id: emoteId,
-                name: emoteName,
-                isSubscribersOnly: true,
-                provider: 1 /* KICK */
-              };
-            }
-            messageParts.push({
-              type: "emote",
-              emote
-            });
-            break;
-          default:
-            if (componentNode.childNodes.length) messageParts.push(...componentNode.childNodes);
-            else error28("KICK", "UI", "Unknown chat message component", componentNode);
-        }
-      }
-      const ntvMessageInnerEl = document.createElement("div");
-      ntvMessageInnerEl.className = "ntv__chat-message__inner";
-      const ntvIdentityWrapperEl = document.createElement("div");
-      ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
-      let ntvTimestampEl = null;
-      if (timestampEl) {
-        ntvTimestampEl = document.createElement("span");
-        ntvTimestampEl.className = "ntv__cha-tmessage__timestamp";
-        ntvTimestampEl.textContent = timestampEl?.textContent || "00:00 AM";
-      }
-      if (badgesEl && badgesEl.tagName === "DIV") {
-        if (badgesEl.firstElementChild)
-          ntvBadgesEl.append(
-            ...Array.from(badgesEl.children).map((badgeWrapperEl) => {
-              const subWrapperEl = badgeWrapperEl.firstElementChild;
-              const svgEl = subWrapperEl?.firstElementChild;
-              svgEl?.setAttribute("class", "ntv__badge");
-              subWrapperEl?.setAttribute("class", "ntv__chat-message__badge");
-              return subWrapperEl || badgeWrapperEl;
-            })
-          );
-      }
-      const username = usernameEl.textContent || "Unknown user";
-      const ntvUsernameEl = document.createElement("span");
-      ntvUsernameEl.className = "ntv__chat-message__username";
-      ntvUsernameEl.title = username || "Unknown user";
-      ntvUsernameEl.textContent = username || "Unknown user";
-      ntvUsernameEl.style.color = usernameEl.style.color || "inherit";
-      ntvUsernameEl.addEventListener("click", (evt) => {
-        const event = new MouseEvent("click", { bubbles: true, cancelable: false });
-        Object.defineProperty(event, "target", { value: usernameEl, enumerable: true });
-        usernameEl.dispatchEvent(event);
-      });
-      if (!channelData.isVod && username) {
-        if (usersManager.hasMutedUser(username)) {
-          return;
-        }
-        if (!usersManager.hasSeenUser(username)) {
-          const enableFirstMessageHighlight = settingsManager.getSetting(
-            channelId,
-            "chat.messages.highlight_first_time"
-          );
-          const highlightWhenModeratorOnly = settingsManager.getSetting(
-            channelId,
-            "chat.messages.highlight_first_moderator"
-          );
-          if (enableFirstMessageHighlight && (!highlightWhenModeratorOnly || highlightWhenModeratorOnly && channelData.me.isModerator)) {
-            messageNode.classList.add("ntv__chat-message--first-message");
-          }
-          usersManager.registerUser(username, username);
-        }
-      }
-      const ntvSeparatorEl = document.createElement("span");
-      ntvSeparatorEl.className = "ntv__chat-message__separator";
-      ntvSeparatorEl.textContent = ":";
-      if (messageReplyAttachmentBodyNode) {
-        const ntvMessageAttachmentEl = document.createElement("div");
-        ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
-        ntvMessageInnerEl.append(messageReplyAttachmentBodyNode.cloneNode(true));
-      }
-      if (ntvTimestampEl) ntvIdentityWrapperEl.append(ntvTimestampEl);
-      if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl);
-      ntvIdentityWrapperEl.append(ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl);
-      ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...this.renderMessageParts(messageParts));
-      this.deletedChatEntryObserver?.observe(messageBodyNode, {
-        childList: true,
-        attributes: false,
-        subtree: false
-      });
-      messageNode.classList.add("ntv__chat-message", "kick__chat-message--old-format");
-      messageNode.classList.remove("ntv__chat-message--unrendered");
-      chatEntryEl.prepend(ntvMessageInnerEl);
+      messageNode.append(ntvChatMessageActionsEl);
     }
+    ntvUsernameEl.addEventListener("click", (evt) => {
+      const event = new MouseEvent("click", { bubbles: true, cancelable: false });
+      Object.defineProperty(event, "target", { value: usernameEl, enumerable: true });
+      usernameEl.dispatchEvent(event);
+    });
+    this.deletedChatEntryObserver?.observe(contentWrapperNode, {
+      childList: true,
+      attributes: false,
+      subtree: false
+    });
   }
   async loadNativeKickFallbackReplyBehaviour(fallbackButtonEl) {
-    const channelData = this.session.channelData;
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { writable: false, value: fallbackButtonEl });
     fallbackButtonEl.dispatchEvent(event);
-    if (!channelData.isModView && !channelData.isCreatorView) {
-      const textFieldEl = this.elm.textField;
-      const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]');
-      textFieldEl.parentElement.style.display = "none";
-      kickTextFieldEl?.parentElement?.style.setProperty("display", "block", "important");
-      const kickEmoteButtonEl = kickTextFieldEl?.parentElement?.nextElementSibling;
-      if (kickEmoteButtonEl) kickEmoteButtonEl.style.setProperty("display", "flex", "important");
-      this.elm.submitButton.style.setProperty("display", "none", "important");
-      this.elm.originalSubmitButton.style.setProperty("display", "flex", "important");
-      document.querySelector(".ntv__emote-menu-button")?.style.setProperty(
-        "display",
-        "none",
-        "important"
-      );
-      document.querySelector(".ntv__quick-emotes-holder")?.style.setProperty(
-        "display",
-        "none",
-        "important"
-      );
-      await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2e3);
-      const closeReplyButton = document.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')?.closest("button");
-      const replyPreviewWrapperEl = closeReplyButton.closest(".flex.flex-col")?.parentElement;
-      if (!replyPreviewWrapperEl) return error28("KICK", "UI", "Reply preview wrapper element not found");
-      const restoreFields = () => {
-        kickTextFieldEl.parentElement.style.removeProperty("display");
-        textFieldEl.parentElement.style.removeProperty("display");
-        this.elm.submitButton.style.removeProperty("display");
-        this.elm.originalSubmitButton.style.removeProperty("display");
-        document.querySelector(".ntv__quick-emotes-holder")?.style.removeProperty("display");
-        document.querySelector(".ntv__emote-menu-button")?.style.removeProperty("display");
-        const kickEmoteButtonEl2 = kickTextFieldEl?.parentElement?.nextElementSibling;
-        if (kickEmoteButtonEl2) kickEmoteButtonEl2.style.removeProperty("display");
-      };
-      if (!isElementInDOM(replyPreviewWrapperEl)) restoreFields();
-      else {
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            if (mutation.removedNodes.length) {
-              restoreFields();
-              observer.disconnect();
-            }
-          });
+    const textFieldEl = this.elm.textField;
+    const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]');
+    textFieldEl.parentElement.style.display = "none";
+    kickTextFieldEl?.parentElement?.style.setProperty("display", "block", "important");
+    const kickEmoteButtonEl = kickTextFieldEl?.parentElement?.nextElementSibling;
+    if (kickEmoteButtonEl) kickEmoteButtonEl.style.setProperty("display", "flex", "important");
+    this.elm.submitButton.style.setProperty("display", "none", "important");
+    this.elm.originalSubmitButton.style.setProperty("display", "flex", "important");
+    document.querySelector(".ntv__emote-menu-button")?.style.setProperty(
+      "display",
+      "none",
+      "important"
+    );
+    document.querySelector(".ntv__quick-emotes-holder")?.style.setProperty(
+      "display",
+      "none",
+      "important"
+    );
+    await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2e3);
+    const closeReplyButton = document.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')?.closest("button");
+    const replyPreviewWrapperEl = closeReplyButton.closest(".flex.flex-col")?.parentElement;
+    if (!replyPreviewWrapperEl) return error28("KICK", "UI", "Reply preview wrapper element not found");
+    const restoreFields = () => {
+      kickTextFieldEl.parentElement.style.removeProperty("display");
+      textFieldEl.parentElement.style.removeProperty("display");
+      this.elm.submitButton.style.removeProperty("display");
+      this.elm.originalSubmitButton.style.removeProperty("display");
+      document.querySelector(".ntv__quick-emotes-holder")?.style.removeProperty("display");
+      document.querySelector(".ntv__emote-menu-button")?.style.removeProperty("display");
+      const kickEmoteButtonEl2 = kickTextFieldEl?.parentElement?.nextElementSibling;
+      if (kickEmoteButtonEl2) kickEmoteButtonEl2.style.removeProperty("display");
+    };
+    if (!isElementInDOM(replyPreviewWrapperEl)) restoreFields();
+    else {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.removedNodes.length) {
+            restoreFields();
+            observer.disconnect();
+          }
         });
-        observer.observe(replyPreviewWrapperEl, { childList: true });
-      }
-      const footerEl = document.querySelector(".kick__chat-footer");
-      if (!footerEl) return error28("KICK", "UI", "Footer element not found");
-      const textFieldParent = textFieldEl.parentElement;
-      const intervalId = setInterval(() => {
-        const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]');
-        if (!closeReplyBtnEl) {
-          if (textFieldParent.style.display === "none") restoreFields();
-          clearInterval(intervalId);
-        }
-      }, 400);
-      kickTextFieldEl?.focus();
-    } else {
+      });
+      observer.observe(replyPreviewWrapperEl, { childList: true });
     }
+    const footerEl = document.querySelector(".kick__chat-footer");
+    if (!footerEl) return error28("KICK", "UI", "Footer element not found");
+    const textFieldParent = textFieldEl.parentElement;
+    const intervalId = setInterval(() => {
+      const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]');
+      if (!closeReplyBtnEl) {
+        if (textFieldParent.style.display === "none") restoreFields();
+        clearInterval(intervalId);
+      }
+    }, 400);
+    kickTextFieldEl?.focus();
   }
   async handleMessageReplyBtnClick(messageNode, fallbackButtonEl) {
     const { inputController } = this;
     const { channelData } = this.session;
     if (!channelData.me.isLoggedIn) return;
-    if (channelData.isCreatorView || channelData.isModView)
-      return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl);
     const randomId = "NTV" + Math.random().toString(36).substring(2, 11);
     messageNode.classList.add(randomId);
     const messageProps = await ReactivePropsFromMain.getByClassName(randomId);
@@ -24092,13 +23809,15 @@ var KickNetworkInterface = class {
       if (pathArr[0] === "popout") {
         pathArr.shift();
       }
+      let isModView = false;
       if (pathArr[0] === "moderator") {
         pathArr.shift();
+        isModView = true;
       }
       let channelName2 = pathArr[0];
       if (!channelName2) throw new Error("Failed to extract channel name from URL");
       let isCreatorView = false;
-      if (channelName2 === "dashboard") {
+      if (channelName2 === "dashboard" || channelName2 === "stream" && document.location.hostname.split(".").includes("dashboard")) {
         const userData = await RESTFromMainService.get("https://kick.com/api/v1/user");
         if (!userData) throw new Error("Failed to fetch user data");
         if (!userData.streamer_channel)
@@ -24130,7 +23849,7 @@ var KickNetworkInterface = class {
         channelName: channelName2,
         isVod: false,
         isCreatorView,
-        isModView: pathArr[pathArr.length - 1].toLowerCase() === "moderator",
+        isModView,
         chatroom: {
           id: "" + responseChannelData.chatroom.id,
           emotesMode: {
@@ -24564,7 +24283,7 @@ var KickBadgeProvider = class {
     const randomId = "_" + (Math.random() * 1e7 << 0);
     switch (badge.type) {
       case "nipahtv":
-        return `<svg class="ntv__badge" ntv-tooltip="NipahTV" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.023423" d="M 0.0045448,15.994522 0.00653212,7.0100931 C 0.00268662,6.4657282 0.56985346,5.2666906 1.6344369,4.714763 2.2713742,4.3845464 2.837577,4.2734929 3.8954568,4.2515817 4.9164087,4.2304326 5.4269836,4.4338648 5.61042,4.5236104 6.1140039,4.7499277 6.6375815,5.2244865 6.7816227,5.4288944 l 4.5552313,6.6637346 c 0.270458,0.343536 0.601629,0.565661 0.949354,0.529787 0.293913,-0.02339 0.449771,-0.268141 0.45106,-0.491161 l 0.0031,-9.2329087 -12.73699293,6.478e-4 4.453e-5,-2.8976667 15.9946434,2.145e-4 -1.11e-4,13.0844041 c -0.0057,0.149032 -0.09913,1.190976 -1.067016,2.026055 -0.866438,0.807769 -2.342194,0.87905 -2.342194,0.87905 -0.620946,0.0088 -1.091187,0.02361 -1.441943,-0.04695 -0.581657,-0.148437 -0.833883,-0.27401 -1.315459,-0.607888 -0.4222398,-0.311805 -0.7037358,-0.678791 -0.9410734,-0.987827 0,0 -1.1204546,-1.801726 -1.931821,-2.982711 C 6.3363366,10.413177 5.2823578,8.9426183 4.7672147,8.2745095 4.375011,7.7288473 4.102008,7.6101039 3.9558506,7.5598495 3.7999133,7.5101456 3.6283732,7.55479 3.4962961,7.6097361 3.3794655,7.6629412 3.2800176,7.7609522 3.2623448,7.8936439 l 7.879e-4,8.1018591 z"/></svg>`;
+        return `<svg class="ntv__badge" ntv-tooltip="NipahTV" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><path style="opacity:1;fill:#ff3e64;fill-opacity:1;fill-rule:nonzero;stroke-width:0.0213617" d="m 0.70822498,15.290987 0.001812,-7.8292114 C 0.70653032,6.965316 1.2237852,5.8717964 2.194683,5.3684396 2.7755683,5.0672828 3.2919441,4.9660023 4.2567281,4.9460193 5.1878339,4.9267313 5.6534771,5.112261 5.8207707,5.1941088 6.2800381,5.4005097 6.7575397,5.8333063 6.888905,6.0197258 l 4.116172,5.7127422 c 0.246656,0.313304 0.472304,0.515883 0.789429,0.483165 0.268048,-0.02132 0.391095,-0.244543 0.39227,-0.447937 l 0.0028,-8.1313972 -11.48244477,5.907e-4 4.061e-5,-2.93166096 14.58710216,1.9564e-4 -1.02e-4,11.93294882 c -0.0053,0.135916 -0.09041,1.086166 -0.973117,1.847756 -0.790189,0.736683 -2.136076,0.801691 -2.136076,0.801691 -0.566301,0.0081 -0.99516,0.02153 -1.315048,-0.04282 -0.53047,-0.135372 -0.7605,-0.249894 -1.1996957,-0.554391 -0.3850818,-0.284365 -0.6418055,-0.56177 -0.8582569,-0.84361 0,0 -1.0218521,-1.278603 -1.7618165,-2.355658 C 6.4828049,10.622664 5.5215787,9.3197084 5.0517693,8.7103949 4.6940804,8.212752 4.4451023,8.1044584 4.311807,8.0586264 4.1695927,8.0132966 4.0131483,8.0540122 3.8926944,8.1041229 3.7861451,8.1526458 3.6954488,8.2420316 3.6793314,8.3630461 l 7.185e-4,6.9288349 z"/></svg>`;
       case "broadcaster":
         return `<svg class="ntv__badge" ntv-tooltip="Broadcaster" x="0px" y="0px" width="16" height="16" viewBox="0 0 16 16" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><g id="Badge_Chat_host"><linearGradient id="badge-host-gradient-1${randomId}" gradientUnits="userSpaceOnUse" x1="4" y1="180.5864" x2="4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="3.2" y="9.6" style="fill:url(#badge-host-gradient-1${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-2${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-2${randomId});" points="6.4,9.6 9.6,9.6 9.6,8 11.2,8 11.2,1.6 9.6,1.6 9.6,0 6.4,0 6.4,1.6 4.8,1.6 4.8,8 6.4,8"></polygon><linearGradient id="badge-host-gradient-3${randomId}" gradientUnits="userSpaceOnUse" x1="2.4" y1="180.5864" x2="2.4" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="1.6" y="6.4" style="fill:url(#badge-host-gradient-3${randomId});" width="1.6" height="3.2"></rect><linearGradient id="badge-host-gradient-4${randomId}" gradientUnits="userSpaceOnUse" x1="12" y1="180.5864" x2="12" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="11.2" y="9.6" style="fill:url(#badge-host-gradient-4${randomId});" width="1.6" height="1.6"></rect><linearGradient id="badge-host-gradient-5${randomId}" gradientUnits="userSpaceOnUse" x1="8" y1="180.5864" x2="8" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><polygon style="fill:url(#badge-host-gradient-5${randomId});" points="4.8,12.8 6.4,12.8 6.4,14.4 4.8,14.4 4.8,16 11.2,16 11.2,14.4 9.6,14.4 9.6,12.8 11.2,12.8 11.2,11.2 4.8,11.2 	"></polygon><linearGradient gradientUnits="userSpaceOnUse" x1="13.6" y1="180.5864" x2="13.6" y2="200.6666" gradientTransform="matrix(1 0 0 1 0 -182)" id="badge-host-gradient-6${randomId}"><stop offset="0" style="stop-color:#FF1CD2;"></stop><stop offset="0.99" style="stop-color:#B20DFF;"></stop></linearGradient><rect x="12.8" y="6.4" style="fill:url(#badge-host-gradient-6${randomId});" width="1.6" height="3.2"></rect></g></svg>`;
       case "verified":
@@ -25951,7 +25670,7 @@ var BotrixExtension = class extends Extension {
 var logger38 = new Logger();
 var { log: log37, info: info36, error: error38 } = logger38.destruct();
 var NipahClient = class {
-  VERSION = "1.5.69";
+  VERSION = "1.5.70";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3000/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

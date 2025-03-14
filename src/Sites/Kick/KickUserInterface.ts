@@ -78,178 +78,101 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.loadStylingVariables()
 		this.loadDocumentPatches()
 
-		if (channelData.isModView || channelData.isCreatorView) {
-			// Wait for text input & submit button to load
-			waitForElements(['#message-input', '#chatroom-footer .send-row > button'], 15_000, abortSignal)
-				.then(foundElements => {
-					if (this.session.isDestroyed) return
+		// Wait for text input & submit button to load
+		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		waitForElements(
+			[
+				'#channel-chatroom .editor-input[contenteditable="true"]',
+				`${footerSelector} button.select-none.bg-green-500.rounded`
+			],
+			15_000,
+			abortSignal
+		)
+			.then(foundElements => {
+				if (this.session.isDestroyed) return
 
-					const [textFieldEl, submitButtonEl] = foundElements as HTMLElement[]
-					this.loadInputBehaviour(textFieldEl, submitButtonEl)
-					this.loadEmoteMenu()
-				})
-				.catch(() => {})
+				const [textFieldEl, submitButtonEl] = foundElements as HTMLElement[]
+				this.loadInputBehaviour(textFieldEl, submitButtonEl)
+				this.loadEmoteMenu()
+			})
+			.catch(() => {})
 
-			// Wait for chat footer to load
-			waitForElements(['#chatroom-footer'], 15_000, abortSignal)
-				.then(foundElements => {
-					if (this.session.isDestroyed) return
+		// Wait for chat footer to load
+		waitForElements([`${footerSelector}`], 15_000, abortSignal)
+			.then(foundElements => {
+				if (this.session.isDestroyed) return
 
-					const [footerEl] = foundElements as HTMLElement[]
-					footerEl.classList.add('kick__chat-footer')
+				const [footerEl] = foundElements as HTMLElement[]
+				footerEl.classList.add('kick__chat-footer')
 
-					// Initialize a container for the timers UI
-					const timersContainer = document.createElement('div')
-					timersContainer.id = 'ntv__timers-container'
-					footerEl.append(timersContainer)
-					this.elm.timersContainer = timersContainer
+				// Initialize a container for the timers UI
+				const timersContainer = document.createElement('div')
+				timersContainer.id = 'ntv__timers-container'
+				footerEl.append(timersContainer)
+				this.elm.timersContainer = timersContainer
 
-					waitForElements(['#quick-emotes-holder'], 10_000, abortSignal)
-						.then(foundElements => {
-							const [quickEmotesHolderEl] = foundElements as HTMLElement[]
-							this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
-						})
-						.catch(() => {})
-
-					waitForElements(['#chatroom-footer .send-row'], 15_000, abortSignal)
-						.then(foundElements => {
-							if (this.session.isDestroyed) return
-
-							const [footerBottomBarEl] = foundElements as HTMLElement[]
-							this.loadEmoteMenuButton(footerBottomBarEl)
-						})
-						.catch(() => {})
-				})
-				.catch(() => {})
-
-			// Wait for chat messages container to load
-			waitForElements(['#chatroom-top + div.overflow-hidden > .overflow-x-hidden'], 15_000, abortSignal)
-				.then(foundElements => {
-					if (this.session.isDestroyed) return
-
-					const [chatMessagesContainerEl] = foundElements as HTMLElement[]
-					this.elm.chatMessagesContainer = chatMessagesContainerEl
-
-					this.applyChatContainerClasses()
-
-					this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
-						this.clipboard.handleCopyEvent(evt as ClipboardEvent)
+				waitForElements(['#quick-emotes-holder'], 10_000, abortSignal)
+					.then(foundElements => {
+						const [quickEmotesHolderEl] = foundElements as HTMLElement[]
+						this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
 					})
+					.catch(() => {})
 
-					// Render emotes in chat when providers are loaded
-					eventBus.subscribe('ntv.providers.loaded', this.loadChatMesssageRenderingBehaviour.bind(this), true)
+				waitForElements(
+					[`${footerSelector} > div.flex > .flex.items-center > .items-center`],
+					15_000,
+					abortSignal
+				)
+					.then(foundElements => {
+						if (this.session.isDestroyed) return
 
-					// TODO due overhaul
-					this.observeChatMessages(chatMessagesContainerEl)
-					// this.loadScrollingBehaviour()
-
-					if (channelData.isVod) {
-						this.loadVodBehaviour()
-					} else {
-						// this.observePinnedMessage()
-						this.observeChatEntriesForDeletionEvents()
-					}
-
-					this.applyModViewFixes()
-				})
-				.catch(() => {})
-		} else {
-			// Wait for text input & submit button to load
-			const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
-			waitForElements(
-				[
-					'#channel-chatroom .editor-input[contenteditable="true"]',
-					`${footerSelector} button.select-none.bg-green-500.rounded`
-				],
-				15_000,
-				abortSignal
-			)
-				.then(foundElements => {
-					if (this.session.isDestroyed) return
-
-					const [textFieldEl, submitButtonEl] = foundElements as HTMLElement[]
-					this.loadInputBehaviour(textFieldEl, submitButtonEl)
-					this.loadEmoteMenu()
-				})
-				.catch(() => {})
-
-			// Wait for chat footer to load
-			waitForElements([`${footerSelector}`], 15_000, abortSignal)
-				.then(foundElements => {
-					if (this.session.isDestroyed) return
-
-					const [footerEl] = foundElements as HTMLElement[]
-					footerEl.classList.add('kick__chat-footer')
-
-					// Initialize a container for the timers UI
-					const timersContainer = document.createElement('div')
-					timersContainer.id = 'ntv__timers-container'
-					footerEl.append(timersContainer)
-					this.elm.timersContainer = timersContainer
-
-					waitForElements(['#quick-emotes-holder'], 10_000, abortSignal)
-						.then(foundElements => {
-							const [quickEmotesHolderEl] = foundElements as HTMLElement[]
-							this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
-						})
-						.catch(() => {})
-
-					waitForElements(
-						[`${footerSelector} > div.flex > .flex.items-center > .items-center`],
-						15_000,
-						abortSignal
-					)
-						.then(foundElements => {
-							if (this.session.isDestroyed) return
-
-							const [footerBottomBarEl] = foundElements as HTMLElement[]
-							this.loadEmoteMenuButton(footerBottomBarEl)
-						})
-						.catch(() => {})
-				})
-				.catch(() => {})
-
-			const chatMessagesContainerSelector = '#chatroom-messages > .no-scrollbar'
-
-			// Wait for chat messages container to load
-			waitForElements([chatMessagesContainerSelector], 15_000, abortSignal)
-				.then(foundElements => {
-					if (this.session.isDestroyed) return
-
-					const [chatMessagesContainerEl] = foundElements as HTMLElement[]
-					this.elm.chatMessagesContainer = chatMessagesContainerEl
-
-					this.applyChatContainerClasses()
-
-					this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
-						this.clipboard.handleCopyEvent(evt as ClipboardEvent)
+						const [footerBottomBarEl] = foundElements as HTMLElement[]
+						this.loadEmoteMenuButton(footerBottomBarEl)
 					})
+					.catch(() => {})
+			})
+			.catch(() => {})
 
-					// Render emotes in chat when providers are loaded
-					eventBus.subscribe('ntv.providers.loaded', this.loadChatMesssageRenderingBehaviour.bind(this), true)
+		const chatMessagesContainerSelector = '#chatroom-messages > .no-scrollbar'
 
-					// TODO due overhaul
-					this.observeChatMessages(chatMessagesContainerEl)
-					// this.loadScrollingBehaviour()
+		// Wait for chat messages container to load
+		waitForElements([chatMessagesContainerSelector], 15_000, abortSignal)
+			.then(foundElements => {
+				if (this.session.isDestroyed) return
 
-					if (channelData.isVod) {
-						this.loadVodBehaviour()
-					} else {
-						this.observePinnedMessage()
-						this.observeChatEntriesForDeletionEvents()
-					}
+				const [chatMessagesContainerEl] = foundElements as HTMLElement[]
+				this.elm.chatMessagesContainer = chatMessagesContainerEl
+
+				this.applyChatContainerClasses()
+
+				this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
+					this.clipboard.handleCopyEvent(evt as ClipboardEvent)
 				})
-				.catch(() => {})
 
-			// Wait for video player and chat messages container to load
-			waitForElements(['#video-player', chatMessagesContainerSelector], 15000, abortSignal)
-				.then(foundElements => {
-					if (this.session.isDestroyed) return
+				// Render emotes in chat when providers are loaded
+				eventBus.subscribe('ntv.providers.loaded', this.loadChatMesssageRenderingBehaviour.bind(this), true)
 
-					this.loadTheatreModeBehaviour()
-				})
-				.catch(() => {})
-		}
+				// TODO due overhaul
+				this.observeChatMessages(chatMessagesContainerEl)
+				// this.loadScrollingBehaviour()
+
+				if (channelData.isVod) {
+					this.loadVodBehaviour()
+				} else {
+					this.observePinnedMessage()
+					this.observeChatEntriesForDeletionEvents()
+				}
+			})
+			.catch(() => {})
+
+		// Wait for video player and chat messages container to load
+		waitForElements(['#video-player', chatMessagesContainerSelector], 15000, abortSignal)
+			.then(foundElements => {
+				if (this.session.isDestroyed) return
+
+				this.loadTheatreModeBehaviour()
+			})
+			.catch(() => {})
 
 		// Inject or send emote to chat on emote click
 		eventBus.subscribe(
@@ -614,18 +537,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldWrapperEl.append(textFieldEl)
 
-		const { isModView, isCreatorView } = this.session.channelData
-		if (isModView || isCreatorView) {
-			kickTextFieldEl!.before(textFieldWrapperEl)
-			if (document.activeElement === kickTextFieldEl) textFieldEl.focus()
-			// kickTextFieldEl!.remove()
-			// kickTextFieldEl?.style.setProperty('display', 'none', 'important')
-		} else {
-			kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
-			if (document.activeElement === kickTextFieldEl) textFieldEl.focus()
-			// kickTextFieldEl.parentElement!.remove()
-			// kickTextFieldEl?.parentElement?.style.setProperty('display', 'none', 'important')
-		}
+		kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
+		if (document.activeElement === kickTextFieldEl) textFieldEl.focus()
 
 		// const moderatorChatIdentityBadgeIconEl = document.querySelector('.chat-input-wrapper .chat-input-icon')
 		// if (moderatorChatIdentityBadgeIconEl) textFieldEl.before(moderatorChatIdentityBadgeIconEl)
@@ -1273,11 +1186,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				if (!target.classList.contains('ntv__chat-message__username')) return
 
-				// Disable user info modal for mod and creator view
-				//  because it uses old Kick design and is too broken
-				//  to bother fixing.
-				if (channelData.isModView || channelData.isCreatorView) return
-
 				const usernameEl = target
 				const username = usernameEl?.textContent
 				const rect = usernameEl.getBoundingClientRect()
@@ -1294,75 +1202,40 @@ export class KickUserInterface extends AbstractUserInterface {
 	 * TODO eventually replace this completely by a new funnel where receive message deletion events over websocket.
 	 */
 	observeChatEntriesForDeletionEvents() {
-		const channelData = this.session.channelData
-		if (!channelData.isModView && !channelData.isCreatorView) {
-			this.deletedChatEntryObserver = new MutationObserver(mutations => {
-				mutations.forEach(mutation => {
-					if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
-						const addedNode = mutation.addedNodes[0]
-						const chatMessageElement = addedNode.closest('.ntv__chat-message')! as HTMLElement
+		this.deletedChatEntryObserver = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
+					const addedNode = mutation.addedNodes[0]
+					const chatMessageElement = addedNode.closest('.ntv__chat-message')! as HTMLElement
 
-						if (!chatMessageElement || chatMessageElement.classList.contains('ntv__chat-message--deleted'))
-							return
+					if (!chatMessageElement || chatMessageElement.classList.contains('ntv__chat-message--deleted'))
+						return
 
-						chatMessageElement.classList.add('ntv__chat-message--deleted')
+					chatMessageElement.classList.add('ntv__chat-message--deleted')
 
-						const chatMessageInnerEl = chatMessageElement.querySelector('& > .ntv__chat-message__inner')!
+					const chatMessageInnerEl = chatMessageElement.querySelector('& > .ntv__chat-message__inner')!
 
-						// For moderators Kick appends "(Deleted)"
-						if (addedNode.className === 'line-through') {
-							chatMessageInnerEl.append(
-								parseHTML(`<span class="ntv__chat-message__part">(Deleted)</span>`, true)
-							)
-						}
-						// For regular viewers we need to remove the message content and replace it with "Deleted by a moderator"
-						else {
-							Array.from(chatMessageElement.getElementsByClassName('ntv__chat-message__part')).forEach(
-								node => node.remove()
-							)
-
-							const deletedMessageContent = addedNode.textContent || 'Deleted by a moderator'
-
-							chatMessageInnerEl.append(
-								parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
-							)
-						}
+					// For moderators Kick appends "(Deleted)"
+					if (addedNode.className === 'line-through') {
+						chatMessageInnerEl.append(
+							parseHTML(`<span class="ntv__chat-message__part">(Deleted)</span>`, true)
+						)
 					}
-				})
-			})
-		}
-		// Mod and creators view still use old Kick design
-		else {
-			this.deletedChatEntryObserver = new MutationObserver(mutations => {
-				mutations.forEach(mutation => {
-					if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
-						const addedNode = mutation.addedNodes[0]
-						const chatEntryNode = addedNode.closest('.chat-entry')! as HTMLElement
-						if (!chatEntryNode.classList.contains('deleted-message-admin')) return
+					// For regular viewers we need to remove the message content and replace it with "Deleted by a moderator"
+					else {
+						Array.from(chatMessageElement.getElementsByClassName('ntv__chat-message__part')).forEach(node =>
+							node.remove()
+						)
 
-						// TODO add back the orange deleted by AI automod badge
-						chatEntryNode.parentElement!.classList.add('ntv__chat-message--deleted')
+						const deletedMessageContent = addedNode.textContent || 'Deleted by a moderator'
 
-						const innerWrapperEl = chatEntryNode.querySelector('.ntv__chat-message__inner')
-						if (!innerWrapperEl) return error('KICK', 'UI', 'Inner wrapper element not found')
-
-						const channelDataMe = this.session.channelData.me
-						if (channelDataMe.isBroadcaster || channelDataMe.isModerator || channelDataMe.isSuperAdmin) {
-							innerWrapperEl.append(parseHTML(`<span class="ntv__chat-message__part"> (Deleted)</span>`))
-						} else {
-							Array.from(chatEntryNode.getElementsByClassName('ntv__chat-message__part')).forEach(node =>
-								node.remove()
-							)
-
-							const deletedMessageContent = addedNode.textContent || 'Deleted by a moderator'
-							innerWrapperEl.append(
-								parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`)
-							)
-						}
+						chatMessageInnerEl.append(
+							parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
+						)
 					}
-				})
+				}
 			})
-		}
+		})
 	}
 
 	loadVodBehaviour() {
@@ -1654,760 +1527,485 @@ export class KickUserInterface extends AbstractUserInterface {
 			</div>
 		*/
 
-		const isOldWebsiteLayout = channelData.isModView || channelData.isCreatorView
-		if (!isOldWebsiteLayout) {
-			// Message is chatroom history breaker "----- New messages -----"
-			if (!messageNode.children || !messageNode.firstElementChild!.classList.contains('group')) {
-				messageNode.classList.add('ntv__chat-message')
+		// Message is chatroom history breaker "----- New messages -----"
+		if (!messageNode.children || !messageNode.firstElementChild!.classList.contains('group')) {
+			messageNode.classList.add('ntv__chat-message')
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+
+			if (messageNode.firstElementChild?.classList.contains('items-center')) {
+				messageNode.classList.add('ntv__chat-message--history-breaker')
+			} else {
+				messageNode.classList.add('ntv__chat-message--history-breaker')
+			}
+
+			return
+		}
+
+		const messageObject: ChatMessage = {
+			username: '',
+			createdAt: '',
+			isReply: false,
+			isReplyToMe: false,
+			badges: [],
+			content: [],
+			style: {
+				color: ''
+			}
+		}
+
+		const ntvMessageInnerEl = document.createElement('div')
+
+		const ntvIdentityWrapperEl = document.createElement('div')
+		ntvIdentityWrapperEl.classList.add('ntv__chat-message__identity')
+
+		let groupElementNode: Element | null | undefined = messageNode.firstElementChild
+		if (!groupElementNode?.classList.contains('group')) groupElementNode = groupElementNode?.nextElementSibling
+
+		if (!groupElementNode?.classList.contains('group')) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
+			return
+		}
+
+		const betterHoverEl = groupElementNode.firstElementChild
+		if (!betterHoverEl) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Better hover element not found')
+			return
+		}
+
+		const messageHasMentionedMe = betterHoverEl.classList.contains('border-green-500')
+		if (messageHasMentionedMe) {
+			messageNode.classList.add('ntv__chat-message--mentioned-me')
+		}
+
+		let isReply = false
+		let isReplyToMe = false
+		if (betterHoverEl.firstElementChild?.classList.contains('w-full')) {
+			isReply = true
+			messageObject.isReply = true
+
+			if (betterHoverEl.classList.contains('border-green-500')) {
+				isReplyToMe = true
+				messageObject.isReplyToMe = true
+				messageNode.classList.add('ntv__chat-message--reply-to-me')
+			}
+
+			// Clone the reply message attachment to our chat message container
+			const replyMessageAttachmentEl = betterHoverEl.firstElementChild
+			if (!replyMessageAttachmentEl) {
 				messageNode.classList.remove('ntv__chat-message--unrendered')
-
-				if (messageNode.firstElementChild?.classList.contains('items-center')) {
-					messageNode.classList.add('ntv__chat-message--history-breaker')
-				} else {
-					messageNode.classList.add('ntv__chat-message--history-breaker')
-				}
-
+				error('KICK', 'UI', 'Reply message attachment element not found', messageNode)
 				return
 			}
 
-			const messageObject: ChatMessage = {
-				username: '',
-				createdAt: '',
-				isReply: false,
-				isReplyToMe: false,
-				badges: [],
-				content: [],
-				style: {
-					color: ''
-				}
+			const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
+			ntvMessageAttachmentEl.className = 'ntv__chat-message__attachment'
+			ntvMessageInnerEl.append(ntvMessageAttachmentEl)
+			;(replyMessageAttachmentEl as HTMLElement).style.setProperty('display', 'none', 'important')
+
+			const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
+			ntvReplyMessageAttachmentEl.classList.add('ntv__chat-message__reply-attachment')
+			messageNode.append(ntvReplyMessageAttachmentEl)
+		}
+
+		const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl
+		if (!messageBodyWrapper) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Chat message body wrapper node not found', messageNode)
+			return
+		}
+
+		let ntvModBtnsWrapperEl: HTMLElement | null = null
+		if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
+			// mod quick buttons can be in different places depending on if message is a reply or not
+			const modBtnsWrapperEl = messageBodyWrapper.firstElementChild
+
+			if (modBtnsWrapperEl?.classList.contains('inline-flex')) {
+				ntvModBtnsWrapperEl = document.createElement('div')
+				ntvModBtnsWrapperEl.className = 'ntv__chat-message__mod-buttons'
+
+				const modDeleteBtnEl = modBtnsWrapperEl.children[0]
+				const modTimeoutBtnEl = modBtnsWrapperEl.children[1]
+				const modBanBtnEl = modBtnsWrapperEl.children[2]
+				const ntvModDeleteBtnEl = modDeleteBtnEl.cloneNode(true) as HTMLElement
+				const ntvModTimeoutBtnEl = modTimeoutBtnEl.cloneNode(true) as HTMLElement
+				const ntvModBanBtnEl = modBanBtnEl.cloneNode(true) as HTMLElement
+
+				ntvModBtnsWrapperEl.append(ntvModDeleteBtnEl, ntvModTimeoutBtnEl, ntvModBanBtnEl)
+
+				ntvModDeleteBtnEl.addEventListener('click', () => {
+					const mEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
+					Object.defineProperty(mEvent, 'target', { value: modDeleteBtnEl, enumerable: true })
+					modDeleteBtnEl.dispatchEvent(mEvent)
+				})
+				ntvModTimeoutBtnEl.addEventListener('click', () => {
+					const mEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
+					Object.defineProperty(mEvent, 'target', { value: modTimeoutBtnEl, enumerable: true })
+					modTimeoutBtnEl.dispatchEvent(mEvent)
+				})
+				ntvModBanBtnEl.addEventListener('click', () => {
+					const mEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
+					Object.defineProperty(mEvent, 'target', { value: modBanBtnEl, enumerable: true })
+					modBanBtnEl.dispatchEvent(mEvent)
+				})
 			}
+		}
 
-			const ntvMessageInnerEl = document.createElement('div')
+		// First element child might be the reply message attachment wrapper, so we get last instead
+		const contentWrapperNode = messageBodyWrapper.querySelector('span:last-of-type')
+		if (!contentWrapperNode) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
+			return
+		}
 
-			const ntvIdentityWrapperEl = document.createElement('div')
-			ntvIdentityWrapperEl.classList.add('ntv__chat-message__identity')
+		let timestampEl = messageBodyWrapper.firstElementChild
+		while (timestampEl && timestampEl.tagName !== 'SPAN') timestampEl = timestampEl.nextElementSibling
+		if (!timestampEl) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Chat message timestamp node not found', messageNode)
+			return
+		}
+		messageObject.createdAt = timestampEl.textContent || '00:00 AM'
 
-			let groupElementNode: Element | null | undefined = messageNode.firstElementChild
-			if (!groupElementNode?.classList.contains('group')) groupElementNode = groupElementNode?.nextElementSibling
+		const ntvTimestampEl = document.createElement('span')
+		ntvTimestampEl.className = 'ntv__chat-message__timestamp'
+		ntvTimestampEl.textContent = messageObject.createdAt
 
-			if (!groupElementNode?.classList.contains('group')) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
-				return
-			}
+		const identityEl = timestampEl?.nextElementSibling
+		if (!identityEl) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Chat message identity node not found', messageNode)
+			return
+		}
 
-			const betterHoverEl = groupElementNode.firstElementChild
-			if (!betterHoverEl) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Better hover element not found')
-				return
-			}
+		const ntvBadgesEl = document.createElement('span')
+		ntvBadgesEl.className = 'ntv__chat-message__badges'
 
-			const messageHasMentionedMe = betterHoverEl.classList.contains('border-green-500')
-			if (messageHasMentionedMe) {
-				messageNode.classList.add('ntv__chat-message--mentioned-me')
-			}
-
-			let isReply = false
-			let isReplyToMe = false
-			if (betterHoverEl.firstElementChild?.classList.contains('w-full')) {
-				isReply = true
-				messageObject.isReply = true
-
-				if (betterHoverEl.classList.contains('border-green-500')) {
-					isReplyToMe = true
-					messageObject.isReplyToMe = true
-					messageNode.classList.add('ntv__chat-message--reply-to-me')
-				}
-
-				// Clone the reply message attachment to our chat message container
-				const replyMessageAttachmentEl = betterHoverEl.firstElementChild
-				if (!replyMessageAttachmentEl) {
-					messageNode.classList.remove('ntv__chat-message--unrendered')
-					error('KICK', 'UI', 'Reply message attachment element not found', messageNode)
-					return
-				}
-
-				const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
-				ntvMessageAttachmentEl.className = 'ntv__chat-message__attachment'
-				ntvMessageInnerEl.append(ntvMessageAttachmentEl)
-				;(replyMessageAttachmentEl as HTMLElement).style.setProperty('display', 'none', 'important')
-
-				const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
-				ntvReplyMessageAttachmentEl.classList.add('ntv__chat-message__reply-attachment')
-				messageNode.append(ntvReplyMessageAttachmentEl)
-			}
-
-			const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl
-			if (!messageBodyWrapper) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message body wrapper node not found', messageNode)
-				return
-			}
-
-			let ntvModBtnsWrapperEl: HTMLElement | null = null
-			if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
-				// mod quick buttons can be in different places depending on if message is a reply or not
-				const modBtnsWrapperEl = messageBodyWrapper.firstElementChild
-
-				if (modBtnsWrapperEl?.classList.contains('inline-flex')) {
-					ntvModBtnsWrapperEl = document.createElement('div')
-					ntvModBtnsWrapperEl.className = 'ntv__chat-message__mod-buttons'
-
-					const modDeleteBtnEl = modBtnsWrapperEl.children[0]
-					const modTimeoutBtnEl = modBtnsWrapperEl.children[1]
-					const modBanBtnEl = modBtnsWrapperEl.children[2]
-					const ntvModDeleteBtnEl = modDeleteBtnEl.cloneNode(true) as HTMLElement
-					const ntvModTimeoutBtnEl = modTimeoutBtnEl.cloneNode(true) as HTMLElement
-					const ntvModBanBtnEl = modBanBtnEl.cloneNode(true) as HTMLElement
-
-					ntvModBtnsWrapperEl.append(ntvModDeleteBtnEl, ntvModTimeoutBtnEl, ntvModBanBtnEl)
-
-					ntvModDeleteBtnEl.addEventListener('click', () => {
-						const mEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
-						Object.defineProperty(mEvent, 'target', { value: modDeleteBtnEl, enumerable: true })
-						modDeleteBtnEl.dispatchEvent(mEvent)
+		const badgesEl = identityEl.firstElementChild // Only exists if user has badges
+		if (badgesEl && badgesEl.tagName !== 'BUTTON') {
+			if (badgesEl.firstElementChild)
+				ntvBadgesEl.append(
+					...Array.from(badgesEl.children).map(badgeWrapperEl => {
+						const subWrapperEl = badgeWrapperEl.firstElementChild
+						const svgEl = subWrapperEl?.firstElementChild
+						svgEl?.setAttribute('class', 'ntv__badge')
+						subWrapperEl?.setAttribute('class', 'ntv__chat-message__badge')
+						// messageObject.badges.push(subWrapperEl?.title || '')
+						return subWrapperEl || badgeWrapperEl
 					})
-					ntvModTimeoutBtnEl.addEventListener('click', () => {
-						const mEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
-						Object.defineProperty(mEvent, 'target', { value: modTimeoutBtnEl, enumerable: true })
-						modTimeoutBtnEl.dispatchEvent(mEvent)
-					})
-					ntvModBanBtnEl.addEventListener('click', () => {
-						const mEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
-						Object.defineProperty(mEvent, 'target', { value: modBanBtnEl, enumerable: true })
-						modBanBtnEl.dispatchEvent(mEvent)
-					})
-				}
-			}
+				)
+		}
 
-			// First element child might be the reply message attachment wrapper, so we get last instead
-			const contentWrapperNode = messageBodyWrapper.querySelector('span:last-of-type')
-			if (!contentWrapperNode) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
+		let usernameEl = (
+			identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild
+		) as HTMLElement
+		while (usernameEl && usernameEl.tagName !== 'BUTTON') usernameEl = usernameEl.nextElementSibling as HTMLElement
+		if (!usernameEl) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Chat message username node not found', messageNode)
+			return
+		}
+
+		const username = usernameEl.title
+		messageObject.username = username
+		messageObject.style.color = usernameEl.style.color
+
+		const ntvUsernameEl = document.createElement('span')
+		ntvUsernameEl.className = 'ntv__chat-message__username'
+		ntvUsernameEl.title = username
+		ntvUsernameEl.textContent = usernameEl.textContent || 'Unknown user'
+		ntvUsernameEl.style.color = usernameEl.style.color
+
+		if (!channelData.isVod && username) {
+			if (usersManager.hasMutedUser(username)) {
+				messageNode.classList.add('ntv__chat-message--muted')
 				return
 			}
 
-			let timestampEl = messageBodyWrapper.firstElementChild
-			while (timestampEl && timestampEl.tagName !== 'SPAN') timestampEl = timestampEl.nextElementSibling
-			if (!timestampEl) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message timestamp node not found', messageNode)
-				return
-			}
-			messageObject.createdAt = timestampEl.textContent || '00:00 AM'
-
-			const ntvTimestampEl = document.createElement('span')
-			ntvTimestampEl.className = 'ntv__chat-message__timestamp'
-			ntvTimestampEl.textContent = messageObject.createdAt
-
-			const identityEl = timestampEl?.nextElementSibling
-			if (!identityEl) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message identity node not found', messageNode)
-				return
-			}
-
-			const ntvBadgesEl = document.createElement('span')
-			ntvBadgesEl.className = 'ntv__chat-message__badges'
-
-			const badgesEl = identityEl.firstElementChild // Only exists if user has badges
-			if (badgesEl && badgesEl.tagName !== 'BUTTON') {
-				if (badgesEl.firstElementChild)
-					ntvBadgesEl.append(
-						...Array.from(badgesEl.children).map(badgeWrapperEl => {
-							const subWrapperEl = badgeWrapperEl.firstElementChild
-							const svgEl = subWrapperEl?.firstElementChild
-							svgEl?.setAttribute('class', 'ntv__badge')
-							subWrapperEl?.setAttribute('class', 'ntv__chat-message__badge')
-							// messageObject.badges.push(subWrapperEl?.title || '')
-							return subWrapperEl || badgeWrapperEl
-						})
-					)
-			}
-
-			let usernameEl = (
-				identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild
-			) as HTMLElement
-			while (usernameEl && usernameEl.tagName !== 'BUTTON')
-				usernameEl = usernameEl.nextElementSibling as HTMLElement
-			if (!usernameEl) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message username node not found', messageNode)
-				return
-			}
-
-			const username = usernameEl.title
-			messageObject.username = username
-			messageObject.style.color = usernameEl.style.color
-
-			const ntvUsernameEl = document.createElement('span')
-			ntvUsernameEl.className = 'ntv__chat-message__username'
-			ntvUsernameEl.title = username
-			ntvUsernameEl.textContent = usernameEl.textContent || 'Unknown user'
-			ntvUsernameEl.style.color = usernameEl.style.color
-
-			if (!channelData.isVod && username) {
-				if (usersManager.hasMutedUser(username)) {
-					messageNode.classList.add('ntv__chat-message--muted')
-					return
+			if (!usersManager.hasSeenUser(username)) {
+				const enableFirstMessageHighlight = settingsManager.getSetting(
+					channelId,
+					'chat.messages.highlight_first_time'
+				)
+				const highlightWhenModeratorOnly = settingsManager.getSetting(
+					channelId,
+					'chat.messages.highlight_first_moderator'
+				)
+				if (
+					enableFirstMessageHighlight &&
+					(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.isModerator))
+				) {
+					messageNode.classList.add('ntv__chat-message--first-message')
 				}
 
-				if (!usersManager.hasSeenUser(username)) {
-					const enableFirstMessageHighlight = settingsManager.getSetting(
-						channelId,
-						'chat.messages.highlight_first_time'
-					)
-					const highlightWhenModeratorOnly = settingsManager.getSetting(
-						channelId,
-						'chat.messages.highlight_first_moderator'
-					)
-					if (
-						enableFirstMessageHighlight &&
-						(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.isModerator))
-					) {
-						messageNode.classList.add('ntv__chat-message--first-message')
-					}
+				// TODO It's not great, but we dont have slug or user ID here anymore
+				usersManager.registerUser(username, username)
+			}
+		}
 
-					// TODO It's not great, but we dont have slug or user ID here anymore
-					usersManager.registerUser(username, username)
+		const separatorEl = identityEl?.nextElementSibling
+		if (!separatorEl || !separatorEl.hasAttribute('aria-hidden')) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Chat message separator node not found', separatorEl)
+			return
+		}
+		const ntvSeparatorEl = document.createElement('span')
+		ntvSeparatorEl.className = 'ntv__chat-message__separator'
+		ntvSeparatorEl.textContent = ':'
+
+		// Add NTV badge to badges container
+		if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
+			// Check if message has been signed by NTV
+			const lastChildNode = contentWrapperNode.lastChild
+			if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
+				const badgeEl = parseHTML(
+					this.session.badgeProvider.getBadge({ type: 'nipahtv' } as Badge) as string,
+					true
+				) as HTMLElement
+
+				ntvBadgesEl.append(badgeEl)
+			}
+		}
+
+		if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl)
+		ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
+
+		const messageParts = []
+		for (const contentNode of contentWrapperNode.childNodes) {
+			if (contentNode.nodeType === Node.TEXT_NODE) {
+				emotesManager.parseEmoteText(contentNode.textContent || '', messageParts)
+			} else if (contentNode instanceof HTMLElement && contentNode!.tagName === 'SPAN') {
+				// Unwrap and clean up native Kick emotes
+				const imgEl = contentNode.firstElementChild?.firstElementChild
+				if (!imgEl || imgEl instanceof HTMLImageElement === false) {
+					error('KICK', 'UI', 'Emote image element not found', imgEl)
+					continue
 				}
-			}
 
-			const separatorEl = identityEl?.nextElementSibling
-			if (!separatorEl || !separatorEl.hasAttribute('aria-hidden')) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message separator node not found', separatorEl)
-				return
-			}
-			const ntvSeparatorEl = document.createElement('span')
-			ntvSeparatorEl.className = 'ntv__chat-message__separator'
-			ntvSeparatorEl.textContent = ':'
-
-			// Add NTV badge to badges container
-			if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
-				// Check if message has been signed by NTV
-				const lastChildNode = contentWrapperNode.lastChild
-				if (lastChildNode?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
-					const badgeEl = parseHTML(
-						this.session.badgeProvider.getBadge({ type: 'nipahtv' } as Badge) as string,
-						true
-					) as HTMLElement
-
-					ntvBadgesEl.append(badgeEl)
+				const emoteId = contentNode.getAttribute('data-emote-id')
+				const emoteName = contentNode.getAttribute('data-emote-name')
+				if (!emoteId || !emoteName) {
+					error('KICK', 'UI', 'Emote ID or name not found', contentNode)
+					continue
 				}
-			}
 
-			if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl)
-			ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
+				// Will not return anything for subscriber emotes that are not loaded
+				let emote = emotesManager.getEmoteByName(emoteName)
 
-			const messageParts = []
-			for (const contentNode of contentWrapperNode.childNodes) {
-				if (contentNode.nodeType === Node.TEXT_NODE) {
-					emotesManager.parseEmoteText(contentNode.textContent || '', messageParts)
-				} else if (contentNode instanceof HTMLElement && contentNode!.tagName === 'SPAN') {
-					// Unwrap and clean up native Kick emotes
-					const imgEl = contentNode.firstElementChild?.firstElementChild
-					if (!imgEl || imgEl instanceof HTMLImageElement === false) {
-						error('KICK', 'UI', 'Emote image element not found', imgEl)
-						continue
-					}
-
-					const emoteId = contentNode.getAttribute('data-emote-id')
-					const emoteName = contentNode.getAttribute('data-emote-name')
-					if (!emoteId || !emoteName) {
-						error('KICK', 'UI', 'Emote ID or name not found', contentNode)
-						continue
-					}
-
-					// Will not return anything for subscriber emotes that are not loaded
-					let emote = emotesManager.getEmoteByName(emoteName)
-
-					if (!emote) {
-						emote = {
-							id: emoteId,
-							name: emoteName,
-							isSubscribersOnly: true,
-							provider: PROVIDER_ENUM.KICK
-						} as Emote
-					}
-
-					messageParts.push({
-						type: 'emote' as const,
-						emote
-					})
-				} else {
-					messageParts.push(contentNode.cloneNode(true))
+				if (!emote) {
+					emote = {
+						id: emoteId,
+						name: emoteName,
+						isSubscribersOnly: true,
+						provider: PROVIDER_ENUM.KICK
+					} as Emote
 				}
-			}
 
-			const clipAttachmentEl = contentWrapperNode.nextElementSibling
-			if (clipAttachmentEl && clipAttachmentEl.nodeName === 'BUTTON') {
-				const clipPreviewBtnEl = clipAttachmentEl.cloneNode(true)
-				// Forward the click event to the original clickable clip attachment preview element
-				clipPreviewBtnEl.addEventListener('click', evt => {
+				messageParts.push({
+					type: 'emote' as const,
+					emote
+				})
+			} else {
+				messageParts.push(contentNode.cloneNode(true))
+			}
+		}
+
+		const clipAttachmentEl = contentWrapperNode.nextElementSibling
+		if (clipAttachmentEl && clipAttachmentEl.nodeName === 'BUTTON') {
+			const clipPreviewBtnEl = clipAttachmentEl.cloneNode(true)
+			// Forward the click event to the original clickable clip attachment preview element
+			clipPreviewBtnEl.addEventListener('click', evt => {
+				evt.preventDefault()
+				evt.stopPropagation()
+				evt.stopImmediatePropagation()
+
+				const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+				Object.defineProperty(event, 'target', { value: clipAttachmentEl, enumerable: true })
+				clipAttachmentEl.dispatchEvent(event)
+			})
+			messageParts.push(clipPreviewBtnEl)
+		}
+
+		messageObject.content = messageParts
+		;(groupElementNode as HTMLElement).style.display = 'none'
+
+		// const ntvMessagePartsWrapperEl = document.createElement('div')
+		// ntvMessagePartsWrapperEl.className = 'ntv__chat-message__parts-wrapper'
+		// ntvMessagePartsWrapperEl.append(...messagePartNodes)
+
+		this.rootContext.renderMessagePipeline.process(messageObject, ntvBadgesEl, ntvUsernameEl, messageParts)
+
+		ntvMessageInnerEl.className = 'ntv__chat-message__inner'
+		ntvMessageInnerEl.append(ntvIdentityWrapperEl)
+		ntvMessageInnerEl.append(...this.renderMessageParts(messageParts))
+
+		// Append all the nodes to our own chat message container
+		// We do this late so checks can be done and bailout early
+		//   if necessary leaving the original message untouched
+		// messageNode.append(ntvChatMessageEl)
+		messageNode.append(ntvMessageInnerEl)
+		// messageNode.append(ntvIdentityWrapperEl)
+		// messageNode.append(...messagePartNodes)
+		// messageNode.append(ntvMessagePartsWrapperEl)
+
+		messageNode.classList.add('ntv__chat-message')
+		// messageNode.style.removeProperty('display')
+		messageNode.classList.remove('ntv__chat-message--unrendered')
+
+		// Pull out the chat message actions
+		let chatMessageActionsEl = groupElementNode.lastElementChild
+		while (chatMessageActionsEl && chatMessageActionsEl.id !== 'chat-message-actions')
+			chatMessageActionsEl = chatMessageActionsEl.previousElementSibling
+		if (chatMessageActionsEl) {
+			// chatMessageActionsEl.removeAttribute('id')
+			// chatMessageActionsEl.classList.add('kick__chat-message__actions')
+
+			const ntvChatMessageActionsEl = document.createElement('div')
+			ntvChatMessageActionsEl.className = chatMessageActionsEl.className
+			ntvChatMessageActionsEl.classList.add('kick__chat-message__actions')
+			ntvChatMessageActionsEl.classList.remove('hidden')
+
+			// Hide the reply button because it doesnt work yet
+			const replyButtonEl =
+				chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement
+			if (replyButtonEl) replyButtonEl.classList.add('kick__reply-button')
+
+			// We clone the buttons and attach new event listeners to forward the click events to the original buttons
+			for (const buttonEl of chatMessageActionsEl.children) {
+				// if (buttonEl.classList.contains('kick__reply-button')) continue
+
+				const ntvBtnEl = buttonEl.cloneNode(true)
+				ntvBtnEl.addEventListener('click', evt => {
 					evt.preventDefault()
 					evt.stopPropagation()
 					evt.stopImmediatePropagation()
 
-					const event = new MouseEvent('click', { bubbles: true, cancelable: true })
-					Object.defineProperty(event, 'target', { value: clipAttachmentEl, enumerable: true })
-					clipAttachmentEl.dispatchEvent(event)
+					if (evt.target instanceof HTMLElement && evt.target.classList.contains('kick__reply-button')) {
+						this.handleMessageReplyBtnClick(messageNode, buttonEl as HTMLElement)
+					} else {
+						// TODO implement the rest of the buttons
+						const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+						Object.defineProperty(event, 'target', { writable: false, value: buttonEl })
+						buttonEl.dispatchEvent(event)
+					}
 				})
-				messageParts.push(clipPreviewBtnEl)
+				ntvChatMessageActionsEl.append(ntvBtnEl)
 			}
 
-			messageObject.content = messageParts
-			;(groupElementNode as HTMLElement).style.display = 'none'
-
-			// const ntvMessagePartsWrapperEl = document.createElement('div')
-			// ntvMessagePartsWrapperEl.className = 'ntv__chat-message__parts-wrapper'
-			// ntvMessagePartsWrapperEl.append(...messagePartNodes)
-
-			this.rootContext.renderMessagePipeline.process(messageObject, ntvBadgesEl, ntvUsernameEl, messageParts)
-
-			ntvMessageInnerEl.className = 'ntv__chat-message__inner'
-			ntvMessageInnerEl.append(ntvIdentityWrapperEl)
-			ntvMessageInnerEl.append(...this.renderMessageParts(messageParts))
-
-			// Append all the nodes to our own chat message container
-			// We do this late so checks can be done and bailout early
-			//   if necessary leaving the original message untouched
-			// messageNode.append(ntvChatMessageEl)
-			messageNode.append(ntvMessageInnerEl)
-			// messageNode.append(ntvIdentityWrapperEl)
-			// messageNode.append(...messagePartNodes)
-			// messageNode.append(ntvMessagePartsWrapperEl)
-
-			messageNode.classList.add('ntv__chat-message')
-			// messageNode.style.removeProperty('display')
-			messageNode.classList.remove('ntv__chat-message--unrendered')
-
-			// Pull out the chat message actions
-			let chatMessageActionsEl = groupElementNode.lastElementChild
-			while (chatMessageActionsEl && chatMessageActionsEl.id !== 'chat-message-actions')
-				chatMessageActionsEl = chatMessageActionsEl.previousElementSibling
-			if (chatMessageActionsEl) {
-				// chatMessageActionsEl.removeAttribute('id')
-				// chatMessageActionsEl.classList.add('kick__chat-message__actions')
-
-				const ntvChatMessageActionsEl = document.createElement('div')
-				ntvChatMessageActionsEl.className = chatMessageActionsEl.className
-				ntvChatMessageActionsEl.classList.add('kick__chat-message__actions')
-				ntvChatMessageActionsEl.classList.remove('hidden')
-
-				// Hide the reply button because it doesnt work yet
-				const replyButtonEl =
-					chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement
-				if (replyButtonEl) replyButtonEl.classList.add('kick__reply-button')
-
-				// We clone the buttons and attach new event listeners to forward the click events to the original buttons
-				for (const buttonEl of chatMessageActionsEl.children) {
-					// if (buttonEl.classList.contains('kick__reply-button')) continue
-
-					const ntvBtnEl = buttonEl.cloneNode(true)
-					ntvBtnEl.addEventListener('click', evt => {
-						evt.preventDefault()
-						evt.stopPropagation()
-						evt.stopImmediatePropagation()
-
-						if (evt.target instanceof HTMLElement && evt.target.classList.contains('kick__reply-button')) {
-							this.handleMessageReplyBtnClick(messageNode, buttonEl as HTMLElement)
-						} else {
-							// TODO implement the rest of the buttons
-							const event = new MouseEvent('click', { bubbles: true, cancelable: true })
-							Object.defineProperty(event, 'target', { writable: false, value: buttonEl })
-							buttonEl.dispatchEvent(event)
-						}
-					})
-					ntvChatMessageActionsEl.append(ntvBtnEl)
-				}
-
-				messageNode.append(ntvChatMessageActionsEl)
-			}
-
-			// Forward event to Kick's original username element
-			ntvUsernameEl.addEventListener('click', evt => {
-				const event = new MouseEvent('click', { bubbles: true, cancelable: false })
-				Object.defineProperty(event, 'target', { value: usernameEl, enumerable: true })
-				usernameEl.dispatchEvent(event)
-			})
-
-			// Observe class changes to detect when message is deleted
-			this.deletedChatEntryObserver?.observe(contentWrapperNode, {
-				childList: true,
-				attributes: false,
-				subtree: false
-			})
-
-			// Adding this class removes the display: none from the chat message, causing a reflow
-			// messageNode.classList.add('ntv__chat-message__wrapper')
-
-			// this.session.eventBus.publish('ntv.chat.message.new', messageObject)
+			messageNode.append(ntvChatMessageActionsEl)
 		}
-		// Chatroom is old Kick design in mod or creator view
-		else {
-			if (messageNode.children && messageNode.children[0]?.classList.contains('chatroom-history-breaker')) {
-				messageNode.classList.add('ntv__chat-message--history-breaker')
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				return
-			}
 
-			const chatEntryEl = messageNode.querySelector('.chat-entry')
-			if (!chatEntryEl) {
-				//? Sometimes Kick decides to just not load messages.
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				return error('KICK', 'UI', 'Unable to render message, message has no content loaded..') // messageNode
-			}
-			if (chatEntryEl.classList.contains('border-primary')) {
-				messageNode.classList.add('ntv__chat-message--mentioned-me')
-			}
+		// Forward event to Kick's original username element
+		ntvUsernameEl.addEventListener('click', evt => {
+			const event = new MouseEvent('click', { bubbles: true, cancelable: false })
+			Object.defineProperty(event, 'target', { value: usernameEl, enumerable: true })
+			usernameEl.dispatchEvent(event)
+		})
 
-			// Test if message has a reply attached to it
-			let messageBodyNode: HTMLElement
-			let messageReplyAttachmentBodyNode: HTMLElement | null = null
-			if (messageNode.querySelector('[title*="Replying to"]')) {
-				messageReplyAttachmentBodyNode = chatEntryEl.children[0] as HTMLElement
-				messageBodyNode = chatEntryEl.children[1] as HTMLElement
-			} else {
-				messageBodyNode = chatEntryEl.children[0] as HTMLElement
-			}
+		// Observe class changes to detect when message is deleted
+		this.deletedChatEntryObserver?.observe(contentWrapperNode, {
+			childList: true,
+			attributes: false,
+			subtree: false
+		})
 
-			const chatMessageIdentityEl = messageNode.querySelector('.chat-message-identity')
-			if (!chatMessageIdentityEl) {
-				messageNode.classList.remove('ntv__chat-message--unrendered')
-				error('KICK', 'UI', 'Chat message identity node not found', messageNode)
-				return
-			}
+		// Adding this class removes the display: none from the chat message, causing a reflow
+		// messageNode.classList.add('ntv__chat-message__wrapper')
 
-			const chatMessageWrapper = chatMessageIdentityEl.parentElement
-			let timestampEl = chatMessageWrapper?.firstElementChild
-			if (timestampEl && !timestampEl.classList.contains('text-gray-400')) timestampEl = null
-
-			const modActionsEl =
-				(timestampEl && timestampEl.nextElementSibling) || chatMessageWrapper?.firstElementChild
-			const messageContentEl = chatMessageWrapper!.lastElementChild as HTMLElement
-
-			let ntvModBtnsWrapperEl: HTMLElement | null = null
-			if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
-				if (modActionsEl?.classList.contains('stroke-gray-600')) {
-					ntvModBtnsWrapperEl = document.createElement('div')
-					ntvModBtnsWrapperEl.className = 'ntv__chat-message__mod-buttons'
-
-					const modDeleteBtnEl = modActionsEl.children[0]
-					const modTimeoutBtnEl = modActionsEl.children[1]
-					const modBanBtnEl = modActionsEl.children[2]
-
-					ntvModBtnsWrapperEl.append(modDeleteBtnEl, modTimeoutBtnEl, modBanBtnEl)
-				}
-			}
-
-			const badgesEl = chatMessageIdentityEl!.firstElementChild
-			const usernameEl = badgesEl?.nextElementSibling as HTMLElement
-
-			const ntvBadgesEl = document.createElement('span')
-			ntvBadgesEl.className = 'ntv__chat-message__badges'
-
-			for (const badgeWrapperEl of badgesEl?.children || []) {
-				const subWrapperEl = badgeWrapperEl.firstElementChild as HTMLElement
-
-				let imgOrSvgEl: Element | null = subWrapperEl
-				if (imgOrSvgEl && imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')
-					imgOrSvgEl = imgOrSvgEl.firstElementChild
-				if (imgOrSvgEl && imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')
-					imgOrSvgEl = imgOrSvgEl.firstElementChild
-				if (!imgOrSvgEl || (imgOrSvgEl.tagName !== 'IMG' && imgOrSvgEl.tagName !== 'svg')) {
-					error('KICK', 'UI', 'Badge image or svg element not found', imgOrSvgEl, subWrapperEl)
-					continue
-				}
-
-				const ntvBadgeEl = imgOrSvgEl?.cloneNode(true) as HTMLElement
-				// ntvBadgeEl.setAttribute('class', 'ntv__badge')
-				ntvBadgeEl.classList.add('ntv__badge')
-				// subWrapperEl.setAttribute('class', 'ntv__chat-message__badge')
-				ntvBadgesEl.append(ntvBadgeEl)
-			}
-
-			if (chatMessageIdentityEl) {
-				// Add NTV badge to badges container
-				if (settingsManager.getSetting(channelId, 'chat.badges.show_ntv_badge')) {
-					// Check if message has been signed by NTV
-					const lastElChild = messageBodyNode.lastElementChild
-					if (lastElChild?.textContent?.endsWith(U_TAG_NTV_AFFIX)) {
-						const badgesContainer = chatMessageIdentityEl.getElementsByClassName('items-center')[0]
-						if (badgesContainer) {
-							// Kick normally adds a margin-right tailwind class when container is no longer empty so we simulate it
-							if (!badgesContainer.children.length) badgesContainer.classList.add('mr-1')
-
-							const ntvBadgeEl = parseHTML(
-								this.session.badgeProvider.getBadge({ type: 'nipahtv' } as Badge) as string,
-								true
-							) as HTMLElement
-
-							// Setting .className prop is forbidden here because it has no setter
-							ntvBadgeEl.setAttribute('class', 'ntv__badge')
-							ntvBadgesEl.append(ntvBadgeEl)
-						}
-					}
-				}
-			}
-
-			const messageParts: Array<
-				string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
-			> = []
-			const messageContentNodes = Array.from(messageContentEl.children)
-
-			for (let i = 0; i < messageContentNodes.length; i++) {
-				const contentNode = messageContentNodes[i]
-				const componentNode = contentNode.children[0] // Either text or emote component
-				if (!componentNode) {
-					// Component node does not exist for:
-					// - Removed messages
-					// - Kick cosmetic messages like "New Messages-------"
-					// - Message replies
-					// log('KICK', 'UI', 'Chat message component node not found. Are chat messages being rendered twice?', contentNode)
-					continue
-				}
-
-				// We extract and flatten the Kick components to our format
-				switch (componentNode.className) {
-					case 'chat-entry-content':
-						if (!componentNode.textContent) continue
-						if (!(componentNode instanceof Element)) {
-							error('KICK', 'UI', 'Chat message content node not an Element?', componentNode)
-							continue
-						}
-						emotesManager.parseEmoteText(componentNode.textContent || '', messageParts)
-						break
-
-					case 'chat-emote-container':
-						// Unwrap and clean up native Kick emotes
-						const imgEl = componentNode.querySelector('img')
-						if (!imgEl) continue
-
-						const emoteId = imgEl.getAttribute('data-emote-id')
-						const emoteName = imgEl.getAttribute('data-emote-name')
-						if (!emoteId || !emoteName) {
-							error('KICK', 'UI', 'Emote ID or name not found', contentNode)
-							continue
-						}
-
-						// Will not return anything for subscriber emotes that are not loaded
-						let emote = emotesManager.getEmoteByName(emoteName)
-
-						if (!emote) {
-							emote = {
-								id: emoteId,
-								name: emoteName,
-								isSubscribersOnly: true,
-								provider: PROVIDER_ENUM.KICK
-							} as Emote
-						}
-
-						messageParts.push({
-							type: 'emote' as const,
-							emote
-						})
-						break
-
-					default:
-						if (componentNode.childNodes.length) messageParts.push(...componentNode.childNodes)
-						else error('KICK', 'UI', 'Unknown chat message component', componentNode)
-				}
-			}
-
-			const ntvMessageInnerEl = document.createElement('div')
-			ntvMessageInnerEl.className = 'ntv__chat-message__inner'
-
-			const ntvIdentityWrapperEl = document.createElement('div')
-			ntvIdentityWrapperEl.classList.add('ntv__chat-message__identity')
-
-			let ntvTimestampEl: HTMLElement | null = null
-			if (timestampEl) {
-				ntvTimestampEl = document.createElement('span')
-				ntvTimestampEl.className = 'ntv__cha-tmessage__timestamp'
-				ntvTimestampEl.textContent = timestampEl?.textContent || '00:00 AM'
-			}
-
-			if (badgesEl && badgesEl.tagName === 'DIV') {
-				if (badgesEl.firstElementChild)
-					ntvBadgesEl.append(
-						...Array.from(badgesEl.children).map(badgeWrapperEl => {
-							const subWrapperEl = badgeWrapperEl.firstElementChild
-							const svgEl = subWrapperEl?.firstElementChild
-							svgEl?.setAttribute('class', 'ntv__badge')
-							subWrapperEl?.setAttribute('class', 'ntv__chat-message__badge')
-							return subWrapperEl || badgeWrapperEl
-						})
-					)
-			}
-
-			const username = usernameEl.textContent || 'Unknown user'
-			const ntvUsernameEl = document.createElement('span')
-			ntvUsernameEl.className = 'ntv__chat-message__username'
-			ntvUsernameEl.title = username || 'Unknown user'
-			ntvUsernameEl.textContent = username || 'Unknown user'
-			ntvUsernameEl.style.color = usernameEl!.style.color || 'inherit'
-
-			ntvUsernameEl.addEventListener('click', evt => {
-				const event = new MouseEvent('click', { bubbles: true, cancelable: false })
-				Object.defineProperty(event, 'target', { value: usernameEl, enumerable: true })
-				usernameEl.dispatchEvent(event)
-			})
-
-			if (!channelData.isVod && username) {
-				if (usersManager.hasMutedUser(username)) {
-					return
-				}
-
-				if (!usersManager.hasSeenUser(username)) {
-					const enableFirstMessageHighlight = settingsManager.getSetting(
-						channelId,
-						'chat.messages.highlight_first_time'
-					)
-					const highlightWhenModeratorOnly = settingsManager.getSetting(
-						channelId,
-						'chat.messages.highlight_first_moderator'
-					)
-					if (
-						enableFirstMessageHighlight &&
-						(!highlightWhenModeratorOnly || (highlightWhenModeratorOnly && channelData.me.isModerator))
-					) {
-						messageNode.classList.add('ntv__chat-message--first-message')
-					}
-
-					// TODO It's not great, but we dont have slug or user ID here anymore
-					usersManager.registerUser(username, username)
-				}
-			}
-
-			const ntvSeparatorEl = document.createElement('span')
-			ntvSeparatorEl.className = 'ntv__chat-message__separator'
-			ntvSeparatorEl.textContent = ':'
-
-			if (messageReplyAttachmentBodyNode) {
-				const ntvMessageAttachmentEl = document.createElement('div')
-				ntvMessageAttachmentEl.className = 'ntv__chat-message__attachment'
-				ntvMessageInnerEl.append(messageReplyAttachmentBodyNode.cloneNode(true))
-			}
-
-			if (ntvTimestampEl) ntvIdentityWrapperEl.append(ntvTimestampEl)
-			if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl)
-			ntvIdentityWrapperEl.append(ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
-			ntvMessageInnerEl.append(ntvIdentityWrapperEl, ...this.renderMessageParts(messageParts))
-
-			// Observe changes to detect when message is deleted
-			this.deletedChatEntryObserver?.observe(messageBodyNode, {
-				childList: true,
-				attributes: false,
-				subtree: false
-			})
-
-			messageNode.classList.add('ntv__chat-message', 'kick__chat-message--old-format')
-			messageNode.classList.remove('ntv__chat-message--unrendered')
-			// messageNode.append(ntvMessageInnerEl)
-			chatEntryEl.prepend(ntvMessageInnerEl)
-		}
+		// this.session.eventBus.publish('ntv.chat.message.new', messageObject)
 	}
 
 	async loadNativeKickFallbackReplyBehaviour(fallbackButtonEl: HTMLElement) {
-		const channelData = this.session.channelData
+		// const channelData = this.session.channelData
 
 		const event = new MouseEvent('click', { bubbles: true, cancelable: true })
 		Object.defineProperty(event, 'target', { writable: false, value: fallbackButtonEl })
 		fallbackButtonEl.dispatchEvent(event)
 
-		if (!channelData.isModView && !channelData.isCreatorView) {
-			// Because there's no message IDs in DOM it's impossible to handle reply message behaviour properly
-			//  so we have to do this ugly temporary solution where we restore the original Kick text field.
-			// This is only temporary until we have fully implemented our own chat message system.
-			const textFieldEl = this.elm.textField!
-			const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]') as HTMLElement
+		// Because there's no message IDs in DOM it's impossible to handle reply message behaviour properly
+		//  so we have to do this ugly temporary solution where we restore the original Kick text field.
+		// This is only temporary until we have fully implemented our own chat message system.
+		const textFieldEl = this.elm.textField!
+		const kickTextFieldEl = document.querySelector('.editor-input[contenteditable="true"]') as HTMLElement
 
-			textFieldEl.parentElement!.style.display = 'none'
-			kickTextFieldEl?.parentElement?.style.setProperty('display', 'block', 'important')
+		textFieldEl.parentElement!.style.display = 'none'
+		kickTextFieldEl?.parentElement?.style.setProperty('display', 'block', 'important')
+
+		const kickEmoteButtonEl = kickTextFieldEl?.parentElement?.nextElementSibling as HTMLElement
+		if (kickEmoteButtonEl) kickEmoteButtonEl.style.setProperty('display', 'flex', 'important')
+
+		this.elm.submitButton!.style.setProperty('display', 'none', 'important')
+		this.elm.originalSubmitButton!.style.setProperty('display', 'flex', 'important')
+		;(document.querySelector('.ntv__emote-menu-button') as HTMLElement)?.style.setProperty(
+			'display',
+			'none',
+			'important'
+		)
+		;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.setProperty(
+			'display',
+			'none',
+			'important'
+		)
+
+		await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2000)
+
+		const closeReplyButton = document
+			.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')
+			?.closest('button')!
+
+		const replyPreviewWrapperEl = closeReplyButton.closest('.flex.flex-col')?.parentElement
+		if (!replyPreviewWrapperEl) return error('KICK', 'UI', 'Reply preview wrapper element not found')
+
+		const restoreFields = () => {
+			kickTextFieldEl!.parentElement!.style.removeProperty('display')
+			textFieldEl.parentElement!.style.removeProperty('display')
+			this.elm.submitButton!.style.removeProperty('display')
+			this.elm.originalSubmitButton!.style.removeProperty('display')
+			;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.removeProperty('display')
+			;(document.querySelector('.ntv__emote-menu-button') as HTMLElement)?.style.removeProperty('display')
 
 			const kickEmoteButtonEl = kickTextFieldEl?.parentElement?.nextElementSibling as HTMLElement
-			if (kickEmoteButtonEl) kickEmoteButtonEl.style.setProperty('display', 'flex', 'important')
-
-			this.elm.submitButton!.style.setProperty('display', 'none', 'important')
-			this.elm.originalSubmitButton!.style.setProperty('display', 'flex', 'important')
-			;(document.querySelector('.ntv__emote-menu-button') as HTMLElement)?.style.setProperty(
-				'display',
-				'none',
-				'important'
-			)
-			;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.setProperty(
-				'display',
-				'none',
-				'important'
-			)
-
-			await waitForElements(['.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]'], 2000)
-
-			const closeReplyButton = document
-				.querySelector('.kick__chat-footer path[d*="M28 6.99204L25.008 4L16"]')
-				?.closest('button')!
-
-			const replyPreviewWrapperEl = closeReplyButton.closest('.flex.flex-col')?.parentElement
-			if (!replyPreviewWrapperEl) return error('KICK', 'UI', 'Reply preview wrapper element not found')
-
-			const restoreFields = () => {
-				kickTextFieldEl!.parentElement!.style.removeProperty('display')
-				textFieldEl.parentElement!.style.removeProperty('display')
-				this.elm.submitButton!.style.removeProperty('display')
-				this.elm.originalSubmitButton!.style.removeProperty('display')
-				;(document.querySelector('.ntv__quick-emotes-holder') as HTMLElement)?.style.removeProperty('display')
-				;(document.querySelector('.ntv__emote-menu-button') as HTMLElement)?.style.removeProperty('display')
-
-				const kickEmoteButtonEl = kickTextFieldEl?.parentElement?.nextElementSibling as HTMLElement
-				if (kickEmoteButtonEl) kickEmoteButtonEl.style.removeProperty('display')
-			}
-
-			if (!isElementInDOM(replyPreviewWrapperEl)) restoreFields()
-			else {
-				// Attach observer to reply message button to detect when the element is removed
-				//  so we know the reply message has been closed and we can restore the text field.
-				const observer = new MutationObserver(mutations => {
-					mutations.forEach(mutation => {
-						if (mutation.removedNodes.length) {
-							restoreFields()
-							observer.disconnect()
-						}
-					})
-				})
-				observer.observe(replyPreviewWrapperEl, { childList: true })
-			}
-
-			// Theres some weird bug where the observer doesnt trigger when the reply message is closed
-			//  so we have to add a setInterval to check if the reply message is still in the DOM.
-			const footerEl = document.querySelector('.kick__chat-footer')
-			if (!footerEl) return error('KICK', 'UI', 'Footer element not found')
-
-			const textFieldParent = textFieldEl.parentElement!
-			const intervalId = setInterval(() => {
-				const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]')
-				if (!closeReplyBtnEl) {
-					if (textFieldParent.style.display === 'none') restoreFields()
-					clearInterval(intervalId)
-				}
-			}, 400)
-
-			kickTextFieldEl?.focus()
+			if (kickEmoteButtonEl) kickEmoteButtonEl.style.removeProperty('display')
 		}
-		// Chatroom is old Kick design in mod or creator view
+
+		if (!isElementInDOM(replyPreviewWrapperEl)) restoreFields()
 		else {
+			// Attach observer to reply message button to detect when the element is removed
+			//  so we know the reply message has been closed and we can restore the text field.
+			const observer = new MutationObserver(mutations => {
+				mutations.forEach(mutation => {
+					if (mutation.removedNodes.length) {
+						restoreFields()
+						observer.disconnect()
+					}
+				})
+			})
+			observer.observe(replyPreviewWrapperEl, { childList: true })
 		}
+
+		// Theres some weird bug where the observer doesnt trigger when the reply message is closed
+		//  so we have to add a setInterval to check if the reply message is still in the DOM.
+		const footerEl = document.querySelector('.kick__chat-footer')
+		if (!footerEl) return error('KICK', 'UI', 'Footer element not found')
+
+		const textFieldParent = textFieldEl.parentElement!
+		const intervalId = setInterval(() => {
+			const closeReplyBtnEl = footerEl.querySelector('path[d*="M28 6.99204L25.008 4L16"]')
+			if (!closeReplyBtnEl) {
+				if (textFieldParent.style.display === 'none') restoreFields()
+				clearInterval(intervalId)
+			}
+		}, 400)
+
+		kickTextFieldEl?.focus()
 	}
 
 	async handleMessageReplyBtnClick(messageNode: HTMLElement, fallbackButtonEl: HTMLElement) {
 		const { inputController } = this
 		const { channelData } = this.session
 		if (!channelData.me.isLoggedIn) return
-
-		if (channelData.isCreatorView || channelData.isModView)
-			return this.loadNativeKickFallbackReplyBehaviour(fallbackButtonEl)
 
 		const randomId = 'NTV' + Math.random().toString(36).substring(2, 11)
 		messageNode.classList.add(randomId)
