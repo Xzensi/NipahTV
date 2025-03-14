@@ -238,8 +238,10 @@ export default class KickNetworkInterface implements NetworkInterface {
 				pathArr.shift()
 			}
 
+			let isModView = false
 			if (pathArr[0] === 'moderator') {
 				pathArr.shift()
+				isModView = true
 			}
 
 			// We extract channel name from the URL
@@ -247,7 +249,10 @@ export default class KickNetworkInterface implements NetworkInterface {
 			if (!channelName) throw new Error('Failed to extract channel name from URL')
 
 			let isCreatorView = false
-			if (channelName === 'dashboard') {
+			if (
+				channelName === 'dashboard' ||
+				(channelName === 'stream' && document.location.hostname.split('.').includes('dashboard'))
+			) {
 				const userData = await RESTFromMainService.get('https://kick.com/api/v1/user')
 				if (!userData) throw new Error('Failed to fetch user data')
 
@@ -285,7 +290,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 				channelName: channelName,
 				isVod: false,
 				isCreatorView,
-				isModView: pathArr[pathArr.length - 1].toLowerCase() === 'moderator',
+				isModView,
 				chatroom: <ChatroomData>{
 					id: '' + responseChannelData.chatroom.id,
 					emotesMode: {
