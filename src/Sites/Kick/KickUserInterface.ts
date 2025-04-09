@@ -884,7 +884,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					log('KICK', 'UI', 'Share celebration button clicked')
 
 					const kickFooterInputContainer = document.querySelector(
-						'#quick-emotes-holder ~ div:has(#chat-input-wrapper)'
+						'div:has(#quick-emotes-holder) ~ div:has(#chat-input-wrapper), #quick-emotes-holder ~ div:has(#chat-input-wrapper)'
 					)
 					if (!kickFooterInputContainer) return error('KICK', 'UI', 'Kick footer input container not found')
 
