@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.71',
+		date: '2025-04-09',
+		description: `
+                  Fix: Kick broke share anniversary celebrations
+            `
+	},
+	{
 		version: '1.5.70',
 		date: '2025-03-14',
 		description: `
