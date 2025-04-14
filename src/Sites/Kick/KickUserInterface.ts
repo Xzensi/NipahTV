@@ -119,7 +119,7 @@ export class KickUserInterface extends AbstractUserInterface {
 					.catch(() => {})
 
 				waitForElements(
-					[`${footerSelector} > div.flex > .flex.items-center > .items-center`],
+					[`${footerSelector} > div.flex > .flex.items-center > div.ml-auto`],
 					15_000,
 					abortSignal
 				)
