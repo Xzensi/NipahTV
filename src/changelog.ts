@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.72',
+		date: '2025-04-14',
+		description: `
+                  Fix: Kick's new channel points button swallowing our menu button
+            `
+	},
+	{
 		version: '1.5.71',
 		date: '2025-04-09',
 		description: `
