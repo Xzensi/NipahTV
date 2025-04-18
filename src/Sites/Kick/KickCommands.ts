@@ -456,4 +456,16 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 			successMessage: 'Channel has been hosted.'
 		}
 	}
+	// {
+	// 	name: 'multistream',
+	// 	params: '<on_off>',
+	// 	minAllowedRole: 'broadcaster',
+	// 	description: 'Enable/disable multistream mode.',
+	// 	argValidators: {
+	// 		'<on_off>': arg => (arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"')
+	// 	},
+	// 	execute: async (deps: RootContext & Session, args) => {
+	// 		// TODO: Implement this command
+	// 	}
+	// }
 ]
