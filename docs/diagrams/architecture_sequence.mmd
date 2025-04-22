@@ -1,0 +1,52 @@
+sequenceDiagram
+    participant CS1 as Content Script 1 (Tab A)
+    participant CS2 as Content Script 2 (Tab B)
+    participant SW as Service Worker
+    participant WS as WebSocket Server
+
+    Note over CS1, CS2: Kick.com page loads
+
+    CS1->>+SW: chrome.runtime.connect("feed-manager")
+    SW-->>-CS1: Port established (port1)
+    CS1->>SW: { type: "subscribe", feedId: "chat_123" } (via port1)
+
+    Note over SW: Checks if WS for chat_123 exists
+
+    alt WebSocket for chat_123 not connected
+        SW->>+WS: Establish WebSocket connection for chat_123
+        WS-->>-SW: WebSocket connected
+        Note over SW: Stores WS connection & adds port1 to subscribers for chat_123
+    else WebSocket already connected
+        Note over SW: Adds port1 to subscribers for chat_123
+    end
+
+    CS2->>+SW: chrome.runtime.connect("feed-manager")
+    SW-->>-CS2: Port established (port2)
+    CS2->>SW: { type: "subscribe", feedId: "chat_123" } (via port2)
+    Note over SW: Adds port2 to subscribers for chat_123
+
+    loop Heartbeat/Activity
+        CS1->>SW: { type: "heartbeat" } (via port1, keeps SW alive)
+        CS2->>SW: { type: "heartbeat" } (via port2, keeps SW alive)
+        Note right of SW: Heartbeat resets idle timer
+    end
+
+    Note over WS, SW: New message arrives on WebSocket
+
+    WS->>SW: Raw Message (chat_123)
+    SW->>SW: Process Message (Parse, Enrich)
+    Note over SW: Gets list of subscribers for chat_123 (port1, port2)
+
+    SW->>CS1: Processed Message Data (via port1.postMessage)
+    SW->>CS2: Processed Message Data (via port2.postMessage)
+
+    CS1->>CS1: Update UI (FeedView 1)
+    CS2->>CS2: Update UI (FeedView 2)
+
+    Note over CS1, SW: User closes Tab A
+
+    CS1--xSW: Port disconnected (port1.onDisconnect)
+    Note over SW: Removes port1 from subscribers for chat_123
+    alt No subscribers left for chat_123
+        SW->>WS: Close WebSocket connection for chat_123
+    end

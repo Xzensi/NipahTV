@@ -1,0 +1,488 @@
+@startuml architecture_classes
+
+' Monokai-inspired Improved PlantUML Theme
+' Base Colors
+!$color_bg             = "#272822"
+!$color_fg             = "#F8F8F2"
+!$color_border         = "#75715E"
+
+' Accent Colors
+!$color_accent_red     = "#F92672"
+!$color_accent_green   = "#A6E22E"
+!$color_accent_yellow  = "#3C3B2F"
+!$color_accent_blue    = "#66D9EF"
+!$color_accent_orange  = "#FD971F"
+!$color_accent_purple  = "#AE81FF"
+
+' Specialized
+!$color_datatype_bg    = "#444233"
+!$color_interface_bg   = "#2F556B"
+!$color_note_bg        = "#49483E"
+!$color_note_border    = "#75715E"
+!$color_note_font      = "#F8F8F2"
+
+skinparam {
+    Shadowing false
+    BackgroundColor $color_bg
+
+    DefaultFontColor $color_fg
+    DefaultFontName "Consolas", "Monaco", monospace
+    DefaultFontSize 14
+
+    ArrowColor $color_accent_red
+    ArrowFontColor $color_fg
+    ArrowThickness 1.5
+
+    BorderColor $color_border
+
+    PackageBorderColor $color_accent_red
+    PackageBackgroundColor $color_bg
+    PackageTitleFontColor $color_accent_blue
+    PackageFontStyle bold
+
+    ClassBackgroundColor $color_accent_yellow
+    ClassBorderColor $color_accent_red
+    ClassFontColor $color_fg
+    ClassAttributeFontColor $color_accent_green
+    ClassStereotypeFontColor $color_accent_orange
+
+    InterfaceBackgroundColor $color_interface_bg
+    InterfaceBorderColor $color_accent_red
+    InterfaceFontColor $color_fg
+    InterfaceAttributeFontColor $color_fg
+    InterfaceStereotypeFontColor $color_accent_orange
+
+    NoteBackgroundColor $color_note_bg
+    NoteBorderColor $color_note_border
+    NoteFontColor $color_note_font
+
+    LegendBackgroundColor $color_border
+    LegendBorderColor $color_fg
+    LegendFontColor $color_fg
+}
+
+skinparam class<<datatype>> {
+    BackgroundColor $color_datatype_bg
+    BorderColor $color_border
+    FontColor $color_fg
+    AttributeFontColor $color_accent_blue
+    StereotypeFontColor $color_accent_orange
+}
+
+
+' General enhancements for better visuals
+skinparam roundCorner 10
+skinparam padding 5
+skinparam linetype orthogonal
+
+left to right direction
+' top to bottom direction
+
+' High-Level Grouping: Service Worker Internals
+package ServiceWorker {
+    package Core {
+        class ServiceWorkerManager {
+            + eventBus: EventBus
+            + clientSubscriptionManager: ClientSubscriptionManager
+            + emoteLifecycleManager: EmoteLifecycleManager
+            + emoteManager: EmoteManager
+            + messageFeedProcessorPipeline: MessageFeedProcessorPipeline
+            + userStore: UserStore
+            + init()
+            + handleConnection(port: Port)
+            + handleDisconnect(port: Port)
+            + handleMessage(message: any, port: Port) ' Handles registerScope, subscribeToRoom, populateScopeWithRequest etc.
+            - handleProcessedChatMessage(event: ProcessedChatMessageEvent)
+            - handleChannelEvent(event: ChannelEventReceivedEvent)
+            - handleEmoteUpdate(event: EmoteSetUpdateEvent)
+            - handleConnectionError(event: ConnectionErrorEvent)
+            - handleConnectionClosed(event: ConnectionClosedEvent)
+        }
+        note top of ServiceWorkerManager : Main background script orchestrator, handles client communication, manages core services.
+
+        class EventBus <<Service>> {
+            + subscribe(eventType: string, handler: Function)
+            + unsubscribe(eventType: string, handler: Function)
+            + publish(event: BaseEvent)
+        }
+        note top of EventBus : Central hub for decoupled event publishing and subscription within the Service Worker.
+
+        class ClientSubscriptionManager {
+            - roomSubscriptions: Map<string, RoomSubscription> ' Key: roomKey derived from RoomIdentifier
+            + addSubscription(roomIdentifier: RoomIdentifier, port: Port, emoteScopeId: string) ' Added scopeId
+            + removeSubscription(port: Port) ' Triggers disassociation in EmoteLifecycleManager
+            + getPortsForRoom(roomIdentifier: RoomIdentifier): Set<Port>
+            + getScopeIdForRoom(roomIdentifier: RoomIdentifier): string | undefined
+        }
+        note top of ClientSubscriptionManager : Tracks client ports per room, manages RoomSubscription lifecycle, notifies EmoteLifecycleManager on disconnect.
+
+        class MessageFeedProcessorPipeline <<Shared>> {
+            - middlewares: Middleware[]
+            - eventBus: EventBus
+            - emoteRegistry: EmoteRegistry
+            - emoteLifecycleManager: EmoteLifecycleManager ' Added for context lookup
+            + init()
+            + use(middleware: Middleware)
+            - handleChatMessage(event: ChatMessageReceivedEvent) ' Needs to get scopeId/requestKeys for the room
+        }
+        note top of MessageFeedProcessorPipeline : Subscribes to raw chat messages, gets relevant emote contexts, queries EmoteRegistry, applies transformations, publishes processed messages.
+    }
+
+    package EmoteSystem {
+        class EmoteLifecycleManager <<ServiceWorker Component>> {
+            - scopes: Map<string, EmoteScopeState> ' Key: emoteScopeId (client GUID/ULID)
+            - roomToScopeId: Map<string, string> ' Key: roomKey derived from RoomIdentifier
+            - requestRefCounts: Map<string, number> ' Key: requestKey derived from EmoteFetchRequest
+            - activeRequests: Map<string, EmoteFetchRequest> ' Key: requestKey
+            - emoteManager: EmoteManager
+            + registerScope(emoteScopeId: string)
+            + associateRoom(roomKey: string, emoteScopeId: string)
+            + disassociateRoom(roomKey: string) ' Called by ClientSubscriptionManager
+            + populateScopeWithRequest(emoteScopeId: string, request: EmoteFetchRequest)
+            + getFetchRequestKeysForScope(emoteScopeId: string): Set<string>
+            - _generateRequestKey(request: EmoteFetchRequest): string
+            - _incrementRequestRef(requestKey: string)
+            - _decrementRequestRef(requestKey: string)
+        }
+        note top of EmoteLifecycleManager : Manages EmoteScope lifecycles, tracks request references, and triggers EmoteManager subscriptions.
+
+        class EmoteScopeState <<datatype>> {
+            + id: string ' emoteScopeId
+            + associatedRoomKeys: Set<string>
+            + requestedFetchKeys: Set<string> ' Keys derived from EmoteFetchRequest
+            + isActive: boolean
+        }
+        note top of EmoteScopeState : Internal state for an EmoteScope managed by EmoteLifecycleManager.
+
+        class EmoteManager <<ServiceWorker Component>> {
+            - emoteProviders: IEmoteProvider[]
+            - emoteRegistry: EmoteRegistry
+            - eventBus: EventBus
+            - activeProviderSubscriptions: Map<string, any> ' Key: requestKey? Tracks active provider subscriptions
+            + subscribeToEmotes(request: EmoteFetchRequest) ' Called by EmoteLifecycleManager
+            + unsubscribeFromEmotes(request: EmoteFetchRequest) ' Called by EmoteLifecycleManager
+            - handleProviderUpdate(update: EmoteSetUpdate) ' Callback from provider
+        }
+        note top of EmoteManager : Orchestrates actual fetching via IEmoteProviders and manages EmoteRegistry based on subscribe/unsubscribe calls from EmoteLifecycleManager.
+
+        class EmoteRegistry <<ServiceWorker Component>> {
+            - emoteSets: Map<string, EmoteSet> ' Key: Globally unique set ID (e.g., provider:setId)
+            - emotes: Map<string, Emote> ' Key: Globally unique emote ID (e.g., provider:emoteId)
+            - emotesByName: Map<string, Emote> ' Key: Potentially scoped emote name
+            - fetchKeyToSetIds: Map<string, Set<string>> ' Key: requestKey derived from EmoteFetchRequest
+            + addOrUpdateEmoteSet(emoteSet: EmoteSet, requestKey: string)
+            + removeEmoteSet(setId: string) ' Needs careful handling if sets are shared
+            + getEmoteByName(name: string, relevantRequestKeys: string[]): Emote | undefined ' Updated parameter
+            + getAllEmoteSetsForContexts(requestKeys: string[]): EmoteSet[] ' Updated parameter
+        }
+        note top of EmoteRegistry : Central storage for emotes and emote sets. Queried by MessageFeedProcessorPipeline using context info.
+
+        interface IEmoteProvider {
+            + fetchEmotes(request: EmoteFetchRequest): Promise<EmoteSet[]>
+            + {abstract} subscribeToUpdates?(request: EmoteFetchRequest, updateCallback: (update: EmoteSetUpdate) => void): Promise<void>
+            + {abstract} unsubscribeFromUpdates?(request: EmoteFetchRequest): Promise<void>
+            + {abstract} canHandleRequest?(request: EmoteFetchRequest): boolean
+        }
+        note top of IEmoteProvider : Interface for emote providers. Fetches sets based on EmoteFetchRequest, may support updates.
+    }
+
+    package PlatformImplementations {
+        class TwitchPlatformAdapter {
+            + getCapabilities(): PlatformCapabilities
+            + subscribe(intent: SubscriptionIntent)
+            + publishEvent(event: BaseEvent)
+        }
+        note top of TwitchPlatformAdapter : Platform Implementations (Black Boxes)
+
+        class YouTubePlatformAdapter {
+            + getCapabilities(): PlatformCapabilities
+            + subscribe(intent: SubscriptionIntent)
+            + publishEvent(event: BaseEvent)
+        }
+        class KickPlatformAdapter {
+            + getCapabilities(): PlatformCapabilities
+            + subscribe(intent: SubscriptionIntent)
+            + publishEvent(event: BaseEvent)
+        }
+    }
+
+    package EmoteProviderImplementations {
+        class SeventvEmoteProvider {
+            + fetchEmotes(request: EmoteFetchRequest): Promise<EmoteSet[]>
+        }
+        SeventvEmoteProvider --|> ServiceWorker.EmoteSystem.IEmoteProvider : implements
+        note top of SeventvEmoteProvider : Emote Provider Implementations
+
+        class KickEmoteProvider {
+            + fetchEmotes(request: EmoteFetchRequest): Promise<EmoteSet[]>
+        }
+        KickEmoteProvider --|> ServiceWorker.EmoteSystem.IEmoteProvider : implements
+    }
+}
+
+' Content Script UI (Separate Top-Level Package)
+package ContentScriptUI {
+    class ContentScriptManager <<ContentScript>> {
+        - port: Port
+        - messageFeedView: MessageFeedView
+        - currentScopeId: string | null
+        + connectToServiceWorker()
+        + detectAndAssociateContext() ' Generates scopeId, sends register/associate/populate messages
+        + generateScopeId(): string ' e.g., ULID generation
+        + registerEmoteScope(scopeId: string) ' Sends message
+        + subscribeToRoom(roomIdentifier: RoomIdentifier, scopeId: string) ' Sends message
+        + populateScopeWithRequest(scopeId: string, request: EmoteFetchRequest) ' Sends message
+        + sendHeartbeat()
+        - handleServiceWorkerMessage(event: BaseEvent)
+        - handleDisconnect() ' Should potentially signal SW to clean up scope associations? SW handles via port disconnect.
+    }
+    note top of ContentScriptManager : Manages communication with Service Worker, detects context, generates scope, initiates subscriptions and requests.
+
+    class MessageFeedView <<UI Component (SolidJS)>> {
+        + renderProcessedMessage(data: ProcessedChatMessageEvent)
+        + updateEmotes(data: EmoteSetUpdateEvent)
+        + {abstract} renderChannelEvent?(data: ChannelEventReceivedEvent)
+    }
+    note top of MessageFeedView : Renders messages, emotes, and other UI elements in the content script.
+}
+
+' Shared Data Types (Separate Top-Level Package)
+class Emote <<datatype>> {
+    + id: string
+    + name: string
+    + url: string
+    + provider: string
+}
+class EmoteSet <<datatype>> {
+    + id: string
+    + provider: string
+    + emotes: Emote[]
+}
+class RoomIdentifier <<datatype>> {
+    + platform: string
+    + roomId: string
+}
+class EmoteFetchRequest <<datatype>> {
+    + contextType: string
+    + identifiers: Map<string, string>
+    + targetProvider?: string
+}
+note top of EmoteFetchRequest : Defines an emote source/context
+
+class MessageFeedEntry <<datatype>> {
+    + id: string
+    + type: string
+    + timestamp: number
+    + senderUserId: string
+    + ' ... platform specific raw data?
+}
+class ProcessedData <<datatype>> {
+    + originalEntry: MessageFeedEntry
+    + displayParts: any[] ' Or specific type
+}
+class EmoteSetUpdate <<datatype>> {
+    + requestKey?: string
+    + addedSets?: EmoteSet[]
+    + removedSets?: EmoteSet[]
+    + updatedSets?: EmoteSet[]
+}
+note top of EmoteSetUpdate : Updated to link to requestKey?
+
+class MessageFeedConnectionConfig <<datatype>> {
+    + type: string
+    + url: string
+    + auth?: any
+    + expectedDataTypes: string[]
+}
+class ChannelEvent <<datatype>> {
+    + type: string
+    + timestamp: number
+    + channelId: string
+    + ' ... common event properties
+}
+class FollowEvent <<datatype>> {
+    + followerUsername: string
+}
+FollowEvent --|> ChannelEvent
+note left of FollowEvent : Extends ChannelEvent
+
+class BaseEvent <<datatype>> {
+    + timestamp: number
+    + roomId: string
+    + platform: string
+}
+class ChatMessageReceivedEvent <<datatype>> {
+    + type: "ChatMessageReceived"
+    + message: MessageFeedEntry
+}
+ChatMessageReceivedEvent --|> BaseEvent
+note left of ChatMessageReceivedEvent : Extends BaseEvent
+
+class ChannelEventReceivedEvent <<datatype>> {
+    + type: "ChannelEventReceived"
+    + event: ChannelEvent
+}
+ChannelEventReceivedEvent --|> BaseEvent
+note left of ChannelEventReceivedEvent : Extends BaseEvent
+
+class ProcessedChatMessageEvent <<datatype>> {
+    + type: "ProcessedChatMessage"
+    + processedData: ProcessedData
+}
+ProcessedChatMessageEvent --|> BaseEvent
+note left of ProcessedChatMessageEvent : Extends BaseEvent
+
+class EmoteSetUpdateEvent <<datatype>> {
+    + type: "EmoteSetUpdate"
+    + update: EmoteSetUpdate
+}
+EmoteSetUpdateEvent --|> BaseEvent
+note top of EmoteSetUpdateEvent : Signals that emotes relevant to a context (requestKey) have changed.
+
+class ConnectionErrorEvent <<datatype>> {
+    + type: "ConnectionError"
+    + messageFeedId: string
+    + error: any
+}
+ConnectionErrorEvent --|> BaseEvent
+note left of ConnectionErrorEvent : Extends BaseEvent
+
+class ConnectionClosedEvent <<datatype>> {
+    + type: "ConnectionClosed"
+    + messageFeedId: string
+    + reason?: string
+}
+ConnectionClosedEvent --|> BaseEvent
+note left of ConnectionClosedEvent : Extends BaseEvent
+
+class ConnectionDataCallbacks <<datatype>> {
+    + onData: (data: any) => void
+    + onError: (error: any) => void
+    + onClose: () => void
+}
+class ParsingContext <<datatype>> {
+    + roomId: string
+    + platform: string
+    + emoteScopeId: string ' Added
+}
+class SubscriptionIntent <<datatype>> {
+    + type: string
+    + identifiers: Map<string, string>
+    + options: Map<string, any>
+}
+class PlatformCapabilities <<datatype>> {
+    + supportedFeeds: string[]
+    + requiredIdentifiers: string[]
+    + optionalFeatures: string[]
+}
+class RoomSubscription <<datatype>> {
+    + ports: Set<Port>
+    + messageStore: MessageStore
+    + activeUserIds: Set<string>
+    + emoteScopeId: string ' Added
+}
+class MessageStore {
+    + addMessage(msg: MessageFeedEntry)
+    + getHistory(start: number, end: number): MessageFeedEntry[]
+}
+note top of MessageStore : Not explicitly datatype, but holds data
+
+class UserStore {
+    - users: Map<string, User>
+    + getUser(userId: string): User
+    + incrementRoomSubscriptionRef(userId: string)
+    + decrementRoomSubscriptionRef(userId: string)
+    + updateUserEntitlements(userId: string, entitlements: Entitlement[])
+}
+note top of UserStore : Not explicitly datatype, but holds data
+
+class User <<datatype>> {
+    + userId: string
+    + displayName: string
+    + entitlements: Entitlement[]
+    + roomSubscriptionRefCount: number
+}
+class Entitlement <<datatype>> {
+    + kind: string
+}
+' Re-include EmoteScopeState here for relationship clarity if needed, or keep in EmoteSystem
+' ServiceWorker.EmoteSystem.EmoteScopeState --|> EmoteScopeState ' Assuming it's defined once in DataTypes for consistency
+
+
+' Relationships (Updated with fully qualified names)
+' ServiceWorkerManager Relationships
+ServiceWorker.Core.ServiceWorkerManager o-- ServiceWorker.Core.ClientSubscriptionManager : manages
+ServiceWorker.Core.ServiceWorkerManager o-- ServiceWorker.EmoteSystem.EmoteLifecycleManager : manages
+ServiceWorker.Core.ServiceWorkerManager o-- ServiceWorker.EmoteSystem.EmoteManager : manages
+ServiceWorker.Core.ServiceWorkerManager o-- ServiceWorker.Core.MessageFeedProcessorPipeline : manages
+ServiceWorker.Core.ServiceWorkerManager o-- UserStore : manages
+ServiceWorker.Core.ServiceWorkerManager ..> ServiceWorker.Core.EventBus : uses / subscribes
+ServiceWorker.Core.ServiceWorkerManager ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : delegates client requests
+ServiceWorker.Core.ServiceWorkerManager ..> ServiceWorker.Core.ClientSubscriptionManager : delegates client requests
+
+' EventBus Relationships (Dependencies shown via usage)
+ServiceWorker.Core.EventBus <.. ServiceWorker.Core.ServiceWorkerManager : subscribes
+ServiceWorker.Core.EventBus <.. ServiceWorker.Core.MessageFeedProcessorPipeline : subscribes / publishes
+ServiceWorker.Core.EventBus <.. ServiceWorker.EmoteSystem.EmoteManager : publishes
+ServiceWorker.Core.EventBus <.. ServiceWorker.PlatformImplementations.TwitchPlatformAdapter : publishes
+ServiceWorker.Core.EventBus <.. ServiceWorker.PlatformImplementations.YouTubePlatformAdapter : publishes
+ServiceWorker.Core.EventBus <.. ServiceWorker.PlatformImplementations.KickPlatformAdapter : publishes
+
+' EmoteLifecycleManager Relationships
+ServiceWorker.EmoteSystem.EmoteLifecycleManager *-- ServiceWorker.EmoteSystem.EmoteScopeState : manages state
+ServiceWorker.EmoteSystem.EmoteLifecycleManager ..> ServiceWorker.EmoteSystem.EmoteManager : calls subscribe/unsubscribe
+' ServiceWorker.EmoteSystem.EmoteLifecycleManager ..> ServiceWorker.EmoteSystem.EmoteRegistry : uses requestKeys for context (Pipeline does this)
+
+' EmoteManager Relationships
+ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteSystem.IEmoteProvider : uses
+ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteSystem.EmoteRegistry : updates
+ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.Core.EventBus : publishes EmoteSetUpdateEvent
+
+' IEmoteProvider Relationships
+ServiceWorker.EmoteSystem.IEmoteProvider <.. ServiceWorker.EmoteSystem.EmoteManager : invokes updateCallback
+ServiceWorker.EmoteSystem.IEmoteProvider ..> UserStore : updates entitlements ' Potentially
+
+' EmoteRegistry Relationships
+ServiceWorker.EmoteSystem.EmoteRegistry "1" *-- "*" EmoteSet : contains
+ServiceWorker.EmoteSystem.EmoteRegistry "1" *-- "*" Emote : contains
+EmoteSet "1" *-- "*" Emote : contains
+
+' MessageFeedProcessorPipeline Relationships
+ServiceWorker.Core.MessageFeedProcessorPipeline ..> ProcessedChatMessageEvent : publishes
+ServiceWorker.Core.MessageFeedProcessorPipeline ..> ServiceWorker.EmoteSystem.EmoteRegistry : queries emotes
+ServiceWorker.Core.MessageFeedProcessorPipeline ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : gets requestKeys for scope
+ServiceWorker.Core.MessageFeedProcessorPipeline ..> ServiceWorker.Core.ClientSubscriptionManager : gets scopeId for room
+
+' ContentScriptManager Relationships
+ContentScriptUI.ContentScriptManager ..> ServiceWorker.Core.ServiceWorkerManager : connects via Port, sends messages
+ContentScriptUI.ContentScriptManager o-- ContentScriptUI.MessageFeedView : manages
+
+' ClientSubscriptionManager Relationships
+ServiceWorker.Core.ClientSubscriptionManager ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : calls disassociateRoom
+ServiceWorker.Core.ClientSubscriptionManager "1" *-- "*" RoomSubscription : manages
+ServiceWorker.Core.ClientSubscriptionManager ..> MessageStore : adds message
+ServiceWorker.Core.ClientSubscriptionManager ..> UserStore : updates ref counts
+
+' RoomSubscription Relationships
+RoomSubscription *-- MessageStore : owns
+RoomSubscription ..> ServiceWorker.EmoteSystem.EmoteScopeState : references via ID
+
+' PlatformImplementations Relationships
+ServiceWorker.PlatformImplementations.TwitchPlatformAdapter ..> ServiceWorker.Core.EventBus : publishes
+ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> ServiceWorker.Core.EventBus : publishes
+ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> ServiceWorker.Core.EventBus : publishes
+ServiceWorker.PlatformImplementations.TwitchPlatformAdapter ..> PlatformCapabilities : provides
+ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> PlatformCapabilities : provides
+ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> PlatformCapabilities : provides
+ServiceWorker.PlatformImplementations.TwitchPlatformAdapter ..> SubscriptionIntent : uses
+ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> SubscriptionIntent : uses
+ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> SubscriptionIntent : uses
+
+' EmoteProviderImplementations Relationships
+ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider : uses
+ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteProviderImplementations.KickEmoteProvider : uses
+
+' UserStore Relationships
+UserStore "1" *-- "*" User : stores
+
+@enduml

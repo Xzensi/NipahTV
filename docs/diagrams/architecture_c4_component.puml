@@ -1,0 +1,72 @@
+@startuml architecture_c4_component
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' Styling (Optional)
+' skinparam linetype ortho
+' skinparam wrapWidth 200
+' skinparam maxMessageSize 150
+
+title Component Diagram for NipahTV Service Worker
+
+' External Systems / Actors
+Person_Ext(user, "User", "Uses the platform (e.g., Kick)")
+System_Ext(platformServices, "Platform Services", "e.g., Kick Chat API/WS")
+System_Ext(emoteProviderServices, "Emote Provider Services", "e.g., 7TV API/WS, Kick Emote API")
+
+System_Boundary(browserTab, "Browser Tab") {
+    Container(contentScript, "Content Script", "JavaScript", "Injects UI, detects context, communicates with Service Worker")
+}
+
+' Service Worker Container Boundary
+Container_Boundary(serviceWorker, "NipahTV Service Worker") {
+
+    ' Core Components
+    Component(swManager, "ServiceWorkerManager", "TypeScript", "Handles client connections & messages, orchestrates core services")
+    Component(eventBus, "EventBus", "TypeScript", "Internal pub/sub for decoupled communication")
+    Component(clientSubManager, "ClientSubscriptionManager", "TypeScript", "Manages room subscriptions, client ports, and scope associations")
+    Component(emoteLifecycleManager, "EmoteLifecycleManager", "TypeScript", "Manages EmoteScope lifecycles & EmoteFetchRequest reference counting")
+    Component(emoteManager, "EmoteManager", "TypeScript", "Orchestrates provider interactions (fetch/subscribe) based on lifecycle manager calls")
+    ComponentDb(emoteRegistry, "EmoteRegistry", "TypeScript, Map/Memory", "Stores fetched EmoteSets and Emotes, provides lookup")
+    Component(pipeline, "MessageFeedProcessorPipeline", "TypeScript", "Processes incoming chat messages, replaces emote names")
+    ComponentDb(userStore, "UserStore", "TypeScript, Map/Memory", "Stores user data and entitlements")
+
+    ' Adapter/Provider Components (Representing Groups)
+    Component(platformAdapters, "Platform Adapters", "TypeScript", "Connects to specific platforms, parses data, publishes events")
+    Component(emoteProviders, "Emote Providers", "TypeScript", "Implements IEmoteProvider, fetches/subscribes to external emote services")
+
+}
+
+' Relationships within Service Worker
+Rel(swManager, eventBus, "Uses")
+Rel(swManager, clientSubManager, "Delegates room subscriptions")
+Rel(swManager, emoteLifecycleManager, "Delegates scope/request management")
+Rel(swManager, pipeline, "Listens for processed messages")
+
+Rel(clientSubManager, emoteLifecycleManager, "Notifies on room disassociation")
+Rel(clientSubManager, userStore, "Updates user ref counts")
+
+Rel(emoteLifecycleManager, emoteManager, "Triggers subscribe/unsubscribe")
+' Rel(emoteLifecycleManager, emoteRegistry, "Gets request keys for scope (for pipeline)") ' Note: Pipeline gets keys, not registry
+
+Rel(emoteManager, emoteProviders, "Uses (fetch/subscribe/unsubscribe)")
+Rel(emoteManager, emoteRegistry, "Updates with fetched data")
+Rel(emoteManager, eventBus, "Publishes EmoteSetUpdateEvent")
+
+Rel(pipeline, eventBus, "Subscribes to ChatMessageReceivedEvent, Publishes ProcessedChatMessageEvent")
+Rel(pipeline, clientSubManager, "Gets scopeId for room")
+Rel(pipeline, emoteLifecycleManager, "Gets requestKeys for scope")
+Rel(pipeline, emoteRegistry, "Queries emotes by name")
+
+Rel(platformAdapters, eventBus, "Publishes ChatMessageReceivedEvent, etc.")
+Rel(emoteProviders, emoteManager, "Sends updates via callback")
+Rel(userStore, clientSubManager, "Provides user data") ' Note: UserStore might also be queried directly by pipeline/other components? Needs clarification
+
+' External Relationships
+Rel(user, contentScript, "Interacts with")
+Rel_Back(contentScript, swManager, "Connects via Port, Sends Requests (registerScope, subscribeToRoom, populateScope)", "chrome.runtime.Port")
+Rel(swManager, contentScript, "Sends Processed Messages & Events", "chrome.runtime.Port")
+
+Rel(platformAdapters, platformServices, "Connects to, Fetches data from", "HTTPS/WSS")
+Rel(emoteProviders, emoteProviderServices, "Fetches data from, Subscribes to", "HTTPS/WSS")
+
+@enduml
