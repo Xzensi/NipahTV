@@ -22,7 +22,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 -  **`ServiceWorkerOrchestrator`:**
 
    -  Responsible for the initial setup (`init`) of the Service Worker.
-   -  Owns and manages the lifecycle of the core services within the Service Worker (`ClientConnectionManager`, `ClientMessageHandler`, `ClientEventNotifier`, `EventBus`, `ClientSubscriptionManager`, `EmoteLifecycleManager`, `EmoteManager`, `MessageFeedProcessorPipeline`, `UserStore`).
+   -  Owns and manages the lifecycle of the core services and data structures within the Service Worker (`ClientConnectionManager`, `ClientMessageHandler`, `ClientEventNotifier`, `EventBus`, `ClientSubscriptionManager`, `MessageFeedProcessorPipeline`, `UserStore`, `RoomSubscription`, `MessageStore`) and the `EmoteSystem` components (`EmoteLifecycleManager`, `EmoteManager`).
 
 -  **`ClientConnectionManager`:**
 
@@ -56,7 +56,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Provides lookup for ports associated with a room (`getPortsForRoom`), used by `ClientEventNotifier`.
    -  Handles `removeSubscription` calls from `ClientConnectionManager` on disconnect, notifying the `EmoteLifecycleManager` to disassociate the room from its scope.
    -  Interacts with `UserStore` to manage user reference counts based on room participation.
-   -  Directs incoming messages to the correct `MessageStore`.
+   -  Directs incoming messages to the correct `MessageStore` within the `RoomSubscription`.
 
 -  **`MessageFeedProcessorPipeline`:**
 
@@ -67,9 +67,20 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Publishes the final `ProcessedChatMessageEvent` to the `EventBus`.
 
 -  **`UserStore`:**
-   -  A global service storing `User` data (ID, display name, entitlements). (Defined in `architecture_datatypes.puml`)
+
+   -  A service within `ServiceWorker.Core` storing `User` data (ID, display name, entitlements) globally across active room subscriptions within the Service Worker instance. (User data defined in `architecture_datatypes.puml`)
    -  Manages the lifecycle of `User` objects via reference counting (`roomSubscriptionRefCount`), ensuring users persist only as long as they are active in at least one `RoomSubscription`.
-   -  Provides methods for updating user entitlements (emotes, badges, cosmetics).
+   -  Provides methods for updating user entitlements (emotes, badges, cosmetics). Used primarily by `ClientSubscriptionManager`.
+
+-  **`RoomSubscription` (Datatype):**
+
+   -  A data structure within `ServiceWorker.Core`, representing an active subscription to a specific room.
+   -  Managed by `ClientSubscriptionManager`.
+   -  Contains connected `ports`, the room's `MessageStore`, `activeUserIds` (referencing users in `UserStore`), and the associated `emoteScopeId`.
+
+-  **`MessageStore`:**
+   -  A store within `ServiceWorker.Core`, holding `MessageFeedEntry` objects for a single `RoomSubscription`.
+   -  Its lifecycle is tied to its parent `RoomSubscription`. Used by `ClientSubscriptionManager`.
 
 ### 2. Emote System (`EmoteSystem` Namespace)
 
@@ -139,14 +150,14 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 ## Data Structures & Storage (Overview)
 
-This section provides a brief overview of key data structures. **See `architecture_datatypes.puml` for detailed definitions and relationships.**
+This section provides a brief overview of key data structures. **See `architecture_datatypes.puml` for detailed definitions and relationships.** Note that `UserStore`, `RoomSubscription`, and `MessageStore` are defined within the `ServiceWorker.Core` package in the diagram.
 
 -  **`RoomIdentifier`:** Uniquely identifies a specific chat room instance for subscription management (platform, roomId).
 -  **`EmoteScopeState`:** Internal state managed by `EmoteLifecycleManager`, representing a client-defined scope (id, associatedRoomKeys, requestedEmoteContextKeys, isActive).
 -  **`EmoteFetchRequest`:** Defines an emote source/context to be fetched by a provider (contextType, identifiers, targetProvider). An `emoteContextKey` is derived from this.
--  **`RoomSubscription`:** Represents an active subscription to a specific room, managed by `ClientSubscriptionManager`. Contains connected `ports`, the room's `MessageStore`, `activeUserIds`, and the associated `emoteScopeId`.
--  **`MessageStore`:** Stores `MessageFeedEntry` objects for a single `RoomSubscription`. Its lifecycle is tied to its parent `RoomSubscription`.
--  **`User`:** Represents a chat user, stored globally in `UserStore`. Contains `userId`, `displayName`, `entitlements`, and `roomSubscriptionRefCount`.
+-  **`RoomSubscription`:** (Defined in `ServiceWorker.Core`) Represents an active subscription to a specific room, managed by `ClientSubscriptionManager`. Contains connected `ports`, the room's `MessageStore`, `activeUserIds`, and the associated `emoteScopeId`.
+-  **`MessageStore`:** (Defined in `ServiceWorker.Core`) Stores `MessageFeedEntry` objects for a single `RoomSubscription`. Its lifecycle is tied to its parent `RoomSubscription`.
+-  **`User`:** Represents a chat user, stored globally within the `UserStore`. Contains `userId`, `displayName`, `entitlements`, and `roomSubscriptionRefCount`.
 -  **`MessageFeedEntry`:** Represents a raw message or event entry from a platform feed before processing, includes `senderUserId`.
 -  **`ProcessedData`:** Contains the result of processing a `MessageFeedEntry`, typically including display parts.
 -  **Events (`BaseEvent`, `ChatMessageReceivedEvent`, etc.):** Standardized objects published on the `EventBus`. `BaseEvent` uses `roomId`.
@@ -168,7 +179,7 @@ This section provides a brief overview of key data structures. **See `architectu
    -  `ClientConnectionManager` receives messages, forwards them to `ClientMessageHandler`.
    -  `ClientMessageHandler` delegates:
       -  `registerEmoteScope` -> `EmoteLifecycleManager.registerScope`.
-      -  `subscribeToRoom` -> `ClientSubscriptionManager.addSubscription` AND `EmoteLifecycleManager.associateRoom`.
+      -  `subscribeToRoom` -> `ClientSubscriptionManager.addSubscription` (creates `RoomSubscription` with `MessageStore`) AND `EmoteLifecycleManager.associateRoom`.
       -  `populateScopeWithRequest` -> `EmoteLifecycleManager.populateScopeWithRequest`.
    -  `EmoteLifecycleManager`:
       -  Creates/updates `EmoteScopeState`.

@@ -134,6 +134,22 @@ package ServiceWorker {
             - handleChatMessage(event: ChatMessageReceivedEvent)
         }
         note top of MessageFeedProcessorPipeline : Subscribes to raw chat messages, gets relevant emote contexts, queries EmoteRegistry, applies transformations, publishes processed messages.
+
+        class UserStore <<Service>> {
+         .. Service Worker global User Data Service ..
+        }
+        note top of UserStore : Stores User data globally within the Service Worker instance, ref-counted by RoomSubscriptions.
+
+        class RoomSubscription <<datatype>> {
+         .. Represents Room Subscription State ..
+        }
+        note top of RoomSubscription : Represents an active subscription to a room, managed by ClientSubscriptionManager. Contains ports, MessageStore, user refs, scope ID.
+
+        class MessageStore {
+         .. Stores Messages for a Room ..
+        }
+        note top of MessageStore : Stores messages for a single RoomSubscription. Lifecycle tied to the RoomSubscription.
+
     }
 
     package EmoteSystem {
@@ -236,17 +252,6 @@ package ContentScriptUI {
     note top of MessageFeedView : Renders messages, emotes, and other UI elements in the content script.
 }
 
-' --- Conceptual Placeholders for Key Data/Services ---
-class UserStore <<Service>> {
- .. Global User Data Service ..
-}
-class RoomSubscription <<datatype>> {
- .. Represents Room Subscription State ..
-}
-class MessageStore {
- .. Stores Messages for a Room ..
-}
-
 
 ' --- Simplified Relationships ---
 
@@ -258,7 +263,7 @@ ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientSubscr
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteLifecycleManager : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteManager : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.MessageFeedProcessorPipeline : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- UserStore : manages
+ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.UserStore : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.EventBus : manages
 
 ' ClientConnectionManager Relationships
@@ -305,13 +310,13 @@ ContentScriptUI.ContentScriptManager o-- ContentScriptUI.MessageFeedView : manag
 
 ' ClientSubscriptionManager Relationships
 ServiceWorker.Core.ClientSubscriptionManager ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : calls disassociateRoom
-ServiceWorker.Core.ClientSubscriptionManager "1" *-- "*" RoomSubscription : manages
-ServiceWorker.Core.ClientSubscriptionManager ..> MessageStore : adds message
-ServiceWorker.Core.ClientSubscriptionManager ..> UserStore : updates ref counts
+ServiceWorker.Core.ClientSubscriptionManager "1" *-- "*" ServiceWorker.Core.RoomSubscription : manages
+ServiceWorker.Core.ClientSubscriptionManager ..> ServiceWorker.Core.MessageStore : adds message
+ServiceWorker.Core.ClientSubscriptionManager ..> ServiceWorker.Core.UserStore : updates ref counts
 
 ' RoomSubscription Relationships
-RoomSubscription *-- MessageStore : owns
-RoomSubscription ..> ServiceWorker.EmoteSystem.EmoteScopeState : references via ID
+ServiceWorker.Core.RoomSubscription *-- ServiceWorker.Core.MessageStore : owns
+ServiceWorker.Core.RoomSubscription ..> ServiceWorker.EmoteSystem.EmoteScopeState : references via ID
 
 ' PlatformImplementations Relationships - No direct arrows needed
 
