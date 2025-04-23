@@ -1,0 +1,254 @@
+@startuml architecture_datatypes
+
+' Monokai-inspired Improved PlantUML Theme (Copied for consistency)
+' Base Colors
+!$color_bg             = "#272822"
+!$color_fg             = "#F8F8F2"
+!$color_border         = "#75715E"
+
+' Accent Colors
+!$color_accent_red     = "#F92672"
+!$color_accent_green   = "#A6E22E"
+!$color_accent_yellow  = "#3C3B2F"
+!$color_accent_blue    = "#66D9EF"
+!$color_accent_orange  = "#FD971F"
+!$color_accent_purple  = "#AE81FF"
+
+' Specialized
+!$color_datatype_bg    = "#444233"
+!$color_interface_bg   = "#2F556B"
+!$color_note_bg        = "#49483E"
+!$color_note_border    = "#75715E"
+!$color_note_font      = "#F8F8F2"
+
+skinparam {
+    Shadowing false
+    BackgroundColor $color_bg
+
+    DefaultFontColor $color_fg
+    DefaultFontName "Consolas", "Monaco", monospace
+    DefaultFontSize 14
+
+    ArrowColor $color_accent_red
+    ArrowFontColor $color_fg
+    ArrowThickness 3
+
+    BorderColor $color_border
+
+    PackageBorderColor $color_accent_purple
+    PackageBackgroundColor $color_bg
+    PackageTitleFontColor $color_accent_blue
+    PackageFontStyle bold
+
+    ClassBackgroundColor $color_accent_yellow
+    ClassBorderColor $color_accent_red
+    ClassFontColor $color_fg
+    ClassAttributeFontColor $color_accent_green
+    ClassStereotypeFontColor $color_accent_orange
+
+    InterfaceBackgroundColor $color_interface_bg
+    InterfaceBorderColor $color_accent_red
+    InterfaceFontColor $color_fg
+    InterfaceAttributeFontColor $color_fg
+    InterfaceStereotypeFontColor $color_accent_orange
+
+    NoteBackgroundColor $color_note_bg
+    NoteBorderColor $color_note_border
+    NoteFontColor $color_note_font
+
+    LegendBackgroundColor $color_border
+    LegendBorderColor $color_fg
+    LegendFontColor $color_fg
+}
+
+skinparam class<<datatype>> {
+    BackgroundColor $color_datatype_bg
+    BorderColor $color_border
+    FontColor $color_fg
+    AttributeFontColor $color_accent_blue
+    StereotypeFontColor $color_accent_orange
+}
+
+' General enhancements for better visuals
+' skinparam roundCorner 10
+skinparam padding 10
+skinparam linetype ortho
+' left to right direction
+
+' --- Data Type Definitions ---
+
+class Emote <<datatype>> {
+    + id: string
+    + name: string
+    + url: string
+    + provider: string
+}
+class EmoteSet <<datatype>> {
+    + id: string
+    + provider: string
+    + emotes: Emote[]
+}
+class RoomIdentifier <<datatype>> {
+    + platform: string
+    + roomId: string
+}
+class EmoteFetchRequest <<datatype>> {
+    + contextType: string
+    + identifiers: Map<string, string>
+    + targetProvider?: string
+}
+note top of EmoteFetchRequest : Defines an emote source/context
+
+class MessageFeedEntry <<datatype>> {
+    + id: string
+    + type: string
+    + timestamp: number
+    + senderUserId: string
+    + ' ... platform specific raw data?
+}
+class ProcessedData <<datatype>> {
+    + originalEntry: MessageFeedEntry
+    + displayParts: any[] ' Or specific type
+}
+class EmoteSetUpdate <<datatype>> {
+    + requestKey?: string
+    + addedSets?: EmoteSet[]
+    + removedSets?: EmoteSet[]
+    + updatedSets?: EmoteSet[]
+}
+note top of EmoteSetUpdate : Updated to link to requestKey?
+
+class MessageFeedConnectionConfig <<datatype>> {
+    + type: string
+    + url: string
+    + auth?: any
+    + expectedDataTypes: string[]
+}
+class ChannelEvent <<datatype>> {
+    + type: string
+    + timestamp: number
+    + channelId: string
+    + ' ... common event properties
+}
+class FollowEvent <<datatype>> {
+    + followerUsername: string
+}
+
+class BaseEvent <<datatype>> {
+    + timestamp: number
+    + roomId: string
+    + platform: string
+}
+class ChatMessageReceivedEvent <<datatype>> {
+    + type: "ChatMessageReceived"
+    + message: MessageFeedEntry
+}
+class ChannelEventReceivedEvent <<datatype>> {
+    + type: "ChannelEventReceived"
+    + event: ChannelEvent
+}
+class ProcessedChatMessageEvent <<datatype>> {
+    + type: "ProcessedChatMessage"
+    + processedData: ProcessedData
+}
+class EmoteSetUpdateEvent <<datatype>> {
+    + type: "EmoteSetUpdate"
+    + update: EmoteSetUpdate
+}
+note top of EmoteSetUpdateEvent : Signals that emotes relevant to a context (requestKey) have changed.
+
+class ConnectionErrorEvent <<datatype>> {
+    + type: "ConnectionError"
+    + messageFeedId: string
+    + error: any
+}
+class ConnectionClosedEvent <<datatype>> {
+    + type: "ConnectionClosed"
+    + messageFeedId: string
+    + reason?: string
+}
+
+class ConnectionDataCallbacks <<datatype>> {
+    + onData: (data: any) => void
+    + onError: (error: any) => void
+    + onClose: () => void
+}
+class ParsingContext <<datatype>> {
+    + roomId: string
+    + platform: string
+    + emoteScopeId: string ' Added
+}
+class SubscriptionIntent <<datatype>> {
+    + type: string
+    + identifiers: Map<string, string>
+    + options: Map<string, any>
+}
+class PlatformCapabilities <<datatype>> {
+    + supportedFeeds: string[]
+    + requiredIdentifiers: string[]
+    + optionalFeatures: string[]
+}
+class RoomSubscription <<datatype>> {
+    + ports: Set<Port>
+    + messageStore: MessageStore
+    + activeUserIds: Set<string>
+    + emoteScopeId: string ' Added
+}
+class MessageStore {
+    + addMessage(msg: MessageFeedEntry)
+    + getHistory(start: number, end: number): MessageFeedEntry[]
+}
+note top of MessageStore : Holds message data for a RoomSubscription
+
+class UserStore {
+    - users: Map<string, User>
+    + getUser(userId: string): User
+    + incrementRoomSubscriptionRef(userId: string)
+    + decrementRoomSubscriptionRef(userId: string)
+    + updateUserEntitlements(userId: string, entitlements: Entitlement[])
+}
+note top of UserStore : Global store for User data and entitlements
+
+class User <<datatype>> {
+    + userId: string
+    + displayName: string
+    + entitlements: Entitlement[]
+    + roomSubscriptionRefCount: number
+}
+class Entitlement <<datatype>> {
+    + kind: string
+}
+
+' --- Internal Data Type Relationships ---
+
+EmoteSet "1" *-- "*" Emote : contains
+FollowEvent --|> ChannelEvent
+note left of FollowEvent : Extends ChannelEvent
+
+ChatMessageReceivedEvent --|> BaseEvent
+note left of ChatMessageReceivedEvent : Extends BaseEvent
+
+ChannelEventReceivedEvent --|> BaseEvent
+note left of ChannelEventReceivedEvent : Extends BaseEvent
+
+ProcessedChatMessageEvent --|> BaseEvent
+note left of ProcessedChatMessageEvent : Extends BaseEvent
+
+EmoteSetUpdateEvent --|> BaseEvent
+
+ConnectionErrorEvent --|> BaseEvent
+note left of ConnectionErrorEvent : Extends BaseEvent
+
+ConnectionClosedEvent --|> BaseEvent
+note left of ConnectionClosedEvent : Extends BaseEvent
+
+RoomSubscription *-- MessageStore : owns
+UserStore "1" *-- "*" User : stores
+
+' Relationship from EmoteScopeState (defined in main diagram) to RoomSubscription
+' This shows RoomSubscription uses the ID, but EmoteScopeState itself is managed elsewhere.
+' Consider if EmoteScopeState should also be moved here if it's purely data.
+' For now, assume it stays in EmoteSystem as it represents managed state.
+' RoomSubscription ..> ServiceWorker.EmoteSystem.EmoteScopeState : references via ID ' Cannot link across files easily
+
+@enduml
