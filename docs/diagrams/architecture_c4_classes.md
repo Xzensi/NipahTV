@@ -9,7 +9,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 -  **Centralized Service Worker:** The MV3 Service Worker acts as the central hub, managing connections, processing data, and coordinating events.
 -  **Event-Driven:** An internal `EventBus` facilitates decoupled communication between Service Worker components.
 -  **Room-Based Subscriptions:** Data processing and storage (like chat messages) are scoped to specific "Rooms" (e.g., a Twitch channel's chat feed), identified by a `RoomIdentifier`.
--  **Client-Defined Emote Scopes:** Clients generate unique `emoteScopeId`s (GUID/ULID) to group rooms that should share the exact same set of emote contexts.
+-  **Client-Defined Session Scopes:** Clients generate unique `emoteScopeId`s (GUID/ULID) to group rooms that should share the exact same set of emote contexts. This is referred to as a "Session Scope".
 -  **Contextual Emote Fetching & Lifecycle:** Emotes are fetched based on specific `EmoteFetchRequest`s (defining an emote source/context like "global 7TV" or "Kick channel emotes"). The `EmoteLifecycleManager` tracks which active scopes need which requests, ensuring resources (provider subscriptions) are active only when necessary via reference counting based on unique `emoteContextKey`s derived from requests.
 -  **Efficient Resource Usage:** Avoids redundant provider subscriptions and processing when multiple rooms/tabs require the same emote sources.
 -  **Extensibility:** Designed to easily add support for new platforms, emote providers, or features.
@@ -34,7 +34,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 -  **`ClientMessageHandler`:**
 
    -  Receives incoming messages from `ClientConnectionManager`.
-   -  Routes messages based on their type to the appropriate service (e.g., `registerEmoteScope` -> `EmoteLifecycleManager`, `subscribeToRoom` -> `ClientSubscriptionManager` & `EmoteLifecycleManager`).
+   -  Routes messages based on their type to the appropriate service (e.g., `registerSessionScope` -> `EmoteLifecycleManager`, `subscribeToRoom` -> `ClientSubscriptionManager` & `EmoteLifecycleManager`).
 
 -  **`ClientEventNotifier`:**
 
@@ -86,13 +86,13 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 -  **`EmoteLifecycleManager`:**
 
-   -  Manages the lifecycle of client-defined `EmoteScope`s and the underlying `EmoteFetchRequest`s.
+   -  Manages the lifecycle of client-defined Session Scopes (`EmoteScope`s) and the underlying `EmoteFetchRequest`s.
    -  Stores the state for each scope (`EmoteScopeState`), including associated rooms and requested emote context keys.
    -  Tracks which rooms are associated with which scopes (`roomToScopeId`).
    -  Reference counts unique `EmoteFetchRequest`s (via their derived `emoteContextKey`) using `emoteContextRefCounts`, based on how many _active_ scopes require them.
    -  Triggers `EmoteManager.subscribeToEmoteSource` when an `emoteContextKey`'s ref count goes from 0 to 1.
    -  Triggers `EmoteManager.unsubscribeFromEmoteSource` when an `emoteContextKey`'s ref count goes from 1 to 0.
-   -  Handles client messages routed via `ClientMessageHandler`: `registerScope`, `associateRoom`, `addEmoteSourceToScope`.
+   -  Handles client messages routed via `ClientMessageHandler`: `registerSessionScope`, `associateRoom`, `addEmoteSourceToScope`.
    -  Handles cleanup via `disassociateRoom` (called by `ClientSubscriptionManager`), deleting scopes when they become inactive.
    -  Provides lookup for emote context keys associated with a scope (`getEmoteContextKeysForScope`).
 
@@ -129,7 +129,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Generates a unique `emoteScopeId` (e.g., using ULID).
    -  Establishes and maintains a persistent connection (`Port`) to the `ClientConnectionManager` in the Service Worker.
    -  Sends messages to the Service Worker (which are handled by `ClientMessageHandler`):
-      -  `registerEmoteScope(scopeId)`
+      -  `registerSessionScope(scopeId)`
       -  `subscribeToRoom(roomIdentifier, scopeId)`
       -  `addEmoteSourceToScope(scopeId, request)` for each required `EmoteFetchRequest`.
    -  Receives processed messages and events (`EmoteSetUpdateEvent`, etc.) broadcast by the `ClientEventNotifier`.
@@ -173,12 +173,12 @@ This section provides a brief overview of key data structures. **See `architectu
    -  Generates unique `emoteScopeId`.
    -  Connects to `ClientConnectionManager` via `Port`.
    -  `ClientConnectionManager` establishes the connection.
-   -  `ContentScriptManager` sends `registerEmoteScope(emoteScopeId)`.
+   -  `ContentScriptManager` sends `registerSessionScope(emoteScopeId)`.
    -  `ContentScriptManager` sends `subscribeToRoom(roomIdentifier, emoteScopeId)`.
    -  `ContentScriptManager` sends `addEmoteSourceToScope(emoteScopeId, request)` for each required `EmoteFetchRequest`.
    -  `ClientConnectionManager` receives messages, forwards them to `ClientMessageHandler`.
    -  `ClientMessageHandler` delegates:
-      -  `registerEmoteScope` -> `EmoteLifecycleManager.registerScope`.
+      -  `registerSessionScope` -> `EmoteLifecycleManager.registerSessionScope`.
       -  `subscribeToRoom` -> `ClientSubscriptionManager.addSubscription` (creates `RoomSubscription` with `MessageStore`) AND `EmoteLifecycleManager.associateRoom`.
       -  `addEmoteSourceToScope` -> `EmoteLifecycleManager.addEmoteSourceToScope`.
    -  `EmoteLifecycleManager`:

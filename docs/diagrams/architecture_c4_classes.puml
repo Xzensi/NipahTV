@@ -159,7 +159,7 @@ package ServiceWorker {
 
     package EmoteSystem {
         class EmoteLifecycleManager <<ServiceWorker Component>> {
-            + registerScope(emoteScopeId: string)
+            + registerSessionScope(emoteScopeId: string)
             + associateRoom(roomKey: string, emoteScopeId: string)
             + disassociateRoom(roomKey: string)
             + addEmoteSourceToScope(emoteScopeId: string, request: EmoteFetchRequest)
@@ -240,7 +240,7 @@ package ContentScriptUI {
         + connectToServiceWorker()
         + detectAndAssociateContext()
         + generateScopeId(): string
-        + registerEmoteScope(scopeId: string)
+        + registerSessionScope(scopeId: string)
         + subscribeToRoom(roomIdentifier: RoomIdentifier, scopeId: string)
         + addEmoteSourceToScope(scopeId: string, request: EmoteFetchRequest)
         + sendHeartbeat()
@@ -277,7 +277,7 @@ ServiceWorker.Core.ClientConnectionManager ..> ServiceWorker.Core.ClientSubscrip
 
 ' ClientMessageHandler Relationships
 ServiceWorker.Core.ClientMessageHandler ..> ServiceWorker.Core.ClientSubscriptionManager : delegates client requests
-ServiceWorker.Core.ClientMessageHandler ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : delegates client requests
+ServiceWorker.Core.ClientMessageHandler ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : delegates registerSessionScope, etc.
 
 ' ClientEventNotifier Relationships
 ServiceWorker.Core.ClientEventNotifier -() SubscribesEventBus

@@ -1,52 +1,178 @@
 sequenceDiagram
-    participant CS1 as Content Script 1 (Tab A)
-    participant CS2 as Content Script 2 (Tab B)
-    participant SW as Service Worker
-    participant WS as WebSocket Server
+    participant CS1 as Content Script 1 (Tab A, room1)
+    participant CS2 as Content Script 2 (Tab B, room2)
+    participant SW_ConnHandler as SW: Connection Handler
+    participant SW_SubManager as SW: Subscription Manager
+    participant SW_EmoteSystem as SW: Emote System
+    participant SW_PlatformAdapter as SW: Platform Adapter
+    participant SW_EventBus as SW: Event Bus
+    participant SW_Pipeline as SW: Processing Pipeline
+    participant SW_Notifier as SW: Client Notifier
+    participant PlatformService as External Platform Service
 
-    Note over CS1, CS2: Kick.com page loads
+    Note over CS1, CS2: Browser tabs load different rooms (room1, room2)
 
-    CS1->>+SW: chrome.runtime.connect("feed-manager")
-    SW-->>-CS1: Port established (port1)
-    CS1->>SW: { type: "subscribe", feedId: "chat_123" } (via port1)
+    %% CS1 Connects & Subscribes (room1, scope1) %%
+    CS1->>+SW_ConnHandler: Connect (Port 1)
+    SW_ConnHandler-->>-CS1: Port 1 established
 
-    Note over SW: Checks if WS for chat_123 exists
+    CS1->>SW_ConnHandler: registerSessionScope(scope1)
+    activate SW_ConnHandler
+    SW_ConnHandler->>SW_EmoteSystem: registerSessionScope(scope1)
+    activate SW_EmoteSystem
+    Note over SW_EmoteSystem: Creates scope state for scope1
+    SW_EmoteSystem-->>SW_ConnHandler: (ack)
+    deactivate SW_EmoteSystem
+    SW_ConnHandler-->>CS1: (ack)
+    deactivate SW_ConnHandler
 
-    alt WebSocket for chat_123 not connected
-        SW->>+WS: Establish WebSocket connection for chat_123
-        WS-->>-SW: WebSocket connected
-        Note over SW: Stores WS connection & adds port1 to subscribers for chat_123
-    else WebSocket already connected
-        Note over SW: Adds port1 to subscribers for chat_123
+    CS1->>SW_ConnHandler: subscribeToRoom(room1, scope1)
+    activate SW_ConnHandler
+    SW_ConnHandler->>SW_SubManager: addSubscription(room1, port1, scope1)
+    activate SW_SubManager
+    Note over SW_SubManager: Creates RoomSubscription for room1,\nassociates port1, scope1
+    SW_SubManager->>SW_EmoteSystem: associateRoom(room1, scope1)
+    activate SW_EmoteSystem
+    Note over SW_EmoteSystem: Links room1 to scope1
+    SW_EmoteSystem-->>SW_SubManager: (ack)
+    deactivate SW_EmoteSystem
+
+    alt First subscriber for room1
+        SW_SubManager->>SW_PlatformAdapter: EnsureActive(room1)
+        activate SW_PlatformAdapter
+        SW_PlatformAdapter->>+PlatformService: Connect / Subscribe for room1
+        PlatformService-->>-SW_PlatformAdapter: Connected / Subscribed
+        Note over SW_PlatformAdapter: Manages connection state for room1
+        SW_PlatformAdapter-->>SW_SubManager: (ack)
+        deactivate SW_PlatformAdapter
     end
+    SW_SubManager-->>SW_ConnHandler: (ack)
+    deactivate SW_SubManager
+    SW_ConnHandler-->>CS1: (ack)
+    deactivate SW_ConnHandler
 
-    CS2->>+SW: chrome.runtime.connect("feed-manager")
-    SW-->>-CS2: Port established (port2)
-    CS2->>SW: { type: "subscribe", feedId: "chat_123" } (via port2)
-    Note over SW: Adds port2 to subscribers for chat_123
+    CS1->>SW_ConnHandler: addEmoteSourceToScope(scope1, req1)
+    activate SW_ConnHandler
+    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToScope(scope1, req1)
+    activate SW_EmoteSystem
+    Note over SW_EmoteSystem: Generates key1, increments ref count,\ntriggers internal fetch if needed (async)
+    SW_EmoteSystem-->>SW_ConnHandler: (ack)
+    deactivate SW_EmoteSystem
+    SW_ConnHandler-->>CS1: (ack)
+    deactivate SW_ConnHandler
 
-    loop Heartbeat/Activity
-        CS1->>SW: { type: "heartbeat" } (via port1, keeps SW alive)
-        CS2->>SW: { type: "heartbeat" } (via port2, keeps SW alive)
-        Note right of SW: Heartbeat resets idle timer
+    %% CS2 Connects & Subscribes (room2, scope1) %%
+    CS2->>+SW_ConnHandler: Connect (Port 2)
+    SW_ConnHandler-->>-CS2: Port 2 established
+
+    CS2->>SW_ConnHandler: registerSessionScope(scope1) %% Reusing scope1 %%
+    activate SW_ConnHandler
+    SW_ConnHandler->>SW_EmoteSystem: registerSessionScope(scope1)
+    activate SW_EmoteSystem
+    Note over SW_EmoteSystem: Scope scope1 already exists
+    SW_EmoteSystem-->>SW_ConnHandler: (ack)
+    deactivate SW_EmoteSystem
+    SW_ConnHandler-->>CS2: (ack)
+    deactivate SW_ConnHandler
+
+    CS2->>SW_ConnHandler: subscribeToRoom(room2, scope1) %% Subscribing to DIFFERENT room (room2) %%
+    activate SW_ConnHandler
+    SW_ConnHandler->>SW_SubManager: addSubscription(room2, port2, scope1) %% Using room2 %%
+    activate SW_SubManager
+    Note over SW_SubManager: Creates RoomSubscription for room2,\nassociates port2, scope1
+    SW_SubManager->>SW_EmoteSystem: associateRoom(room2, scope1) %% Using room2 %%
+    activate SW_EmoteSystem
+    Note over SW_EmoteSystem: Links room2 to scope1
+    SW_EmoteSystem-->>SW_SubManager: (ack)
+    deactivate SW_EmoteSystem
+
+    alt First subscriber for room2 %% Need to activate platform for room2 %%
+        SW_SubManager->>SW_PlatformAdapter: EnsureActive(room2)
+        activate SW_PlatformAdapter
+        SW_PlatformAdapter->>+PlatformService: Connect / Subscribe for room2
+        PlatformService-->>-SW_PlatformAdapter: Connected / Subscribed
+        Note over SW_PlatformAdapter: Manages connection state for room2
+        SW_PlatformAdapter-->>SW_SubManager: (ack)
+        deactivate SW_PlatformAdapter
     end
+    SW_SubManager-->>SW_ConnHandler: (ack)
+    deactivate SW_SubManager
+    SW_ConnHandler-->>CS2: (ack)
+    deactivate SW_ConnHandler
 
-    Note over WS, SW: New message arrives on WebSocket
+    CS2->>SW_ConnHandler: addEmoteSourceToScope(scope1, req1) %% Assuming same source needed for scope1 %%
+    activate SW_ConnHandler
+    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToScope(scope1, req1)
+    activate SW_EmoteSystem
+    Note over SW_EmoteSystem: Increments ref count for existing key1,\nno new fetch needed
+    SW_EmoteSystem-->>SW_ConnHandler: (ack)
+    deactivate SW_EmoteSystem
+    SW_ConnHandler-->>CS2: (ack)
+    deactivate SW_ConnHandler
 
-    WS->>SW: Raw Message (chat_123)
-    SW->>SW: Process Message (Parse, Enrich)
-    Note over SW: Gets list of subscribers for chat_123 (port1, port2)
+    %% Message Received from Platform (Example for room1) %%
+    Note over PlatformService, SW_EventBus: The following shows message processing for room1 as an example.
+    Note over PlatformService, SW_PlatformAdapter: New message arrives for room1
+    PlatformService->>SW_PlatformAdapter: Raw Message Data (room1)
+    activate SW_PlatformAdapter
+    SW_PlatformAdapter->>SW_PlatformAdapter: Parse message
+    SW_PlatformAdapter->>SW_EventBus: publish(ChatMessageReceivedEvent(room1, ...))
+    deactivate SW_PlatformAdapter
 
-    SW->>CS1: Processed Message Data (via port1.postMessage)
-    SW->>CS2: Processed Message Data (via port2.postMessage)
+    %% Message Processing (Example for room1) %%
+    SW_EventBus->>SW_Pipeline: ChatMessageReceivedEvent(room1, ...)
+    activate SW_Pipeline
+    SW_Pipeline->>SW_SubManager: getScopeIdForRoom(room1)
+    activate SW_SubManager
+    SW_SubManager-->>SW_Pipeline: scope1
+    deactivate SW_SubManager
+    SW_Pipeline->>SW_EmoteSystem: getEmoteContextKeysForScope(scope1)
+    activate SW_EmoteSystem
+    SW_EmoteSystem-->>SW_Pipeline: [key1] %% Simplified example %%
+    SW_Pipeline->>SW_EmoteSystem: getEmoteByName(name, [key1])
+    SW_EmoteSystem-->>SW_Pipeline: Emote data / undefined
+    deactivate SW_EmoteSystem
+    Note over SW_Pipeline: Process message, replace emotes...
+    SW_Pipeline->>SW_EventBus: publish(ProcessedChatMessageEvent(room1, ...))
+    deactivate SW_Pipeline
 
-    CS1->>CS1: Update UI (FeedView 1)
-    CS2->>CS2: Update UI (FeedView 2)
+    %% Message Broadcasting (Example for room1) %%
+    SW_EventBus->>SW_Notifier: ProcessedChatMessageEvent(room1, ...)
+    activate SW_Notifier
+    SW_Notifier->>SW_SubManager: getPortsForRoom(room1)
+    activate SW_SubManager
+    SW_SubManager-->>SW_Notifier: [port1] %% Only port1 is subscribed to room1 now %%
+    deactivate SW_SubManager
+    SW_Notifier->>CS1: Processed Message Data (via port1)
+    %% Note: CS2 would NOT receive this message as it's for room1 %%
+    deactivate SW_Notifier
 
-    Note over CS1, SW: User closes Tab A
+    %% UI Update (Example for room1) %%
+    CS1->>CS1: Update UI
 
-    CS1--xSW: Port disconnected (port1.onDisconnect)
-    Note over SW: Removes port1 from subscribers for chat_123
-    alt No subscribers left for chat_123
-        SW->>WS: Close WebSocket connection for chat_123
+    %% CS1 Disconnects %%
+    Note over CS1, SW_ConnHandler: User closes Tab A (room1)
+    CS1--xSW_ConnHandler: Port 1 disconnected
+    activate SW_ConnHandler
+    SW_ConnHandler->>SW_SubManager: removeSubscription(port1)
+    activate SW_SubManager
+    Note over SW_SubManager: Removes port1 from room1 subscription
+    SW_SubManager->>SW_EmoteSystem: disassociateRoom(room1)
+    activate SW_EmoteSystem
+    Note over SW_EmoteSystem: Decrements ref counts if room1 removed from scope1,\npotentially triggers unsubscribe (async)
+    SW_EmoteSystem-->>SW_SubManager: (ack)
+    deactivate SW_EmoteSystem
+
+    alt No subscribers left for room1
+        SW_SubManager->>SW_PlatformAdapter: EnsureInactive(room1)
+        activate SW_PlatformAdapter
+        SW_PlatformAdapter->>PlatformService: Disconnect / Unsubscribe for room1
+        deactivate SW_PlatformAdapter
+    else Subscribers remain for room1 %% Should not happen in this scenario %%
+        Note over SW_SubManager: PlatformAdapter for room1 remains active
     end
+    SW_SubManager-->>SW_ConnHandler: (ack)
+    deactivate SW_SubManager
+    deactivate SW_ConnHandler
+
+    Note over SW_SubManager, SW_PlatformAdapter: room2 subscription (CS2) and platform connection remain active.

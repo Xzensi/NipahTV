@@ -113,7 +113,7 @@ Rel(connectionManager, clientSubManager, "Notifies disconnect")
 
 ' Client Message Handling Flow
 Rel(messageHandler, clientSubManager, "Delegates subscription requests")
-Rel(messageHandler, emoteLifecycleManager, "Delegates scope/source management")
+Rel(messageHandler, emoteLifecycleManager, "Delegates registerSessionScope, etc.")
 
 ' Event Broadcasting Flow
 Rel(eventNotifier, eventBus, "Subscribes to internal events")
@@ -144,7 +144,7 @@ Rel(platformAdapters, eventBus, "Publishes ChatMessageReceivedEvent, etc.")
 
 ' External Relationships
 Rel(user, contentScript, "Interacts with")
-Rel(contentScript, connectionManager, "Connects via Port, Sends Requests (registerScope, subscribeToRoom, addEmoteSourceToScope)", "chrome.runtime.Port")
+Rel(contentScript, connectionManager, "Connects via Port, Sends Requests (registerSessionScope, subscribeToRoom, addEmoteSourceToScope)", "chrome.runtime.Port")
 Rel(eventNotifier, contentScript, "Sends Processed Messages & Events", "chrome.runtime.Port")
 
 Rel(platformAdapters, platformServices, "Connects to, Fetches data from", "HTTPS/WSS")

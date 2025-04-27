@@ -11,8 +11,8 @@ sequenceDiagram
 
     %% Client Registration and Source Addition %%
     CSM->>CSM: Generate emoteScopeId
-    CSM->>CMH: Send: registerEmoteScope(emoteScopeId)
-    CMH->>ELM: registerScope(emoteScopeId)
+    CSM->>CMH: Send: registerEmoteScope(emoteScopeId) %% Client sends specific intent %%
+    CMH->>ELM: registerSessionScope(emoteScopeId) %% SW handles generic scope registration %%
     activate ELM
     ELM-->>CMH: (ack)
     deactivate ELM
