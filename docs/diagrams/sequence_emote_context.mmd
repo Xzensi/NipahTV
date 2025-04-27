@@ -3,7 +3,13 @@ sequenceDiagram
     participant CMH as ClientMessageHandler (SW)
     participant ELM as EmoteLifecycleManager (SW)
     participant EM as EmoteManager (SW)
+    participant EP as IEmoteProvider (SW)
+    participant ER as EmoteRegistry (SW)
+    participant EB as EventBus (SW)
+    participant CEN as ClientEventNotifier (SW)
+    participant CSMan as ClientSubscriptionManager (SW)
 
+    %% Client Registration and Source Addition %%
     CSM->>CSM: Generate emoteScopeId
     CSM->>CMH: Send: registerEmoteScope(emoteScopeId)
     CMH->>ELM: registerScope(emoteScopeId)
@@ -18,13 +24,57 @@ sequenceDiagram
     activate ELM
     ELM->>ELM: Generate emoteContextKey (key1) from req1
     ELM->>ELM: Increment ref count for key1
+
+    %% ELM triggers EM based on ref count %%
     alt Ref count was 0
         ELM->>EM: subscribeToEmoteSource(req1)
         activate EM
-        Note over EM: Uses req1 to fetch/subscribe.<br/>A single request might yield multiple EmoteSets (e.g., Kick bundles).<br/>The unique emoteContextKey (key1) identifies this specific result.<br/>Updates EmoteRegistry, storing fetched sets associated with key1.
+        Note over EM: Uses req1 to trigger fetch/subscription.
+
+        %% Emote Manager interacts with Provider and Registry %%
+        EM->>EP: fetchEmotes(req1) / subscribeToUpdates(req1, callback)
+        activate EP
+        Note right of EP: Provider fetches data (black box)<br/>May return multiple EmoteSets.
+        EP-->>EM: Returns EmoteSet[] / Calls callback(update)
+        deactivate EP
+
+        EM->>ER: addOrUpdateEmoteSet(set, key1) for each set
+        activate ER
+        Note over ER: Stores fetched set(s) associated with key1
+        ER-->>EM: (ack)
+        deactivate ER
+
+        %% Emote Manager publishes update event (async) %%
+        EM->>EB: publish(EmoteSetUpdateEvent{ key: key1, update: ... })
+        Note over EM, EB: Event published asynchronously
+
+        %% Emote Manager returns ack to Lifecycle Manager %%
         EM-->>ELM: (ack)
         deactivate EM
     end
     ELM-->>CMH: (ack)
     deactivate ELM
     CMH-->>CSM: (ack)
+
+
+    %% Event Delivery Flow to Client (Happens asynchronously later) %%
+    EB->>CEN: EmoteSetUpdateEvent{ key: key1, ... }
+    activate CEN
+    Note over CEN: Received update event for key1.
+
+    %% CEN finds target clients (Assumption: via ELM & CSMan) %%
+    CEN->>ELM: getScopesForKey(key1) %% Method name hypothetical %%
+    activate ELM
+    ELM-->>CEN: Returns Set<emoteScopeId>
+    deactivate ELM
+
+    loop For each scopeId in Set<emoteScopeId>
+        CEN->>CSMan: getPortsForScope(scopeId) %% Method name hypothetical %%
+        activate CSMan
+        CSMan-->>CEN: Returns Set<Port>
+        deactivate CSMan
+        loop For each Port in Set<Port>
+            CEN->>CSM: Send: EmoteSetUpdateEvent Data
+        end
+    end
+    deactivate CEN
