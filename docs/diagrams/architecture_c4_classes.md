@@ -90,17 +90,17 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Stores the state for each scope (`EmoteScopeState`), including associated rooms and requested emote context keys.
    -  Tracks which rooms are associated with which scopes (`roomToScopeId`).
    -  Reference counts unique `EmoteFetchRequest`s (via their derived `emoteContextKey`) using `emoteContextRefCounts`, based on how many _active_ scopes require them.
-   -  Triggers `EmoteManager.subscribeToEmotes` when an `emoteContextKey`'s ref count goes from 0 to 1.
-   -  Triggers `EmoteManager.unsubscribeFromEmotes` when an `emoteContextKey`'s ref count goes from 1 to 0.
-   -  Handles client messages routed via `ClientMessageHandler`: `registerScope`, `associateRoom`, `populateScopeWithRequest`.
+   -  Triggers `EmoteManager.subscribeToEmoteSource` when an `emoteContextKey`'s ref count goes from 0 to 1.
+   -  Triggers `EmoteManager.unsubscribeFromEmoteSource` when an `emoteContextKey`'s ref count goes from 1 to 0.
+   -  Handles client messages routed via `ClientMessageHandler`: `registerScope`, `associateRoom`, `addEmoteSourceToScope`.
    -  Handles cleanup via `disassociateRoom` (called by `ClientSubscriptionManager`), deleting scopes when they become inactive.
    -  Provides lookup for emote context keys associated with a scope (`getEmoteContextKeysForScope`).
 
 -  **`EmoteManager`:**
 
    -  Orchestrates the actual interaction with `IEmoteProvider`s based on calls from `EmoteLifecycleManager`.
-   -  Calls `IEmoteProvider.fetchEmotes` and potentially `IEmoteProvider.subscribeToUpdates` when `subscribeToEmotes` is invoked by the lifecycle manager.
-   -  Calls `IEmoteProvider.unsubscribeFromUpdates` when `unsubscribeFromEmotes` is invoked.
+   -  Calls `IEmoteProvider.fetchEmotes` and potentially `IEmoteProvider.subscribeToUpdates` when `subscribeToEmoteSource` is invoked by the lifecycle manager.
+   -  Calls `IEmoteProvider.unsubscribeFromUpdates` when `unsubscribeFromEmoteSource` is invoked.
    -  Updates the `EmoteRegistry` with fetched/updated emote data, associating it with the relevant `emoteContextKey`.
    -  Publishes `EmoteSetUpdateEvent` to the `EventBus` when emotes change (either from initial fetch or provider callback).
    -  Manages active provider subscriptions (e.g., WebSocket connections for 7TV), likely keyed by `emoteContextKey`.
@@ -131,7 +131,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Sends messages to the Service Worker (which are handled by `ClientMessageHandler`):
       -  `registerEmoteScope(scopeId)`
       -  `subscribeToRoom(roomIdentifier, scopeId)`
-      -  `populateScopeWithRequest(scopeId, request)` for each required `EmoteFetchRequest`.
+      -  `addEmoteSourceToScope(scopeId, request)` for each required `EmoteFetchRequest`.
    -  Receives processed messages and events (`EmoteSetUpdateEvent`, etc.) broadcast by the `ClientEventNotifier`.
    -  Manages the `MessageFeedView` UI component.
 
@@ -175,18 +175,18 @@ This section provides a brief overview of key data structures. **See `architectu
    -  `ClientConnectionManager` establishes the connection.
    -  `ContentScriptManager` sends `registerEmoteScope(emoteScopeId)`.
    -  `ContentScriptManager` sends `subscribeToRoom(roomIdentifier, emoteScopeId)`.
-   -  `ContentScriptManager` sends `populateScopeWithRequest(emoteScopeId, request)` for each required `EmoteFetchRequest`.
+   -  `ContentScriptManager` sends `addEmoteSourceToScope(emoteScopeId, request)` for each required `EmoteFetchRequest`.
    -  `ClientConnectionManager` receives messages, forwards them to `ClientMessageHandler`.
    -  `ClientMessageHandler` delegates:
       -  `registerEmoteScope` -> `EmoteLifecycleManager.registerScope`.
       -  `subscribeToRoom` -> `ClientSubscriptionManager.addSubscription` (creates `RoomSubscription` with `MessageStore`) AND `EmoteLifecycleManager.associateRoom`.
-      -  `populateScopeWithRequest` -> `EmoteLifecycleManager.populateScopeWithRequest`.
+      -  `addEmoteSourceToScope` -> `EmoteLifecycleManager.addEmoteSourceToScope`.
    -  `EmoteLifecycleManager`:
       -  Creates/updates `EmoteScopeState`.
       -  Tracks `roomKey` -> `scopeId` mapping.
       -  Generates `emoteContextKey` from request, adds to scope's `requestedEmoteContextKeys`.
       -  If scope becomes active OR key is added to active scope, calls `_incrementEmoteContextRef`.
-      -  If `_incrementEmoteContextRef` causes count 0->1, calls `EmoteManager.subscribeToEmotes(request)`.
+      -  If `_incrementEmoteContextRef` causes count 0->1, calls `EmoteManager.subscribeToEmoteSource(request)`.
    -  `EmoteManager`: Calls provider `fetchEmotes`/`subscribeToUpdates`. Updates `EmoteRegistry` (associating with `emoteContextKey`). Publishes `EmoteSetUpdateEvent`.
 
 2. **Receiving & Processing Messages:**
@@ -233,7 +233,7 @@ This section provides a brief overview of key data structures. **See `architectu
       -  If scope becomes inactive (`associatedRoomKeys.size === 0`):
          -  Iterates `requestedEmoteContextKeys`, calls `_decrementEmoteContextRef` for each.
          -  Deletes the scope state.
-      -  If `_decrementEmoteContextRef` causes count 1->0, calls `EmoteManager.unsubscribeFromEmotes(request)` (using the request associated with the `emoteContextKey`).
+      -  If `_decrementEmoteContextRef` causes count 1->0, calls `EmoteManager.unsubscribeFromEmoteSource(request)` (using the request associated with the `emoteContextKey`).
    -  `ClientSubscriptionManager` (if last port for room):
       -  Tells `UserStore` to decrement ref counts for `activeUserIds`.
       -  Discards `MessageStore` and `RoomSubscription`.

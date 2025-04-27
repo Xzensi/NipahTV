@@ -1,0 +1,109 @@
+@startuml architecture_c2_containers
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Base Colors
+!$color_bg             = "#272822"
+!$color_fg             = "#F8F8F2"
+!$color_border         = "#75715E"
+
+' Accent Colors
+!$color_accent_red     = "#F92672"
+!$color_accent_green   = "#A6E22E"
+!$color_accent_yellow  = "#3C3B2F"
+!$color_accent_blue    = "#66D9EF"
+!$color_accent_orange  = "#FD971F"
+!$color_accent_purple  = "#AE81FF"
+
+' Specialized
+!$color_datatype_bg    = "#444233"
+!$color_interface_bg   = "#2F556B"
+!$color_note_bg        = "#49483E"
+!$color_note_border    = "#75715E"
+!$color_note_font      = "#F8F8F2"
+
+skinparam {
+    ' roundCorner 10
+    ' padding 12
+    ' linetype ortho
+    ' Nodesep 120
+    ' Ranksep 120
+    wrapWidth 200
+    maxMessageSize 150
+
+    Shadowing false
+    BackgroundColor $color_bg
+
+    DefaultFontColor $color_fg
+    DefaultFontName "Consolas", "Monaco", monospace
+    DefaultFontSize 14
+
+    ArrowColor $color_accent_red
+    ArrowFontColor $color_fg
+    ArrowThickness 3
+
+    BorderColor $color_border
+
+    PackageBorderColor $color_accent_purple
+    PackageBackgroundColor $color_bg
+    PackageTitleFontColor $color_accent_blue
+    PackageFontStyle bold
+
+    ClassBackgroundColor $color_accent_yellow
+    ClassBorderColor $color_accent_red
+    ClassFontColor $color_fg
+    ClassAttributeFontColor $color_accent_green
+    ClassStereotypeFontColor $color_accent_orange
+
+    InterfaceBackgroundColor $color_interface_bg
+    InterfaceBorderColor $color_accent_red
+    InterfaceFontColor $color_fg
+    InterfaceAttributeFontColor $color_fg
+    InterfaceStereotypeFontColor $color_accent_orange
+
+    NoteBackgroundColor $color_note_bg
+    NoteBorderColor $color_note_border
+    NoteFontColor $color_note_font
+
+    LegendBackgroundColor $color_border
+    LegendBorderColor $color_fg
+    LegendFontColor $color_fg
+}
+
+skinparam class<<datatype>> {
+    BackgroundColor $color_datatype_bg
+    BorderColor $color_border
+    FontColor $color_fg
+    AttributeFontColor $color_accent_blue
+    StereotypeFontColor $color_accent_orange
+}
+
+skinparam rectangle<<System_Boundary>><<Container_Boundary>> {
+    BorderColor $color_accent_purple
+    FontColor $color_accent_purple
+}
+
+title Container Diagram for NipahTV (Level 2)
+
+' External Systems / Actors
+Person_Ext(user, "User", "Views streams, interacts with chat")
+System_Ext(platformServices, "Streaming Platform Services", "Provides chat messages, user info, stream status (e.g., Kick API/WS)")
+System_Ext(emoteProviderServices, "Third-Party Emote Services", "Provides global and channel-specific emotes (e.g., 7TV API/WS)")
+
+' System Boundary (Browser)
+System_Boundary(browser, "Web Browser") {
+    Container(contentScript, "NipahTV Content Script", "TypeScript", "Replaces native chat UI, handles user interaction, communicates with Service Worker")
+    Container(serviceWorker, "NipahTV Service Worker", "TypeScript", "Background process managing connections, data processing, emote logic")
+}
+
+' Relationships
+Rel(user, contentScript, "Uses NipahTV Chat UI")
+
+' Content Script initiates connection and sends requests to Service Worker
+Rel(contentScript, serviceWorker, "Sends subscription/emote requests", "chrome.runtime API (Port)")
+' Service Worker sends processed data back to Content Script
+Rel(serviceWorker, contentScript, "Receives processed data/events", "chrome.runtime API (Port)")
+
+Rel(serviceWorker, platformServices, "Connects to, fetches chat data from", "HTTPS/WSS")
+Rel(serviceWorker, emoteProviderServices, "Fetches emote data from", "HTTPS/WSS")
+
+@enduml

@@ -1,6 +1,5 @@
 @startuml architecture_classes
 
-' Monokai-inspired Improved PlantUML Theme
 ' Base Colors
 !$color_bg             = "#272822"
 !$color_fg             = "#F8F8F2"
@@ -22,6 +21,14 @@
 !$color_note_font      = "#F8F8F2"
 
 skinparam {
+    ' roundCorner 10
+    ' padding 12
+    ' linetype ortho
+    ' Nodesep 120
+    ' Ranksep 120
+    wrapWidth 200
+    maxMessageSize 150
+
     Shadowing false
     BackgroundColor $color_bg
 
@@ -69,13 +76,11 @@ skinparam class<<datatype>> {
     StereotypeFontColor $color_accent_orange
 }
 
+skinparam rectangle<<System_Boundary>><<Container_Boundary>> {
+    BorderColor $color_accent_purple
+    FontColor $color_accent_purple
+}
 
-' General enhancements for better visuals
-' skinparam roundCorner 10
-skinparam padding 12
-skinparam linetype ortho
-' skinparam Nodesep 120
-' skinparam Ranksep 120
 
 ' Interfaces for Lollipop Notation
 interface PublishesEventBus {
@@ -157,7 +162,7 @@ package ServiceWorker {
             + registerScope(emoteScopeId: string)
             + associateRoom(roomKey: string, emoteScopeId: string)
             + disassociateRoom(roomKey: string)
-            + populateScopeWithRequest(emoteScopeId: string, request: EmoteFetchRequest)
+            + addEmoteSourceToScope(emoteScopeId: string, request: EmoteFetchRequest)
             + getEmoteContextKeysForScope(emoteScopeId: string): Set<string>
             - _generateEmoteContextKey(request: EmoteFetchRequest): string
             - _incrementEmoteContextRef(emoteContextKey: string)
@@ -172,8 +177,8 @@ package ServiceWorker {
 
 
         class EmoteManager <<ServiceWorker Component>> {
-            + subscribeToEmotes(request: EmoteFetchRequest)
-            + unsubscribeFromEmotes(request: EmoteFetchRequest)
+            + subscribeToEmoteSource(request: EmoteFetchRequest)
+            + unsubscribeFromEmoteSource(request: EmoteFetchRequest)
             - handleProviderUpdate(update: EmoteSetUpdate)
         }
         note top of EmoteManager : Orchestrates actual fetching via IEmoteProviders and manages EmoteRegistry based on subscribe/unsubscribe calls from EmoteLifecycleManager.
@@ -237,7 +242,7 @@ package ContentScriptUI {
         + generateScopeId(): string
         + registerEmoteScope(scopeId: string)
         + subscribeToRoom(roomIdentifier: RoomIdentifier, scopeId: string)
-        + populateScopeWithRequest(scopeId: string, request: EmoteFetchRequest)
+        + addEmoteSourceToScope(scopeId: string, request: EmoteFetchRequest)
         + sendHeartbeat()
         - handleServiceWorkerMessage(event: BaseEvent)
         - handleDisconnect()
@@ -289,7 +294,7 @@ ServiceWorker.PlatformImplementations.KickPlatformAdapter -() PublishesEventBus
 
 ' EmoteLifecycleManager Relationships
 ServiceWorker.EmoteSystem.EmoteLifecycleManager *-- ServiceWorker.EmoteSystem.EmoteScopeState : manages state
-ServiceWorker.EmoteSystem.EmoteLifecycleManager ..> ServiceWorker.EmoteSystem.EmoteManager : calls subscribe/unsubscribe
+ServiceWorker.EmoteSystem.EmoteLifecycleManager ..> ServiceWorker.EmoteSystem.EmoteManager : calls subscribeToEmoteSource / unsubscribeFromEmoteSource
 
 ' EmoteManager Relationships
 ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteSystem.IEmoteProvider : uses

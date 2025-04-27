@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant CSM as ContentScriptManager
+    participant CMH as ClientMessageHandler (SW)
+    participant ELM as EmoteLifecycleManager (SW)
+    participant EM as EmoteManager (SW)
+
+    CSM->>CSM: Generate emoteScopeId
+    CSM->>CMH: Send: registerEmoteScope(emoteScopeId)
+    CMH->>ELM: registerScope(emoteScopeId)
+    activate ELM
+    ELM-->>CMH: (ack)
+    deactivate ELM
+    CMH-->>CSM: (ack)
+
+    CSM->>CSM: Identify needed EmoteFetchRequest (req1)
+    CSM->>CMH: Send: addEmoteSourceToScope(emoteScopeId, req1)
+    CMH->>ELM: addEmoteSourceToScope(emoteScopeId, req1)
+    activate ELM
+    ELM->>ELM: Generate emoteContextKey (key1) from req1
+    ELM->>ELM: Increment ref count for key1
+    alt Ref count was 0
+        ELM->>EM: subscribeToEmoteSource(req1)
+        activate EM
+        Note over EM: Uses req1 to fetch/subscribe.<br/>A single request might yield multiple EmoteSets (e.g., Kick bundles).<br/>The unique emoteContextKey (key1) identifies this specific result.<br/>Updates EmoteRegistry, storing fetched sets associated with key1.
+        EM-->>ELM: (ack)
+        deactivate EM
+    end
+    ELM-->>CMH: (ack)
+    deactivate ELM
+    CMH-->>CSM: (ack)
