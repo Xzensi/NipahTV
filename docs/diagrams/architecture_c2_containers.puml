@@ -82,7 +82,7 @@ skinparam rectangle<<System_Boundary>><<Container_Boundary>> {
     FontColor $color_accent_purple
 }
 
-title Container Diagram for NipahTV (Level 2)
+title Container Diagram (Level 2)
 
 ' External Systems / Actors
 Person_Ext(user, "User", "Views streams, interacts with chat")

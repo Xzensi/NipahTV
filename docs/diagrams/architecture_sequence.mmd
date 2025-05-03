@@ -6,6 +6,7 @@ sequenceDiagram
     participant SW_EmoteSystem as SW: Emote System
     participant SW_PlatformAdapter as SW: Platform Adapter
     participant SW_EventBus as SW: Event Bus
+    participant SW_MsgProcessor as SW: Message Processor Service
     participant SW_Pipeline as SW: Processing Pipeline
     participant SW_Notifier as SW: Client Notifier
     participant PlatformService as External Platform Service
@@ -30,7 +31,7 @@ sequenceDiagram
     activate SW_ConnHandler
     SW_ConnHandler->>SW_SubManager: addSubscription(room1, port1, scope1)
     activate SW_SubManager
-    Note over SW_SubManager: Creates RoomSubscription for room1,\nassociates port1, scope1
+    Note over SW_SubManager: Creates RoomSubscription for room1 (incl. UserStore, MessageStore, LRUCache),\nassociates port1, scope1
     SW_SubManager->>SW_EmoteSystem: associateRoom(room1, scope1)
     activate SW_EmoteSystem
     Note over SW_EmoteSystem: Links room1 to scope1
@@ -79,7 +80,7 @@ sequenceDiagram
     activate SW_ConnHandler
     SW_ConnHandler->>SW_SubManager: addSubscription(room2, port2, scope1) %% Using room2 %%
     activate SW_SubManager
-    Note over SW_SubManager: Creates RoomSubscription for room2,\nassociates port2, scope1
+    Note over SW_SubManager: Creates RoomSubscription for room2 (incl. UserStore, MessageStore, LRUCache),\nassociates port2, scope1
     SW_SubManager->>SW_EmoteSystem: associateRoom(room2, scope1) %% Using room2 %%
     activate SW_EmoteSystem
     Note over SW_EmoteSystem: Links room2 to scope1
@@ -111,44 +112,60 @@ sequenceDiagram
     deactivate SW_ConnHandler
 
     %% Message Received from Platform (Example for room1) %%
-    Note over PlatformService, SW_EventBus: The following shows message processing for room1 as an example.
-    Note over PlatformService, SW_PlatformAdapter: New message arrives for room1
-    PlatformService->>SW_PlatformAdapter: Raw Message Data (room1)
+    Note over PlatformService, SW_EventBus: New message arrives for room1
+    PlatformService->>SW_PlatformAdapter: Raw Message Data (room1, msgId: M1, sender: U1, ...)
     activate SW_PlatformAdapter
-    SW_PlatformAdapter->>SW_PlatformAdapter: Parse message
-    SW_PlatformAdapter->>SW_EventBus: publish(ChatMessageReceivedEvent(room1, ...))
+    SW_PlatformAdapter->>SW_PlatformAdapter: Parse message, user info, entitlements
+    SW_PlatformAdapter->>SW_SubManager: getRoomSubscription(room1)
+    activate SW_SubManager
+    SW_SubManager-->>SW_PlatformAdapter: roomSub1 (contains UserStore, MessageStore)
+    deactivate SW_SubManager
+    SW_PlatformAdapter->>SW_PlatformAdapter: roomSub1.userStore.addOrUpdateUser(U1, ...)
+    SW_PlatformAdapter->>SW_PlatformAdapter: roomSub1.messageStore.addMessage(rawMsg M1)
+    SW_PlatformAdapter->>SW_EventBus: publish(ChatMessageReceivedEvent(room1, msgId: M1, senderId: U1))
     deactivate SW_PlatformAdapter
 
-    %% Message Processing (Example for room1) %%
-    SW_EventBus->>SW_Pipeline: ChatMessageReceivedEvent(room1, ...)
-    activate SW_Pipeline
-    SW_Pipeline->>SW_SubManager: getScopeIdForRoom(room1)
+    %% Message Processing (On-Demand - Example for room1, msg M1) %%
+    SW_EventBus->>SW_MsgProcessor: ChatMessageReceivedEvent(room1, msgId: M1, senderId: U1)
+    activate SW_MsgProcessor
+    SW_MsgProcessor->>SW_SubManager: getRoomSubscription(room1)
     activate SW_SubManager
-    SW_SubManager-->>SW_Pipeline: scope1
+    SW_SubManager-->>SW_MsgProcessor: roomSub1 (contains UserStore, MessageStore, LRUCache)
     deactivate SW_SubManager
-    SW_Pipeline->>SW_EmoteSystem: getEmoteContextKeysForScope(scope1)
-    activate SW_EmoteSystem
-    SW_EmoteSystem-->>SW_Pipeline: [key1] %% Simplified example %%
-    SW_Pipeline->>SW_EmoteSystem: getEmoteByName(name, [key1])
-    SW_EmoteSystem-->>SW_Pipeline: Emote data / undefined
-    deactivate SW_EmoteSystem
-    Note over SW_Pipeline: Process message, replace emotes...
-    SW_Pipeline->>SW_EventBus: publish(ProcessedChatMessageEvent(room1, ...))
-    deactivate SW_Pipeline
+    SW_MsgProcessor->>SW_MsgProcessor: Check roomSub1.messageCache.get(M1)
+    alt Cache Miss for M1
+        SW_MsgProcessor->>SW_MsgProcessor: Get rawMsg M1 from roomSub1.messageStore
+        SW_MsgProcessor->>SW_MsgProcessor: Get user U1 from roomSub1.userStore
+        SW_MsgProcessor->>SW_EmoteSystem: getEmoteContextKeysForScope(scope1)
+        activate SW_EmoteSystem
+        SW_EmoteSystem-->>SW_MsgProcessor: [key1] %% Simplified example %%
+        deactivate SW_EmoteSystem
+        SW_MsgProcessor->>SW_Pipeline: process(rawMsg M1, user U1, [key1])
+        activate SW_Pipeline
+        Note over SW_Pipeline: Uses User data, EmoteRegistry, 3rd party state...
+        SW_Pipeline-->>SW_MsgProcessor: processedData M1'
+        deactivate SW_Pipeline
+        SW_MsgProcessor->>SW_MsgProcessor: roomSub1.messageCache.set(M1, processedData M1')
+        SW_MsgProcessor->>SW_EventBus: publish(ReadyToBroadcastMessageEvent(room1, processedData M1'))
+    else Cache Hit for M1
+        SW_MsgProcessor->>SW_MsgProcessor: Get processedData M1' from roomSub1.messageCache
+        SW_MsgProcessor->>SW_EventBus: publish(ReadyToBroadcastMessageEvent(room1, processedData M1'))
+    end
+    deactivate SW_MsgProcessor
 
-    %% Message Broadcasting (Example for room1) %%
-    SW_EventBus->>SW_Notifier: ProcessedChatMessageEvent(room1, ...)
+    %% Message Broadcasting (Example for room1, msg M1) %%
+    SW_EventBus->>SW_Notifier: ReadyToBroadcastMessageEvent(room1, processedData M1')
     activate SW_Notifier
     SW_Notifier->>SW_SubManager: getPortsForRoom(room1)
     activate SW_SubManager
     SW_SubManager-->>SW_Notifier: [port1] %% Only port1 is subscribed to room1 now %%
     deactivate SW_SubManager
-    SW_Notifier->>CS1: Processed Message Data (via port1)
+    SW_Notifier->>CS1: processedData M1' (via port1)
     %% Note: CS2 would NOT receive this message as it's for room1 %%
     deactivate SW_Notifier
 
     %% UI Update (Example for room1) %%
-    CS1->>CS1: Update UI
+    CS1->>CS1: Update UI with processedData M1'
 
     %% CS1 Disconnects %%
     Note over CS1, SW_ConnHandler: User closes Tab A (room1)
@@ -164,6 +181,7 @@ sequenceDiagram
     deactivate SW_EmoteSystem
 
     alt No subscribers left for room1
+        Note over SW_SubManager: Discards RoomSubscription for room1 (incl. stores/cache)
         SW_SubManager->>SW_PlatformAdapter: EnsureInactive(room1)
         activate SW_PlatformAdapter
         SW_PlatformAdapter->>PlatformService: Disconnect / Unsubscribe for room1

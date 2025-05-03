@@ -111,12 +111,9 @@ package ServiceWorker {
         note top of ClientMessageHandler : Receives messages from ClientConnectionManager and routes them to appropriate services.
 
         class ClientEventNotifier {
-             - handleProcessedChatMessage(event: ProcessedChatMessageEvent)
-             - handleChannelEvent(event: ChannelEventReceivedEvent)
-             - handleEmoteUpdate(event: EmoteSetUpdateEvent)
-             - handleConnectionClosed(event: ConnectionClosedEvent)
+             - handleReadyToBroadcast(event: ReadyToBroadcastMessageEvent)
         }
-        note top of ClientEventNotifier : Subscribes to internal events and broadcasts them to relevant client Ports.
+        note top of ClientEventNotifier : Subscribes to ReadyToBroadcastMessageEvent and broadcasts final processed data to relevant client Ports.
 
         class EventBus <<Service>> {
             + subscribe(eventType: string, handler: Function)
@@ -126,34 +123,58 @@ package ServiceWorker {
         note top of EventBus : Central hub for decoupled event publishing and subscription within the Service Worker.
 
         class ClientSubscriptionManager {
-            + addSubscription(roomIdentifier: RoomIdentifier, port: Port, emoteScopeId: string)
+            + addSubscription(roomIdentifier: RoomIdentifier, port: Port, emoteScopeId: string): RoomSubscription
             + removeSubscription(port: Port)
             + getPortsForRoom(roomIdentifier: RoomIdentifier): Set<Port>
             + getScopeIdForRoom(roomIdentifier: RoomIdentifier): string | undefined
+            + getRoomSubscription(roomIdentifier: RoomIdentifier): RoomSubscription | undefined
         }
-        note top of ClientSubscriptionManager : Tracks client ports per room, manages RoomSubscription lifecycle, notifies EmoteLifecycleManager on disconnect.
+        note top of ClientSubscriptionManager : Tracks client ports per room, manages RoomSubscription lifecycle (incl. UserStore, MessageStore, LRUMessageCache), notifies EmoteLifecycleManager on disconnect.
+
+        class MessageProcessorService {
+            - handleRawMessage(event: ChatMessageReceivedEvent)
+            - handleEmoteUpdate(event: EmoteSetUpdateEvent)
+            - _processAndCache(message: MessageFeedEntry, roomSub: RoomSubscription): ProcessedChatMessageData
+        }
+        note top of MessageProcessorService : Subscribes to raw messages & emote updates.\nOrchestrates on-demand processing: checks cache, invokes pipeline on miss, caches result, publishes ReadyToBroadcastMessageEvent. Handles cache invalidation.
 
         class MessageFeedProcessorPipeline <<Shared>> {
             + init()
             + use(middleware: Middleware)
-            - handleChatMessage(event: ChatMessageReceivedEvent)
+            + process(rawMessage: MessageFeedEntry, sender: User, emoteContextKeys: Set<string>): ProcessedChatMessageData
         }
-        note top of MessageFeedProcessorPipeline : Subscribes to raw chat messages, gets relevant emote contexts, queries EmoteRegistry, applies transformations, publishes processed messages.
+        note top of MessageFeedProcessorPipeline : Invoked on-demand by MessageProcessorService.\nProcesses raw message using sender's User data and relevant emote context keys.\nApplies middleware transformations (emote replacement, third-party cosmetics).
 
-        class UserStore <<Service>> {
-         .. Service Worker global User Data Service ..
+        class UserStore <<Room Scoped>> {
+             - users: Map<string, User>
+             + getUser(userId: string): User | undefined
+             + addOrUpdateUser(userId: string, displayName: string, entitlements: PlatformEntitlementData[])
         }
-        note top of UserStore : Stores User data globally within the Service Worker instance, ref-counted by RoomSubscriptions.
+        note top of UserStore : Stores User data (incl. platform entitlements) scoped to a single RoomSubscription.
+
+        class LRUMessageCache <<Room Scoped>> {
+            + get(messageId: string): ProcessedChatMessageData | undefined
+            + set(messageId: string, data: ProcessedChatMessageData)
+            + invalidate()
+            + invalidateUser(userId: string) ' Optional: For user-specific cosmetic changes?
+        }
+        note top of LRUMessageCache : Stores processed message results scoped to a single RoomSubscription. Invalidated on emote updates.
 
         class RoomSubscription <<datatype>> {
-         .. Represents Room Subscription State ..
+             + ports: Set<Port>
+             + messageStore: MessageStore
+             + userStore: UserStore
+             + messageCache: LRUMessageCache
+             + emoteScopeId: string
         }
-        note top of RoomSubscription : Represents an active subscription to a room, managed by ClientSubscriptionManager. Contains ports, MessageStore, user refs, scope ID.
+        note top of RoomSubscription : Represents an active subscription to a room, managed by ClientSubscriptionManager.\nContains ports, scope ID, and room-scoped stores/cache.
 
-        class MessageStore {
-         .. Stores Messages for a Room ..
+        class MessageStore <<Room Scoped>> {
+             + addMessage(msg: MessageFeedEntry)
+             + getMessage(messageId: string): MessageFeedEntry | undefined
+             + getHistory(limit: number): MessageFeedEntry[]
         }
-        note top of MessageStore : Stores messages for a single RoomSubscription. Lifecycle tied to the RoomSubscription.
+        note top of MessageStore : Stores raw MessageFeedEntry objects for a single RoomSubscription.\nLifecycle tied to the RoomSubscription.
 
     }
 
@@ -204,20 +225,23 @@ package ServiceWorker {
         class TwitchPlatformAdapter {
             + getCapabilities(): PlatformCapabilities
             + subscribe(intent: SubscriptionIntent)
-            + publishEvent(event: BaseEvent)
+            + publishEvent(event: BaseEvent) ' Publishes RAW events
         }
-        note top of TwitchPlatformAdapter : Platform Implementations (Black Boxes)
+        note top of TwitchPlatformAdapter : Parses platform data, updates room's UserStore, publishes raw events.
 
         class YouTubePlatformAdapter {
             + getCapabilities(): PlatformCapabilities
             + subscribe(intent: SubscriptionIntent)
-            + publishEvent(event: BaseEvent)
+            + publishEvent(event: BaseEvent) ' Publishes RAW events
         }
+        note top of YouTubePlatformAdapter : Parses platform data, updates room's UserStore, publishes raw events.
+
         class KickPlatformAdapter {
             + getCapabilities(): PlatformCapabilities
             + subscribe(intent: SubscriptionIntent)
-            + publishEvent(event: BaseEvent)
+            + publishEvent(event: BaseEvent) ' Publishes RAW events
         }
+        note top of KickPlatformAdapter : Parses platform data, updates room's UserStore, publishes raw events.
     }
 
     package EmoteProviderImplementations {
@@ -250,7 +274,7 @@ package ContentScriptUI {
     note top of ContentScriptManager : Manages communication with Service Worker, detects context, generates scope, initiates subscriptions and requests.
 
     class MessageFeedView <<UI Component (SolidJS)>> {
-        + renderProcessedMessage(data: ProcessedChatMessageEvent)
+        + renderProcessedMessage(data: ProcessedChatMessageData) ' Updated data type
         + updateEmotes(data: EmoteSetUpdateEvent)
         + {abstract} renderChannelEvent?(data: ChannelEventReceivedEvent)
     }
@@ -265,10 +289,10 @@ ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientConnec
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientMessageHandler : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientEventNotifier : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientSubscriptionManager : manages
+ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.MessageProcessorService : manages ' Added
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteLifecycleManager : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteManager : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.MessageFeedProcessorPipeline : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.UserStore : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.EventBus : manages
 
 ' ClientConnectionManager Relationships
@@ -280,17 +304,24 @@ ServiceWorker.Core.ClientMessageHandler ..> ServiceWorker.Core.ClientSubscriptio
 ServiceWorker.Core.ClientMessageHandler ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : delegates registerSessionScope, etc.
 
 ' ClientEventNotifier Relationships
-ServiceWorker.Core.ClientEventNotifier -() SubscribesEventBus
+ServiceWorker.Core.ClientEventNotifier -() SubscribesEventBus : subscribes ReadyToBroadcastMessageEvent
 ServiceWorker.Core.ClientEventNotifier ..> ServiceWorker.Core.ClientSubscriptionManager : gets ports for room
+
+' MessageProcessorService Relationships
+ServiceWorker.Core.MessageProcessorService -() SubscribesEventBus : subscribes ChatMessageReceivedEvent, EmoteSetUpdateEvent
+ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
+ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : gets emoteContextKeys
+ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.MessageFeedProcessorPipeline : invokes process()
+ServiceWorker.Core.MessageProcessorService -() PublishesEventBus : publishes ReadyToBroadcastMessageEvent
 
 ' EventBus Relationships (No direct arrows needed for subscribers/publishers using lollipops)
 
 ' Event Publishing via Lollipop Interface
-ServiceWorker.Core.MessageFeedProcessorPipeline -() PublishesEventBus
-ServiceWorker.EmoteSystem.EmoteManager -() PublishesEventBus
-ServiceWorker.PlatformImplementations.TwitchPlatformAdapter -() PublishesEventBus
-ServiceWorker.PlatformImplementations.YouTubePlatformAdapter -() PublishesEventBus
-ServiceWorker.PlatformImplementations.KickPlatformAdapter -() PublishesEventBus
+ServiceWorker.EmoteSystem.EmoteManager -() PublishesEventBus : publishes EmoteSetUpdateEvent
+ServiceWorker.PlatformImplementations.TwitchPlatformAdapter -() PublishesEventBus : publishes RAW events
+ServiceWorker.PlatformImplementations.YouTubePlatformAdapter -() PublishesEventBus : publishes RAW events
+ServiceWorker.PlatformImplementations.KickPlatformAdapter -() PublishesEventBus : publishes RAW events
+' Pipeline no longer publishes directly
 
 ' EmoteLifecycleManager Relationships
 ServiceWorker.EmoteSystem.EmoteLifecycleManager *-- ServiceWorker.EmoteSystem.EmoteScopeState : manages state
@@ -304,10 +335,9 @@ ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteSystem.EmoteRegist
 ServiceWorker.EmoteSystem.IEmoteProvider <.. ServiceWorker.EmoteSystem.EmoteManager : invokes updateCallback
 
 ' MessageFeedProcessorPipeline Relationships
-ServiceWorker.Core.MessageFeedProcessorPipeline -() SubscribesEventBus
+' Pipeline no longer subscribes to EventBus for messages
 ServiceWorker.Core.MessageFeedProcessorPipeline ..> ServiceWorker.EmoteSystem.EmoteRegistry : queries emotes
-ServiceWorker.Core.MessageFeedProcessorPipeline ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : gets emoteContextKeys for scope
-ServiceWorker.Core.MessageFeedProcessorPipeline ..> ServiceWorker.Core.ClientSubscriptionManager : gets scopeId for room
+' Pipeline receives User object, no longer needs ELM/CSM directly for context keys/scope ID
 
 ' ContentScriptManager Relationships
 ContentScriptUI.ContentScriptManager ..> ServiceWorker.Core.ClientConnectionManager : connects via Port, sends messages
@@ -316,14 +346,17 @@ ContentScriptUI.ContentScriptManager o-- ContentScriptUI.MessageFeedView : manag
 ' ClientSubscriptionManager Relationships
 ServiceWorker.Core.ClientSubscriptionManager ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : calls disassociateRoom
 ServiceWorker.Core.ClientSubscriptionManager "1" *-- "*" ServiceWorker.Core.RoomSubscription : manages
-ServiceWorker.Core.ClientSubscriptionManager ..> ServiceWorker.Core.MessageStore : adds message
-ServiceWorker.Core.ClientSubscriptionManager ..> ServiceWorker.Core.UserStore : updates ref counts
 
 ' RoomSubscription Relationships
 ServiceWorker.Core.RoomSubscription *-- ServiceWorker.Core.MessageStore : owns
+ServiceWorker.Core.RoomSubscription *-- ServiceWorker.Core.UserStore : owns
+ServiceWorker.Core.RoomSubscription *-- ServiceWorker.Core.LRUMessageCache : owns
 ServiceWorker.Core.RoomSubscription ..> ServiceWorker.EmoteSystem.EmoteScopeState : references via ID
 
-' PlatformImplementations Relationships - No direct arrows needed
+' PlatformImplementations Relationships
+ServiceWorker.PlatformImplementations.TwitchPlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
+ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
+ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
 
 ' EmoteProviderImplementations Relationships
 ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider : uses

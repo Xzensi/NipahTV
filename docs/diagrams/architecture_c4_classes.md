@@ -8,11 +8,15 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 -  **Centralized Service Worker:** The MV3 Service Worker acts as the central hub, managing connections, processing data, and coordinating events.
 -  **Event-Driven:** An internal `EventBus` facilitates decoupled communication between Service Worker components.
--  **Room-Based Subscriptions:** Data processing and storage (like chat messages) are scoped to specific "Rooms" (e.g., a Twitch channel's chat feed), identified by a `RoomIdentifier`.
+-  **Room-Based Subscriptions:** Data processing and storage are scoped to specific "Rooms" (e.g., a Twitch channel's chat feed), identified by a `RoomIdentifier`. Each `RoomSubscription` manages its own state.
+-  **Room-Scoped User State:** Platform-specific user data (display name, badges, etc.) is stored per user within the scope of a `RoomSubscription`'s `UserStore`, updated as messages arrive.
 -  **Client-Defined Session Scopes:** Clients generate unique `emoteScopeId`s (GUID/ULID) to group rooms that should share the exact same set of emote contexts. This is referred to as a "Session Scope".
--  **Contextual Emote Fetching & Lifecycle:** Emotes are fetched based on specific `EmoteFetchRequest`s (defining an emote source/context like "global 7TV" or "Kick channel emotes"). The `EmoteLifecycleManager` tracks which active scopes need which requests, ensuring resources (provider subscriptions) are active only when necessary via reference counting based on unique `emoteContextKey`s derived from requests.
--  **Efficient Resource Usage:** Avoids redundant provider subscriptions and processing when multiple rooms/tabs require the same emote sources.
--  **Extensibility:** Designed to easily add support for new platforms, emote providers, or features.
+-  **Contextual Emote Fetching & Lifecycle:** Emotes are fetched based on specific `EmoteFetchRequest`s. The `EmoteLifecycleManager` tracks which active scopes need which requests, ensuring resources are active only when necessary via reference counting.
+-  **On-Demand Message Processing:** Messages are stored raw. Processing (emote replacement, cosmetic application) happens only when a message needs to be sent to a client, orchestrated by the `MessageProcessorService`.
+-  **Processed Message Caching:** Results of message processing are cached per room (`LRUMessageCache`) to avoid redundant work, with invalidation triggered by relevant updates (e.g., emote changes).
+-  **Decentralized Third-Party Logic:** Third-party extensions (like 7TV) manage their own state (e.g., cosmetics) and integrate via middleware in the `MessageFeedProcessorPipeline`.
+-  **Efficient Resource Usage:** Avoids redundant provider subscriptions. Caching minimizes reprocessing.
+-  **Extensibility:** Designed to easily add support for new platforms, emote providers, or features (via pipeline middleware).
 -  **Decoupling:** Components are loosely coupled through events and well-defined interfaces/data structures.
 
 ## Key Components & Responsibilities
@@ -22,7 +26,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 -  **`ServiceWorkerOrchestrator`:**
 
    -  Responsible for the initial setup (`init`) of the Service Worker.
-   -  Owns and manages the lifecycle of the core services and data structures within the Service Worker (`ClientConnectionManager`, `ClientMessageHandler`, `ClientEventNotifier`, `EventBus`, `ClientSubscriptionManager`, `MessageFeedProcessorPipeline`, `UserStore`, `RoomSubscription`, `MessageStore`) and the `EmoteSystem` components (`EmoteLifecycleManager`, `EmoteManager`).
+   -  Owns and manages the lifecycle of the core services (`ClientConnectionManager`, `ClientMessageHandler`, `ClientEventNotifier`, `EventBus`, `ClientSubscriptionManager`, `MessageProcessorService`, `MessageFeedProcessorPipeline`) and the `EmoteSystem` components (`EmoteLifecycleManager`, `EmoteManager`).
 
 -  **`ClientConnectionManager`:**
 
@@ -38,49 +42,68 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 -  **`ClientEventNotifier`:**
 
-   -  Subscribes to relevant internal events on the `EventBus` (e.g., `ProcessedChatMessageEvent`, `EmoteSetUpdateEvent`).
+   -  Subscribes only to `ReadyToBroadcastMessageEvent` on the `EventBus`.
    -  Uses `ClientSubscriptionManager` to determine which client `Port`(s) are associated with the room related to the event.
-   -  Broadcasts the event data to the appropriate `ContentScriptManager`(s) via their `Port`.
+   -  Broadcasts the final `ProcessedChatMessageData` contained in the event to the appropriate `ContentScriptManager`(s) via their `Port`.
 
 -  **`EventBus`:**
 
    -  A simple publish/subscribe service for internal communication within the Service Worker.
-   -  Allows components like Platform Adapters, `EmoteManager`, and `MessageFeedProcessorPipeline` to publish events without direct dependencies on subscribers like `ClientEventNotifier`.
+   -  Allows components like Platform Adapters, `EmoteManager`, and `MessageProcessorService` to publish events without direct dependencies on subscribers.
 
 -  **`ClientSubscriptionManager`:**
 
    -  Manages active subscriptions to chat "Rooms" using `RoomIdentifier`.
    -  Tracks which client `Port` is connected to which `RoomIdentifier`.
-   -  Owns and manages the lifecycle of `RoomSubscription` objects, including storing the associated `emoteScopeId`.
+   -  Owns and manages the lifecycle of `RoomSubscription` objects. Each `RoomSubscription` contains the room's `UserStore`, `MessageStore`, and `LRUMessageCache`.
    -  Provides lookup for a room's `emoteScopeId` (`getScopeIdForRoom`).
    -  Provides lookup for ports associated with a room (`getPortsForRoom`), used by `ClientEventNotifier`.
-   -  Handles `removeSubscription` calls from `ClientConnectionManager` on disconnect, notifying the `EmoteLifecycleManager` to disassociate the room from its scope.
-   -  Interacts with `UserStore` to manage user reference counts based on room participation.
-   -  Directs incoming messages to the correct `MessageStore` within the `RoomSubscription`.
+   -  Provides lookup for the entire `RoomSubscription` object (`getRoomSubscription`), used by `PlatformAdapter` and `MessageProcessorService`.
+   -  Handles `removeSubscription` calls from `ClientConnectionManager` on disconnect, notifying the `EmoteLifecycleManager` and cleaning up the `RoomSubscription`.
+
+-  **`MessageProcessorService`:**
+
+   -  Subscribes to raw `ChatMessageReceivedEvent` and `EmoteSetUpdateEvent` from the `EventBus`.
+   -  Orchestrates on-demand message processing:
+      -  On `ChatMessageReceivedEvent`: Checks the room's `LRUMessageCache` for the message ID.
+      -  Cache Miss: Retrieves the raw `MessageFeedEntry` (from `MessageStore`), the sender's `User` object (from `UserStore`), and relevant `emoteContextKey`s (`EmoteLifecycleManager`). Invokes `MessageFeedProcessorPipeline.process()` with this context. Caches the resulting `ProcessedChatMessageData` in the `LRUMessageCache`.
+      -  Publishes a `ReadyToBroadcastMessageEvent` containing the `ProcessedChatMessageData` (either from cache or fresh processing).
+   -  Handles cache invalidation: On `EmoteSetUpdateEvent`, invalidates the relevant room's `LRUMessageCache`.
 
 -  **`MessageFeedProcessorPipeline`:**
 
-   -  Subscribes to raw `ChatMessageReceivedEvent` from the `EventBus`.
-   -  Determines the context for emote lookup: uses `ClientSubscriptionManager` to get the `emoteScopeId` for the message's `roomId`, then uses `EmoteLifecycleManager` to get the set of relevant `emoteContextKey`s for that scope.
-   -  Uses `EmoteRegistry` to query relevant emotes by name (`getEmoteByName`) using the obtained `emoteContextKey`s.
-   -  Applies middleware transformations (parsing, emote replacement, etc.).
-   -  Publishes the final `ProcessedChatMessageEvent` to the `EventBus`.
+   -  Invoked on-demand by `MessageProcessorService`.
+   -  Receives the raw `MessageFeedEntry`, the sender's `User` object (containing platform entitlements), and the relevant `emoteContextKey`s.
+   -  Applies middleware transformations:
+      -  Core middleware uses the `User` object for platform entitlements.
+      -  Core middleware uses `EmoteRegistry` (queried with `emoteContextKey`s) for emote replacement.
+      -  Third-party middleware accesses its own internal state (e.g., for 7TV cosmetics) and modifies the data.
+   -  Returns the final `ProcessedChatMessageData`.
 
--  **`UserStore`:**
+-  **`UserStore` (Room Scoped):**
 
-   -  A service within `ServiceWorker.Core` storing `User` data (ID, display name, entitlements) globally across active room subscriptions within the Service Worker instance. (User data defined in `architecture_datatypes.puml`)
-   -  Manages the lifecycle of `User` objects via reference counting (`roomSubscriptionRefCount`), ensuring users persist only as long as they are active in at least one `RoomSubscription`.
-   -  Provides methods for updating user entitlements (emotes, badges, cosmetics). Used primarily by `ClientSubscriptionManager`.
+   -  A store within each `RoomSubscription`, holding `User` objects for that specific room.
+   -  Stores the latest known state of users, including `userId`, `displayName`, and platform-specific entitlements (`PlatformEntitlementData`).
+   -  Updated by `PlatformAdapter`s as new messages arrive.
+   -  Queried by `MessageProcessorService` to provide the sender's `User` object to the pipeline.
+
+-  **`LRUMessageCache` (Room Scoped):**
+
+   -  A cache within each `RoomSubscription`.
+   -  Stores the output of the `MessageFeedProcessorPipeline` (`ProcessedChatMessageData`), keyed by message ID.
+   -  Used by `MessageProcessorService` to avoid redundant processing.
+   -  Invalidated by `MessageProcessorService` when relevant `EmoteSetUpdateEvent`s occur.
 
 -  **`RoomSubscription` (Datatype):**
 
-   -  A data structure within `ServiceWorker.Core`, representing an active subscription to a specific room.
+   -  A data structure representing an active subscription to a specific room.
    -  Managed by `ClientSubscriptionManager`.
-   -  Contains connected `ports`, the room's `MessageStore`, `activeUserIds` (referencing users in `UserStore`), and the associated `emoteScopeId`.
+   -  Contains connected `ports`, the associated `emoteScopeId`, and the room-scoped `UserStore`, `MessageStore`, and `LRUMessageCache`.
 
--  **`MessageStore`:**
-   -  A store within `ServiceWorker.Core`, holding `MessageFeedEntry` objects for a single `RoomSubscription`.
-   -  Its lifecycle is tied to its parent `RoomSubscription`. Used by `ClientSubscriptionManager`.
+-  **`MessageStore` (Room Scoped):**
+   -  A store within each `RoomSubscription`, holding raw `MessageFeedEntry` objects.
+   -  Its lifecycle is tied to its parent `RoomSubscription`.
+   -  Used by `MessageProcessorService` to retrieve raw message data on cache misses.
 
 ### 2. Emote System (`EmoteSystem` Namespace)
 
@@ -89,160 +112,138 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Manages the lifecycle of client-defined Session Scopes (`EmoteScope`s) and the underlying `EmoteFetchRequest`s.
    -  Stores the state for each scope (`EmoteScopeState`), including associated rooms and requested emote context keys.
    -  Tracks which rooms are associated with which scopes (`roomToScopeId`).
-   -  Reference counts unique `EmoteFetchRequest`s (via their derived `emoteContextKey`) using `emoteContextRefCounts`, based on how many _active_ scopes require them.
-   -  Triggers `EmoteManager.subscribeToEmoteSource` when an `emoteContextKey`'s ref count goes from 0 to 1.
-   -  Triggers `EmoteManager.unsubscribeFromEmoteSource` when an `emoteContextKey`'s ref count goes from 1 to 0.
-   -  Handles client messages routed via `ClientMessageHandler`: `registerSessionScope`, `associateRoom`, `addEmoteSourceToScope`.
-   -  Handles cleanup via `disassociateRoom` (called by `ClientSubscriptionManager`), deleting scopes when they become inactive.
-   -  Provides lookup for emote context keys associated with a scope (`getEmoteContextKeysForScope`).
+   -  Reference counts unique `EmoteFetchRequest`s (via their derived `emoteContextKey`) using `emoteContextRefCounts`.
+   -  Triggers `EmoteManager.subscribeToEmoteSource` / `unsubscribeFromEmoteSource` based on ref counts.
+   -  Handles client messages routed via `ClientMessageHandler`.
+   -  Handles cleanup via `disassociateRoom` (called by `ClientSubscriptionManager`).
+   -  Provides lookup for emote context keys associated with a scope (`getEmoteContextKeysForScope`), used by `MessageProcessorService`.
 
 -  **`EmoteManager`:**
 
    -  Orchestrates the actual interaction with `IEmoteProvider`s based on calls from `EmoteLifecycleManager`.
-   -  Calls `IEmoteProvider.fetchEmotes` and potentially `IEmoteProvider.subscribeToUpdates` when `subscribeToEmoteSource` is invoked by the lifecycle manager.
-   -  Calls `IEmoteProvider.unsubscribeFromUpdates` when `unsubscribeFromEmoteSource` is invoked.
-   -  Updates the `EmoteRegistry` with fetched/updated emote data, associating it with the relevant `emoteContextKey`.
-   -  Publishes `EmoteSetUpdateEvent` to the `EventBus` when emotes change (either from initial fetch or provider callback).
-   -  Manages active provider subscriptions (e.g., WebSocket connections for 7TV), likely keyed by `emoteContextKey`.
+   -  Calls provider methods (`fetchEmotes`, `subscribeToUpdates`, `unsubscribeFromUpdates`).
+   -  Updates the `EmoteRegistry` with fetched/updated emote data.
+   -  Publishes `EmoteSetUpdateEvent` to the `EventBus`.
+   -  Manages active provider subscriptions.
 
 -  **`EmoteRegistry`:**
 
    -  Central storage for `EmoteSet`s and `Emote`s.
-   -  Stores sets mapped from the `emoteContextKey` that fetched them (`emoteContextKeyToSetIds`).
-   -  Stores individual emotes keyed uniquely (`emotes`) and potentially by name (`emotesByName`).
-   -  Provides methods to add/update (`addOrUpdateEmoteSet`) and remove emote data.
-   -  Provides efficient lookup of emotes by name within specific contexts (`getEmoteByName`), using the relevant `emoteContextKey`s provided by the pipeline.
+   -  Stores sets mapped from the `emoteContextKey` that fetched them.
+   -  Provides efficient lookup of emotes by name within specific contexts (`getEmoteByName`), used by the pipeline.
    -  Provides retrieval of all sets relevant to given contexts (`getAllEmoteSetsForContexts`).
 
 -  **`IEmoteProvider` (Interface):**
-   -  Defines the contract for emote providers (e.g., `SeventvEmoteProvider`, `KickEmoteProvider`).
-   -  Specifies `fetchEmotes(request: EmoteFetchRequest)` to get initial emote sets based on the request definition.
-   -  Optionally defines `subscribeToUpdates` and `unsubscribeFromUpdates` allowing `EmoteManager` to delegate background monitoring. The provider uses a callback (`updateCallback`) to notify `EmoteManager` of changes using an `EmoteSetUpdate` object.
-   -  Optionally defines `canHandleRequest` to help route requests.
+   -  Defines the contract for emote providers.
+   -  Specifies methods for fetching and optionally subscribing to emote updates.
 
 ### 3. Content Script (`ContentScriptUI` Namespace)
 
 -  **`ContentScriptManager`:**
 
-   -  Runs within the context of a web page (e.g., Twitch tab).
-   -  Detects the current context (`RoomIdentifier`) and determines the required `EmoteFetchRequest`s.
-   -  Generates a unique `emoteScopeId` (e.g., using ULID).
-   -  Establishes and maintains a persistent connection (`Port`) to the `ClientConnectionManager` in the Service Worker.
-   -  Sends messages to the Service Worker (which are handled by `ClientMessageHandler`):
-      -  `registerSessionScope(scopeId)`
-      -  `subscribeToRoom(roomIdentifier, scopeId)`
-      -  `addEmoteSourceToScope(scopeId, request)` for each required `EmoteFetchRequest`.
-   -  Receives processed messages and events (`EmoteSetUpdateEvent`, etc.) broadcast by the `ClientEventNotifier`.
+   -  Runs within the context of a web page.
+   -  Detects context, generates `emoteScopeId`, determines required `EmoteFetchRequest`s.
+   -  Establishes and maintains a `Port` connection to the Service Worker.
+   -  Sends messages to the Service Worker (`registerSessionScope`, `subscribeToRoom`, `addEmoteSourceToScope`).
+   -  Receives final processed messages (`ProcessedChatMessageData`) and other events broadcast by the `ClientEventNotifier`.
    -  Manages the `MessageFeedView` UI component.
 
 -  **`MessageFeedView`:**
-   -  The UI component (e.g., SolidJS) responsible for rendering the chat overlay.
-   -  Receives processed messages, emote updates, and other events from the `ContentScriptManager` to update the display.
+   -  The UI component responsible for rendering the chat overlay.
+   -  Receives `ProcessedChatMessageData`, emote updates, etc., from the `ContentScriptManager` to update the display.
 
 ### 4. Platform Adapters (e.g., `TwitchPlatformAdapter`)
 
 -  Platform-specific implementations responsible for:
-   -  Connecting to the platform's data sources (API, WebSocket, etc.) based on `SubscriptionIntent`.
-   -  Parsing raw platform data into standardized internal events (e.g., `ChatMessageReceivedEvent`, `ChannelEventReceivedEvent`), using the correct `roomId`.
-   -  Publishing these events onto the `EventBus`.
+   -  Connecting to the platform's data sources.
+   -  Parsing raw platform data, extracting user info and platform entitlements.
+   -  Finding the correct `RoomSubscription` (via `ClientSubscriptionManager`) and updating its `UserStore` with the latest user state.
+   -  Publishing _raw_ standardized internal events (e.g., `ChatMessageReceivedEvent`) onto the `EventBus`.
    -  Exposing capabilities (`PlatformCapabilities`).
-   -  Treated largely as black boxes by the core system.
 
 ## Data Structures & Storage (Overview)
 
-This section provides a brief overview of key data structures. **See `architecture_datatypes.puml` for detailed definitions and relationships.** Note that `UserStore`, `RoomSubscription`, and `MessageStore` are defined within the `ServiceWorker.Core` package in the diagram.
+This section provides a brief overview of key data structures. **See `architecture_datatypes.puml` for detailed definitions and relationships.**
 
--  **`RoomIdentifier`:** Uniquely identifies a specific chat room instance for subscription management (platform, roomId).
--  **`EmoteScopeState`:** Internal state managed by `EmoteLifecycleManager`, representing a client-defined scope (id, associatedRoomKeys, requestedEmoteContextKeys, isActive).
--  **`EmoteFetchRequest`:** Defines an emote source/context to be fetched by a provider (contextType, identifiers, targetProvider). An `emoteContextKey` is derived from this.
--  **`RoomSubscription`:** (Defined in `ServiceWorker.Core`) Represents an active subscription to a specific room, managed by `ClientSubscriptionManager`. Contains connected `ports`, the room's `MessageStore`, `activeUserIds`, and the associated `emoteScopeId`.
--  **`MessageStore`:** (Defined in `ServiceWorker.Core`) Stores `MessageFeedEntry` objects for a single `RoomSubscription`. Its lifecycle is tied to its parent `RoomSubscription`.
--  **`User`:** Represents a chat user, stored globally within the `UserStore`. Contains `userId`, `displayName`, `entitlements`, and `roomSubscriptionRefCount`.
--  **`MessageFeedEntry`:** Represents a raw message or event entry from a platform feed before processing, includes `senderUserId`.
--  **`ProcessedData`:** Contains the result of processing a `MessageFeedEntry`, typically including display parts.
--  **Events (`BaseEvent`, `ChatMessageReceivedEvent`, etc.):** Standardized objects published on the `EventBus`. `BaseEvent` uses `roomId`.
--  **`Emote`, `EmoteSet`:** Standardized structures for representing emotes and collections of emotes. `EmoteSet` contains `Emote`s.
--  **`EmoteSetUpdate`:** Contains details about changes to emote sets, used in provider callbacks and `EmoteSetUpdateEvent`. May include the `emoteContextKey` of the source that updated.
--  **`ParsingContext`:** Context provided during message processing, includes `roomId`, `platform`, and `emoteScopeId`.
+-  **`RoomIdentifier`:** Uniquely identifies a specific chat room instance.
+-  **`EmoteScopeState`:** Internal state managed by `EmoteLifecycleManager`, representing a client-defined scope.
+-  **`EmoteFetchRequest`:** Defines an emote source/context to be fetched. An `emoteContextKey` is derived from this.
+-  **`RoomSubscription`:** Represents an active subscription to a room. Contains `ports`, `emoteScopeId`, `UserStore`, `MessageStore`, `LRUMessageCache`. Managed by `ClientSubscriptionManager`.
+-  **`UserStore` (Room Scoped):** Stores `User` objects for a single room.
+-  **`MessageStore` (Room Scoped):** Stores raw `MessageFeedEntry` objects for a single room.
+-  **`LRUMessageCache` (Room Scoped):** Stores `ProcessedChatMessageData` for a single room.
+-  **`User`:** Represents a chat user within a room's context. Contains `userId`, `displayName`, and `platformEntitlements`. Stored in `UserStore`.
+-  **`PlatformEntitlementData`:** Represents a single platform entitlement (badge, cosmetic).
+-  **`MessageFeedEntry`:** Represents a _raw_ message or event entry from a platform feed before processing. Includes `senderUserId`, content, timestamp.
+-  **`ProcessedChatMessageData`:** Contains the result of processing a `MessageFeedEntry` via the pipeline. Includes display parts, combined platform entitlements, and any third-party cosmetics. Stored in `LRUMessageCache`.
+-  **Events (`BaseEvent`, `ChatMessageReceivedEvent`, `EmoteSetUpdateEvent`, `ReadyToBroadcastMessageEvent`, etc.):** Standardized objects published on the `EventBus`. `ChatMessageReceivedEvent` is raw. `ReadyToBroadcastMessageEvent` contains the final `ProcessedChatMessageData`.
+-  **`Emote`, `EmoteSet`:** Standardized structures for representing emotes and collections.
+-  **`EmoteSetUpdate`:** Contains details about changes to emote sets.
 
 ## Key Workflows
 
 1. **Client Connection & Subscription:**
 
-   -  `ContentScriptManager` detects context (`RoomIdentifier`, required `EmoteFetchRequest`s).
-   -  Generates unique `emoteScopeId`.
-   -  Connects to `ClientConnectionManager` via `Port`.
-   -  `ClientConnectionManager` establishes the connection.
-   -  `ContentScriptManager` sends `registerSessionScope(emoteScopeId)`.
-   -  `ContentScriptManager` sends `subscribeToRoom(roomIdentifier, emoteScopeId)`.
-   -  `ContentScriptManager` sends `addEmoteSourceToScope(emoteScopeId, request)` for each required `EmoteFetchRequest`.
-   -  `ClientConnectionManager` receives messages, forwards them to `ClientMessageHandler`.
-   -  `ClientMessageHandler` delegates:
-      -  `registerSessionScope` -> `EmoteLifecycleManager.registerSessionScope`.
-      -  `subscribeToRoom` -> `ClientSubscriptionManager.addSubscription` (creates `RoomSubscription` with `MessageStore`) AND `EmoteLifecycleManager.associateRoom`.
-      -  `addEmoteSourceToScope` -> `EmoteLifecycleManager.addEmoteSourceToScope`.
-   -  `EmoteLifecycleManager`:
-      -  Creates/updates `EmoteScopeState`.
-      -  Tracks `roomKey` -> `scopeId` mapping.
-      -  Generates `emoteContextKey` from request, adds to scope's `requestedEmoteContextKeys`.
-      -  If scope becomes active OR key is added to active scope, calls `_incrementEmoteContextRef`.
-      -  If `_incrementEmoteContextRef` causes count 0->1, calls `EmoteManager.subscribeToEmoteSource(request)`.
-   -  `EmoteManager`: Calls provider `fetchEmotes`/`subscribeToUpdates`. Updates `EmoteRegistry` (associating with `emoteContextKey`). Publishes `EmoteSetUpdateEvent`.
+   -  (Largely unchanged) `ContentScriptManager` connects, registers scope, subscribes to room, adds emote sources.
+   -  `ClientMessageHandler` delegates to `EmoteLifecycleManager` and `ClientSubscriptionManager`.
+   -  `ClientSubscriptionManager` creates `RoomSubscription` (including `UserStore`, `MessageStore`, `LRUMessageCache`).
+   -  `EmoteLifecycleManager` manages scope state and triggers `EmoteManager` fetches/subscriptions as needed.
+   -  `PlatformAdapter` is activated for the room if it's the first subscriber.
 
-2. **Receiving & Processing Messages:**
+2. **Receiving & Processing Messages (On-Demand):**
 
-   -  `PlatformAdapter` receives raw data, parses into `ChatMessageReceivedEvent` (with `roomId`), publishes to `EventBus`.
-   -  `MessageFeedProcessorPipeline` receives the event.
-   -  Pipeline gets `emoteScopeId` via `ClientSubscriptionManager.getScopeIdForRoom(roomId)`.
-   -  Pipeline gets relevant `emoteContextKey`s via `EmoteLifecycleManager.getEmoteContextKeysForScope(emoteScopeId)`.
-   -  Pipeline queries `EmoteRegistry.getEmoteByName` using the name and the obtained `emoteContextKey`s.
-   -  Pipeline processes the message (middleware, replacing names with found emotes).
-   -  Pipeline publishes `ProcessedChatMessageEvent` to `EventBus`.
-   -  `ClientEventNotifier` receives the event, finds relevant `Port`(s) via `ClientSubscriptionManager.getPortsForRoom(roomId)`, and sends processed data to `ContentScriptManager`(s).
+   -  `PlatformAdapter` receives raw data, parses user info & platform entitlements.
+   -  `PlatformAdapter` gets `RoomSubscription` via `ClientSubscriptionManager`.
+   -  `PlatformAdapter` calls `roomSubscription.userStore.addOrUpdateUser(...)`.
+   -  `PlatformAdapter` publishes _raw_ `ChatMessageReceivedEvent` (with `roomId`, `messageId`, `senderUserId`, content, etc.) to `EventBus`.
+   -  `MessageProcessorService` receives the raw event.
+   -  `MessageProcessorService` gets `RoomSubscription` via `ClientSubscriptionManager`.
+   -  `MessageProcessorService` checks `roomSubscription.messageCache.get(messageId)`.
+   -  **Cache Hit:** `MessageProcessorService` retrieves `ProcessedChatMessageData` from cache.
+   -  **Cache Miss:**
+      -  `MessageProcessorService` retrieves raw `MessageFeedEntry` from `roomSubscription.messageStore`.
+      -  `MessageProcessorService` retrieves sender's `User` object from `roomSubscription.userStore`.
+      -  `MessageProcessorService` gets `emoteScopeId` from `RoomSubscription`, then `emoteContextKey`s via `EmoteLifecycleManager`.
+      -  `MessageProcessorService` invokes `MessageFeedProcessorPipeline.process(rawMessage, user, keys)`.
+      -  Pipeline executes middleware (using `User` for platform entitlements, `EmoteRegistry` for emotes, third-party state for cosmetics).
+      -  Pipeline returns `ProcessedChatMessageData`.
+      -  `MessageProcessorService` stores result in `roomSubscription.messageCache.set(messageId, processedData)`.
+   -  `MessageProcessorService` publishes `ReadyToBroadcastMessageEvent(roomId, processedData)` to `EventBus`.
+   -  `ClientEventNotifier` receives the ready event.
+   -  `ClientEventNotifier` gets relevant `Port`(s) via `ClientSubscriptionManager.getPortsForRoom(roomId)`.
+   -  `ClientEventNotifier` sends `processedData` to `ContentScriptManager`(s).
    -  `ContentScriptManager` passes data to `MessageFeedView` for rendering.
 
-3. **Storing Messages & Users:**
+3. **Storing Messages:**
 
-   -  _(Triggered by `ChatMessageReceivedEvent` or similar)_: A handler signals `ClientSubscriptionManager` about the new message.
-   -  `ClientSubscriptionManager` identifies the correct `RoomSubscription` (using `roomId`) and calls `addMessage` on its `MessageStore`.
-   -  `ClientSubscriptionManager` checks if the `senderUserId` is new for this `RoomSubscription`. If so, adds to `activeUserIds` and calls `UserStore.incrementRoomSubscriptionRef`.
+   -  `PlatformAdapter` (or another component triggered by the raw event) gets the `RoomSubscription`.
+   -  Calls `roomSubscription.messageStore.addMessage(rawMessageFeedEntry)`.
 
-4. **Emote Updates (Provider Initiated):**
+4. **Emote Updates & Cache Invalidation:**
 
-   -  `IEmoteProvider` detects an update (e.g., via WebSocket).
-   -  Calls the `updateCallback` provided by `EmoteManager`, passing an `EmoteSetUpdate` (ideally linked to the original `emoteContextKey`).
-   -  `EmoteManager` receives the callback, updates the `EmoteRegistry`.
-   -  `EmoteManager` publishes `EmoteSetUpdateEvent` containing the `EmoteSetUpdate`.
-   -  `ClientEventNotifier` receives the event, finds relevant `Port`(s) via `ClientSubscriptionManager`, and relays the event to `ContentScriptManager`(s).
-   -  `ContentScriptManager` updates `MessageFeedView`.
+   -  `IEmoteProvider` detects an update, calls `EmoteManager` callback.
+   -  `EmoteManager` updates `EmoteRegistry`.
+   -  `EmoteManager` publishes `EmoteSetUpdateEvent`.
+   -  `MessageProcessorService` receives `EmoteSetUpdateEvent`.
+   -  `MessageProcessorService` identifies affected rooms/scopes (needs logic, maybe via ELM?).
+   -  For each affected room, `MessageProcessorService` calls `roomSubscription.messageCache.invalidate()`.
+   -  _(Next time a message for that room is needed, it will be a cache miss and reprocessed with updated emotes)._
 
-5. **Entitlement Updates:**
-
-   -  An external source determines a user's entitlements changed.
-   -  It calls `UserStore.updateUserEntitlements`.
-   -  The `User` object in `UserStore` is updated. _(Propagation might involve client re-evaluating required `EmoteFetchRequest`s, potentially creating/populating a new scope or updating the existing one, leading to `EmoteLifecycleManager` adjustments and `EmoteSetUpdateEvent`s)_.
-
-6. **Client Disconnection:**
-   -  `ContentScriptManager` disconnects (`Port` closes).
-   -  `ClientConnectionManager` detects disconnection, calls `ClientSubscriptionManager.removeSubscription(port)`.
-   -  `ClientSubscriptionManager` finds the `RoomSubscription`, gets `roomKey`, removes the `Port`.
-   -  `ClientSubscriptionManager` calls `EmoteLifecycleManager.disassociateRoom(roomKey)`.
-   -  `EmoteLifecycleManager`:
-      -  Removes `roomKey` from scope's `associatedRoomKeys`.
-      -  Removes `roomKey` mapping.
-      -  If scope becomes inactive (`associatedRoomKeys.size === 0`):
-         -  Iterates `requestedEmoteContextKeys`, calls `_decrementEmoteContextRef` for each.
-         -  Deletes the scope state.
-      -  If `_decrementEmoteContextRef` causes count 1->0, calls `EmoteManager.unsubscribeFromEmoteSource(request)` (using the request associated with the `emoteContextKey`).
-   -  `ClientSubscriptionManager` (if last port for room):
-      -  Tells `UserStore` to decrement ref counts for `activeUserIds`.
-      -  Discards `MessageStore` and `RoomSubscription`.
+5. **Client Disconnection:**
+   -  `ContentScriptManager` disconnects.
+   -  `ClientConnectionManager` calls `ClientSubscriptionManager.removeSubscription(port)`.
+   -  `ClientSubscriptionManager` removes port, calls `EmoteLifecycleManager.disassociateRoom(roomKey)`.
+   -  `EmoteLifecycleManager` updates scope state, potentially triggers `EmoteManager.unsubscribeFromEmoteSource`.
+   -  `ClientSubscriptionManager` (if last port for room): Discards the entire `RoomSubscription` object (including its `UserStore`, `MessageStore`, `LRUMessageCache`). Deactivates `PlatformAdapter` if needed.
 
 ## Assumptions & Considerations
 
--  **Service Worker Lifetime:** Relies heavily on active `Port` connections. Robust heartbeat or alternative keep-alive mechanisms might be needed.
--  **Storage Limits:** Service Worker storage has limits. Consider strategies for pruning old messages or handling large user/emote data (e.g., IndexedDB, LRU cache).
--  **`EmoteLifecycleManager` Complexity:** Correctly managing scope states, room associations, emote context reference counts, and triggering manager actions requires careful implementation.
--  **`_generateEmoteContextKey` Reliability:** The function to generate a unique, stable key from an `EmoteFetchRequest` must be robust (e.g., handle identifier order).
--  **`EmoteRegistry` Complexity:** Querying efficiently based on multiple `emoteContextKey`s needs consideration. Handling removal/updates of potentially shared `EmoteSet`s needs care.
--  **Error Handling:** Robust error handling for connections, message processing, emote fetching/subscription, and storage operations is crucial.
+-  **Service Worker Lifetime:** Still relies on active `Port` connections or other keep-alive.
+-  **Storage Limits:** Service Worker storage has limits. `MessageStore` holds raw data. `UserStore` holds state per user per room. `LRUMessageCache` adds overhead. Consider pruning/limits for all. IndexedDB might be necessary for larger stores.
+-  **Complexity:** This model is more complex due to on-demand processing, caching, and invalidation logic within `MessageProcessorService`.
+-  **Cache Invalidation Logic:** Determining exactly which caches to invalidate on `EmoteSetUpdateEvent` needs careful implementation (mapping event context to rooms/scopes).
+-  **`EmoteLifecycleManager` Complexity:** Remains complex.
+-  **`_generateEmoteContextKey` Reliability:** Still crucial.
+-  **`EmoteRegistry` Complexity:** Remains complex.
+-  **Error Handling:** Robust error handling is crucial throughout the new processing flow.
+-  **Third-Party Cosmetics:** Handled via pipeline middleware accessing decentralized state. Cache invalidation for _third-party_ state changes (e.g., user equips new 7TV cosmetic) needs consideration (e.g., third-party module publishes an event that MPS listens for to invalidate specific user entries in cache, or full cache invalidation).

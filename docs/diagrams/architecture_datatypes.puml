@@ -99,24 +99,47 @@ class EmoteFetchRequest <<datatype>> {
 }
 note top of EmoteFetchRequest : Defines an emote source/context
 
+class PlatformEntitlementData <<datatype>> {
+    + type: string ' e.g., "badge", "name_paint"
+    + id: string   ' e.g., "moderator", "vip"
+    + url?: string ' For badges
+    + data?: any  ' For other cosmetics like name paint color
+}
+note top of PlatformEntitlementData : Represents a single platform entitlement (badge, cosmetic)
+
+class User <<datatype>> {
+    + userId: string
+    + displayName: string
+    + platformEntitlements: PlatformEntitlementData[]
+}
+note top of User : Represents a user's state within a specific room scope.\nStored in UserStore.
+
 class MessageFeedEntry <<datatype>> {
     + id: string
     + type: string
     + timestamp: number
     + senderUserId: string
-    + ' ... platform specific raw data?
+    + content: string ' Or structured content
+    + ' ... other platform specific raw data?
 }
-class ProcessedData <<datatype>> {
-    + originalEntry: MessageFeedEntry
-    + displayParts: any[] ' Or specific type
+note top of MessageFeedEntry : Represents a RAW message entry from the platform feed.\nStored in MessageStore.
+
+class ProcessedChatMessageData <<datatype>> {
+    + originalMessageId: string
+    + sender: User ' Snapshot of sender state at processing time
+    + displayParts: any[] ' e.g., text, emotes, badges
+    + timestamp: number
+    + ' ... other processed metadata?
 }
+note top of ProcessedChatMessageData : Result of processing a raw message via the pipeline.\nContains combined entitlements/cosmetics.\nStored in LRUMessageCache and sent to clients.
+
 class EmoteSetUpdate <<datatype>> {
     + requestKey?: string
     + addedSets?: EmoteSet[]
     + removedSets?: EmoteSet[]
     + updatedSets?: EmoteSet[]
 }
-note top of EmoteSetUpdate : Updated to link to requestKey?
+note top of EmoteSetUpdate : Data about emote set changes.
 
 class MessageFeedConnectionConfig <<datatype>> {
     + type: string
@@ -141,21 +164,29 @@ class BaseEvent <<datatype>> {
 }
 class ChatMessageReceivedEvent <<datatype>> {
     + type: "ChatMessageReceived"
-    + message: MessageFeedEntry
+    + messageId: string
+    + senderUserId: string
+    ' Minimal info needed to trigger processing
 }
+note top of ChatMessageReceivedEvent : Signals a raw message arrived. Minimal data.\nTriggers MessageProcessorService.
+
 class ChannelEventReceivedEvent <<datatype>> {
     + type: "ChannelEventReceived"
     + event: ChannelEvent
 }
-class ProcessedChatMessageEvent <<datatype>> {
-    + type: "ProcessedChatMessage"
-    + processedData: ProcessedData
+' ProcessedChatMessageEvent removed
+
+class ReadyToBroadcastMessageEvent <<datatype>> {
+    + type: "ReadyToBroadcastMessage"
+    + processedData: ProcessedChatMessageData
 }
+note top of ReadyToBroadcastMessageEvent : Signals a message is processed and ready for broadcast.\nContains the final data. Triggers ClientEventNotifier.
+
 class EmoteSetUpdateEvent <<datatype>> {
     + type: "EmoteSetUpdate"
     + update: EmoteSetUpdate
 }
-note top of EmoteSetUpdateEvent : Signals that emotes relevant to a context (requestKey) have changed.
+note top of EmoteSetUpdateEvent : Signals that emotes relevant to a context (requestKey) have changed.\nTriggers MessageProcessorService for cache invalidation.
 
 class ConnectionErrorEvent <<datatype>> {
     + type: "ConnectionError"
@@ -173,11 +204,13 @@ class ConnectionDataCallbacks <<datatype>> {
     + onError: (error: any) => void
     + onClose: () => void
 }
-class ParsingContext <<datatype>> {
-    + roomId: string
-    + platform: string
-    + emoteScopeId: string ' Added
+class PipelineContext <<datatype>> {
+    + rawMessage: MessageFeedEntry
+    + sender: User
+    + emoteContextKeys: Set<string>
 }
+note top of PipelineContext : Input context for MessageFeedProcessorPipeline.process()
+
 class SubscriptionIntent <<datatype>> {
     + type: string
     + identifiers: Map<string, string>
@@ -188,36 +221,35 @@ class PlatformCapabilities <<datatype>> {
     + requiredIdentifiers: string[]
     + optionalFeatures: string[]
 }
+
+class UserStore <<Room Scoped>> {
+    - users: Map<string, User>
+    + getUser(userId: string): User | undefined
+    + addOrUpdateUser(userId: string, displayName: string, entitlements: PlatformEntitlementData[])
+}
+note top of UserStore : Stores User state per room.
+
+class LRUMessageCache <<Room Scoped>> {
+    + get(messageId: string): ProcessedChatMessageData | undefined
+    + set(messageId: string, data: ProcessedChatMessageData)
+    + invalidate()
+    + invalidateUser?(userId: string)
+}
+note top of LRUMessageCache : Caches processed message data per room.
+
 class RoomSubscription <<datatype>> {
     + ports: Set<Port>
     + messageStore: MessageStore
-    + activeUserIds: Set<string>
-    + emoteScopeId: string ' Added
+    + userStore: UserStore
+    + messageCache: LRUMessageCache
+    + emoteScopeId: string
 }
-class MessageStore {
+class MessageStore <<Room Scoped>> {
     + addMessage(msg: MessageFeedEntry)
-    + getHistory(start: number, end: number): MessageFeedEntry[]
+    + getMessage(messageId: string): MessageFeedEntry | undefined
+    + getHistory(limit: number): MessageFeedEntry[]
 }
-note top of MessageStore : Holds message data for a RoomSubscription
-
-class UserStore {
-    - users: Map<string, User>
-    + getUser(userId: string): User
-    + incrementRoomSubscriptionRef(userId: string)
-    + decrementRoomSubscriptionRef(userId: string)
-    + updateUserEntitlements(userId: string, entitlements: Entitlement[])
-}
-note top of UserStore : Global store for User data and entitlements
-
-class User <<datatype>> {
-    + userId: string
-    + displayName: string
-    + entitlements: Entitlement[]
-    + roomSubscriptionRefCount: number
-}
-class Entitlement <<datatype>> {
-    + kind: string
-}
+note top of MessageStore : Holds raw message data for a RoomSubscription.
 
 ' --- Internal Data Type Relationships ---
 
@@ -231,8 +263,8 @@ note left of ChatMessageReceivedEvent : Extends BaseEvent
 ChannelEventReceivedEvent --|> BaseEvent
 note left of ChannelEventReceivedEvent : Extends BaseEvent
 
-ProcessedChatMessageEvent --|> BaseEvent
-note left of ProcessedChatMessageEvent : Extends BaseEvent
+ReadyToBroadcastMessageEvent --|> BaseEvent
+note left of ReadyToBroadcastMessageEvent : Extends BaseEvent
 
 EmoteSetUpdateEvent --|> BaseEvent
 
@@ -243,6 +275,8 @@ ConnectionClosedEvent --|> BaseEvent
 note left of ConnectionClosedEvent : Extends BaseEvent
 
 RoomSubscription *-- MessageStore : owns
+RoomSubscription *-- UserStore : owns
+RoomSubscription *-- LRUMessageCache : owns
 UserStore "1" *-- "*" User : stores
 
 ' Relationship from EmoteScopeState (defined in main diagram) to RoomSubscription

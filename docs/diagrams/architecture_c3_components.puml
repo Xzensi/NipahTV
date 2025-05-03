@@ -72,7 +72,7 @@ skinparam padding 12
 skinparam wrapWidth 200
 skinparam maxMessageSize 150
 
-title Component Diagram for NipahTV Service Worker (Level 3)
+title Component Diagram for Service Worker (Level 3 - On-Demand Processing)
 
 ' External Systems / Actors
 Person_Ext(user, "User", "Uses the platform (e.g., Kick)")
@@ -90,19 +90,28 @@ Container_Boundary(serviceWorker, "NipahTV Service Worker") {
     Component(orchestrator, "ServiceWorkerOrchestrator", "Initializes core services")
     Component(connectionManager, "ClientConnectionManager", "Manages client Port connections")
     Component(messageHandler, "ClientMessageHandler", "Routes incoming client messages")
-    Component(eventNotifier, "ClientEventNotifier", "Broadcasts internal events to clients")
+    Component(eventNotifier, "ClientEventNotifier", "Subscribes to ReadyToBroadcastMessageEvent, broadcasts final processed data to clients")
     Component(eventBus, "EventBus", "Internal pub/sub for decoupled communication")
-    Component(clientSubManager, "ClientSubscriptionManager", "Manages room subscriptions, client ports, and scope associations")
+    Component(clientSubManager, "ClientSubscriptionManager", "Manages RoomSubscriptions (incl. UserStore, MessageStore, LRUMessageCache), client ports, scope associations")
+    Component(messageProcessor, "MessageProcessorService", "Orchestrates on-demand message processing, caching, and cache invalidation")
+    Component(pipeline, "MessageFeedProcessorPipeline", "Invoked on-demand by MessageProcessorService, processes raw message using User data and Emote context")
+
+    ' Emote System Components
     Component(emoteLifecycleManager, "EmoteLifecycleManager", "Manages EmoteScope lifecycles & EmoteFetchRequest reference counting")
     Component(emoteManager, "EmoteManager", "Orchestrates provider interactions (fetch/subscribe) based on lifecycle manager calls")
-    ComponentDb(emoteRegistry, "EmoteRegistry", "TypeScript, Map/Memory", "Stores fetched EmoteSets and Emotes, provides lookup")
-    Component(pipeline, "MessageFeedProcessorPipeline", "Processes incoming chat messages, replaces emote names")
-    ComponentDb(userStore, "UserStore", "TypeScript, Map/Memory", "Stores user data and entitlements")
+    ComponentDb(emoteRegistry, "EmoteRegistry", "Map/Memory", "Stores fetched EmoteSets and Emotes, provides lookup")
 
     ' Adapter/Provider Components (Representing Groups)
-    Component(platformAdapters, "Platform Adapters", "Connects to specific platforms, parses data, publishes events")
+    Component(platformAdapters, "Platform Adapters", "Connects to platforms, parses data, updates room's UserStore, publishes RAW events")
     Component(emoteProviders, "Emote Providers", "Implements IEmoteProvider, fetches/subscribes to external emote services")
 
+    note right of clientSubManager
+        Manages RoomSubscription instances.
+        Each RoomSubscription contains:
+        - UserStore (Room-specific user state/entitlements)
+        - MessageStore (Raw messages)
+        - LRUMessageCache (Processed messages)
+    end note
 }
 
 ' Relationships within Service Worker
@@ -115,13 +124,12 @@ Rel(connectionManager, clientSubManager, "Notifies disconnect")
 Rel(messageHandler, clientSubManager, "Delegates subscription requests")
 Rel(messageHandler, emoteLifecycleManager, "Delegates registerSessionScope, etc.")
 
-' Event Broadcasting Flow
-Rel(eventNotifier, eventBus, "Subscribes to internal events")
+' Event Broadcasting Flow (Simplified)
+Rel(eventNotifier, eventBus, "Subscribes to ReadyToBroadcastMessageEvent")
 Rel(eventNotifier, clientSubManager, "Gets ports for room")
 
 ' Subscription Management
 Rel(clientSubManager, emoteLifecycleManager, "Notifies on room disassociation")
-Rel(clientSubManager, userStore, "Updates user ref counts")
 
 ' Emote System Flow
 Rel(emoteLifecycleManager, emoteManager, "Triggers subscribeToEmoteSource / unsubscribeFromEmoteSource")
@@ -130,22 +138,21 @@ Rel(emoteManager, emoteRegistry, "Updates with fetched data")
 Rel(emoteManager, eventBus, "Publishes EmoteSetUpdateEvent")
 Rel(emoteProviders, emoteManager, "Sends updates via callback")
 
-' Message Processing Flow
-Rel(pipeline, eventBus, "Subscribes to ChatMessageReceivedEvent, Publishes ProcessedChatMessageEvent")
-Rel(pipeline, clientSubManager, "Gets scopeId for room")
-Rel(pipeline, emoteLifecycleManager, "Gets emoteContextKeys for scope")
-Rel(pipeline, emoteRegistry, "Queries emotes by name")
+' Message Processing Flow (On-Demand)
+Rel(messageProcessor, eventBus, "Subscribes to ChatMessageReceivedEvent, EmoteSetUpdateEvent")
+Rel(messageProcessor, clientSubManager, "Gets RoomSubscription (UserStore, MessageStore, Cache)")
+Rel(messageProcessor, emoteLifecycleManager, "Gets emoteContextKeys for scope")
+Rel(messageProcessor, pipeline, "Invokes processing")
+Rel(messageProcessor, eventBus, "Publishes ReadyToBroadcastMessageEvent")
 
 ' Platform Adapters
-Rel(platformAdapters, eventBus, "Publishes ChatMessageReceivedEvent, etc.")
-
-' Data Stores
-' Note: UserStore primarily managed/updated via ClientSubManager based on room activity.
+Rel(platformAdapters, eventBus, "Publishes RAW ChatMessageReceivedEvent, etc.")
+Rel(platformAdapters, clientSubManager, "Gets RoomSubscription (to update UserStore)")
 
 ' External Relationships
 Rel(user, contentScript, "Interacts with")
-Rel(contentScript, connectionManager, "Connects via Port, Sends Requests (registerSessionScope, subscribeToRoom, addEmoteSourceToScope)", "chrome.runtime.Port")
-Rel(eventNotifier, contentScript, "Sends Processed Messages & Events", "chrome.runtime.Port")
+Rel(contentScript, connectionManager, "Connects via Port, Sends Requests", "chrome.runtime.Port")
+Rel(eventNotifier, contentScript, "Sends Processed Messages", "chrome.runtime.Port")
 
 Rel(platformAdapters, platformServices, "Connects to, Fetches data from", "HTTPS/WSS")
 Rel(emoteProviders, emoteProviderServices, "Fetches data from, Subscribes to", "HTTPS/WSS")
