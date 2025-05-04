@@ -88,7 +88,7 @@ System_Boundary(browserTab, "Browser Tab") {
 Container_Boundary(serviceWorker, "NipahTV Service Worker") {
 
     ' Core Components
-    Component(orchestrator, "ServiceWorkerOrchestrator", "Initializes core services, instantiates Providers & Integration Managers, registers middleware")
+    Component(orchestrator, "ServiceWorkerOrchestrator", "Initializes core services (incl. Core DB), instantiates Providers & Integration Managers, registers middleware")
     Component(connectionManager, "ClientConnectionManager", "Manages client Port connections")
     Component(messageHandler, "ClientMessageHandler", "Routes incoming client messages (incl. addEmoteSourceToRoom)")
     Component(eventNotifier, "ClientEventNotifier", "Subscribes to ReadyToBroadcastMessageEvent, broadcasts final processed data to clients")
@@ -96,6 +96,7 @@ Container_Boundary(serviceWorker, "NipahTV Service Worker") {
     Component(clientSubManager, "ClientSubscriptionManager", "Manages RoomSubscriptions, notifies other components on creation/destruction")
     Component(messageProcessor, "MessageProcessorService", "Orchestrates on-demand message processing, caching, and cache invalidation")
     Component(pipeline, "MessageFeedProcessorPipeline", "Applies registered middleware (emotes, 3rd-party cosmetics) to messages")
+    ComponentDb(coreDb, "Core Database", "Dexie/IndexedDB", "Stores core application settings and persistent data")
 
     ' Emote System Components
     Component(emoteLifecycleManager, "EmoteLifecycleManager", "Manages EmoteFetchRequest reference counting based on active RoomSubscription needs")
@@ -105,7 +106,8 @@ Container_Boundary(serviceWorker, "NipahTV Service Worker") {
     ' Adapter/Provider/Integration Components (Representing Groups)
     Component(platformAdapters, "Platform Adapters", "Connects to platforms, parses data, updates room's UserStore, publishes RAW events")
     Component(emoteProviders, "Emote Providers", "Implements IEmoteProvider, fetches/subscribes to external emote services")
-    Component(seventvIntManager, "7TV Integration Manager", "Manages 7TV WS connection, state (cosmetics), and provides pipeline middleware")
+    Component(seventvIntManager, "7TV Integration Manager", "Manages 7TV WS connection, state (cosmetics), provides pipeline middleware, and owns 7TV DB")
+    ComponentDb(seventvDb, "7TV Database", "Dexie/IndexedDB", "Stores 7TV-specific data (tokens, settings)")
 
     note right of clientSubManager
         Manages RoomSubscription instances.
@@ -123,6 +125,7 @@ Rel(orchestrator, emoteProviders, "Instantiates")
 Rel(orchestrator, seventvIntManager, "Instantiates & Initializes")
 Rel(orchestrator, emoteManager, "Registers Emote Providers")
 Rel(orchestrator, pipeline, "Registers Middleware (from 7TV Int Mgr, etc.)")
+Rel(orchestrator, coreDb, "Manages & Initializes")
 
 ' Client Connection Flow
 Rel(connectionManager, messageHandler, "Forwards messages")
@@ -151,6 +154,7 @@ Rel(eventBus, emoteProviders, "Delivers RoomSubscriptionDestroyedEvent") ' For p
 
 ' 7TV Integration Flow
 Rel(seventvIntManager, eventBus, "Subscribes to RoomSubscriptionDestroyedEvent") ' For cleanup/WS unsubscribe
+Rel(seventvIntManager, seventvDb, "Manages, Initializes & Uses")
 ' Note: Pipeline uses middleware provided by seventvIntManager, which accesses its state.
 
 ' Message Processing Flow (On-Demand)
@@ -159,6 +163,7 @@ Rel(messageProcessor, clientSubManager, "Gets RoomSubscription (UserStore, Messa
 Rel(messageProcessor, emoteLifecycleManager, "Gets emoteContextKeys for room")
 Rel(messageProcessor, pipeline, "Invokes processing")
 Rel(messageProcessor, eventBus, "Publishes ReadyToBroadcastMessageEvent")
+' Rel(messageProcessor, coreDb, "Reads settings") ' Potential future use
 
 ' Platform Adapters
 Rel(platformAdapters, eventBus, "Publishes RAW ChatMessageReceivedEvent, etc.")

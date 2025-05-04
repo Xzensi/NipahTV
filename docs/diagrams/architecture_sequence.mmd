@@ -15,12 +15,16 @@ sequenceDiagram
     participant SW_MsgProcessor as SW: Message Processor Service
     participant SW_Pipeline as SW: Processing Pipeline
     participant SW_Notifier as SW: Client Notifier
+    participant SW_CoreDB as SW: Core Database Service
+    participant SW_7TV_DB as SW: 7TV Database Service
     participant PlatformService as External Platform Service
     participant EmoteProviderServices as External Emote Services (7TV API, Kick API)
     participant Ext_7TV_EventService as External 7TV Event Service (WS)
 
     %% Initialization Phase %%
     Note over SW_Orchestrator, SW_Pipeline: Service Worker Starts - Initialization
+    SW_Orchestrator->>+SW_CoreDB: new() & init()
+    SW_CoreDB-->>-SW_Orchestrator: coreDbService
     SW_Orchestrator->>+SW_EmoteProvider_7TV: new()
     SW_EmoteProvider_7TV-->>-SW_Orchestrator: provider7TV
     SW_Orchestrator->>+SW_EmoteProvider_Kick: new()
@@ -33,6 +37,8 @@ sequenceDiagram
     SW_EmoteManager-->>-SW_Orchestrator: (ack)
     SW_Orchestrator->>+SW_7TV_IntMgr: init()
     activate SW_7TV_IntMgr
+    SW_7TV_IntMgr->>+SW_7TV_DB: new() & init()
+    SW_7TV_DB-->>-SW_7TV_IntMgr: seventvDbService
     SW_7TV_IntMgr->>+Ext_7TV_EventService: Connect WebSocket
     Ext_7TV_EventService-->>-SW_7TV_IntMgr: WebSocket Connected
     SW_7TV_IntMgr-->>-SW_Orchestrator: (ack)
@@ -113,6 +119,8 @@ sequenceDiagram
     Ext_7TV_EventService->>SW_7TV_IntMgr: WS Message (User U1 cosmetic update)
     activate SW_7TV_IntMgr
     SW_7TV_IntMgr->>SW_7TV_IntMgr: Parse WS message, update internal state for U1
+    SW_7TV_IntMgr->>+SW_7TV_DB: setCosmeticSetting(U1, ...)
+    SW_7TV_DB-->>-SW_7TV_IntMgr: (ack)
     deactivate SW_7TV_IntMgr
     %% Note: This might trigger cache invalidation via EventBus if needed %%
 
@@ -201,6 +209,8 @@ sequenceDiagram
         Note over SW_Pipeline: Applying 7TV Middleware...
         SW_Pipeline->>SW_7TV_IntMgr: getCosmetics(U1) %% Middleware calls Manager %%
         activate SW_7TV_IntMgr
+        SW_7TV_IntMgr->>+SW_7TV_DB: getCosmeticSetting(U1, ...) %% Read from DB %%
+        SW_7TV_DB-->>-SW_7TV_IntMgr: User U1's 7TV cosmetics (from DB)
         SW_7TV_IntMgr-->>SW_Pipeline: User U1's 7TV cosmetics
         deactivate SW_7TV_IntMgr
         Note over SW_Pipeline: Applies cosmetics to message data...

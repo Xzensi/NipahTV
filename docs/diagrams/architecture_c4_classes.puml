@@ -21,6 +21,7 @@ allowmixing
 !$color_note_border    = "#75715E"
 !$color_note_font      = "#F8F8F2"
 !$color_ext_system_bg  = "#5D2E4F"
+!$color_db_service_bg  = "#2D5A5A"
 
 skinparam {
     ' roundCorner 10
@@ -78,6 +79,13 @@ skinparam class<<datatype>> {
     StereotypeFontColor $color_accent_orange
 }
 
+skinparam class<<DatabaseService>> {
+    BackgroundColor $color_db_service_bg
+    BorderColor $color_accent_blue
+    StereotypeFontColor $color_accent_orange
+}
+
+
 skinparam rectangle<<System_Boundary>><<Container_Boundary>> {
     BorderColor $color_accent_purple
     FontColor $color_accent_purple
@@ -107,7 +115,7 @@ package ServiceWorker {
         class ServiceWorkerOrchestrator {
             + init()
         }
-        note top of ServiceWorkerOrchestrator : Initializes and owns core services.\nInstantiates Emote Providers & registers them with EmoteManager.\nInstantiates Integration Managers (e.g., 7TV) & registers their middleware with Pipeline.
+        note top of ServiceWorkerOrchestrator : Initializes and owns core services (incl. CoreDatabaseService).\nInstantiates Emote Providers & registers them with EmoteManager.\nInstantiates Integration Managers (e.g., 7TV) & registers their middleware with Pipeline.
 
         class ClientConnectionManager {
              + handleConnection(port: Port)
@@ -184,6 +192,15 @@ package ServiceWorker {
              + getHistory(limit: number): MessageFeedEntry[]
         }
         note top of MessageStore : Stores raw MessageFeedEntry objects for a single RoomSubscription.\nLifecycle tied to the RoomSubscription.
+
+        class CoreDatabaseService <<DatabaseService>> {
+            - db: Dexie ' Dexie instance for core data
+            + init()
+            + getSetting(key: string): Promise<any>
+            + setSetting(key: string, value: any): Promise<void>
+            ' ... other core data access methods
+        }
+        note top of CoreDatabaseService : Manages the Dexie (IndexedDB) instance for core application data (e.g., settings). Provides typed access methods.
 
     }
 
@@ -271,7 +288,16 @@ package ServiceWorker {
             - handleWebSocketMessage(event: MessageEvent)
             - handleRoomSubscriptionDestroyed(event: RoomSubscriptionDestroyedEvent)
         }
-        note top of SeventvIntegrationManager : Manages 7TV WebSocket connection (events.7tv.io),\nreceives async updates (cosmetics, entitlements),\nmaintains internal state, provides middleware for Pipeline.
+        note top of SeventvIntegrationManager : Manages 7TV WebSocket connection (events.7tv.io),\nreceives async updates (cosmetics, entitlements),\nmaintains internal state, provides middleware for Pipeline.\nOwns and uses SeventvDatabaseService.
+
+        class SeventvDatabaseService <<DatabaseService>> {
+            - db: Dexie ' Dexie instance for 7TV data
+            + init()
+            + getCosmeticSetting(userId: string, key: string): Promise<any>
+            + setCosmeticSetting(userId: string, key: string, value: any): Promise<void>
+            ' ... other 7TV data access methods
+        }
+        note top of SeventvDatabaseService : Manages the Dexie (IndexedDB) instance for 7TV integration data (e.g., tokens, settings). Provides typed access methods.
     }
 }
 
@@ -309,6 +335,7 @@ ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.Emote
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteManager : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.MessageFeedProcessorPipeline : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.EventBus : manages
+ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.CoreDatabaseService : manages & inits ' Added DB Service
 ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider : instantiates
 ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteProviderImplementations.KickEmoteProvider : instantiates
 ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager : instantiates & inits
@@ -333,6 +360,7 @@ ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.ClientSubscrip
 ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : gets emoteContextKeys for room
 ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.MessageFeedProcessorPipeline : invokes process()
 ServiceWorker.Core.MessageProcessorService -() PublishesEventBus : publishes ReadyToBroadcastMessageEvent
+' ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.CoreDatabaseService : reads settings? (Potential future use)
 
 ' EventBus Relationships (No direct arrows needed for subscribers/publishers using lollipops)
 
@@ -382,6 +410,8 @@ ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> ServiceWorker.C
 ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
 
 ' ThirdParty Integration Relationships
+ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager o-- ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : manages & inits ' Added DB Service
+ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager ..> ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : uses
 ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager ..> ExtSeventvWS : connects via WebSocket
 
 @enduml
