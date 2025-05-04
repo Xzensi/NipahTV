@@ -1,4 +1,5 @@
 @startuml architecture_classes
+allowmixing
 
 ' Base Colors
 !$color_bg             = "#272822"
@@ -98,15 +99,7 @@ interface SubscribesEventBus {
 }
 
 ' External Systems
-rectangle SeventvEventService <<External_System>> as ExtSeventvWS [
-    **7TV Event Service**
-    ----
-    events.7tv.io
-    ----
-    Provides real-time updates for
-    user entitlements, cosmetics, etc.
-    via WebSocket.
-]
+rectangle "==7TV Event Service\n----\nevents.7tv.io\n----\nProvides real-time updates for\nuser entitlements, cosmetics, etc.\nvia WebSocket." <<External_System>> as ExtSeventvWS
 
 ' High-Level Grouping: Service Worker Internals
 package ServiceWorker {
