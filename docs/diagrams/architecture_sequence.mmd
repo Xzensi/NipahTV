@@ -1,15 +1,34 @@
 sequenceDiagram
     participant CS1 as Content Script 1 (Tab A, room1)
     participant CS2 as Content Script 2 (Tab B, room2)
+    participant SW_Orchestrator as SW: Orchestrator
     participant SW_ConnHandler as SW: Connection Handler
     participant SW_SubManager as SW: Subscription Manager
-    participant SW_EmoteSystem as SW: Emote System (ELM)
+    participant SW_EmoteLifecycleManager as SW: Emote Lifecycle Manager
+    participant SW_EmoteManager as SW: Emote Manager
+    participant SW_EmoteRegistry as SW: Emote Registry
+    participant SW_EmoteProvider_7TV as SW: 7TV Provider
+    participant SW_EmoteProvider_Kick as SW: Kick Provider
     participant SW_PlatformAdapter as SW: Platform Adapter
     participant SW_EventBus as SW: Event Bus
     participant SW_MsgProcessor as SW: Message Processor Service
     participant SW_Pipeline as SW: Processing Pipeline
     participant SW_Notifier as SW: Client Notifier
+    participant SW_ThirdPartyModule as SW: Third Party Module (e.g., 7TV State)
     participant PlatformService as External Platform Service
+    participant EmoteProviderServices as External Emote Services (7TV, Kick)
+
+    %% Initialization Phase %%
+    Note over SW_Orchestrator, SW_EmoteManager: Service Worker Starts - Initialization
+    SW_Orchestrator->>+SW_EmoteProvider_7TV: new()
+    SW_EmoteProvider_7TV-->>-SW_Orchestrator: provider7TV
+    SW_Orchestrator->>+SW_EmoteProvider_Kick: new()
+    SW_EmoteProvider_Kick-->>-SW_Orchestrator: providerKick
+    SW_Orchestrator->>+SW_EmoteManager: registerProvider(provider7TV)
+    SW_EmoteManager-->>-SW_Orchestrator: (ack)
+    SW_Orchestrator->>+SW_EmoteManager: registerProvider(providerKick)
+    SW_EmoteManager-->>-SW_Orchestrator: (ack)
+    Note over SW_Orchestrator, SW_EmoteManager: Other core services initialized...
 
     Note over CS1, CS2: Browser tabs load different rooms (room1, room2)
 
@@ -23,7 +42,7 @@ sequenceDiagram
     SW_ConnHandler->>SW_SubManager: addSubscription(room1, port1)
     activate SW_SubManager
     Note over SW_SubManager: Creates RoomSubscription for room1 (incl. UserStore, MessageStore, LRUCache),\nassociates port1
-    %% No association needed in ELM at this stage %%
+    %% No association needed in EmoteLifecycleManager at this stage %%
 
     alt First subscriber for room1
         SW_SubManager->>SW_PlatformAdapter: EnsureActive(room1)
@@ -39,15 +58,37 @@ sequenceDiagram
     SW_ConnHandler-->>CS1: (ack)
     deactivate SW_ConnHandler
 
-    CS1->>SW_ConnHandler: addEmoteSourceToRoom(room1, req1)
+    CS1->>SW_ConnHandler: addEmoteSourceToRoom(room1, req1) %% e.g., 7TV global emotes %%
     activate SW_ConnHandler
-    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToRoom(room1, req1)
-    activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Generates key1, associates with room1,\nincrements ref count for key1,\ntriggers internal fetch if needed (async)
-    SW_EmoteSystem-->>SW_ConnHandler: (ack)
-    deactivate SW_EmoteSystem
+    SW_ConnHandler->>SW_EmoteLifecycleManager: addEmoteSourceToRoom(room1, req1)
+    activate SW_EmoteLifecycleManager
+    Note over SW_EmoteLifecycleManager: Generates key1, associates with room1,\nincrements ref count for key1.
+    alt Ref count for key1 is now 1
+        SW_EmoteLifecycleManager->>SW_EmoteManager: subscribeToEmoteSource(req1) (async)
+    end
+    SW_EmoteLifecycleManager-->>SW_ConnHandler: (ack)
+    deactivate SW_EmoteLifecycleManager
     SW_ConnHandler-->>CS1: (ack)
     deactivate SW_ConnHandler
+
+    %% Emote Fetching Triggered (Async Example for req1) %%
+    Note over SW_EmoteLifecycleManager, SW_EmoteManager: Async: EmoteManager processes subscribe request
+    activate SW_EmoteManager
+    SW_EmoteManager->>SW_EmoteProvider_7TV: canHandleRequest(req1)?
+    activate SW_EmoteProvider_7TV
+    SW_EmoteProvider_7TV-->>SW_EmoteManager: true
+    deactivate SW_EmoteProvider_7TV
+    SW_EmoteManager->>+SW_EmoteProvider_7TV: fetchEmotes(req1)
+    SW_EmoteProvider_7TV->>+EmoteProviderServices: GET /emotes?context=global...
+    EmoteProviderServices-->>-SW_EmoteProvider_7TV: Emote Data (Set A)
+    SW_EmoteProvider_7TV-->>SW_EmoteManager: EmoteSet A
+    deactivate SW_EmoteProvider_7TV
+    SW_EmoteManager->>SW_EmoteRegistry: addOrUpdateEmoteSet(Set A, key1)
+    activate SW_EmoteRegistry
+    SW_EmoteRegistry-->>SW_EmoteManager: (ack)
+    deactivate SW_EmoteRegistry
+    SW_EmoteManager->>SW_EventBus: publish(EmoteSetUpdateEvent(key1))
+    deactivate SW_EmoteManager
 
     %% CS2 Connects & Subscribes (room2) %%
     CS2->>+SW_ConnHandler: Connect (Port 2)
@@ -59,7 +100,7 @@ sequenceDiagram
     SW_ConnHandler->>SW_SubManager: addSubscription(room2, port2)
     activate SW_SubManager
     Note over SW_SubManager: Creates RoomSubscription for room2 (incl. UserStore, MessageStore, LRUCache),\nassociates port2
-    %% No association needed in ELM at this stage %%
+    %% No association needed in EmoteLifecycleManager at this stage %%
 
     alt First subscriber for room2
         SW_SubManager->>SW_PlatformAdapter: EnsureActive(room2)
@@ -75,15 +116,19 @@ sequenceDiagram
     SW_ConnHandler-->>CS2: (ack)
     deactivate SW_ConnHandler
 
-    CS2->>SW_ConnHandler: addEmoteSourceToRoom(room2, req2) %% Assuming different source needed for room2 %%
+    CS2->>SW_ConnHandler: addEmoteSourceToRoom(room2, req2) %% e.g., Kick channel emotes %%
     activate SW_ConnHandler
-    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToRoom(room2, req2)
-    activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Generates key2, associates with room2,\nincrements ref count for key2,\ntriggers internal fetch if needed (async)
-    SW_EmoteSystem-->>SW_ConnHandler: (ack)
-    deactivate SW_EmoteSystem
+    SW_ConnHandler->>SW_EmoteLifecycleManager: addEmoteSourceToRoom(room2, req2)
+    activate SW_EmoteLifecycleManager
+    Note over SW_EmoteLifecycleManager: Generates key2, associates with room2,\nincrements ref count for key2.
+    alt Ref count for key2 is now 1
+        SW_EmoteLifecycleManager->>SW_EmoteManager: subscribeToEmoteSource(req2) (async)
+    end
+    SW_EmoteLifecycleManager-->>SW_ConnHandler: (ack)
+    deactivate SW_EmoteLifecycleManager
     SW_ConnHandler-->>CS2: (ack)
     deactivate SW_ConnHandler
+    %% Async fetch for req2 would happen similarly, likely using SW_EmoteProvider_Kick %%
 
     %% Message Received from Platform (Example for room1) %%
     Note over PlatformService, SW_EventBus: New message arrives for room1
@@ -102,20 +147,29 @@ sequenceDiagram
     %% Message Processing (On-Demand - Example for room1, msg M1) %%
     SW_EventBus->>SW_MsgProcessor: ChatMessageReceivedEvent(room1, msgId: M1, senderId: U1)
     activate SW_MsgProcessor
+    SW_EventBus->>SW_MsgProcessor: EmoteSetUpdateEvent(key1) %% Example: Emote update also triggers processing check %%
+    activate SW_MsgProcessor
+    Note over SW_MsgProcessor: Handles EmoteSetUpdateEvent - invalidates cache for rooms using key1 (room1)
+    deactivate SW_MsgProcessor
+
     SW_MsgProcessor->>SW_SubManager: getRoomSubscription(room1)
     activate SW_SubManager
     SW_SubManager-->>SW_MsgProcessor: roomSub1 (contains UserStore, MessageStore, LRUCache)
     deactivate SW_SubManager
     SW_MsgProcessor->>SW_MsgProcessor: Check roomSub1.messageCache.get(M1)
-    alt Cache Miss for M1
+    alt Cache Miss for M1 (or invalidated)
         SW_MsgProcessor->>SW_MsgProcessor: Get rawMsg M1 from roomSub1.messageStore
         SW_MsgProcessor->>SW_MsgProcessor: Get user U1 from roomSub1.userStore
-        SW_MsgProcessor->>SW_EmoteSystem: getEmoteContextKeysForRoom(room1)
-        activate SW_EmoteSystem
-        SW_EmoteSystem-->>SW_MsgProcessor: [key1] %% Simplified example %%
-        deactivate SW_EmoteSystem
+        SW_MsgProcessor->>SW_EmoteLifecycleManager: getEmoteContextKeysForRoom(room1)
+        activate SW_EmoteLifecycleManager
+        SW_EmoteLifecycleManager-->>SW_MsgProcessor: [key1] %% Simplified example %%
+        deactivate SW_EmoteLifecycleManager
         SW_MsgProcessor->>SW_Pipeline: process(rawMsg M1, user U1, [key1])
         activate SW_Pipeline
+        SW_Pipeline->>SW_EmoteRegistry: getEmoteByName(..., [key1])
+        activate SW_EmoteRegistry
+        SW_EmoteRegistry-->>SW_Pipeline: Emote details or undefined
+        deactivate SW_EmoteRegistry
         Note over SW_Pipeline: Uses User data, EmoteRegistry, 3rd party state...
         SW_Pipeline-->>SW_MsgProcessor: processedData M1'
         deactivate SW_Pipeline
@@ -149,11 +203,23 @@ sequenceDiagram
     activate SW_SubManager
     Note over SW_SubManager: Removes port1 from room1 subscription
     alt No subscribers left for room1
-        SW_SubManager->>SW_EmoteSystem: removeEmoteSourcesForRoom(room1)
-        activate SW_EmoteSystem
-        Note over SW_EmoteSystem: Decrements ref counts for keys associated with room1,\npotentially triggers unsubscribe (async)
-        SW_EmoteSystem-->>SW_SubManager: (ack)
-        deactivate SW_EmoteSystem
+        SW_SubManager->>SW_EmoteLifecycleManager: removeEmoteSourcesForRoom(room1)
+        activate SW_EmoteLifecycleManager
+        Note over SW_EmoteLifecycleManager: Decrements ref counts for keys associated with room1 (e.g., key1).
+        alt Ref count for key1 becomes 0
+             SW_EmoteLifecycleManager->>SW_EmoteManager: unsubscribeFromEmoteSource(req1) (async)
+        end
+        SW_EmoteLifecycleManager-->>SW_SubManager: (ack)
+        deactivate SW_EmoteLifecycleManager
+        SW_SubManager->>SW_EventBus: publish(RoomSubscriptionDestroyedEvent(room1))
+        SW_EventBus->>SW_ThirdPartyModule: RoomSubscriptionDestroyedEvent(room1)
+        activate SW_ThirdPartyModule
+        SW_ThirdPartyModule->>SW_ThirdPartyModule: Perform internal cleanup for room1
+        deactivate SW_ThirdPartyModule
+        SW_EventBus->>SW_EmoteProvider_7TV: RoomSubscriptionDestroyedEvent(room1) %% Providers also listen %%
+        activate SW_EmoteProvider_7TV
+        SW_EmoteProvider_7TV->>SW_EmoteProvider_7TV: Perform internal cleanup for room1
+        deactivate SW_EmoteProvider_7TV
         Note over SW_SubManager: Discards RoomSubscription for room1 (incl. stores/cache)
         SW_SubManager->>SW_PlatformAdapter: EnsureInactive(room1)
         activate SW_PlatformAdapter

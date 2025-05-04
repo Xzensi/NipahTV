@@ -87,7 +87,7 @@ System_Boundary(browserTab, "Browser Tab") {
 Container_Boundary(serviceWorker, "NipahTV Service Worker") {
 
     ' Core Components
-    Component(orchestrator, "ServiceWorkerOrchestrator", "Initializes core services")
+    Component(orchestrator, "ServiceWorkerOrchestrator", "Initializes core services, instantiates & registers Emote Providers")
     Component(connectionManager, "ClientConnectionManager", "Manages client Port connections")
     Component(messageHandler, "ClientMessageHandler", "Routes incoming client messages (incl. addEmoteSourceToRoom)")
     Component(eventNotifier, "ClientEventNotifier", "Subscribes to ReadyToBroadcastMessageEvent, broadcasts final processed data to clients")
@@ -98,12 +98,12 @@ Container_Boundary(serviceWorker, "NipahTV Service Worker") {
 
     ' Emote System Components
     Component(emoteLifecycleManager, "EmoteLifecycleManager", "Manages EmoteFetchRequest reference counting based on active RoomSubscription needs")
-    Component(emoteManager, "EmoteManager", "Orchestrates provider interactions (fetch/subscribe) based on lifecycle manager calls")
+    Component(emoteManager, "EmoteManager", "Orchestrates interactions with registered providers (fetch/subscribe) based on lifecycle manager calls")
     ComponentDb(emoteRegistry, "EmoteRegistry", "Map/Memory", "Stores fetched EmoteSets and Emotes, provides lookup")
 
     ' Adapter/Provider Components (Representing Groups)
     Component(platformAdapters, "Platform Adapters", "Connects to platforms, parses data, updates room's UserStore, publishes RAW events")
-    Component(emoteProviders, "Emote Providers", "Implements IEmoteProvider, fetches/subscribes to external emote services")
+    Component(emoteProviders, "Emote Providers", "Implements IEmoteProvider, fetches/subscribes to external emote services, cleans up internal state on RoomSubscriptionDestroyedEvent")
 
     note right of clientSubManager
         Manages RoomSubscription instances.
@@ -115,6 +115,10 @@ Container_Boundary(serviceWorker, "NipahTV Service Worker") {
 }
 
 ' Relationships within Service Worker
+
+' Initialization / Setup
+Rel(orchestrator, emoteProviders, "Instantiates")
+Rel(orchestrator, emoteManager, "Registers Providers")
 
 ' Client Connection Flow
 Rel(connectionManager, messageHandler, "Forwards messages")
@@ -130,13 +134,15 @@ Rel(eventNotifier, clientSubManager, "Gets ports for room")
 
 ' Subscription Management
 Rel(clientSubManager, emoteLifecycleManager, "Notifies on RoomSubscription destruction")
+Rel(clientSubManager, eventBus, "Publishes RoomSubscriptionDestroyedEvent")
 
 ' Emote System Flow
 Rel(emoteLifecycleManager, emoteManager, "Triggers subscribeToEmoteSource / unsubscribeFromEmoteSource")
-Rel(emoteManager, emoteProviders, "Uses (fetch/subscribe/unsubscribe)")
+Rel(emoteManager, emoteProviders, "Uses registered providers (fetch/subscribe/unsubscribe)")
 Rel(emoteManager, emoteRegistry, "Updates with fetched data")
 Rel(emoteManager, eventBus, "Publishes EmoteSetUpdateEvent")
 Rel(emoteProviders, emoteManager, "Sends updates via callback")
+Rel(eventBus, emoteProviders, "Delivers RoomSubscriptionDestroyedEvent")
 
 ' Message Processing Flow (On-Demand)
 Rel(messageProcessor, eventBus, "Subscribes to ChatMessageReceivedEvent, EmoteSetUpdateEvent")

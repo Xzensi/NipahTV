@@ -96,7 +96,7 @@ package ServiceWorker {
         class ServiceWorkerOrchestrator {
             + init()
         }
-        note top of ServiceWorkerOrchestrator : Initializes and owns core Service Worker services.
+        note top of ServiceWorkerOrchestrator : Initializes and owns core Service Worker services.\nInstantiates Emote Providers and registers them with EmoteManager.
 
         class ClientConnectionManager {
              + handleConnection(port: Port)
@@ -108,7 +108,7 @@ package ServiceWorker {
         class ClientMessageHandler {
              + handleMessage(message: any, port: Port)
         }
-        note top of ClientMessageHandler : Receives messages from ClientConnectionManager.\nRoutes them to appropriate services (e.g., addEmoteSourceToRoom -> ELM).
+        note top of ClientMessageHandler : Receives messages from ClientConnectionManager.\nRoutes them to appropriate services (e.g., addEmoteSourceToRoom -> EmoteLifecycleManager).
 
         class ClientEventNotifier {
              - handleReadyToBroadcast(event: ReadyToBroadcastMessageEvent)
@@ -128,14 +128,14 @@ package ServiceWorker {
             + getPortsForRoom(roomIdentifier: RoomIdentifier): Set<Port>
             + getRoomSubscription(roomIdentifier: RoomIdentifier): RoomSubscription | undefined
         }
-        note top of ClientSubscriptionManager : Tracks client ports per room, manages RoomSubscription lifecycle (incl. UserStore, MessageStore, LRUMessageCache), notifies EmoteLifecycleManager on RoomSubscription destruction.
+        note top of ClientSubscriptionManager : Tracks client ports per room, manages RoomSubscription lifecycle.\nNotifies EmoteLifecycleManager on destruction.\nPublishes RoomSubscriptionDestroyedEvent for internal cleanup.
 
         class MessageProcessorService {
             - handleRawMessage(event: ChatMessageReceivedEvent)
             - handleEmoteUpdate(event: EmoteSetUpdateEvent)
             - _processAndCache(message: MessageFeedEntry, roomSub: RoomSubscription): ProcessedChatMessageData
         }
-        note top of MessageProcessorService : Subscribes to raw messages & emote updates.\nOrchestrates on-demand processing: checks cache, invokes pipeline on miss (using keys from ELM for the room), caches result, publishes ReadyToBroadcastMessageEvent. Handles cache invalidation.
+        note top of MessageProcessorService : Subscribes to raw messages & emote updates.\nOrchestrates on-demand processing: checks cache, invokes pipeline on miss (using keys from EmoteLifecycleManager for the room), caches result, publishes ReadyToBroadcastMessageEvent. Handles cache invalidation.
 
         class MessageFeedProcessorPipeline <<Shared>> {
             + init()
@@ -187,14 +187,14 @@ package ServiceWorker {
         }
         note top of EmoteLifecycleManager : Tracks emote context references per RoomSubscription.\nTriggers EmoteManager subscriptions based on ref counts.\nProvides context keys needed for a specific room.
 
-        ' EmoteScopeState removed
-
         class EmoteManager <<ServiceWorker Component>> {
+            - providers: Map<string, IEmoteProvider>
+            + registerProvider(provider: IEmoteProvider)
             + subscribeToEmoteSource(request: EmoteFetchRequest)
             + unsubscribeFromEmoteSource(request: EmoteFetchRequest)
             - handleProviderUpdate(update: EmoteSetUpdate)
         }
-        note top of EmoteManager : Orchestrates actual fetching via IEmoteProviders and manages EmoteRegistry based on subscribe/unsubscribe calls from EmoteLifecycleManager.
+        note top of EmoteManager : Orchestrates fetching via registered IEmoteProviders based on calls from EmoteLifecycleManager.\nManages EmoteRegistry.
 
         class EmoteRegistry <<ServiceWorker Component>> {
             + addOrUpdateEmoteSet(emoteSet: EmoteSet, emoteContextKey: string)
@@ -241,12 +241,13 @@ package ServiceWorker {
             + fetchEmotes(request: EmoteFetchRequest): Promise<EmoteSet[]>
         }
         SeventvEmoteProvider --|> ServiceWorker.EmoteSystem.IEmoteProvider : implements
-        note top of SeventvEmoteProvider : Emote Provider Implementations
+        note top of SeventvEmoteProvider : Implements IEmoteProvider.\nSubscribes to RoomSubscriptionDestroyedEvent for internal cleanup.
 
         class KickEmoteProvider {
             + fetchEmotes(request: EmoteFetchRequest): Promise<EmoteSet[]>
         }
         KickEmoteProvider --|> ServiceWorker.EmoteSystem.IEmoteProvider : implements
+        note top of KickEmoteProvider : Implements IEmoteProvider.\nSubscribes to RoomSubscriptionDestroyedEvent for internal cleanup.
     }
 }
 
@@ -274,7 +275,7 @@ package ContentScriptUI {
 
 ' --- Simplified Relationships ---
 
-' ServiceWorkerOrchestrator Relationships (Ownership)
+' ServiceWorkerOrchestrator Relationships (Ownership & Setup)
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientConnectionManager : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientMessageHandler : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientEventNotifier : manages
@@ -284,6 +285,9 @@ ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.Emote
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteManager : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.MessageFeedProcessorPipeline : manages
 ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.EventBus : manages
+ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider : instantiates
+ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteProviderImplementations.KickEmoteProvider : instantiates
+ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteSystem.EmoteManager : calls registerProvider()
 
 ' ClientConnectionManager Relationships
 ServiceWorker.Core.ClientConnectionManager ..> ServiceWorker.Core.ClientMessageHandler : forwards message
@@ -307,16 +311,21 @@ ServiceWorker.Core.MessageProcessorService -() PublishesEventBus : publishes Rea
 ' EventBus Relationships (No direct arrows needed for subscribers/publishers using lollipops)
 
 ' Event Publishing via Lollipop Interface
+ServiceWorker.Core.ClientSubscriptionManager -() PublishesEventBus : publishes RoomSubscriptionDestroyedEvent
 ServiceWorker.EmoteSystem.EmoteManager -() PublishesEventBus : publishes EmoteSetUpdateEvent
 ServiceWorker.PlatformImplementations.TwitchPlatformAdapter -() PublishesEventBus : publishes RAW events
 ServiceWorker.PlatformImplementations.YouTubePlatformAdapter -() PublishesEventBus : publishes RAW events
 ServiceWorker.PlatformImplementations.KickPlatformAdapter -() PublishesEventBus : publishes RAW events
 
+' Event Subscription via Lollipop Interface
+ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider -() SubscribesEventBus : subscribes RoomSubscriptionDestroyedEvent
+ServiceWorker.EmoteProviderImplementations.KickEmoteProvider -() SubscribesEventBus : subscribes RoomSubscriptionDestroyedEvent
+
 ' EmoteLifecycleManager Relationships
 ServiceWorker.EmoteSystem.EmoteLifecycleManager ..> ServiceWorker.EmoteSystem.EmoteManager : calls subscribeToEmoteSource / unsubscribeFromEmoteSource
 
 ' EmoteManager Relationships
-ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteSystem.IEmoteProvider : uses
+ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteSystem.IEmoteProvider : uses registered providers
 ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteSystem.EmoteRegistry : updates
 
 ' IEmoteProvider Relationships
@@ -342,9 +351,5 @@ ServiceWorker.Core.RoomSubscription *-- ServiceWorker.Core.LRUMessageCache : own
 ServiceWorker.PlatformImplementations.TwitchPlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
 ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
 ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
-
-' EmoteProviderImplementations Relationships
-ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider : uses
-ServiceWorker.EmoteSystem.EmoteManager ..> ServiceWorker.EmoteProviderImplementations.KickEmoteProvider : uses
 
 @enduml

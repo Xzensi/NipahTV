@@ -197,6 +197,12 @@ class ConnectionClosedEvent <<datatype>> {
     + reason?: string
 }
 
+class RoomSubscriptionDestroyedEvent <<datatype>> {
+    + type: "RoomSubscriptionDestroyed"
+    + roomIdentifier: RoomIdentifier
+}
+note top of RoomSubscriptionDestroyedEvent : Signals a RoomSubscription is being destroyed.\nAllows internal modules (e.g., 3rd party providers) to clean up room-specific state.
+
 class ConnectionDataCallbacks <<datatype>> {
     + onData: (data: any) => void
     + onError: (error: any) => void
@@ -270,6 +276,9 @@ note left of ConnectionErrorEvent : Extends BaseEvent
 
 ConnectionClosedEvent --|> BaseEvent
 note left of ConnectionClosedEvent : Extends BaseEvent
+
+RoomSubscriptionDestroyedEvent --|> BaseEvent
+note left of RoomSubscriptionDestroyedEvent : Extends BaseEvent
 
 RoomSubscription *-- MessageStore : owns
 RoomSubscription *-- UserStore : owns

@@ -11,12 +11,13 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 -  **Room-Based Subscriptions:** Data processing and storage are scoped to specific "Rooms" (e.g., a Twitch channel's chat feed), identified by a `RoomIdentifier`. Each `RoomSubscription` manages its own state.
 -  **Room-Scoped User State:** Platform-specific user data (display name, badges, etc.) is stored per user within the scope of a `RoomSubscription`'s `UserStore`, updated as messages arrive.
 -  **Contextual Emote Fetching & Lifecycle:** Emotes are fetched based on specific `EmoteFetchRequest`s associated with a `RoomSubscription`. The `EmoteLifecycleManager` tracks which active `RoomSubscription`s need which requests, ensuring resources are active only when necessary via reference counting.
+-  **Provider Registration (Dependency Injection):** `EmoteProvider` instances are created externally (by `ServiceWorkerOrchestrator`) and registered with the `EmoteManager`, decoupling the manager from provider creation.
 -  **On-Demand Message Processing:** Messages are stored raw. Processing (emote replacement, cosmetic application) happens only when a message needs to be sent to a client, orchestrated by the `MessageProcessorService`.
 -  **Processed Message Caching:** Results of message processing are cached per room (`LRUMessageCache`) to avoid redundant work, with invalidation triggered by relevant updates (e.g., emote changes).
--  **Decentralized Third-Party Logic:** Third-party extensions (like 7TV) manage their own state (e.g., cosmetics) and integrate via middleware in the `MessageFeedProcessorPipeline`.
--  **Efficient Resource Usage:** Avoids redundant provider subscriptions. Caching minimizes reprocessing.
--  **Extensibility:** Designed to easily add support for new platforms, emote providers, or features (via pipeline middleware).
--  **Decoupling:** Components are loosely coupled through events and well-defined interfaces/data structures.
+-  **Decentralized Third-Party Logic:** Third-party extensions (like 7TV) manage their own state (e.g., cosmetics) and integrate via middleware in the `MessageFeedProcessorPipeline`. They can listen for events (like `RoomSubscriptionDestroyedEvent`) to manage their internal state lifecycle.
+-  **Efficient Resource Usage:** Avoids redundant provider subscriptions. Caching minimizes reprocessing. Event-based cleanup allows internal state pruning.
+-  **Extensibility:** Designed to easily add support for new platforms, emote providers (by registering new implementations), or features (via pipeline middleware).
+-  **Decoupling:** Components are loosely coupled through events, dependency injection (providers), and well-defined interfaces/data structures.
 
 ## Key Components & Responsibilities
 
@@ -26,6 +27,8 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
    -  Responsible for the initial setup (`init`) of the Service Worker.
    -  Owns and manages the lifecycle of the core services (`ClientConnectionManager`, `ClientMessageHandler`, `ClientEventNotifier`, `EventBus`, `ClientSubscriptionManager`, `MessageProcessorService`, `MessageFeedProcessorPipeline`) and the `EmoteSystem` components (`EmoteLifecycleManager`, `EmoteManager`).
+   -  **Instantiates concrete `IEmoteProvider` implementations** (e.g., `SeventvEmoteProvider`, `KickEmoteProvider`).
+   -  **Registers these provider instances** with the `EmoteManager` via `registerProvider()`.
 
 -  **`ClientConnectionManager`:**
 
@@ -57,7 +60,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Owns and manages the lifecycle of `RoomSubscription` objects. Each `RoomSubscription` contains the room's `UserStore`, `MessageStore`, and `LRUMessageCache`.
    -  Provides lookup for ports associated with a room (`getPortsForRoom`), used by `ClientEventNotifier`.
    -  Provides lookup for the entire `RoomSubscription` object (`getRoomSubscription`), used by `PlatformAdapter` and `MessageProcessorService`.
-   -  Handles `removeSubscription` calls from `ClientConnectionManager` on disconnect, notifying the `EmoteLifecycleManager` and cleaning up the `RoomSubscription`.
+   -  Handles `removeSubscription` calls from `ClientConnectionManager` on disconnect. If the last port for a room disconnects, it notifies the `EmoteLifecycleManager`, publishes a `RoomSubscriptionDestroyedEvent` to the `EventBus` (allowing internal modules to clean up), and then destroys the `RoomSubscription` object.
 
 -  **`MessageProcessorService`:**
 
@@ -117,11 +120,13 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 -  **`EmoteManager`:**
 
-   -  Orchestrates the actual interaction with `IEmoteProvider`s based on calls from `EmoteLifecycleManager`.
-   -  Calls provider methods (`fetchEmotes`, `subscribeToUpdates`, `unsubscribeFromUpdates`).
+   -  Receives `IEmoteProvider` instances via its `registerProvider()` method (called by `ServiceWorkerOrchestrator`).
+   -  Orchestrates the actual interaction with **registered** `IEmoteProvider`s based on calls from `EmoteLifecycleManager`.
+   -  Iterates through registered providers to find one that `canHandleRequest`.
+   -  Calls provider methods (`fetchEmotes`, `subscribeToUpdates`, `unsubscribeFromUpdates`) on the appropriate registered provider.
    -  Updates the `EmoteRegistry` with fetched/updated emote data.
    -  Publishes `EmoteSetUpdateEvent` to the `EventBus`.
-   -  Manages active provider subscriptions.
+   -  Manages active subscriptions _within_ registered providers.
 
 -  **`EmoteRegistry`:**
 
@@ -158,6 +163,13 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Publishing _raw_ standardized internal events (e.g., `ChatMessageReceivedEvent`) onto the `EventBus`.
    -  Exposing capabilities (`PlatformCapabilities`).
 
+### 5. Emote Provider Implementations (e.g., `SeventvEmoteProvider`)
+
+-  Implement the `IEmoteProvider` interface for specific third-party services.
+-  **Instantiated by `ServiceWorkerOrchestrator`** during initialization.
+-  May maintain internal state related to rooms (e.g., user-specific entitlements) or global state (e.g., connection to 7TV WS).
+-  Subscribe to `RoomSubscriptionDestroyedEvent` on the `EventBus` to trigger cleanup of their internal room-specific state when a room is no longer active.
+
 ## Data Structures & Storage (Overview)
 
 This section provides a brief overview of key data structures. **See `architecture_datatypes.puml` for detailed definitions and relationships.**
@@ -172,13 +184,20 @@ This section provides a brief overview of key data structures. **See `architectu
 -  **`PlatformEntitlementData`:** Represents a single platform entitlement (badge, cosmetic).
 -  **`MessageFeedEntry`:** Represents a _raw_ message or event entry from a platform feed before processing. Includes `senderUserId`, content, timestamp.
 -  **`ProcessedChatMessageData`:** Contains the result of processing a `MessageFeedEntry` via the pipeline. Includes display parts, combined platform entitlements, and any third-party cosmetics. Stored in `LRUMessageCache`.
--  **Events (`BaseEvent`, `ChatMessageReceivedEvent`, `EmoteSetUpdateEvent`, `ReadyToBroadcastMessageEvent`, etc.):** Standardized objects published on the `EventBus`. `ChatMessageReceivedEvent` is raw. `ReadyToBroadcastMessageEvent` contains the final `ProcessedChatMessageData`.
+-  **Events (`BaseEvent`, `ChatMessageReceivedEvent`, `EmoteSetUpdateEvent`, `ReadyToBroadcastMessageEvent`, `RoomSubscriptionDestroyedEvent`, etc.):** Standardized objects published on the `EventBus`. `ChatMessageReceivedEvent` is raw. `ReadyToBroadcastMessageEvent` contains the final `ProcessedChatMessageData`. `RoomSubscriptionDestroyedEvent` signals internal cleanup.
 -  **`Emote`, `EmoteSet`:** Standardized structures for representing emotes and collections.
 -  **`EmoteSetUpdate`:** Contains details about changes to emote sets.
 
 ## Key Workflows
 
-1. **Client Connection & Subscription:**
+1. **Initialization:**
+
+   -  `ServiceWorkerOrchestrator.init()` runs.
+   -  Core services are instantiated.
+   -  Concrete `IEmoteProvider` implementations (e.g., `SeventvEmoteProvider`, `KickEmoteProvider`) are instantiated.
+   -  Each provider instance is registered with the `EmoteManager` via `emoteManager.registerProvider(providerInstance)`.
+
+2. **Client Connection & Subscription:**
 
    -  `ContentScriptManager` connects to Service Worker.
    -  `ContentScriptManager` detects context and calls `subscribeToRoom(roomIdentifier)`.
@@ -187,10 +206,11 @@ This section provides a brief overview of key data structures. **See `architectu
    -  `ContentScriptManager` calls `addEmoteSourceToRoom(roomIdentifier, request)` for each needed source.
    -  `ClientMessageHandler` delegates to `EmoteLifecycleManager`.
    -  `EmoteLifecycleManager` tracks the request per room, updates ref counts for the derived `emoteContextKey`.
-   -  If ref count becomes 1, `EmoteLifecycleManager` triggers `EmoteManager.subscribeToEmoteSource`.
+   -  If ref count becomes 1, `EmoteLifecycleManager` triggers `EmoteManager.subscribeToEmoteSource(request)`.
+   -  `EmoteManager` finds a **registered** provider that `canHandleRequest(request)` and calls its `fetchEmotes` (and potentially `subscribeToUpdates`).
    -  `PlatformAdapter` is activated for the room if it's the first subscriber.
 
-2. **Receiving & Processing Messages (On-Demand):**
+3. **Receiving & Processing Messages (On-Demand):**
 
    -  `PlatformAdapter` receives raw data, parses user info & platform entitlements.
    -  `PlatformAdapter` gets `RoomSubscription` via `ClientSubscriptionManager`.
@@ -214,28 +234,31 @@ This section provides a brief overview of key data structures. **See `architectu
    -  `ClientEventNotifier` sends `processedData` to `ContentScriptManager`(s).
    -  `ContentScriptManager` passes data to `MessageFeedView` for rendering.
 
-3. **Storing Messages:**
+4. **Storing Messages:**
 
    -  `PlatformAdapter` (or another component triggered by the raw event) gets the `RoomSubscription`.
    -  Calls `roomSubscription.messageStore.addMessage(rawMessageFeedEntry)`.
 
-4. **Emote Updates & Cache Invalidation:**
+5. **Emote Updates & Cache Invalidation:**
 
-   -  `IEmoteProvider` detects an update, calls `EmoteManager` callback.
-   -  `EmoteManager` updates `EmoteRegistry`.
+   -  A **registered** `IEmoteProvider` detects an update (e.g., via its own WS connection) and calls the `updateCallback` provided by `EmoteManager` during `subscribeToUpdates`.
+   -  `EmoteManager` (in `handleProviderUpdate`) updates `EmoteRegistry`.
    -  `EmoteManager` publishes `EmoteSetUpdateEvent` (containing the `emoteContextKey`).
    -  `MessageProcessorService` receives `EmoteSetUpdateEvent`.
    -  `MessageProcessorService` identifies affected rooms by asking `EmoteLifecycleManager` which rooms requested the updated `emoteContextKey`.
    -  For each affected room, `MessageProcessorService` gets the `RoomSubscription` and calls `roomSubscription.messageCache.invalidate()`.
    -  _(Next time a message for that room is needed, it will be a cache miss and reprocessed with updated emotes)._
 
-5. **Client Disconnection:**
+6. **Client Disconnection:**
    -  `ContentScriptManager` disconnects.
    -  `ClientConnectionManager` calls `ClientSubscriptionManager.removeSubscription(port)`.
    -  `ClientSubscriptionManager` removes port. If it was the last port for a `RoomSubscription`:
       -  It retrieves the `roomIdentifier`.
       -  It calls `EmoteLifecycleManager.removeEmoteSourcesForRoom(roomIdentifier)`.
-      -  `EmoteLifecycleManager` updates ref counts, potentially triggers `EmoteManager.unsubscribeFromEmoteSource`.
+      -  `EmoteLifecycleManager` updates ref counts. If a ref count becomes 0, it triggers `EmoteManager.unsubscribeFromEmoteSource(request)`.
+      -  `EmoteManager` finds the relevant **registered** provider and calls its `unsubscribeFromUpdates` method.
+      -  `ClientSubscriptionManager` publishes `RoomSubscriptionDestroyedEvent(roomIdentifier)` to the `EventBus`.
+      -  (Subscribers like `SeventvEmoteProvider` receive the event and clean up internal state for `roomIdentifier`).
       -  `ClientSubscriptionManager` discards the entire `RoomSubscription` object (including its `UserStore`, `MessageStore`, `LRUMessageCache`).
       -  `ClientSubscriptionManager` deactivates `PlatformAdapter` if needed.
 
@@ -243,9 +266,9 @@ This section provides a brief overview of key data structures. **See `architectu
 
 -  **Service Worker Lifetime:** Still relies on active `Port` connections or other keep-alive.
 -  **Storage Limits:** Service Worker storage has limits. `MessageStore` holds raw data. `UserStore` holds state per user per room. `LRUMessageCache` adds overhead. Consider pruning/limits for all. IndexedDB might be necessary for larger stores.
--  **Complexity:** This model is more complex due to on-demand processing, caching, and invalidation logic within `MessageProcessorService`. The `EmoteLifecycleManager` still manages complex reference counting, now tied to rooms.
+-  **Complexity:** This model is more complex due to on-demand processing, caching, and invalidation logic within `MessageProcessorService`. The `EmoteLifecycleManager` still manages complex reference counting, now tied to rooms. Provider registration adds an initialization step but simplifies `EmoteManager`.
 -  **Cache Invalidation Logic:** Determining exactly which caches to invalidate on `EmoteSetUpdateEvent` relies on `EmoteLifecycleManager` correctly tracking which rooms requested which context keys.
 -  **`_generateEmoteContextKey` Reliability:** Still crucial.
 -  **`EmoteRegistry` Complexity:** Remains complex.
--  **Error Handling:** Robust error handling is crucial throughout the new processing flow.
--  **Third-Party Cosmetics:** Handled via pipeline middleware accessing decentralized state. Cache invalidation for _third-party_ state changes (e.g., user equips new 7TV cosmetic) needs consideration (e.g., third-party module publishes an event that MPS listens for to invalidate specific user entries in cache, or full cache invalidation).
+-  **Error Handling:** Robust error handling is crucial throughout the new processing flow and provider interactions.
+-  **Third-Party Cosmetics:** Handled via pipeline middleware accessing decentralized state. Cache invalidation for _third-party_ state changes (e.g., user equips new 7TV cosmetic) needs consideration (e.g., third-party module publishes an event that MPS listens for to invalidate specific user entries in cache, or full cache invalidation). Internal state cleanup relies on subscribing to `RoomSubscriptionDestroyedEvent`. Provider instances manage their own state lifecycle.
