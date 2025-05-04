@@ -3,7 +3,7 @@ sequenceDiagram
     participant CS2 as Content Script 2 (Tab B, room2)
     participant SW_ConnHandler as SW: Connection Handler
     participant SW_SubManager as SW: Subscription Manager
-    participant SW_EmoteSystem as SW: Emote System
+    participant SW_EmoteSystem as SW: Emote System (ELM)
     participant SW_PlatformAdapter as SW: Platform Adapter
     participant SW_EventBus as SW: Event Bus
     participant SW_MsgProcessor as SW: Message Processor Service
@@ -13,30 +13,17 @@ sequenceDiagram
 
     Note over CS1, CS2: Browser tabs load different rooms (room1, room2)
 
-    %% CS1 Connects & Subscribes (room1, scope1) %%
+    %% CS1 Connects & Subscribes (room1) %%
     CS1->>+SW_ConnHandler: Connect (Port 1)
     SW_ConnHandler-->>-CS1: Port 1 established
 
-    CS1->>SW_ConnHandler: registerSessionScope(scope1)
-    activate SW_ConnHandler
-    SW_ConnHandler->>SW_EmoteSystem: registerSessionScope(scope1)
-    activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Creates scope state for scope1
-    SW_EmoteSystem-->>SW_ConnHandler: (ack)
-    deactivate SW_EmoteSystem
-    SW_ConnHandler-->>CS1: (ack)
-    deactivate SW_ConnHandler
 
-    CS1->>SW_ConnHandler: subscribeToRoom(room1, scope1)
+    CS1->>SW_ConnHandler: subscribeToRoom(room1)
     activate SW_ConnHandler
-    SW_ConnHandler->>SW_SubManager: addSubscription(room1, port1, scope1)
+    SW_ConnHandler->>SW_SubManager: addSubscription(room1, port1)
     activate SW_SubManager
-    Note over SW_SubManager: Creates RoomSubscription for room1 (incl. UserStore, MessageStore, LRUCache),\nassociates port1, scope1
-    SW_SubManager->>SW_EmoteSystem: associateRoom(room1, scope1)
-    activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Links room1 to scope1
-    SW_EmoteSystem-->>SW_SubManager: (ack)
-    deactivate SW_EmoteSystem
+    Note over SW_SubManager: Creates RoomSubscription for room1 (incl. UserStore, MessageStore, LRUCache),\nassociates port1
+    %% No association needed in ELM at this stage %%
 
     alt First subscriber for room1
         SW_SubManager->>SW_PlatformAdapter: EnsureActive(room1)
@@ -52,42 +39,29 @@ sequenceDiagram
     SW_ConnHandler-->>CS1: (ack)
     deactivate SW_ConnHandler
 
-    CS1->>SW_ConnHandler: addEmoteSourceToScope(scope1, req1)
+    CS1->>SW_ConnHandler: addEmoteSourceToRoom(room1, req1)
     activate SW_ConnHandler
-    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToScope(scope1, req1)
+    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToRoom(room1, req1)
     activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Generates key1, increments ref count,\ntriggers internal fetch if needed (async)
+    Note over SW_EmoteSystem: Generates key1, associates with room1,\nincrements ref count for key1,\ntriggers internal fetch if needed (async)
     SW_EmoteSystem-->>SW_ConnHandler: (ack)
     deactivate SW_EmoteSystem
     SW_ConnHandler-->>CS1: (ack)
     deactivate SW_ConnHandler
 
-    %% CS2 Connects & Subscribes (room2, scope1) %%
+    %% CS2 Connects & Subscribes (room2) %%
     CS2->>+SW_ConnHandler: Connect (Port 2)
     SW_ConnHandler-->>-CS2: Port 2 established
 
-    CS2->>SW_ConnHandler: registerSessionScope(scope1) %% Reusing scope1 %%
-    activate SW_ConnHandler
-    SW_ConnHandler->>SW_EmoteSystem: registerSessionScope(scope1)
-    activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Scope scope1 already exists
-    SW_EmoteSystem-->>SW_ConnHandler: (ack)
-    deactivate SW_EmoteSystem
-    SW_ConnHandler-->>CS2: (ack)
-    deactivate SW_ConnHandler
 
-    CS2->>SW_ConnHandler: subscribeToRoom(room2, scope1) %% Subscribing to DIFFERENT room (room2) %%
+    CS2->>SW_ConnHandler: subscribeToRoom(room2)
     activate SW_ConnHandler
-    SW_ConnHandler->>SW_SubManager: addSubscription(room2, port2, scope1) %% Using room2 %%
+    SW_ConnHandler->>SW_SubManager: addSubscription(room2, port2)
     activate SW_SubManager
-    Note over SW_SubManager: Creates RoomSubscription for room2 (incl. UserStore, MessageStore, LRUCache),\nassociates port2, scope1
-    SW_SubManager->>SW_EmoteSystem: associateRoom(room2, scope1) %% Using room2 %%
-    activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Links room2 to scope1
-    SW_EmoteSystem-->>SW_SubManager: (ack)
-    deactivate SW_EmoteSystem
+    Note over SW_SubManager: Creates RoomSubscription for room2 (incl. UserStore, MessageStore, LRUCache),\nassociates port2
+    %% No association needed in ELM at this stage %%
 
-    alt First subscriber for room2 %% Need to activate platform for room2 %%
+    alt First subscriber for room2
         SW_SubManager->>SW_PlatformAdapter: EnsureActive(room2)
         activate SW_PlatformAdapter
         SW_PlatformAdapter->>+PlatformService: Connect / Subscribe for room2
@@ -101,11 +75,11 @@ sequenceDiagram
     SW_ConnHandler-->>CS2: (ack)
     deactivate SW_ConnHandler
 
-    CS2->>SW_ConnHandler: addEmoteSourceToScope(scope1, req1) %% Assuming same source needed for scope1 %%
+    CS2->>SW_ConnHandler: addEmoteSourceToRoom(room2, req2) %% Assuming different source needed for room2 %%
     activate SW_ConnHandler
-    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToScope(scope1, req1)
+    SW_ConnHandler->>SW_EmoteSystem: addEmoteSourceToRoom(room2, req2)
     activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Increments ref count for existing key1,\nno new fetch needed
+    Note over SW_EmoteSystem: Generates key2, associates with room2,\nincrements ref count for key2,\ntriggers internal fetch if needed (async)
     SW_EmoteSystem-->>SW_ConnHandler: (ack)
     deactivate SW_EmoteSystem
     SW_ConnHandler-->>CS2: (ack)
@@ -136,7 +110,7 @@ sequenceDiagram
     alt Cache Miss for M1
         SW_MsgProcessor->>SW_MsgProcessor: Get rawMsg M1 from roomSub1.messageStore
         SW_MsgProcessor->>SW_MsgProcessor: Get user U1 from roomSub1.userStore
-        SW_MsgProcessor->>SW_EmoteSystem: getEmoteContextKeysForScope(scope1)
+        SW_MsgProcessor->>SW_EmoteSystem: getEmoteContextKeysForRoom(room1)
         activate SW_EmoteSystem
         SW_EmoteSystem-->>SW_MsgProcessor: [key1] %% Simplified example %%
         deactivate SW_EmoteSystem
@@ -174,13 +148,12 @@ sequenceDiagram
     SW_ConnHandler->>SW_SubManager: removeSubscription(port1)
     activate SW_SubManager
     Note over SW_SubManager: Removes port1 from room1 subscription
-    SW_SubManager->>SW_EmoteSystem: disassociateRoom(room1)
-    activate SW_EmoteSystem
-    Note over SW_EmoteSystem: Decrements ref counts if room1 removed from scope1,\npotentially triggers unsubscribe (async)
-    SW_EmoteSystem-->>SW_SubManager: (ack)
-    deactivate SW_EmoteSystem
-
     alt No subscribers left for room1
+        SW_SubManager->>SW_EmoteSystem: removeEmoteSourcesForRoom(room1)
+        activate SW_EmoteSystem
+        Note over SW_EmoteSystem: Decrements ref counts for keys associated with room1,\npotentially triggers unsubscribe (async)
+        SW_EmoteSystem-->>SW_SubManager: (ack)
+        deactivate SW_EmoteSystem
         Note over SW_SubManager: Discards RoomSubscription for room1 (incl. stores/cache)
         SW_SubManager->>SW_PlatformAdapter: EnsureInactive(room1)
         activate SW_PlatformAdapter

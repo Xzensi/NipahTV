@@ -98,7 +98,6 @@ class EmoteFetchRequest <<datatype>> {
     + targetProvider?: string
 }
 note top of EmoteFetchRequest : Defines an emote source/context
-
 class PlatformEntitlementData <<datatype>> {
     + type: string ' e.g., "badge", "name_paint"
     + id: string   ' e.g., "moderator", "vip"
@@ -174,7 +173,6 @@ class ChannelEventReceivedEvent <<datatype>> {
     + type: "ChannelEventReceived"
     + event: ChannelEvent
 }
-' ProcessedChatMessageEvent removed
 
 class ReadyToBroadcastMessageEvent <<datatype>> {
     + type: "ReadyToBroadcastMessage"
@@ -242,7 +240,6 @@ class RoomSubscription <<datatype>> {
     + messageStore: MessageStore
     + userStore: UserStore
     + messageCache: LRUMessageCache
-    + emoteScopeId: string
 }
 class MessageStore <<Room Scoped>> {
     + addMessage(msg: MessageFeedEntry)
@@ -278,11 +275,5 @@ RoomSubscription *-- MessageStore : owns
 RoomSubscription *-- UserStore : owns
 RoomSubscription *-- LRUMessageCache : owns
 UserStore "1" *-- "*" User : stores
-
-' Relationship from EmoteScopeState (defined in main diagram) to RoomSubscription
-' This shows RoomSubscription uses the ID, but EmoteScopeState itself is managed elsewhere.
-' Consider if EmoteScopeState should also be moved here if it's purely data.
-' For now, assume it stays in EmoteSystem as it represents managed state.
-' RoomSubscription ..> ServiceWorker.EmoteSystem.EmoteScopeState : references via ID ' Cannot link across files easily
 
 @enduml
