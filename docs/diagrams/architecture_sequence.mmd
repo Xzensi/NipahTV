@@ -7,28 +7,43 @@ sequenceDiagram
     participant SW_EmoteLifecycleManager as SW: Emote Lifecycle Manager
     participant SW_EmoteManager as SW: Emote Manager
     participant SW_EmoteRegistry as SW: Emote Registry
-    participant SW_EmoteProvider_7TV as SW: 7TV Provider
-    participant SW_EmoteProvider_Kick as SW: Kick Provider
+    participant SW_EmoteProvider_7TV as SW: 7TV Emote Provider
+    participant SW_EmoteProvider_Kick as SW: Kick Emote Provider
+    participant SW_7TV_IntMgr as SW: 7TV Integration Manager
     participant SW_PlatformAdapter as SW: Platform Adapter
     participant SW_EventBus as SW: Event Bus
     participant SW_MsgProcessor as SW: Message Processor Service
     participant SW_Pipeline as SW: Processing Pipeline
     participant SW_Notifier as SW: Client Notifier
-    participant SW_ThirdPartyModule as SW: Third Party Module (e.g., 7TV State)
     participant PlatformService as External Platform Service
-    participant EmoteProviderServices as External Emote Services (7TV, Kick)
+    participant EmoteProviderServices as External Emote Services (7TV API, Kick API)
+    participant Ext_7TV_EventService as External 7TV Event Service (WS)
 
     %% Initialization Phase %%
-    Note over SW_Orchestrator, SW_EmoteManager: Service Worker Starts - Initialization
+    Note over SW_Orchestrator, SW_Pipeline: Service Worker Starts - Initialization
     SW_Orchestrator->>+SW_EmoteProvider_7TV: new()
     SW_EmoteProvider_7TV-->>-SW_Orchestrator: provider7TV
     SW_Orchestrator->>+SW_EmoteProvider_Kick: new()
     SW_EmoteProvider_Kick-->>-SW_Orchestrator: providerKick
+    SW_Orchestrator->>+SW_7TV_IntMgr: new()
+    SW_7TV_IntMgr-->>-SW_Orchestrator: seventvIntMgr
     SW_Orchestrator->>+SW_EmoteManager: registerProvider(provider7TV)
     SW_EmoteManager-->>-SW_Orchestrator: (ack)
     SW_Orchestrator->>+SW_EmoteManager: registerProvider(providerKick)
     SW_EmoteManager-->>-SW_Orchestrator: (ack)
-    Note over SW_Orchestrator, SW_EmoteManager: Other core services initialized...
+    SW_Orchestrator->>+SW_7TV_IntMgr: init()
+    activate SW_7TV_IntMgr
+    SW_7TV_IntMgr->>+Ext_7TV_EventService: Connect WebSocket
+    Ext_7TV_EventService-->>-SW_7TV_IntMgr: WebSocket Connected
+    SW_7TV_IntMgr-->>-SW_Orchestrator: (ack)
+    deactivate SW_7TV_IntMgr
+    SW_Orchestrator->>SW_7TV_IntMgr: getPipelineMiddleware()
+    activate SW_7TV_IntMgr
+    SW_7TV_IntMgr-->>SW_Orchestrator: seventvMiddleware
+    deactivate SW_7TV_IntMgr
+    SW_Orchestrator->>+SW_Pipeline: use(seventvMiddleware)
+    SW_Pipeline-->>-SW_Orchestrator: (ack)
+    Note over SW_Orchestrator, SW_Pipeline: Other core services initialized...
 
     Note over CS1, CS2: Browser tabs load different rooms (room1, room2)
 
@@ -42,7 +57,10 @@ sequenceDiagram
     SW_ConnHandler->>SW_SubManager: addSubscription(room1, port1)
     activate SW_SubManager
     Note over SW_SubManager: Creates RoomSubscription for room1 (incl. UserStore, MessageStore, LRUCache),\nassociates port1
-    %% No association needed in EmoteLifecycleManager at this stage %%
+    SW_SubManager->>SW_7TV_IntMgr: handleRoomSubscriptionCreated(room1)
+    activate SW_7TV_IntMgr
+    SW_7TV_IntMgr->>Ext_7TV_EventService: Send WS Subscribe (room1)
+    deactivate SW_7TV_IntMgr
 
     alt First subscriber for room1
         SW_SubManager->>SW_PlatformAdapter: EnsureActive(room1)
@@ -90,6 +108,14 @@ sequenceDiagram
     SW_EmoteManager->>SW_EventBus: publish(EmoteSetUpdateEvent(key1))
     deactivate SW_EmoteManager
 
+    %% 7TV Asynchronous State Update Example %%
+    Note over Ext_7TV_EventService, SW_7TV_IntMgr: Async: 7TV sends cosmetic update via WS
+    Ext_7TV_EventService->>SW_7TV_IntMgr: WS Message (User U1 cosmetic update)
+    activate SW_7TV_IntMgr
+    SW_7TV_IntMgr->>SW_7TV_IntMgr: Parse WS message, update internal state for U1
+    deactivate SW_7TV_IntMgr
+    %% Note: This might trigger cache invalidation via EventBus if needed %%
+
     %% CS2 Connects & Subscribes (room2) %%
     CS2->>+SW_ConnHandler: Connect (Port 2)
     SW_ConnHandler-->>-CS2: Port 2 established
@@ -99,16 +125,17 @@ sequenceDiagram
     activate SW_ConnHandler
     SW_ConnHandler->>SW_SubManager: addSubscription(room2, port2)
     activate SW_SubManager
-    Note over SW_SubManager: Creates RoomSubscription for room2 (incl. UserStore, MessageStore, LRUCache),\nassociates port2
-    %% No association needed in EmoteLifecycleManager at this stage %%
+    Note over SW_SubManager: Creates RoomSubscription for room2...
+    SW_SubManager->>SW_7TV_IntMgr: handleRoomSubscriptionCreated(room2)
+    activate SW_7TV_IntMgr
+    SW_7TV_IntMgr->>Ext_7TV_EventService: Send WS Subscribe (room2)
+    deactivate SW_7TV_IntMgr
 
     alt First subscriber for room2
         SW_SubManager->>SW_PlatformAdapter: EnsureActive(room2)
         activate SW_PlatformAdapter
         SW_PlatformAdapter->>+PlatformService: Connect / Subscribe for room2
         PlatformService-->>-SW_PlatformAdapter: Connected / Subscribed
-        Note over SW_PlatformAdapter: Manages connection state for room2
-        SW_PlatformAdapter-->>SW_SubManager: (ack)
         deactivate SW_PlatformAdapter
     end
     SW_SubManager-->>SW_ConnHandler: (ack)
@@ -120,7 +147,7 @@ sequenceDiagram
     activate SW_ConnHandler
     SW_ConnHandler->>SW_EmoteLifecycleManager: addEmoteSourceToRoom(room2, req2)
     activate SW_EmoteLifecycleManager
-    Note over SW_EmoteLifecycleManager: Generates key2, associates with room2,\nincrements ref count for key2.
+    Note over SW_EmoteLifecycleManager: Generates key2, associates with room2...
     alt Ref count for key2 is now 1
         SW_EmoteLifecycleManager->>SW_EmoteManager: subscribeToEmoteSource(req2) (async)
     end
@@ -166,11 +193,17 @@ sequenceDiagram
         deactivate SW_EmoteLifecycleManager
         SW_MsgProcessor->>SW_Pipeline: process(rawMsg M1, user U1, [key1])
         activate SW_Pipeline
+        Note over SW_Pipeline: Applying Core Middleware (Emotes)...
         SW_Pipeline->>SW_EmoteRegistry: getEmoteByName(..., [key1])
         activate SW_EmoteRegistry
         SW_EmoteRegistry-->>SW_Pipeline: Emote details or undefined
         deactivate SW_EmoteRegistry
-        Note over SW_Pipeline: Uses User data, EmoteRegistry, 3rd party state...
+        Note over SW_Pipeline: Applying 7TV Middleware...
+        SW_Pipeline->>SW_7TV_IntMgr: getCosmetics(U1) %% Middleware calls Manager %%
+        activate SW_7TV_IntMgr
+        SW_7TV_IntMgr-->>SW_Pipeline: User U1's 7TV cosmetics
+        deactivate SW_7TV_IntMgr
+        Note over SW_Pipeline: Applies cosmetics to message data...
         SW_Pipeline-->>SW_MsgProcessor: processedData M1'
         deactivate SW_Pipeline
         SW_MsgProcessor->>SW_MsgProcessor: roomSub1.messageCache.set(M1, processedData M1')
@@ -212,10 +245,11 @@ sequenceDiagram
         SW_EmoteLifecycleManager-->>SW_SubManager: (ack)
         deactivate SW_EmoteLifecycleManager
         SW_SubManager->>SW_EventBus: publish(RoomSubscriptionDestroyedEvent(room1))
-        SW_EventBus->>SW_ThirdPartyModule: RoomSubscriptionDestroyedEvent(room1)
-        activate SW_ThirdPartyModule
-        SW_ThirdPartyModule->>SW_ThirdPartyModule: Perform internal cleanup for room1
-        deactivate SW_ThirdPartyModule
+        SW_EventBus->>SW_7TV_IntMgr: RoomSubscriptionDestroyedEvent(room1)
+        activate SW_7TV_IntMgr
+        SW_7TV_IntMgr->>Ext_7TV_EventService: Send WS Unsubscribe (room1)
+        SW_7TV_IntMgr->>SW_7TV_IntMgr: Perform internal cleanup for room1
+        deactivate SW_7TV_IntMgr
         SW_EventBus->>SW_EmoteProvider_7TV: RoomSubscriptionDestroyedEvent(room1) %% Providers also listen %%
         activate SW_EmoteProvider_7TV
         SW_EmoteProvider_7TV->>SW_EmoteProvider_7TV: Perform internal cleanup for room1
