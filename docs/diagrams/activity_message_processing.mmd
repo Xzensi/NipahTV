@@ -1,0 +1,65 @@
+flowchart TD
+    subgraph Ext_Plat [External Platform Service]
+        direction LR
+        Ext_NewMsg["New Message (room1, msgId: M1)"]
+    end
+
+    subgraph SW_PA [SW: Platform Adapter]
+        direction LR
+        PA_Receive[Receive Raw Message Data] --> PA_Parse[Parse Message, User Info, Entitlements]
+        PA_Parse --> PA_GetRoomSub["Get RoomSubscription(room1)"]
+        PA_GetRoomSub --> PA_UpdateUserStore[Update UserStore in RoomSub]
+        PA_UpdateUserStore --> PA_StoreRawMsg["Store Raw Message in MessageStore (in RoomSub)"]
+        PA_StoreRawMsg --> PA_TriggerMPS["Trigger MessageProcessorService (room1, M1, senderId)"]
+    end
+
+    subgraph SW_MPS [SW: Message Processor Service]
+        direction LR
+        MPS_ReceiveTrigger[Receive Trigger for M1] --> MPS_GetRoomSub["Get RoomSubscription(room1)"]
+        MPS_GetRoomSub --> MPS_CheckCache{Check LRUMessageCache for M1}
+        MPS_CheckCache -- Cache Hit --> MPS_FromCache[Get ProcessedData M1' from Cache]
+        MPS_CheckCache -- Cache Miss --> MPS_GetRaw[Get RawMessage M1 from MessageStore]
+        MPS_GetRaw --> MPS_GetUser[Get UserData from UserStore]
+        MPS_GetUser --> MPS_GetKeys[Get EmoteContextKeys for room1]
+        MPS_GetKeys --> MPS_ExecPipeline[Execute Processing Pipeline with RawMsg, User, Keys]
+        MPS_ExecPipeline --> MPS_PipelineResult[Receive ProcessedData M1']
+        MPS_PipelineResult --> MPS_StoreCache[Store ProcessedData M1' in LRUMessageCache]
+        MPS_StoreCache --> MPS_PublishEvent["Publish ReadyToBroadcastMessageEvent(room1, M1')"]
+        MPS_FromCache --> MPS_PublishEvent
+    end
+
+    subgraph SW_Pipeline [SW: Processing Pipeline]
+        direction LR
+        Pipe_Start[Start Processing] --> Pipe_Emotes["Apply Emote Middleware (uses EmoteRegistry)"]
+        Pipe_Emotes --> Pipe_3Pty["Apply 3rd-Party Middleware (e.g., 7TV - uses 7TV_IntMgr/DB)"]
+        Pipe_3Pty --> Pipe_End[Return ProcessedData M1']
+    end
+
+    subgraph SW_EB [SW: Event Bus]
+        direction LR
+        EB_ReceiveEvent[Receive ReadyToBroadcastMessageEvent] --> EB_NotifyCEN[Notify ClientEventNotifier]
+    end
+
+    subgraph SW_CEN [SW: Client Event Notifier]
+        direction LR
+        CEN_Receive[Receive Event from EventBus] --> CEN_GetPorts["Get Ports for room1 (from SubManager)"]
+        CEN_GetPorts --> CEN_Broadcast["Broadcast ProcessedData M1' to relevant Port(s)"]
+    end
+
+    subgraph CS ["Content Script (room1)"]
+        direction LR
+        CS_Receive[Receive ProcessedData M1'] --> CS_UpdateUI[Update UI with M1']
+    end
+
+    %% Connections
+    Ext_NewMsg --> PA_Receive
+    PA_TriggerMPS --> MPS_ReceiveTrigger
+    MPS_ExecPipeline --> Pipe_Start
+    Pipe_End --> MPS_PipelineResult
+    MPS_PublishEvent --> EB_ReceiveEvent
+    EB_NotifyCEN --> CEN_Receive
+    CEN_Broadcast --> CS_Receive
+
+    %% Conceptual links to other components mentioned in notes (not part of direct flow)
+    %% Pipe_Emotes -.-> SW_ER[SW: Emote Registry]
+    %% Pipe_3Pty -.-> SW_7TV_IM[SW: 7TV Int Mgr]

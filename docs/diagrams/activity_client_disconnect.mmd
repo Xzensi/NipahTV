@@ -1,0 +1,71 @@
+flowchart TD
+    subgraph CS ["Content Script (room1)"]
+        direction LR
+        CS_Action[User Closes Tab / Navigates Away] --> CS_PortClose((Port Disconnected))
+    end
+
+    subgraph SW_CH ["SW: Connection Handler"]
+        direction LR
+        CH_DetectDisconnect("(Port Disconnected Event for port1)") --> CH_NotifySM["Notify SubscriptionManager (removeSubscription for port1)"]
+    end
+
+    subgraph SW_SM [SW: Subscription Manager]
+        direction LR
+        SM_RemoveSub[Remove Subscription for port1] --> SM_RemovePort[Remove port1 from room1's RoomSubscription]
+        SM_RemovePort --> SM_CheckSubscribers{Any Subscribers Left for room1?}
+        SM_CheckSubscribers -- No --> SM_CleanupRoom[Initiate Full Room Cleanup for room1]
+        SM_CleanupRoom --> SM_NotifyELM["Notify EmoteLifecycleManager (removeEmoteSourcesForRoom room1)"]
+        SM_NotifyELM --> SM_PublishDestroy["Publish RoomSubscriptionDestroyedEvent(room1) to EventBus"]
+        SM_PublishDestroy --> SM_DiscardRoomSub["Discard RoomSubscription for room1 (UserStore, MessageStore, Cache)"]
+        SM_DiscardRoomSub --> SM_DeactivatePA[Ensure Platform Adapter Inactive for room1]
+        SM_DeactivatePA --> SM_CleanupDone((Room Cleanup Complete))
+        SM_CheckSubscribers -- Yes --> SM_PartialCleanupDone((Port Removed, Room Still Active))
+    end
+
+    subgraph SW_ELM [SW: Emote Lifecycle Manager]
+        direction LR
+        ELM_RemoveSources["removeEmoteSourcesForRoom(room1)"] --> ELM_DecRef["Decrement Ref Counts for room1's EmoteContextKeys"]
+        ELM_DecRef --> ELM_LoopKeys["For each key"]
+        ELM_LoopKeys -- Ref Count == 0 --> ELM_TrigEM["Trigger EmoteManager.unsubscribeFromEmoteSource(key's_request)"]
+        ELM_LoopKeys -- Ref Count > 0 --> ELM_NextKey["Continue"]
+        ELM_TrigEM --> ELM_NextKey
+        ELM_NextKey -- All Keys Processed --> ELM_Done((Emote Lifecycle Cleanup Done for room1))
+    end
+
+    subgraph SW_EB [SW: Event Bus]
+        direction LR
+        EB_ReceiveDestroy["Receive RoomSubscriptionDestroyedEvent(room1)"] --> EB_NotifySubscribers["Notify Subscribers (e.g., Integration Managers, Emote Providers)"]
+    end
+
+    subgraph SW_IMgr ["SW: Integration Manager (e.g., 7TV)"]
+        direction LR
+        IMgr_HandleDestroy["Handle RoomSubscriptionDestroyedEvent(room1)"] --> IMgr_ExtUnsub["Unsubscribe from External Service for room1 (e.g., 7TV WS)"]
+        IMgr_ExtUnsub --> IMgr_InternalCleanup["Perform Internal State Cleanup for room1"]
+        IMgr_InternalCleanup --> IMgr_Done["(7TV Cleanup Done for room1)"]
+    end
+
+    subgraph SW_EP ["SW: Emote Provider (e.g., 7TV)"]
+        direction LR
+        EP_HandleDestroy["Handle RoomSubscriptionDestroyedEvent(room1)"] --> EP_InternalCleanup["Perform Internal State Cleanup for room1"]
+        EP_InternalCleanup --> EP_Done["(Provider Cleanup Done for room1)"]
+    end
+
+    subgraph SW_PA ["SW: Platform Adapter"]
+        direction LR
+        PA_Deactivate["EnsureInactive(room1)"] --> PA_DisconnectExt["Disconnect/Unsubscribe from External Platform Service for room1"]
+        PA_DisconnectExt --> PA_Inactive["(Platform Connection Inactive for room1)"]
+    end
+
+    %% Connections
+    CS_PortClose --> CH_DetectDisconnect
+    CH_NotifySM --> SM_RemoveSub
+    SM_NotifyELM --> ELM_RemoveSources
+    SM_PublishDestroy --> EB_ReceiveDestroy
+    EB_NotifySubscribers --> IMgr_HandleDestroy
+    EB_NotifySubscribers --> EP_HandleDestroy
+    SM_DeactivatePA --> PA_Deactivate
+
+    %% Conceptual links
+    %% ELM_TrigEM -.-> SW_EM[SW: Emote Manager]
+    %% IMgr_ExtUnsub -.-> Ext_7TV_WS[External 7TV WS]
+    %% PA_DisconnectExt -.-> Ext_Platform[External Platform Service]

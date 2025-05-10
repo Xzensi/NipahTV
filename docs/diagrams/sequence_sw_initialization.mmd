@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant SW_Orchestrator as SW: Orchestrator
+    participant SW_CoreDB as SW: Core Database Service
+    participant SW_EmoteProvider_7TV as SW: 7TV Emote Provider
+    participant SW_EmoteProvider_Kick as SW: Kick Emote Provider
+    participant SW_7TV_IntMgr as SW: 7TV Integration Manager
+    participant SW_7TV_DB as SW: 7TV Database Service
+    participant Ext_7TV_EventService as External 7TV Event Service (WS)
+    participant SW_EmoteManager as SW: Emote Manager
+    participant SW_Pipeline as SW: Processing Pipeline
+
+    %% Initialization Phase %%
+    Note over SW_Orchestrator, SW_Pipeline: Service Worker Starts - Initialization
+    SW_Orchestrator->>+SW_CoreDB: new() & init()
+    SW_CoreDB-->>-SW_Orchestrator: coreDbService
+    SW_Orchestrator->>+SW_EmoteProvider_7TV: new()
+    SW_EmoteProvider_7TV-->>-SW_Orchestrator: provider7TV
+    SW_Orchestrator->>+SW_EmoteProvider_Kick: new()
+    SW_EmoteProvider_Kick-->>-SW_Orchestrator: providerKick
+    SW_Orchestrator->>+SW_7TV_IntMgr: new()
+    SW_7TV_IntMgr-->>-SW_Orchestrator: seventvIntMgr
+    SW_Orchestrator->>+SW_EmoteManager: registerProvider(provider7TV)
+    SW_EmoteManager-->>-SW_Orchestrator: (ack)
+    SW_Orchestrator->>+SW_EmoteManager: registerProvider(providerKick)
+    SW_EmoteManager-->>-SW_Orchestrator: (ack)
+    SW_Orchestrator->>+SW_7TV_IntMgr: init()
+    activate SW_7TV_IntMgr
+    SW_7TV_IntMgr->>+SW_7TV_DB: new() & init()
+    SW_7TV_DB-->>-SW_7TV_IntMgr: seventvDbService
+    SW_7TV_IntMgr->>+Ext_7TV_EventService: Connect WebSocket
+    Ext_7TV_EventService-->>-SW_7TV_IntMgr: WebSocket Connected
+    SW_7TV_IntMgr-->>-SW_Orchestrator: (ack)
+    deactivate SW_7TV_IntMgr
+    SW_Orchestrator->>SW_7TV_IntMgr: getPipelineMiddleware()
+    activate SW_7TV_IntMgr
+    SW_7TV_IntMgr-->>SW_Orchestrator: seventvMiddleware
+    deactivate SW_7TV_IntMgr
+    SW_Orchestrator->>+SW_Pipeline: use(seventvMiddleware)
+    SW_Pipeline-->>-SW_Orchestrator: (ack)
+    Note over SW_Orchestrator, SW_Pipeline: Other core services initialized...

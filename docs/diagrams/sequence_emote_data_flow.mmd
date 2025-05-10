@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant EMLM as SW: Emote Lifecycle Manager
+    participant EM as SW: Emote Manager
+    participant EP_7TV as SW: 7TV Emote Provider
+    participant ExtAPI as External Emote Services (e.g., 7TV API)
+    participant ER as SW: Emote Registry
+    participant EB as SW: Event Bus
+
+    Note over EMLM, EM: EmoteLifecycleManager has triggered EmoteManager to subscribe to an emote source (e.g., req1 for key1)
+
+    activate EM
+    Note over EM: EmoteManager processes subscribe request (req1)
+    EM->>EP_7TV: canHandleRequest(req1)?
+    activate EP_7TV
+    EP_7TV-->>EM: true
+    deactivate EP_7TV
+
+    EM->>+EP_7TV: fetchEmotes(req1)
+    EP_7TV->>+ExtAPI: HTTP GET /emotes?context=... (for req1)
+    ExtAPI-->>-EP_7TV: Emote Data (e.g., EmoteSet_A)
+    EP_7TV-->>EM: EmoteSet_A
+    deactivate EP_7TV
+
+    EM->>+ER: addOrUpdateEmoteSet(EmoteSet_A, key1)
+    ER-->>-EM: (ack)
+
+    EM->>EB: publish(EmoteSetUpdateEvent(key1))
+    deactivate EM
+
+    Note over EB: EventBus distributes EmoteSetUpdateEvent to subscribers (e.g., MessageProcessorService for cache invalidation)

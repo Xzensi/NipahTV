@@ -1,0 +1,60 @@
+flowchart TD
+    subgraph CS [Content Script]
+        CS_Start["Start: Tab Loads"] --> CS_Connect["Connect to Service Worker"];
+        CS_Connect --> CS_PortEst(("Port Established"));
+        CS_PortEst --> CS_SubRoom["Subscribe to Room (room1)"];
+        CS_SubRoom --> CS_SubAck(("Subscription Ack"));
+        CS_SubAck --> CS_AddEmoteSrc["Add Emote Source (req1 for room1)"];
+        CS_AddEmoteSrc --> CS_EmoteAck(("Emote Source Ack"));
+        CS_EmoteAck --> CS_End["End: Ready for Room Data"];
+    end
+
+    subgraph SW_CH [SW: Connection Handler]
+        CH_HandleConnect["Handle Connection Request"] --> CH_EstablishPort(("Establish Port"));
+        CH_PortForward["Forward Port Messages"];
+    end
+
+    subgraph SW_SM [SW: Subscription Manager]
+        SM_AddSub["Add Subscription (room1, port1)"] --> SM_CreateRoomSub["Create RoomSubscription for room1"];
+        SM_CreateRoomSub --> SM_NotifyIntMgr["Notify Integration Managers (e.g., 7TV)"];
+        SM_NotifyIntMgr --> SM_CheckPlatform{"First Subscriber for room1?"};
+        SM_CheckPlatform -- Yes --> SM_ActivatePA["Ensure Platform Adapter Active for room1"];
+        SM_CheckPlatform -- No --> SM_SubDone["Subscription Complete"];
+        SM_ActivatePA --> SM_SubDone;
+        SM_SubDone --> SM_AckSub(("Acknowledge Subscription"));
+    end
+
+    subgraph SW_IMgr ["SW: Integration Manager (e.g., 7TV)"]
+        IMgr_HandleRoomCreate["Handle RoomSubscriptionCreated (room1)"] --> IMgr_ExtSub["Subscribe to External Service for room1 (e.g., 7TV WS)"];
+    end
+
+    subgraph SW_PA [SW: Platform Adapter]
+        PA_Activate["EnsureActive(room1)"] --> PA_ConnectExt["Connect/Subscribe to External Platform Service for room1"];
+        PA_ConnectExt --> PA_Active(("Platform Connection Active for room1"));
+    end
+
+    subgraph SW_ELM [SW: Emote Lifecycle Manager]
+        ELM_AddSource["Add Emote Source (room1, req1)"] --> ELM_GenKey["Generate/Get EmoteContextKey (key1)"];
+        ELM_GenKey --> ELM_IncRef["Increment Ref Count for key1"];
+        ELM_IncRef --> ELM_CheckRef{"Ref Count for key1 == 1?"};
+        ELM_CheckRef -- Yes --> ELM_TrigEM["Trigger EmoteManager.subscribeToEmoteSource(req1)"];
+        ELM_CheckRef -- No --> ELM_AckAdd(("Acknowledge Emote Source Add"));
+        ELM_TrigEM --> ELM_AckAdd;
+    end
+
+    %% Connections between swimlanes
+    CS_Connect --> CH_HandleConnect;
+    CH_EstablishPort --> CS_PortEst;
+    CS_SubRoom --> CH_PortForward;
+    CH_PortForward --> SM_AddSub;
+    SM_NotifyIntMgr --> IMgr_HandleRoomCreate;
+    SM_ActivatePA --> PA_Activate;
+    SM_AckSub --> CS_SubAck;
+    CS_AddEmoteSrc --> CH_PortForward;
+    CH_PortForward --> ELM_AddSource;
+    ELM_AckAdd --> CS_EmoteAck;
+
+    %% External calls (visual cues, not formal swimlanes)
+    %% IMgr_ExtSub -.-> Ext_7TV_WS[External 7TV WS];
+    %% PA_ConnectExt -.-> Ext_Platform[External Platform Service];
+    %% ELM_TrigEM -.-> SW_EM[SW: Emote Manager];
