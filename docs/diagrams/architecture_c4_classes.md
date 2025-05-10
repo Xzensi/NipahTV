@@ -2,23 +2,24 @@
 
 This document outlines the architecture of the NipahTV browser extension, focusing on the class structure and interactions within the Service Worker and its communication with Content Scripts.
 
-**Note:** This document describes the high-level component interactions shown in `architecture_classes.puml`. For detailed definitions and relationships of data structures (like `Emote`, `BaseEvent`, `User`, `RoomSubscription`, etc.), please refer to the separate **`architecture_datatypes.puml`** diagram file.
+**Note:** This document describes the high-level component interactions shown in `architecture_classes.puml`. For detailed definitions and relationships of data structures (like `Emote`, `BaseEvent`, `User`, `RoomSubscription`, etc.), please refer to the separate **`architecture_datatypes.puml`** diagram file. For detailed cache invalidation sequences, see **`architecture_cache_invalidation_sequence.mmd`**.
 
 ## Core Concepts & Goals
 
 -  **Centralized Service Worker:** The MV3 Service Worker acts as the central hub, managing connections, processing data, and coordinating events.
--  **Event-Driven:** An internal `EventBus` facilitates decoupled communication between Service Worker components.
+-  **Event-Driven (for Updates/Coordination):** An internal `EventBus` facilitates decoupled communication for state updates (emotes, third-party), lifecycle events (room destruction), and broadcasting processed messages. High-frequency raw message arrival is handled via direct calls.
 -  **Room-Based Subscriptions:** Data processing and caching are scoped to specific "Rooms" (e.g., a Twitch channel's chat feed), identified by a `RoomIdentifier`. Each `RoomSubscription` manages its own state.
 -  **Room-Scoped User State:** Platform-specific user data (display name, badges, etc.) is stored per user within the scope of a `RoomSubscription`'s `UserStore`, updated as messages arrive.
 -  **Contextual Emote Fetching & Lifecycle:** Emotes are fetched based on specific `EmoteFetchRequest`s associated with a `RoomSubscription`. The `EmoteLifecycleManager` tracks which active `RoomSubscription`s need which requests, ensuring resources are active only when necessary via reference counting.
 -  **Provider Registration (Dependency Injection):** `IEmoteProvider` instances are created externally (by `ServiceWorkerOrchestrator`) and registered with the `EmoteManager`, decoupling the manager from provider creation.
--  **On-Demand Message Processing:** Messages are stored raw. Processing (emote replacement, cosmetic application) happens only when a message needs to be sent to a client, orchestrated by the `MessageProcessorService`.
--  **Processed Message Caching:** Results of message processing are cached per room (`LRUMessageCache`) to avoid redundant work, with invalidation triggered by relevant updates (e.g., emote changes, third-party state changes).
--  **Decentralized Third-Party Logic:** Third-party integrations (like 7TV) are encapsulated in dedicated managers (e.g., `SeventvIntegrationManager`). These managers handle their own state (e.g., cosmetics via WebSocket), **manage their own persistent storage** (e.g., `SeventvDatabaseService`), and integrate with the core system via registered pipeline middleware and event subscriptions.
+-  **On-Demand Message Processing:** Messages are stored raw. Processing (emote replacement, cosmetic application) is triggered directly by `PlatformAdapter`s and orchestrated by the `MessageProcessorService`.
+-  **Processed Message Caching:** Results of message processing are cached per room (`LRUMessageCache`) to avoid redundant work.
+-  **Granular Cache Invalidation:** The `LRUMessageCache` supports invalidation by message ID, user ID, or emote context key. Invalidation is triggered by relevant events (`EmoteSetUpdateEvent`, third-party state changes) handled by `MessageProcessorService`. Detailed flows are in `architecture_cache_invalidation_sequence.mmd`.
+-  **Decentralized Third-Party Logic:** Third-party integrations (like 7TV) are encapsulated in dedicated managers (e.g., `SeventvIntegrationManager`). These managers handle their own state (e.g., cosmetics via WebSocket), **manage their own persistent storage** (e.g., `SeventvDatabaseService`), publish state change events for cache invalidation, and integrate with the core system via registered pipeline middleware and event subscriptions.
 -  **Separate Persistent Storage:** Core application data and integration-specific data are stored in **separate Dexie/IndexedDB databases**, managed by dedicated `DatabaseService` components (`CoreDatabaseService`, `SeventvDatabaseService`, etc.) to ensure isolation and simplify schema management.
 -  **Efficient Resource Usage:** Avoids redundant provider subscriptions. Caching minimizes reprocessing. Event-based cleanup allows internal state pruning.
 -  **Extensibility:** Designed to easily add support for new platforms, emote providers (by registering new implementations), or third-party features (by creating new integration managers, database services, and middleware).
--  **Decoupling:** Components are loosely coupled through events, dependency injection (providers, managers), and well-defined interfaces/data structures.
+-  **Decoupling:** Components are loosely coupled through events (for updates/lifecycle), dependency injection (providers, managers), and well-defined interfaces/data structures. Direct calls are used for high-frequency message processing triggers.
 
 ## Key Components & Responsibilities
 
@@ -52,8 +53,8 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 -  **`EventBus`:**
 
-   -  A simple publish/subscribe service for internal communication within the Service Worker.
-   -  Allows components like Platform Adapters, `EmoteManager`, `MessageProcessorService`, and `IntegrationManager`s to publish/subscribe to events without direct dependencies.
+   -  A simple publish/subscribe service for internal communication within the Service Worker, primarily for updates, lifecycle events, and broadcasting processed messages.
+   -  Allows components like `EmoteManager`, `MessageProcessorService`, and `IntegrationManager`s to publish/subscribe to events without direct dependencies.
 
 -  **`ClientSubscriptionManager`:**
 
@@ -67,12 +68,10 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 -  **`MessageProcessorService`:**
 
-   -  Subscribes to raw `ChatMessageReceivedEvent` and `EmoteSetUpdateEvent` from the `EventBus`. (May also subscribe to third-party state change events if needed for cache invalidation).
-   -  Orchestrates on-demand message processing:
-      -  On `ChatMessageReceivedEvent`: Checks the room's `LRUMessageCache` for the message ID.
-      -  Cache Miss: Retrieves the raw `MessageFeedEntry` (from `MessageStore`), the sender's `User` object (from `UserStore`), and relevant `emoteContextKey`s for the specific room (`EmoteLifecycleManager.getEmoteContextKeysForRoom`). Invokes `MessageFeedProcessorPipeline.process()` with this context. Caches the resulting `ProcessedChatMessageData` in the `LRUMessageCache`.
-      -  Publishes a `ReadyToBroadcastMessageEvent` containing the `ProcessedChatMessageData` (either from cache or fresh processing).
-   -  Handles cache invalidation: On `EmoteSetUpdateEvent` (or relevant third-party events), invalidates the relevant room's `LRUMessageCache`.
+   -  **Triggered directly by `PlatformAdapter`s** via `processNewMessage(roomId, messageId, senderId)` when a new message arrives.
+   -  Orchestrates on-demand message processing: checks the room's `LRUMessageCache`, invokes `MessageFeedProcessorPipeline` on a cache miss, caches the result, and publishes a `ReadyToBroadcastMessageEvent`.
+   -  Subscribes to events like `EmoteSetUpdateEvent` and third-party state change events (e.g., `SeventvUserStateChangedEvent`) from the `EventBus` **solely for cache invalidation purposes**.
+   -  Handles **granular cache invalidation** by determining affected rooms/users/contexts (using `EmoteLifecycleManager` or `ClientSubscriptionManager` for lookups) and calling appropriate invalidation methods on the relevant `LRUMessageCache` (e.g., `invalidateContext`, `invalidateUser`). For detailed flows, see `docs/diagrams/architecture_cache_invalidation_sequence.mmd`.
 
 -  **`MessageFeedProcessorPipeline`:**
 
@@ -95,8 +94,8 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
    -  A cache within each `RoomSubscription`.
    -  Stores the output of the `MessageFeedProcessorPipeline` (`ProcessedChatMessageData`), keyed by message ID.
-   -  Used by `MessageProcessorService` to avoid redundant processing.
-   -  Invalidated by `MessageProcessorService` when relevant `EmoteSetUpdateEvent`s or third-party state change events occur.
+   -  Provides methods for **granular invalidation** (e.g., `invalidateAll`, `invalidateUser(userId)`, `invalidateContext(contextKey)`, `invalidateMessage(messageId)`).
+   -  Used by `MessageProcessorService` to avoid redundant processing and handle invalidation.
 
 -  **`RoomSubscription` (Datatype):**
 
@@ -127,6 +126,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Handles `addEmoteSourceToRoom` messages routed via `ClientMessageHandler`.
    -  Handles cleanup via `removeEmoteSourcesForRoom` (called by `ClientSubscriptionManager` when a `RoomSubscription` is destroyed).
    -  Provides lookup for emote context keys needed for a specific room (`getEmoteContextKeysForRoom`), used by `MessageProcessorService`.
+   -  **Provides reverse lookup (`getRoomsForContextKey`)** used by `MessageProcessorService` for cache invalidation on `EmoteSetUpdateEvent`.
 
 -  **`EmoteManager`:**
 
@@ -140,7 +140,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 
 -  **`EmoteRegistry`:**
 
-   -  Central storage for `EmoteSet`s and `Emote`s.
+   -  Central storage for `EmoteSet`s and `Emote`s (in memory).
    -  Stores sets mapped from the `emoteContextKey` that fetched them.
    -  Provides efficient lookup of emotes by name within specific contexts (`getEmoteByName`), used by the pipeline.
    -  Provides retrieval of all sets relevant to given contexts (`getAllEmoteSetsForContexts`).
@@ -169,8 +169,9 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 -  Platform-specific implementations responsible for:
    -  Connecting to the platform's data sources.
    -  Parsing raw platform data, extracting user info and platform entitlements.
-   -  Finding the correct `RoomSubscription` (via `ClientSubscriptionManager`) and updating its `UserStore` with the latest user state.
-   -  Publishing _raw_ standardized internal events (e.g., `ChatMessageReceivedEvent`) onto the `EventBus`.
+   -  Finding the correct `RoomSubscription` (via `ClientSubscriptionManager`), updating its `UserStore`, and adding the raw message to its `MessageStore`.
+   -  **Directly triggering `MessageProcessorService.processNewMessage(...)`** for the newly arrived message.
+   -  Potentially publishing other, less frequent events (e.g., user join/part, stream status) onto the `EventBus`.
    -  Exposing capabilities (`PlatformCapabilities`).
 
 ### 5. Emote Provider Implementations (e.g., `SeventvEmoteProvider`)
@@ -191,6 +192,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Handles incoming asynchronous WebSocket messages, parsing them to update its internal state (e.g., user cosmetics, entitlements). **Uses `SeventvDatabaseService` to persist relevant state changes.**
    -  Provides a `Middleware` function (`getPipelineMiddleware`) to the `ServiceWorkerOrchestrator`, which registers it with the `MessageFeedProcessorPipeline`. This middleware accesses the manager's internal state (potentially reading from `SeventvDatabaseService`) during message processing to apply 7TV cosmetics.
    -  Subscribes to `RoomSubscriptionDestroyedEvent` on the `EventBus` to send unsubscribe messages over the WebSocket and clean up internal room-specific state.
+   -  **Publishes specific state change events** (e.g., `SeventvUserStateChangedEvent`) to the `EventBus` to signal the need for cache invalidation.
 
 -  **`SeventvDatabaseService`:**
    -  Manages the Dexie (IndexedDB) instance dedicated to 7TV integration data (e.g., user tokens, cosmetic settings, entitlements).
@@ -207,12 +209,12 @@ This section provides a brief overview of key data structures and storage mechan
 -  **`RoomSubscription`:** Represents an active subscription to a specific room. Contains connected `ports` and the room-scoped `UserStore`, `MessageStore`, and `LRUMessageCache`. Managed by `ClientSubscriptionManager`.
 -  **`UserStore` (Room Scoped):** Stores `User` objects for a single room (in memory).
 -  **`MessageStore` (Room Scoped):** Stores raw `MessageFeedEntry` objects for a single room (in memory).
--  **`LRUMessageCache` (Room Scoped):** Stores `ProcessedChatMessageData` for a single room (in memory).
+-  **`LRUMessageCache` (Room Scoped):** Stores `ProcessedChatMessageData` for a single room (in memory). Provides granular invalidation methods.
 -  **`User`:** Represents a chat user within a room's context. Contains `userId`, `displayName`, and `platformEntitlements`. Stored in `UserStore`.
 -  **`PlatformEntitlementData`:** Represents a single platform entitlement (badge, cosmetic).
 -  **`MessageFeedEntry`:** Represents a _raw_ message or event entry from a platform feed before processing. Includes `senderUserId`, content, timestamp.
 -  **`ProcessedChatMessageData`:** Contains the result of processing a `MessageFeedEntry` via the pipeline. Includes display parts, combined platform entitlements, and any third-party cosmetics. Stored in `LRUMessageCache`.
--  **Events (`BaseEvent`, `ChatMessageReceivedEvent`, `EmoteSetUpdateEvent`, `ReadyToBroadcastMessageEvent`, `RoomSubscriptionDestroyedEvent`, etc.):** Standardized objects published on the `EventBus`. `ChatMessageReceivedEvent` is raw. `ReadyToBroadcastMessageEvent` contains the final `ProcessedChatMessageData`. `RoomSubscriptionDestroyedEvent` signals internal cleanup.
+-  **Events (`BaseEvent`, `EmoteSetUpdateEvent`, `ReadyToBroadcastMessageEvent`, `RoomSubscriptionDestroyedEvent`, `SeventvUserStateChangedEvent`, etc.):** Standardized objects published on the `EventBus`. `ReadyToBroadcastMessageEvent` contains the final `ProcessedChatMessageData`. `RoomSubscriptionDestroyedEvent` signals internal cleanup. `EmoteSetUpdateEvent` and `SeventvUserStateChangedEvent` trigger cache invalidation.
 -  **`Emote`, `EmoteSet`:** Standardized structures for representing emotes and collections. Stored in `EmoteRegistry` (in memory).
 -  **`EmoteSetUpdate`:** Contains details about changes to emote sets.
 -  **Persistent Storage:**
@@ -252,8 +254,9 @@ This section provides a brief overview of key data structures and storage mechan
    -  `PlatformAdapter` receives raw data, parses user info & platform entitlements.
    -  `PlatformAdapter` gets `RoomSubscription` via `ClientSubscriptionManager`.
    -  `PlatformAdapter` calls `roomSubscription.userStore.addOrUpdateUser(...)`.
-   -  `PlatformAdapter` publishes _raw_ `ChatMessageReceivedEvent` to `EventBus`.
-   -  `MessageProcessorService` receives the raw event.
+   -  `PlatformAdapter` calls `roomSubscription.messageStore.addMessage(rawMessageFeedEntry)`.
+   -  **`PlatformAdapter` calls `MessageProcessorService.processNewMessage(roomId, messageId, senderId)`**.
+   -  `MessageProcessorService` receives the trigger.
    -  `MessageProcessorService` gets `RoomSubscription` via `ClientSubscriptionManager`.
    -  `MessageProcessorService` checks `roomSubscription.messageCache.get(messageId)`.
    -  **Cache Hit:** `MessageProcessorService` retrieves `ProcessedChatMessageData` from cache.
@@ -273,30 +276,23 @@ This section provides a brief overview of key data structures and storage mechan
    -  `ClientEventNotifier` sends `processedData` to `ContentScriptManager`(s).
    -  `ContentScriptManager` passes data to `MessageFeedView` for rendering.
 
-4. **Storing Messages:**
-
-   -  `PlatformAdapter` (or another component triggered by the raw event) gets the `RoomSubscription`.
-   -  Calls `roomSubscription.messageStore.addMessage(rawMessageFeedEntry)`.
+4. **Storing Messages:** (Now part of Step 3, handled by `PlatformAdapter`)
 
 5. **Emote Updates & Cache Invalidation:**
 
-   -  A **registered** `IEmoteProvider` detects an update (e.g., via its own WS connection) and calls the `updateCallback` provided by `EmoteManager` during `subscribeToUpdates`.
-   -  `EmoteManager` (in `handleProviderUpdate`) updates `EmoteRegistry`.
-   -  `EmoteManager` publishes `EmoteSetUpdateEvent` (containing the `emoteContextKey`).
-   -  `MessageProcessorService` receives `EmoteSetUpdateEvent`.
-   -  `MessageProcessorService` identifies affected rooms by asking `EmoteLifecycleManager` which rooms requested the updated `emoteContextKey`.
-   -  For each affected room, `MessageProcessorService` gets the `RoomSubscription` and calls `roomSubscription.messageCache.invalidate()`.
-   -  _(Next time a message for that room is needed, it will be a cache miss and reprocessed with updated emotes)._
+   -  An `IEmoteProvider` (via `EmoteManager`) signals an update, leading to `EmoteManager` publishing an `EmoteSetUpdateEvent(emoteContextKey)` to the `EventBus`.
+   -  `MessageProcessorService` receives this event. It uses `EmoteLifecycleManager` to find all rooms affected by the `emoteContextKey`.
+   -  For each affected room, it retrieves the `RoomSubscription` and calls `roomSubscription.messageCache.invalidateContext(emoteContextKey)` (or a similar granular method).
+   -  This ensures messages using that emote context will be reprocessed.
+   -  **For a detailed visual walkthrough, see `docs/diagrams/architecture_cache_invalidation_sequence.mmd` (Scenario A).**
 
 6. **Third-Party State Updates & Cache Invalidation (Example: 7TV Cosmetics):**
 
-   -  `SeventvIntegrationManager` receives an update via its WebSocket (e.g., user U1 equips a new badge).
-   -  `SeventvIntegrationManager` updates its internal state for user U1.
-   -  **`SeventvIntegrationManager` calls `seventvDatabaseService.setCosmeticSetting(...)` to persist the change.**
-   -  _(Optional but recommended):_ `SeventvIntegrationManager` publishes a specific event (e.g., `SeventvUserStateChangedEvent(userId: U1)`) to the `EventBus`.
-   -  `MessageProcessorService` (subscribing to this event) identifies affected rooms where user U1 is present (potentially via `ClientSubscriptionManager` or internal tracking).
-   -  For each affected room, `MessageProcessorService` gets the `RoomSubscription` and calls `roomSubscription.messageCache.invalidateUser(U1)` or `invalidate()`.
-   -  _(Next time a message from U1 is needed, it will be a cache miss and reprocessed with updated cosmetics)._
+   -  An `IntegrationManager` (e.g., `SeventvIntegrationManager`) detects a state change (e.g., user cosmetic update via WebSocket) and publishes a specific event (e.g., `SeventvUserStateChangedEvent(userId)`) to the `EventBus`.
+   -  `MessageProcessorService` receives this event. It identifies all rooms where the specified user might have messages.
+   -  For each relevant room, it retrieves the `RoomSubscription` and calls `roomSubscription.messageCache.invalidateUser(userId)`.
+   -  This ensures messages from/related to that user will be reprocessed with the new third-party state.
+   -  **For a detailed visual walkthrough, see `docs/diagrams/architecture_cache_invalidation_sequence.mmd` (Scenario B).**
 
 7. **Client Disconnection:**
    -  `ContentScriptManager` disconnects.
@@ -317,9 +313,9 @@ This section provides a brief overview of key data structures and storage mechan
 
 -  **Service Worker Lifetime:** Still relies on active `Port` connections or other keep-alive mechanisms.
 -  **Storage Limits:** Service Worker storage has limits. `MessageStore`, `UserStore`, and `LRUMessageCache` are currently in-memory per `RoomSubscription`. **Persistent data is managed via Dexie/IndexedDB through `CoreDatabaseService` and integration-specific `DatabaseService`s.** Consider pruning/limits for in-memory stores and be mindful of IndexedDB quotas.
--  **Complexity:** This model increases complexity with dedicated integration managers, database services, middleware registration, and potentially more event types for cache invalidation, but improves modularity and data isolation.
--  **Cache Invalidation Logic:** Needs careful implementation. Invalidation can be triggered by `EmoteSetUpdateEvent` (affecting rooms using the context) or specific third-party events (potentially affecting specific users across rooms or entire rooms). The `LRUMessageCache` might need finer-grained invalidation (e.g., `invalidateUser`).
+-  **Complexity:** This model increases complexity with dedicated integration managers, database services, middleware registration, and event-based cache invalidation, but improves modularity and data isolation.
+-  **Cache Invalidation Logic:** Needs careful implementation. **Granular invalidation (`invalidateUser`, `invalidateContext`) is preferred** but requires accurate tracking. `MessageProcessorService` coordinates this based on events. For detailed flows, refer to `docs/diagrams/architecture_cache_invalidation_sequence.mmd`.
 -  **`_generateEmoteContextKey` Reliability:** Still crucial for emote lifecycle.
 -  **`EmoteRegistry` Complexity:** Remains complex (though only holds in-memory data).
 -  **Error Handling:** Robust error handling is crucial throughout, especially in WebSocket connections, database operations, middleware execution, and asynchronous updates.
--  **Third-Party Cosmetics:** Handled via pipeline middleware accessing state within dedicated `IntegrationManager`s (potentially reading from their `DatabaseService`). Cache invalidation for third-party state changes requires the `IntegrationManager` to signal the change (e.g., via `EventBus`) so `MessageProcessorService` can invalidate relevant cache entries. Cleanup relies on `IntegrationManager`s subscribing to `RoomSubscriptionDestroyedEvent`.
+-  **Third-Party Cosmetics:** Handled via pipeline middleware accessing state within dedicated `IntegrationManager`s (potentially reading from their `DatabaseService`). Cache invalidation for third-party state changes requires the `IntegrationManager` to signal the change (e.g., via `EventBus`) so `MessageProcessorService` can invalidate relevant cache entries (e.g., using `invalidateUser`). Cleanup relies on `IntegrationManager`s subscribing to `RoomSubscriptionDestroyedEvent`.

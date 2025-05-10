@@ -92,21 +92,21 @@ Container_Boundary(serviceWorker, "NipahTV Service Worker") {
     Component(connectionManager, "ClientConnectionManager", "Manages client Port connections")
     Component(messageHandler, "ClientMessageHandler", "Routes incoming client messages (incl. addEmoteSourceToRoom)")
     Component(eventNotifier, "ClientEventNotifier", "Subscribes to ReadyToBroadcastMessageEvent, broadcasts final processed data to clients")
-    Component(eventBus, "EventBus", "Internal pub/sub for decoupled communication")
+    Component(eventBus, "EventBus", "Internal pub/sub for decoupled communication (e.g., updates, cleanup)")
     Component(clientSubManager, "ClientSubscriptionManager", "Manages RoomSubscriptions, notifies other components on creation/destruction")
-    Component(messageProcessor, "MessageProcessorService", "Orchestrates on-demand message processing, caching, and cache invalidation")
+    Component(messageProcessor, "MessageProcessorService", "Triggered by Platform Adapters. Orchestrates on-demand message processing, caching, and granular cache invalidation based on events.")
     Component(pipeline, "MessageFeedProcessorPipeline", "Applies registered middleware (emotes, 3rd-party cosmetics) to messages")
     ComponentDb(coreDb, "Core Database", "Dexie/IndexedDB", "Stores core application settings and persistent data")
 
     ' Emote System Components
-    Component(emoteLifecycleManager, "EmoteLifecycleManager", "Manages EmoteFetchRequest reference counting based on active RoomSubscription needs")
-    Component(emoteManager, "EmoteManager", "Orchestrates interactions with registered emote providers")
+    Component(emoteLifecycleManager, "EmoteLifecycleManager", "Manages EmoteFetchRequest reference counting based on active RoomSubscription needs. Provides lookups for cache invalidation.")
+    Component(emoteManager, "EmoteManager", "Orchestrates interactions with registered emote providers. Publishes EmoteSetUpdateEvent.")
     ComponentDb(emoteRegistry, "EmoteRegistry", "Map/Memory", "Stores fetched EmoteSets and Emotes, provides lookup")
 
     ' Adapter/Provider/Integration Components (Representing Groups)
-    Component(platformAdapters, "Platform Adapters", "Connects to platforms, parses data, updates room's UserStore, publishes RAW events")
+    Component(platformAdapters, "Platform Adapters", "Connects to platforms, parses data, updates room's UserStore, triggers MessageProcessorService.")
     Component(emoteProviders, "Emote Providers", "Implements IEmoteProvider, fetches/subscribes to external emote services")
-    Component(seventvIntManager, "7TV Integration Manager", "Manages 7TV WS connection, state (cosmetics), provides pipeline middleware, and owns 7TV DB")
+    Component(seventvIntManager, "7TV Integration Manager", "Manages 7TV WS connection, state (cosmetics), provides pipeline middleware, owns 7TV DB, publishes state change events.")
     ComponentDb(seventvDb, "7TV Database", "Dexie/IndexedDB", "Stores 7TV-specific data (tokens, settings)")
 
     note right of clientSubManager
@@ -114,7 +114,7 @@ Container_Boundary(serviceWorker, "NipahTV Service Worker") {
         Each RoomSubscription contains:
         - UserStore (Room-specific user state/entitlements)
         - MessageStore (Raw messages)
-        - LRUMessageCache (Processed messages)
+        - LRUMessageCache (Processed messages w/ granular invalidation)
     end note
 }
 
@@ -155,19 +155,20 @@ Rel(eventBus, emoteProviders, "Delivers RoomSubscriptionDestroyedEvent") ' For p
 ' 7TV Integration Flow
 Rel(seventvIntManager, eventBus, "Subscribes to RoomSubscriptionDestroyedEvent") ' For cleanup/WS unsubscribe
 Rel(seventvIntManager, seventvDb, "Manages, Initializes & Uses")
-' Note: Pipeline uses middleware provided by seventvIntManager, which accesses its state.
+Rel(seventvIntManager, eventBus, "Publishes state change events") ' For cache invalidation
+' Note: Pipeline uses middleware provided by seventvIntManager, which accesses its state/DB.
 
 ' Message Processing Flow (On-Demand)
-Rel(messageProcessor, eventBus, "Subscribes to ChatMessageReceivedEvent, EmoteSetUpdateEvent")
+Rel(messageProcessor, eventBus, "Subscribes to EmoteSetUpdateEvent, etc.") ' For cache invalidation
 Rel(messageProcessor, clientSubManager, "Gets RoomSubscription (UserStore, MessageStore, Cache)")
-Rel(messageProcessor, emoteLifecycleManager, "Gets emoteContextKeys for room")
+Rel(messageProcessor, emoteLifecycleManager, "Gets emoteContextKeys/rooms for room/invalidation")
 Rel(messageProcessor, pipeline, "Invokes processing")
 Rel(messageProcessor, eventBus, "Publishes ReadyToBroadcastMessageEvent")
 ' Rel(messageProcessor, coreDb, "Reads settings") ' Potential future use
 
 ' Platform Adapters
-Rel(platformAdapters, eventBus, "Publishes RAW ChatMessageReceivedEvent, etc.")
 Rel(platformAdapters, clientSubManager, "Gets RoomSubscription (to update UserStore)")
+Rel(platformAdapters, messageProcessor, "Triggers processing for new message") ' Direct trigger
 
 ' External Relationships
 Rel(user, contentScript, "Interacts with")

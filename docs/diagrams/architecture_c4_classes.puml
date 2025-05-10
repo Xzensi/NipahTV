@@ -97,6 +97,9 @@ skinparam rectangle<<External_System>> {
     FontColor $color_fg
 }
 
+' left to right direction
+top to bottom direction
+
 
 ' Interfaces for Lollipop Notation
 interface PublishesEventBus {
@@ -150,11 +153,25 @@ package ServiceWorker {
         note top of ClientSubscriptionManager : Tracks client ports per room, manages RoomSubscription lifecycle.\nNotifies EmoteLifecycleManager & Integration Managers on creation/destruction.\nPublishes RoomSubscriptionDestroyedEvent for internal cleanup.
 
         class MessageProcessorService {
-            - handleRawMessage(event: ChatMessageReceivedEvent)
+            + processNewMessage(roomIdentifier: RoomIdentifier, messageId: string, senderId: string)
             - handleEmoteUpdate(event: EmoteSetUpdateEvent)
+            - handleThirdPartyUpdate(event: BaseEvent) ' Example for third-party invalidation
             - _processAndCache(message: MessageFeedEntry, roomSub: RoomSubscription): ProcessedChatMessageData
         }
-        note top of MessageProcessorService : Subscribes to raw messages & emote updates.\nOrchestrates on-demand processing: checks cache, invokes pipeline on miss (using keys from EmoteLifecycleManager for the room), caches result, publishes ReadyToBroadcastMessageEvent. Handles cache invalidation.
+        note top of MessageProcessorService
+            Triggered by PlatformAdapters for new messages.
+            Orchestrates on-demand processing (cache check, pipeline on miss, cache result).
+            Publishes ReadyToBroadcastMessageEvent.
+            Handles granular cache invalidation based on events from EventBus
+            (e.g., EmoteSetUpdateEvent, SeventvUserStateChangedEvent).
+            Uses LRUMessageCache's invalidation methods.
+        end note
+        note right of ServiceWorker.Core.MessageProcessorService
+            Detailed cache invalidation sequences
+            are illustrated in the
+            'architecture_cache_invalidation_sequence.mmd'
+            diagram.
+        end note
 
         class MessageFeedProcessorPipeline <<Shared>> {
             + init()
@@ -173,10 +190,12 @@ package ServiceWorker {
         class LRUMessageCache <<Room Scoped>> {
             + get(messageId: string): ProcessedChatMessageData | undefined
             + set(messageId: string, data: ProcessedChatMessageData)
-            + invalidate()
-            + invalidateUser(userId: string) ' Optional: For user-specific cosmetic changes?
+            + invalidateAll()
+            + invalidateUser(userId: string)
+            + invalidateContext(contextKey: string) ' If messages store which contexts they used
+            + invalidateMessage(messageId: string)
         }
-        note top of LRUMessageCache : Stores processed message results scoped to a single RoomSubscription. Invalidated on emote updates or specific third-party events.
+        note top of LRUMessageCache : Stores processed message results scoped to a single RoomSubscription.\nProvides methods for granular invalidation (all, by user, by context key, by message ID).\nUsed by MessageProcessorService.
 
         class RoomSubscription <<datatype>> {
              + ports: Set<Port>
@@ -209,11 +228,12 @@ package ServiceWorker {
             + addEmoteSourceToRoom(roomIdentifier: RoomIdentifier, request: EmoteFetchRequest)
             + removeEmoteSourcesForRoom(roomIdentifier: RoomIdentifier)
             + getEmoteContextKeysForRoom(roomIdentifier: RoomIdentifier): Set<string>
+            + getRoomsForContextKey(emoteContextKey: string): Set<RoomIdentifier> ' Added for invalidation lookup
             - _generateEmoteContextKey(request: EmoteFetchRequest): string
             - _incrementEmoteContextRef(emoteContextKey: string, roomIdentifier: RoomIdentifier)
             - _decrementEmoteContextRef(emoteContextKey: string, roomIdentifier: RoomIdentifier)
         }
-        note top of EmoteLifecycleManager : Tracks emote context references per RoomSubscription.\nTriggers EmoteManager subscriptions based on ref counts.\nProvides context keys needed for a specific room.
+        note top of EmoteLifecycleManager : Tracks emote context references per RoomSubscription.\nTriggers EmoteManager subscriptions based on ref counts.\nProvides context keys needed for a specific room.\nProvides reverse lookup (rooms per context key) for cache invalidation.
 
         class EmoteManager <<ServiceWorker Component>> {
             - providers: Map<string, IEmoteProvider>
@@ -222,7 +242,7 @@ package ServiceWorker {
             + unsubscribeFromEmoteSource(request: EmoteFetchRequest)
             - handleProviderUpdate(update: EmoteSetUpdate)
         }
-        note top of EmoteManager : Orchestrates fetching via registered IEmoteProviders based on calls from EmoteLifecycleManager.\nManages EmoteRegistry.
+        note top of EmoteManager : Orchestrates fetching via registered IEmoteProviders based on calls from EmoteLifecycleManager.\nManages EmoteRegistry. Publishes EmoteSetUpdateEvent.
 
         class EmoteRegistry <<ServiceWorker Component>> {
             + addOrUpdateEmoteSet(emoteSet: EmoteSet, emoteContextKey: string)
@@ -245,23 +265,23 @@ package ServiceWorker {
         class TwitchPlatformAdapter {
             + getCapabilities(): PlatformCapabilities
             + subscribe(intent: SubscriptionIntent)
-            + publishEvent(event: BaseEvent) ' Publishes RAW events
+            - handleRawMessage(data: any)
         }
-        note top of TwitchPlatformAdapter : Parses platform data, updates room's UserStore, publishes raw events.
+        note top of TwitchPlatformAdapter : Parses platform data, updates room's UserStore, stores raw message,\n**triggers MessageProcessorService directly.**\nMay publish other events (e.g., user join/part) to EventBus.
 
         class YouTubePlatformAdapter {
             + getCapabilities(): PlatformCapabilities
             + subscribe(intent: SubscriptionIntent)
-            + publishEvent(event: BaseEvent) ' Publishes RAW events
+            - handleRawMessage(data: any)
         }
-        note top of YouTubePlatformAdapter : Parses platform data, updates room's UserStore, publishes raw events.
+        note top of YouTubePlatformAdapter : Parses platform data, updates room's UserStore, stores raw message,\n**triggers MessageProcessorService directly.**\nMay publish other events to EventBus.
 
         class KickPlatformAdapter {
             + getCapabilities(): PlatformCapabilities
             + subscribe(intent: SubscriptionIntent)
-            + publishEvent(event: BaseEvent) ' Publishes RAW events
+            - handleRawMessage(data: any)
         }
-        note top of KickPlatformAdapter : Parses platform data, updates room's UserStore, publishes raw events.
+        note top of KickPlatformAdapter : Parses platform data, updates room's UserStore, stores raw message,\n**triggers MessageProcessorService directly.**\nMay publish other events to EventBus.
     }
 
     package EmoteProviderImplementations {
@@ -278,26 +298,29 @@ package ServiceWorker {
         note top of KickEmoteProvider : Implements IEmoteProvider.\nSubscribes to RoomSubscriptionDestroyedEvent for internal cleanup.
     }
 
-    package ThirdParty.Seventv {
-        class SeventvIntegrationManager {
-            - ws: WebSocket
-            - state: Map<string, any> ' Simplified state representation
-            + init()
-            + getPipelineMiddleware(): Middleware
-            + handleRoomSubscriptionCreated(roomIdentifier: RoomIdentifier)
-            - handleWebSocketMessage(event: MessageEvent)
-            - handleRoomSubscriptionDestroyed(event: RoomSubscriptionDestroyedEvent)
-        }
-        note top of SeventvIntegrationManager : Manages 7TV WebSocket connection (events.7tv.io),\nreceives async updates (cosmetics, entitlements),\nmaintains internal state, provides middleware for Pipeline.\nOwns and uses SeventvDatabaseService.
+    package ThirdParty {
+        package Seventv {
+            class SeventvIntegrationManager {
+                - ws: WebSocket
+                - state: Map<string, any> ' Simplified state representation
+                + init()
+                + getPipelineMiddleware(): Middleware
+                + handleRoomSubscriptionCreated(roomIdentifier: RoomIdentifier)
+                - handleWebSocketMessage(event: MessageEvent)
+                - handleRoomSubscriptionDestroyed(event: RoomSubscriptionDestroyedEvent)
+                - _publishStateChangeEvent(userId: string) ' Example for invalidation
+            }
+            note top of SeventvIntegrationManager : Manages 7TV WebSocket connection (events.7tv.io),\nreceives async updates (cosmetics, entitlements),\nmaintains internal state, provides middleware for Pipeline.\nOwns and uses SeventvDatabaseService.\n**Publishes state change events (e.g., SeventvUserStateChangedEvent) to EventBus for cache invalidation.**
 
-        class SeventvDatabaseService <<DatabaseService>> {
-            - db: Dexie ' Dexie instance for 7TV data
-            + init()
-            + getCosmeticSetting(userId: string, key: string): Promise<any>
-            + setCosmeticSetting(userId: string, key: string, value: any): Promise<void>
-            ' ... other 7TV data access methods
+            class SeventvDatabaseService <<DatabaseService>> {
+                - db: Dexie ' Dexie instance for 7TV data
+                + init()
+                + getCosmeticSetting(userId: string, key: string): Promise<any>
+                + setCosmeticSetting(userId: string, key: string, value: any): Promise<void>
+                ' ... other 7TV data access methods
+            }
+            note top of SeventvDatabaseService : Manages the Dexie (IndexedDB) instance for 7TV integration data (e.g., tokens, settings). Provides typed access methods.
         }
-        note top of SeventvDatabaseService : Manages the Dexie (IndexedDB) instance for 7TV integration data (e.g., tokens, settings). Provides typed access methods.
     }
 }
 
@@ -326,21 +349,8 @@ package ContentScriptUI {
 ' --- Simplified Relationships ---
 
 ' ServiceWorkerOrchestrator Relationships (Ownership & Setup)
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientConnectionManager : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientMessageHandler : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientEventNotifier : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.ClientSubscriptionManager : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.MessageProcessorService : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteLifecycleManager : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.EmoteSystem.EmoteManager : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.MessageFeedProcessorPipeline : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.EventBus : manages
-ServiceWorker.Core.ServiceWorkerOrchestrator o-- ServiceWorker.Core.CoreDatabaseService : manages & inits ' Added DB Service
-ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider : instantiates
-ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteProviderImplementations.KickEmoteProvider : instantiates
-ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager : instantiates & inits
-ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.EmoteSystem.EmoteManager : calls registerProvider()
-ServiceWorker.Core.ServiceWorkerOrchestrator ..> ServiceWorker.Core.MessageFeedProcessorPipeline : calls use(middleware)
+' Removed as per user request to simplify the diagram.
+' The note on ServiceWorkerOrchestrator describes its role.
 
 ' ClientConnectionManager Relationships
 ServiceWorker.Core.ClientConnectionManager ..> ServiceWorker.Core.ClientMessageHandler : forwards message
@@ -355,9 +365,9 @@ ServiceWorker.Core.ClientEventNotifier -() SubscribesEventBus : subscribes Ready
 ServiceWorker.Core.ClientEventNotifier ..> ServiceWorker.Core.ClientSubscriptionManager : gets ports for room
 
 ' MessageProcessorService Relationships
-ServiceWorker.Core.MessageProcessorService -() SubscribesEventBus : subscribes ChatMessageReceivedEvent, EmoteSetUpdateEvent
+ServiceWorker.Core.MessageProcessorService -() SubscribesEventBus : subscribes EmoteSetUpdateEvent, SeventvUserStateChangedEvent ' For cache invalidation
 ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
-ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : gets emoteContextKeys for room
+ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : gets emoteContextKeys, getRoomsForContextKey
 ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.MessageFeedProcessorPipeline : invokes process()
 ServiceWorker.Core.MessageProcessorService -() PublishesEventBus : publishes ReadyToBroadcastMessageEvent
 ' ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.CoreDatabaseService : reads settings? (Potential future use)
@@ -367,9 +377,8 @@ ServiceWorker.Core.MessageProcessorService -() PublishesEventBus : publishes Rea
 ' Event Publishing via Lollipop Interface
 ServiceWorker.Core.ClientSubscriptionManager -() PublishesEventBus : publishes RoomSubscriptionDestroyedEvent
 ServiceWorker.EmoteSystem.EmoteManager -() PublishesEventBus : publishes EmoteSetUpdateEvent
-ServiceWorker.PlatformImplementations.TwitchPlatformAdapter -() PublishesEventBus : publishes RAW events
-ServiceWorker.PlatformImplementations.YouTubePlatformAdapter -() PublishesEventBus : publishes RAW events
-ServiceWorker.PlatformImplementations.KickPlatformAdapter -() PublishesEventBus : publishes RAW events
+ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager -() PublishesEventBus : publishes SeventvUserStateChangedEvent ' Example
+' PlatformAdapters may publish other non-message events
 
 ' Event Subscription via Lollipop Interface
 ServiceWorker.EmoteProviderImplementations.SeventvEmoteProvider -() SubscribesEventBus : subscribes RoomSubscriptionDestroyedEvent
@@ -406,11 +415,14 @@ ServiceWorker.Core.RoomSubscription *-- ServiceWorker.Core.LRUMessageCache : own
 
 ' PlatformImplementations Relationships
 ServiceWorker.PlatformImplementations.TwitchPlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
+ServiceWorker.PlatformImplementations.TwitchPlatformAdapter ..> ServiceWorker.Core.MessageProcessorService : triggers processing
 ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
+ServiceWorker.PlatformImplementations.YouTubePlatformAdapter ..> ServiceWorker.Core.MessageProcessorService : triggers processing
 ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> ServiceWorker.Core.ClientSubscriptionManager : gets RoomSubscription
+ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> ServiceWorker.Core.MessageProcessorService : triggers processing
 
 ' ThirdParty Integration Relationships
-ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager o-- ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : manages & inits ' Added DB Service
+ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager o-- ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : manages & inits
 ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager ..> ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : uses
 ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager ..> ExtSeventvWS : connects via WebSocket
 

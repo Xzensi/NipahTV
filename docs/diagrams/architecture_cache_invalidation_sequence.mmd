@@ -1,0 +1,81 @@
+sequenceDiagram
+    autonumber
+    participant E_EmoteMgr as SW: EmoteManager
+    participant E_7TVIntMgr as SW: 7TV Integration Mgr
+    participant SW_EventBus as SW: EventBus
+    participant SW_MsgProcessor as SW: MessageProcessorService
+    participant SW_EmoteLifecycleMgr as SW: EmoteLifecycleManager
+    participant SW_ClientSubMgr as SW: ClientSubscriptionManager
+    participant RoomSub1 as RoomSubscription (room1)
+    participant Cache1 as LRUMessageCache (for room1)
+    participant RoomSubN as RoomSubscription (roomN)
+    participant CacheN as LRUMessageCache (for roomN)
+
+    %% Scenario A: Invalidation due to Emote Set Update %%
+    Note over E_EmoteMgr, SW_EventBus: Emote Set Update for contextKey 'global_emotes'
+    E_EmoteMgr->>SW_EventBus: publish(EmoteSetUpdateEvent(contextKey: 'global_emotes'))
+    SW_EventBus->>SW_MsgProcessor: EmoteSetUpdateEvent(contextKey: 'global_emotes')
+    activate SW_MsgProcessor
+    SW_MsgProcessor->>SW_EmoteLifecycleMgr: getRoomsForContextKey('global_emotes')
+    activate SW_EmoteLifecycleMgr
+    SW_EmoteLifecycleMgr-->>SW_MsgProcessor: [room1, roomN]
+    deactivate SW_EmoteLifecycleMgr
+
+    loop For each affected room (e.g., room1)
+        SW_MsgProcessor->>SW_ClientSubMgr: getRoomSubscription('room1')
+        activate SW_ClientSubMgr
+        SW_ClientSubMgr-->>SW_MsgProcessor: roomSub1
+        deactivate SW_ClientSubMgr
+        Note over SW_MsgProcessor, Cache1: Accessing cache for room1
+        SW_MsgProcessor->>Cache1: invalidateContext('global_emotes')
+        activate Cache1
+        Cache1-->>SW_MsgProcessor: (ack)
+        deactivate Cache1
+    end
+    loop For each affected room (e.g., roomN)
+        SW_MsgProcessor->>SW_ClientSubMgr: getRoomSubscription('roomN')
+        activate SW_ClientSubMgr
+        SW_ClientSubMgr-->>SW_MsgProcessor: roomSubN
+        deactivate SW_ClientSubMgr
+        Note over SW_MsgProcessor, CacheN: Accessing cache for roomN
+        SW_MsgProcessor->>CacheN: invalidateContext('global_emotes')
+        activate CacheN
+        CacheN-->>SW_MsgProcessor: (ack)
+        deactivate CacheN
+    end
+    deactivate SW_MsgProcessor
+
+    %% Scenario B: Invalidation due to Third-Party User-Specific Update %%
+    Note over E_7TVIntMgr, SW_EventBus: 7TV User 'user123' cosmetic update
+    E_7TVIntMgr->>SW_EventBus: publish(SeventvUserStateChangedEvent(userId: 'user123'))
+    SW_EventBus->>SW_MsgProcessor: SeventvUserStateChangedEvent(userId: 'user123')
+    activate SW_MsgProcessor
+    Note over SW_MsgProcessor: Determine relevant RoomSubscriptions for 'user123'
+    %% This might involve iterating or a more direct lookup if UserStore tracks rooms per user,
+    %% or if MessageProcessorService queries ClientSubscriptionManager for all active RoomSubscriptions
+    %% and then checks their UserStores. For simplicity, assume it identifies room1 and roomN.
+
+    SW_MsgProcessor->>SW_ClientSubMgr: getRoomSubscription('room1')
+    activate SW_ClientSubMgr
+    SW_ClientSubMgr-->>SW_MsgProcessor: roomSub1
+    deactivate SW_ClientSubMgr
+    alt roomSub1 contains messages from/related to 'user123'
+        Note over SW_MsgProcessor, Cache1: Accessing cache for room1
+        SW_MsgProcessor->>Cache1: invalidateUser('user123')
+        activate Cache1
+        Cache1-->>SW_MsgProcessor: (ack)
+        deactivate Cache1
+    end
+
+    SW_MsgProcessor->>SW_ClientSubMgr: getRoomSubscription('roomN')
+    activate SW_ClientSubMgr
+    SW_ClientSubMgr-->>SW_MsgProcessor: roomSubN
+    deactivate SW_ClientSubMgr
+    alt roomSubN contains messages from/related to 'user123'
+        Note over SW_MsgProcessor, CacheN: Accessing cache for roomN
+        SW_MsgProcessor->>CacheN: invalidateUser('user123')
+        activate CacheN
+        CacheN-->>SW_MsgProcessor: (ack)
+        deactivate CacheN
+    end
+    deactivate SW_MsgProcessor
