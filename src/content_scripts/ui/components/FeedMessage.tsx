@@ -1,4 +1,4 @@
-import { FeedBaseEntry, FeedEntryKind } from '@Core/@types/feedTypes'
+import { FeedBaseEntry, FeedEntryKind } from '../../@types/feedTypes'
 import styles from './CSS/FeedMessage.module.css'
 
 const { log, error } = console

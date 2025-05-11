@@ -1,10 +1,10 @@
 import { createSignal, onMount, onCleanup, For, batch, createEffect, untrack } from 'solid-js'
-import { FeedEntry, FeedEntryProcessedData, FeedEntryKind } from '@Core/@types/feedTypes'
-import FeedProcessorPipeline from '@Core/Feed/FeedProcessorPipeline'
-import { FeedController } from '@Core/Feed/FeedController'
-import FeedMessage from '@Core/Components/FeedMessage'
+import { FeedEntry, FeedEntryProcessedData, FeedEntryKind } from '../../@types/feedTypes'
+import FeedProcessorPipeline from '../feed/FeedProcessorPipeline'
+import { FeedController } from '../feed/FeedController'
+import FeedMessage from '../components/FeedMessage'
 import { createStore } from 'solid-js/store'
-import { LRU } from '@Core/Common/LRU'
+import { LRU } from '@Common/LRU'
 import styles from './ChatList.module.css'
 
 const { log, error } = console

@@ -1,11 +1,11 @@
 /// <reference types="vite-plugin-monkey/client" />
 /* @refresh reload */
 
-import { FeedMessageEntryContentPartKind } from '@Core/Components/FeedMessage'
-import FeedProcessorPipeline from '@Core/Feed/FeedProcessorPipeline'
-import ChatFeedController from '@Core/Chat/ChatFeedController'
-import { FeedEntryKind } from '@Core/@types/feedTypes'
-import FeedView from '@Core/Components/FeedView'
+import { FeedMessageEntryContentPartKind } from './ui/components/FeedMessage'
+import FeedProcessorPipeline from './ui/feed/FeedProcessorPipeline'
+import ChatFeedController from './ui/chat/ChatFeedController'
+import { FeedEntryKind } from './@types/feedTypes'
+import FeedView from './ui/components/FeedView'
 import styles from './styles.module.css'
 import { render } from 'solid-js/web'
 

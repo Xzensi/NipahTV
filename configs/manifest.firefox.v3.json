@@ -7,7 +7,7 @@
 	},
 	"content_scripts": [
 		{
-			"js": ["src/index.tsx"],
+			"js": ["src/content_scripts/index.tsx"],
 			"css": [],
 			"matches": ["https://kick.com/*"]
 		}

@@ -1,4 +1,4 @@
-import { CustomEventTarget } from '@Core/Common/TypedCustomEvent'
+import { CustomEventTarget } from '@Common/TypedCustomEvent'
 
 const { log, error } = console
 
