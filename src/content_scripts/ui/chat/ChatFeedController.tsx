@@ -1,8 +1,8 @@
-import { CustomEventTarget, TypedCustomEvent } from '@Core/Common/TypedCustomEvent'
-import { FeedController, FeedEventMap } from '@Core/Feed/FeedController'
-import { FeedMessageEntry } from '@Core/Components/FeedMessage'
-import { FeedEntryKind } from '../@types/feedTypes'
-import { ulid } from '@Core/Common/utils'
+import { CustomEventTarget, TypedCustomEvent } from '@Common/TypedCustomEvent'
+import { FeedController, FeedEventMap } from '../feed/FeedController'
+import { FeedMessageEntry } from '../components/FeedMessage'
+import { FeedEntryKind } from '../../@types/feedTypes'
+import { ulid } from '@Common/utils'
 
 const { log, error } = console
 

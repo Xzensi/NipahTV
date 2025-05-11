@@ -1,4 +1,4 @@
-import { FeedMessageEntry, FeedMessageEntryProcessedData } from '@Core/Components/FeedMessage'
+import { FeedMessageEntry, FeedMessageEntryProcessedData } from '../ui/components/FeedMessage'
 
 export const enum FeedEntryKind {
 	Null = 0,

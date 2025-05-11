@@ -1,4 +1,4 @@
-import { FeedEntry } from '@Core/@types/feedTypes'
+import { FeedEntry } from '../../@types/feedTypes'
 
 interface FeedProcessorExecutionContext {
 	view: 'chat_feed' | 'profile_feed'

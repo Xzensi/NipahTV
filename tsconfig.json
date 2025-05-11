@@ -17,7 +17,8 @@
 		"skipLibCheck": true,
 		"baseUrl": "./src",
 		"paths": {
-			"@Core/*": ["Core/*"]
+			"@Common/*": ["common/*"],
+			"@UI/*": ["ui/*"]
 		}
 	},
 	"typeRoots": ["node_modules/@types", "node_modules/dexie"],
