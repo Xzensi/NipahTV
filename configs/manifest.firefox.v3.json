@@ -1,15 +1,14 @@
 {
 	"manifest_version": 3,
 	"background": {
-		"scripts": "src/background/worker.tsx",
-		"persistent": false,
+		"scripts": ["src/background/index.tsx"],
 		"type": "module"
 	},
 	"content_scripts": [
 		{
 			"js": ["src/content_scripts/index.tsx"],
 			"css": [],
-			"matches": ["https://kick.com/*"]
+			"matches": ["http://localhost:8080/*", "https://kick.com/*"]
 		}
 	],
 	"browser_specific_settings": {
