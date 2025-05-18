@@ -2,12 +2,12 @@
 	"manifest_version": 3,
 	"minimum_chrome_version": "123",
 	"background": {
-		"service_worker": "src/background/index.tsx",
+		"service_worker": "src/background/index.ts",
 		"type": "module"
 	},
 	"content_scripts": [
 		{
-			"js": ["src/content_scripts/index.tsx"],
+			"js": ["src/content_script/index.tsx"],
 			"css": [],
 			"matches": ["http://localhost:8080/*", "https://kick.com/*"]
 		}
