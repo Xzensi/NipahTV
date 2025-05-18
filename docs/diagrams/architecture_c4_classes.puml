@@ -22,6 +22,7 @@ allowmixing
 !$color_note_font      = "#F8F8F2"
 !$color_ext_system_bg  = "#5D2E4F"
 !$color_db_service_bg  = "#2D5A5A"
+!$color_db_model_bg    = "#3E6E82"
 
 skinparam {
     ' roundCorner 10
@@ -84,6 +85,7 @@ skinparam class<<DatabaseService>> {
     BorderColor $color_accent_blue
     StereotypeFontColor $color_accent_orange
 }
+
 
 
 skinparam rectangle<<System_Boundary>><<Container_Boundary>> {
@@ -178,7 +180,7 @@ package ServiceWorker {
             + use(middleware: Middleware)
             + process(rawMessage: MessageFeedEntry, sender: User, emoteContextKeys: Set<string>): ProcessedChatMessageData
         }
-        note top of MessageFeedProcessorPipeline : Invoked on-demand by MessageProcessorService.\nProcesses raw message using sender's User data and relevant emote context keys.\nApplies registered middleware transformations (emote replacement, third-party cosmetics like 7TV).
+        note top of MessageFeedProcessorPipeline : Invoked on-demand by MessageProcessorService.\nProcesses raw message using sender's User data and relevant emote context keys.\nApplies registered middleware transformations (emote replacement, third-party cosmetics like 7TV accessing DatabaseService via its models).
 
         class UserStore <<Room Scoped>> {
              - users: Map<string, User>
@@ -214,12 +216,11 @@ package ServiceWorker {
 
         class CoreDatabaseService <<DatabaseService>> {
             - db: Dexie ' Dexie instance for core data
+            + settings: SettingsModel ' Exposed model for settings
             + init()
-            + getSetting(key: string): Promise<any>
-            + setSetting(key: string, value: any): Promise<void>
-            ' ... other core data access methods
         }
-        note top of CoreDatabaseService : Manages the Dexie (IndexedDB) instance for core application data (e.g., settings). Provides typed access methods.
+        note top of CoreDatabaseService : Manages NipahTvCoreDb (Dexie instance for core data).\nExposes SettingsModel for settings table operations.
+
 
     }
 
@@ -310,16 +311,14 @@ package ServiceWorker {
                 - handleRoomSubscriptionDestroyed(event: RoomSubscriptionDestroyedEvent)
                 - _publishStateChangeEvent(userId: string) ' Example for invalidation
             }
-            note top of SeventvIntegrationManager : Manages 7TV WebSocket connection (events.7tv.io),\nreceives async updates (cosmetics, entitlements),\nmaintains internal state, provides middleware for Pipeline.\nOwns and uses SeventvDatabaseService.\n**Publishes state change events (e.g., SeventvUserStateChangedEvent) to EventBus for cache invalidation.**
+            note top of SeventvIntegrationManager : Manages 7TV WebSocket connection (events.7tv.io),\nreceives async updates (cosmetics, entitlements),\nmaintains internal state, provides middleware for Pipeline.\nOwns and uses SeventvDatabaseService.\nMiddleware accesses 7TV data via SeventvDatabaseService's models (when defined).\n**Publishes state change events (e.g., SeventvUserStateChangedEvent) to EventBus for cache invalidation.**
 
             class SeventvDatabaseService <<DatabaseService>> {
                 - db: Dexie ' Dexie instance for 7TV data
+                ' + userCache: SeventvUserCacheModel (Example when defined)
                 + init()
-                + getCosmeticSetting(userId: string, key: string): Promise<any>
-                + setCosmeticSetting(userId: string, key: string, value: any): Promise<void>
-                ' ... other 7TV data access methods
             }
-            note top of SeventvDatabaseService : Manages the Dexie (IndexedDB) instance for 7TV integration data (e.g., tokens, settings). Provides typed access methods.
+            note top of SeventvDatabaseService : Manages NipahTvSeventvDb (Dexie instance for 7TV data).\nWill expose models for 7TV specific data access.
         }
     }
 }
@@ -370,7 +369,7 @@ ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.ClientSubscrip
 ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.EmoteSystem.EmoteLifecycleManager : gets emoteContextKeys, getRoomsForContextKey
 ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.MessageFeedProcessorPipeline : invokes process()
 ServiceWorker.Core.MessageProcessorService -() PublishesEventBus : publishes ReadyToBroadcastMessageEvent
-' ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.CoreDatabaseService : reads settings? (Potential future use)
+' ServiceWorker.Core.MessageProcessorService ..> ServiceWorker.Core.CoreDatabaseService : reads settings? (Potential future use via .settings model)
 
 ' EventBus Relationships (No direct arrows needed for subscribers/publishers using lollipops)
 
@@ -423,7 +422,7 @@ ServiceWorker.PlatformImplementations.KickPlatformAdapter ..> ServiceWorker.Core
 
 ' ThirdParty Integration Relationships
 ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager o-- ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : manages & inits
-ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager ..> ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : uses
+ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager ..> ServiceWorker.ThirdParty.Seventv.SeventvDatabaseService : uses (via models)
 ServiceWorker.ThirdParty.Seventv.SeventvIntegrationManager ..> ExtSeventvWS : connects via WebSocket
 
 @enduml

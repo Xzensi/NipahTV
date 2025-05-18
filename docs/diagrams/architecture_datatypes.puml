@@ -68,6 +68,21 @@ skinparam class<<datatype>> {
     AttributeFontColor $color_accent_blue
     StereotypeFontColor $color_accent_orange
 }
+skinparam class<<db_schema>> {
+    BackgroundColor $color_datatype_bg
+    BorderColor $color_accent_purple
+    FontColor $color_fg
+    AttributeFontColor $color_accent_blue
+    StereotypeFontColor $color_accent_orange
+}
+skinparam class<<db_model>> {
+    BackgroundColor $color_accent_blue
+    BorderColor $color_accent_red
+    FontColor $color_fg
+    AttributeFontColor $color_fg
+    StereotypeFontColor $color_accent_orange
+}
+
 
 ' General enhancements for better visuals
 ' skinparam roundCorner 10
@@ -254,9 +269,47 @@ class MessageStore <<Room Scoped>> {
 }
 note top of MessageStore : Holds raw message data for a RoomSubscription.
 
+' --- Database Related Data Types ---
+class SettingDocument <<datatype>> {
+    + key: string
+    + value: any
+}
+note top of SettingDocument : Structure for a setting in CoreDatabaseService.
+
+class SettingsModel <<db_model>> {
+    - settingsTable: Table<SettingDocument, string>
+    + constructor(settingsTable: Table<SettingDocument, string>)
+    + getSetting(key: string): Promise<SettingDocument | undefined>
+    + getSettingValue<V>(key: string, defaultValue?: V): Promise<V | undefined>
+    + setSetting(key: string, value: any): Promise<string>
+    + deleteSetting(key: string): Promise<void>
+    + getAllSettings(): Promise<SettingDocument[]>
+}
+note top of SettingsModel : Manages CRUD for 'settings' table in CoreDatabaseService.
+
+interface "Table<TDoc, TKey>" as DexieTable<TDoc, TKey> <<Dexie Generic>> {
+  ' Dexie.Table generic interface
+}
+note top of DexieTable : Represents Dexie's generic Table interface.
+
+class CoreDbSchema <<db_schema>> {
+    <<Dexie Extension>>
+    + settings: Table<SettingDocument, string>
+    ' ... other core tables
+}
+note top of CoreDbSchema : Typed Dexie schema for CoreDatabaseService.
+
+class SeventvDbSchema <<db_schema>> {
+    <<Dexie Extension>>
+    ' ... 7TV specific tables (e.g., userCache: Table<SeventvUserCache, string>)
+}
+note top of SeventvDbSchema : Typed Dexie schema for SeventvDatabaseService.
+
+
 ' --- Internal Data Type Relationships ---
 
 EmoteSet "1" *-- "*" Emote : contains
+
 FollowEvent --|> ChannelEvent
 note left of FollowEvent : Extends ChannelEvent
 
@@ -284,5 +337,14 @@ RoomSubscription *-- MessageStore : owns
 RoomSubscription *-- UserStore : owns
 RoomSubscription *-- LRUMessageCache : owns
 UserStore "1" *-- "*" User : stores
+
+' --- Database Relationships ---
+CoreDbSchema "1" *-- "1" DexieTable : settings is a
+DexieTable <|.. SettingDocument : (settings table of type)
+SettingsModel o-- DexieTable : uses (settingsTable)
+SettingsModel ..> SettingDocument : operates on
+
+' Conceptual: CoreDatabaseService would use CoreDbSchema and expose SettingsModel.
+' Conceptual: SeventvDatabaseService would use SeventvDbSchema.
 
 @enduml

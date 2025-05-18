@@ -2,7 +2,7 @@
 
 This document outlines the architecture of the NipahTV browser extension, focusing on the class structure and interactions within the Service Worker and its communication with Content Scripts.
 
-**Note:** This document describes the high-level component interactions shown in `architecture_classes.puml`. For detailed definitions and relationships of data structures (like `Emote`, `BaseEvent`, `User`, `RoomSubscription`, etc.), please refer to the separate **`architecture_datatypes.puml`** diagram file. For detailed cache invalidation sequences, see **`architecture_cache_invalidation_sequence.mmd`**.
+**Note:** This document describes the high-level component interactions. For detailed definitions and relationships of data structures, refer to **`architecture_datatypes.puml`**. For detailed cache invalidation sequences, see **`architecture_cache_invalidation_sequence.mmd`**.
 
 ## Core Concepts & Goals
 
@@ -16,7 +16,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
 -  **Processed Message Caching:** Results of message processing are cached per room (`LRUMessageCache`) to avoid redundant work.
 -  **Granular Cache Invalidation:** The `LRUMessageCache` supports invalidation by message ID, user ID, or emote context key. Invalidation is triggered by relevant events (`EmoteSetUpdateEvent`, third-party state changes) handled by `MessageProcessorService`. Detailed flows are in `architecture_cache_invalidation_sequence.mmd`.
 -  **Decentralized Third-Party Logic:** Third-party integrations (like 7TV) are encapsulated in dedicated managers (e.g., `SeventvIntegrationManager`). These managers handle their own state (e.g., cosmetics via WebSocket), **manage their own persistent storage** (e.g., `SeventvDatabaseService`), publish state change events for cache invalidation, and integrate with the core system via registered pipeline middleware and event subscriptions.
--  **Separate Persistent Storage:** Core application data and integration-specific data are stored in **separate Dexie/IndexedDB databases**, managed by dedicated `DatabaseService` components (`CoreDatabaseService`, `SeventvDatabaseService`, etc.) to ensure isolation and simplify schema management.
+-  **Separate Persistent Storage & Model-Centric Access:** Core application data and integration-specific data are stored in **separate Dexie/IndexedDB databases**, managed by dedicated `DatabaseService` classes (`CoreDatabaseService`, `SeventvDatabaseService`, etc.). These services expose "model" instances (e.g., `SettingsModel`) for direct, type-safe table operations, ensuring data isolation and simplifying schema management.
 -  **Efficient Resource Usage:** Avoids redundant provider subscriptions. Caching minimizes reprocessing. Event-based cleanup allows internal state pruning.
 -  **Extensibility:** Designed to easily add support for new platforms, emote providers (by registering new implementations), or third-party features (by creating new integration managers, database services, and middleware).
 -  **Decoupling:** Components are loosely coupled through events (for updates/lifecycle), dependency injection (providers, managers), and well-defined interfaces/data structures. Direct calls are used for high-frequency message processing triggers.
@@ -80,7 +80,7 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Applies **registered** middleware transformations in sequence:
       -  Core middleware uses the `User` object for platform entitlements.
       -  Core middleware uses `EmoteRegistry` (queried with `emoteContextKey`s) for emote replacement.
-      -  **Registered third-party middleware** (obtained from `IntegrationManager`s like `SeventvIntegrationManager`) accesses its manager's internal state (e.g., 7TV cosmetics, potentially reading from the manager's `DatabaseService`) and modifies the data.
+      -  **Registered third-party middleware** (obtained from `IntegrationManager`s like `SeventvIntegrationManager`) accesses its manager's internal state (e.g., 7TV cosmetics, potentially reading from the manager's `DatabaseService` via its exposed models) and modifies the data.
    -  Returns the final `ProcessedChatMessageData`.
 
 -  **`UserStore` (Room Scoped):**
@@ -109,10 +109,10 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  Its lifecycle is tied to its parent `RoomSubscription`.
    -  Used by `MessageProcessorService` to retrieve raw message data on cache misses.
 
--  **`CoreDatabaseService`:**
-   -  Manages the Dexie (IndexedDB) instance dedicated to core application data (e.g., user settings, global preferences).
+-  **`CoreDatabaseService`:** (Located in `src/background/core/database/`)
+   -  Manages the Dexie (IndexedDB) instance (`NipahTvCoreDb`) dedicated to core application data.
    -  Instantiated and initialized by `ServiceWorkerOrchestrator`.
-   -  Provides typed methods for accessing core persistent data (e.g., `getSetting`, `setSetting`).
+   -  Exposes a `settings` property (an instance of `SettingsModel`) for direct, type-safe operations on the settings table (e.g., `coreDbService.settings.getSetting('theme')`).
    -  Encapsulates the Dexie database schema and versioning for core data.
 
 ### 2. Emote System (`EmoteSystem` Namespace)
@@ -189,15 +189,15 @@ This document outlines the architecture of the NipahTV browser extension, focusi
    -  **Owns and initializes the `SeventvDatabaseService`**.
    -  Manages the persistent WebSocket connection to the 7TV Event Service (`events.7tv.io`).
    -  Receives notifications from `ClientSubscriptionManager` (`handleRoomSubscriptionCreated`) to send subscription messages over the WebSocket for relevant rooms/users.
-   -  Handles incoming asynchronous WebSocket messages, parsing them to update its internal state (e.g., user cosmetics, entitlements). **Uses `SeventvDatabaseService` to persist relevant state changes.**
-   -  Provides a `Middleware` function (`getPipelineMiddleware`) to the `ServiceWorkerOrchestrator`, which registers it with the `MessageFeedProcessorPipeline`. This middleware accesses the manager's internal state (potentially reading from `SeventvDatabaseService`) during message processing to apply 7TV cosmetics.
+   -  Handles incoming asynchronous WebSocket messages, parsing them to update its internal state (e.g., user cosmetics, entitlements). **Uses `SeventvDatabaseService` (via its exposed models, when defined) to persist relevant state changes.**
+   -  Provides a `Middleware` function (`getPipelineMiddleware`) to the `ServiceWorkerOrchestrator`, which registers it with the `MessageFeedProcessorPipeline`. This middleware accesses the manager's internal state (potentially reading from `SeventvDatabaseService` via its models) during message processing to apply 7TV cosmetics.
    -  Subscribes to `RoomSubscriptionDestroyedEvent` on the `EventBus` to send unsubscribe messages over the WebSocket and clean up internal room-specific state.
    -  **Publishes specific state change events** (e.g., `SeventvUserStateChangedEvent`) to the `EventBus` to signal the need for cache invalidation.
 
 -  **`SeventvDatabaseService`:**
-   -  Manages the Dexie (IndexedDB) instance dedicated to 7TV integration data (e.g., user tokens, cosmetic settings, entitlements).
+   -  Manages the Dexie (IndexedDB) instance (`NipahTvSeventvDb`) dedicated to 7TV integration data.
    -  Instantiated and initialized by `SeventvIntegrationManager`.
-   -  Provides typed methods for accessing 7TV persistent data (e.g., `getCosmeticSetting`, `setCosmeticSetting`).
+   -  Will expose "model" instances for direct, type-safe operations on its tables when 7TV-specific data persistence is defined (e.g., `seventvDbService.userTokens.getToken()`).
    -  Encapsulates the Dexie database schema and versioning for 7TV data.
 
 ## Data Structures & Storage (Overview)
@@ -218,9 +218,9 @@ This section provides a brief overview of key data structures and storage mechan
 -  **`Emote`, `EmoteSet`:** Standardized structures for representing emotes and collections. Stored in `EmoteRegistry` (in memory).
 -  **`EmoteSetUpdate`:** Contains details about changes to emote sets.
 -  **Persistent Storage:**
-   -  **`CoreDatabaseService`:** Manages a Dexie/IndexedDB instance for core settings and potentially other long-lived application data.
-   -  **`SeventvDatabaseService`:** Manages a separate Dexie/IndexedDB instance for 7TV-specific data (tokens, settings, etc.).
-   -  Other integrations would have their own dedicated `DatabaseService` instances.
+   -  **`CoreDatabaseService`:** Manages a Dexie/IndexedDB instance for core settings and potentially other long-lived application data. Exposes a `settings` model for data access.
+   -  **`SeventvDatabaseService`:** Manages a separate Dexie/IndexedDB instance for 7TV-specific data (tokens, settings, etc.). Will expose models for data access when tables are defined.
+   -  Other integrations would have their own dedicated `DatabaseService` classes.
 
 ## Key Workflows
 
@@ -267,7 +267,7 @@ This section provides a brief overview of key data structures and storage mechan
       -  `MessageProcessorService` invokes `MessageFeedProcessorPipeline.process(rawMessage, user, keys)`.
       -  Pipeline executes **registered middleware** in sequence:
          -  Core emote middleware uses `EmoteRegistry` with `keys`.
-         -  **Third-party middleware** (e.g., 7TV's) is executed, accessing its `IntegrationManager`'s state (e.g., `SeventvIntegrationManager.getCosmetics(user.userId)`, **potentially reading from `SeventvDatabaseService`**).
+         -  **Third-party middleware** (e.g., 7TV's) is executed, accessing its `IntegrationManager`'s state (e.g., `SeventvIntegrationManager.getCosmetics(user.userId)`, **potentially reading from `SeventvDatabaseService` via its exposed models**).
       -  Pipeline returns `ProcessedChatMessageData`.
       -  `MessageProcessorService` stores result in `roomSubscription.messageCache.set(messageId, processedData)`.
    -  `MessageProcessorService` publishes `ReadyToBroadcastMessageEvent(roomId, processedData)` to `EventBus`.
@@ -312,10 +312,10 @@ This section provides a brief overview of key data structures and storage mechan
 ## Assumptions & Considerations
 
 -  **Service Worker Lifetime:** Still relies on active `Port` connections or other keep-alive mechanisms.
--  **Storage Limits:** Service Worker storage has limits. `MessageStore`, `UserStore`, and `LRUMessageCache` are currently in-memory per `RoomSubscription`. **Persistent data is managed via Dexie/IndexedDB through `CoreDatabaseService` and integration-specific `DatabaseService`s.** Consider pruning/limits for in-memory stores and be mindful of IndexedDB quotas.
+-  **Storage Limits:** Service Worker storage has limits. `MessageStore`, `UserStore`, and `LRUMessageCache` are currently in-memory per `RoomSubscription`. **Persistent data is managed via Dexie/IndexedDB through `CoreDatabaseService` and integration-specific `DatabaseService` classes.** Consider pruning/limits for in-memory stores and be mindful of IndexedDB quotas.
 -  **Complexity:** This model increases complexity with dedicated integration managers, database services, middleware registration, and event-based cache invalidation, but improves modularity and data isolation.
 -  **Cache Invalidation Logic:** Needs careful implementation. **Granular invalidation (`invalidateUser`, `invalidateContext`) is preferred** but requires accurate tracking. `MessageProcessorService` coordinates this based on events. For detailed flows, refer to `docs/diagrams/architecture_cache_invalidation_sequence.mmd`.
 -  **`_generateEmoteContextKey` Reliability:** Still crucial for emote lifecycle.
 -  **`EmoteRegistry` Complexity:** Remains complex (though only holds in-memory data).
 -  **Error Handling:** Robust error handling is crucial throughout, especially in WebSocket connections, database operations, middleware execution, and asynchronous updates.
--  **Third-Party Cosmetics:** Handled via pipeline middleware accessing state within dedicated `IntegrationManager`s (potentially reading from their `DatabaseService`). Cache invalidation for third-party state changes requires the `IntegrationManager` to signal the change (e.g., via `EventBus`) so `MessageProcessorService` can invalidate relevant cache entries (e.g., using `invalidateUser`). Cleanup relies on `IntegrationManager`s subscribing to `RoomSubscriptionDestroyedEvent`.
+-  **Third-Party Cosmetics:** Handled via pipeline middleware accessing state within dedicated `IntegrationManager`s (potentially reading from their `DatabaseService` via exposed models). Cache invalidation for third-party state changes requires the `IntegrationManager` to signal the change (e.g., via `EventBus`) so `MessageProcessorService` can invalidate relevant cache entries (e.g., using `invalidateUser`). Cleanup relies on `IntegrationManager`s subscribing to `RoomSubscriptionDestroyedEvent`.
