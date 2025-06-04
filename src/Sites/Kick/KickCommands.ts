@@ -93,6 +93,22 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		}
 	},
 	{
+		name: 'category',
+		minAllowedRole: 'moderator',
+		description: 'Change the category of the stream.',
+		execute: async (deps: RootContext & Session, args) => {
+			return LexicalCommandFromMain.executeCommand('category')
+		}
+	},
+	{
+		name: 'prediction',
+		minAllowedRole: 'moderator',
+		description: 'Create a prediction.',
+		execute: async (deps: RootContext & Session, args) => {
+			return LexicalCommandFromMain.executeCommand('prediction')
+		}
+	},
+	{
 		name: 'poll',
 		minAllowedRole: 'moderator',
 		description: 'Create a poll.',
@@ -456,4 +472,16 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 			successMessage: 'Channel has been hosted.'
 		}
 	}
+	// {
+	// 	name: 'multistream',
+	// 	params: '<on_off>',
+	// 	minAllowedRole: 'broadcaster',
+	// 	description: 'Enable/disable multistream mode.',
+	// 	argValidators: {
+	// 		'<on_off>': arg => (arg === 'on' || arg === 'off' ? null : '<on_off> must be either "on" or "off"')
+	// 	},
+	// 	execute: async (deps: RootContext & Session, args) => {
+	// 		// TODO: Implement this command
+	// 	}
+	// }
 ]

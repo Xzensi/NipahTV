@@ -1,4 +1,6 @@
-console.log('[NIPAH] [ContentScripts/Page] Loaded')
+import LexicalEditor from '@core/Common/LexicalEditor'
+
+console.log('[NTV] [ContentScripts/Page] Loaded')
 
 document.addEventListener('ntv_downstream', function (evt: Event) {
 	const data = JSON.parse((evt as CustomEvent).detail)
@@ -44,7 +46,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 		)
 	}
 	xhr.onerror = function () {
-		console.error('[NIPAH] [RESTAsPage] Request failed')
+		console.error('[NTV] [RESTAsPage] Request failed')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream', {
 				detail: JSON.stringify({ rID, xhr: { status: xhr.status, text: xhr.responseText } })
@@ -52,7 +54,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 		)
 	}
 	xhr.onabort = function () {
-		console.error('[NIPAH] [RESTAsPage] Request aborted')
+		console.error('[NTV] [RESTAsPage] Request aborted')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream', {
 				detail: JSON.stringify({ rID, xhr: { status: xhr.status, text: xhr.responseText } })
@@ -60,7 +62,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 		)
 	}
 	xhr.ontimeout = function () {
-		console.error('[NIPAH] [RESTAsPage] Request timed out')
+		console.error('[NTV] [RESTAsPage] Request timed out')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream', {
 				detail: JSON.stringify({ rID, xhr: { status: xhr.status, text: xhr.responseText } })
@@ -79,7 +81,7 @@ document.addEventListener('ntv_downstream_reactive_props', function (evt: Event)
 
 	const els = document.getElementsByClassName(className)
 	if (els.length === 0 || els.length > 1) {
-		console.error('[NIPAH] [RESTAsPage] No elements found with class name:', className)
+		console.error('[NTV] [RESTAsPage] No elements found with class name:', className)
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream_reactive_props', {
 				detail: JSON.stringify({ rID, props: false })
@@ -93,7 +95,7 @@ document.addEventListener('ntv_downstream_reactive_props', function (evt: Event)
 
 	const reactivePropsKey = Object.keys(el).find(key => key.startsWith('__reactProps$'))
 	if (!reactivePropsKey) {
-		console.error('[NIPAH] [RESTAsPage] No reactive props found')
+		console.error('[NTV] [RESTAsPage] No reactive props found')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream_reactive_props', {
 				detail: JSON.stringify({ rID, props: false })
@@ -107,7 +109,7 @@ document.addEventListener('ntv_downstream_reactive_props', function (evt: Event)
 
 	const reactiveProps = reactivePropsHandle.children?.props
 	if (!reactiveProps) {
-		console.error('[NIPAH] [RESTAsPage] No reactive props found')
+		console.error('[NTV] [RESTAsPage] No reactive props found')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream_reactive_props', {
 				detail: JSON.stringify({ rID, props: false })
@@ -119,6 +121,42 @@ document.addEventListener('ntv_downstream_reactive_props', function (evt: Event)
 	document.dispatchEvent(
 		new CustomEvent('ntv_upstream_reactive_props', {
 			detail: JSON.stringify({ rID, props: reactiveProps })
+		})
+	)
+})
+
+document.addEventListener('ntv_downstream_lexical_command', function (evt: Event) {
+	const data = JSON.parse((evt as CustomEvent).detail)
+	const { rID, command } = data
+
+	const editorDOMElement = document.querySelector('.editor-input')
+	const editor = (editorDOMElement as any)?.__lexicalEditor
+	if (!editor) {
+		console.error('[NTV] [Page] Editor not found')
+		document.dispatchEvent(
+			new CustomEvent('ntv_upstream_lexical_command', {
+				detail: JSON.stringify({ rID, error: 'Editor not found' })
+			})
+		)
+	}
+
+	try {
+		const lexicalEditor = new LexicalEditor(editor)
+		lexicalEditor.executeSlashCommand(command)
+	} catch (error) {
+		console.error('[NTV] [Page] Error executing command:', error)
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+		document.dispatchEvent(
+			new CustomEvent('ntv_upstream_lexical_command', {
+				detail: JSON.stringify({ rID, error: errorMessage })
+			})
+		)
+		return
+	}
+
+	document.dispatchEvent(
+		new CustomEvent('ntv_upstream_lexical_command', {
+			detail: JSON.stringify({ rID })
 		})
 	)
 })
