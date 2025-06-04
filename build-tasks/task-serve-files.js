@@ -7,4 +7,4 @@ var app = express()
 app.use('/assets', express.static(path.join(__dirname, '../assets')))
 app.use('/dist', express.static(path.join(__dirname, '../dist')))
 
-app.listen(3000)
+app.listen(3010)

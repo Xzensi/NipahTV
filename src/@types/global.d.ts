@@ -2,7 +2,7 @@ import type InputCompletionStrategyRegister from '../Core/Input/Completion/Input
 import type InputCompletionStrategyManager from '../Core/Input/Completion/InputCompletionStrategyManager'
 import type InputExecutionStrategyRegister from '../Core/Input/Execution/InputExecutionStrategyRegister'
 import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from '../Core/Common/constants'
-import type { ReactivePropsFromMain, RESTFromMain } from '../Core/Common/utils'
+import type { LexicalCommandFromMain, ReactivePropsFromMain, RESTFromMain } from '../Core/Common/utils'
 import type RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
 import type AnnouncementService from '../Core/Services/AnnouncementService'
 import type AbstractUserInterface from '../Core/UI/AbstractUserInterface'
@@ -33,6 +33,7 @@ declare global {
 	var GM_getResourceText: Function
 	var RESTFromMainService: RESTFromMain
 	var ReactivePropsFromMain: ReactivePropsFromMain
+	var LexicalCommandFromMain: LexicalCommandFromMain
 
 	type PlatformId = PLATFORM_ENUM // ValueOf<typeof PLATFORM_ENUM> // `${PLATFORM_ENUM}`
 	type ChannelId = string

@@ -25,7 +25,8 @@ import {
 	getBrowser,
 	getDevice,
 	hasSupportForAvif,
-	ReactivePropsFromMain
+	ReactivePropsFromMain,
+	LexicalCommandFromMain
 } from './Core/Common/utils'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from './Core/Common/constants'
 
@@ -49,7 +50,7 @@ class NipahClient {
 	VERSION = '1.5.72'
 
 	ENV_VARS = {
-		LOCAL_RESOURCE_ROOT: 'http://localhost:3000/',
+		LOCAL_RESOURCE_ROOT: 'http://localhost:3010/',
 		// GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
 		// GITHUB_ROOT: 'https://cdn.jsdelivr.net/gh/Xzensi/NipahTV@master',
 		GITHUB_ROOT: 'https://raw.githubusercontent.com/Xzensi/NipahTV',
@@ -137,6 +138,7 @@ class NipahClient {
 			//  inject page script for Firefox extension.
 			window.RESTFromMainService = new RESTFromMain()
 			window.ReactivePropsFromMain = new ReactivePropsFromMain()
+			window.LexicalCommandFromMain = new LexicalCommandFromMain()
 			await this.injectPageScript()
 
 			this.setupClientEnvironment().catch(err =>

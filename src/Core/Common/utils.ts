@@ -1,4 +1,5 @@
 import { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from './constants'
+import LexicalEditor from './LexicalEditor'
 import { Logger } from './Logger'
 
 const logger = new Logger()
@@ -290,6 +291,48 @@ export class ReactivePropsFromMain {
 				resolve(reactiveProps)
 			}
 		}) as Promise<any | void>
+	}
+}
+
+export class LexicalCommandFromMain {
+	requestID = 0
+	promiseMap = new Map()
+
+	constructor() {
+		if (__EXTENSION__) {
+			document.addEventListener('ntv_upstream_lexical_command', (evt: Event) => {
+				const data = JSON.parse((evt as CustomEvent).detail)
+				const { rID, error } = data
+				const { resolve, reject } = this.promiseMap.get(rID)
+				this.promiseMap.delete(rID)
+
+				if (error) reject(error)
+				else resolve()
+			})
+		}
+	}
+
+	executeCommand(command: string) {
+		return new Promise((resolve, reject) => {
+			if (__EXTENSION__) {
+				const rID = ++this.requestID
+				this.promiseMap.set(rID, { resolve, reject })
+				document.dispatchEvent(
+					new CustomEvent('ntv_downstream_lexical_command', { detail: JSON.stringify({ rID, command }) })
+				)
+			} else {
+				const editorDOMElement = document.querySelector('.editor-input')
+				const editor = (editorDOMElement as any)?.__lexicalEditor
+				if (!editor) {
+					reject('Lexical editor not found.')
+				}
+
+				const lexicalEditor = new LexicalEditor(editor)
+				lexicalEditor.executeSlashCommand(command)
+
+				resolve()
+			}
+		}) as Promise<void>
 	}
 }
 

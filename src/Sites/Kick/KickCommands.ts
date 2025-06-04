@@ -93,6 +93,22 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		}
 	},
 	{
+		name: 'category',
+		minAllowedRole: 'moderator',
+		description: 'Change the category of the stream.',
+		execute: async (deps: RootContext & Session, args) => {
+			return LexicalCommandFromMain.executeCommand('category')
+		}
+	},
+	{
+		name: 'prediction',
+		minAllowedRole: 'moderator',
+		description: 'Create a prediction.',
+		execute: async (deps: RootContext & Session, args) => {
+			return LexicalCommandFromMain.executeCommand('prediction')
+		}
+	},
+	{
 		name: 'poll',
 		minAllowedRole: 'moderator',
 		description: 'Create a poll.',
