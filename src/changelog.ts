@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.73',
+		date: '2025-06-05',
+		description: `
+                  Feat: Added support for command /prediction
+                  Feat: Added support for command /category
+            `
+	},
+	{
 		version: '1.5.72',
 		date: '2025-04-14',
 		description: `
