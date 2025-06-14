@@ -329,10 +329,27 @@
 }
 
 .ntv__commands-window {
+	scrollbar-color: var(--ntv-background-color-tint-3) rgba(0, 0, 0, 0);
+	scroll-behavior: smooth;
+	scrollbar-width: thin;
+
 	.ntv__nav-window__list {
+		height: max-content;
+		max-height: 50vh;
+
 		li {
+			padding: 0.45em 1em;
+			border-bottom: none;
+
 			.subscript {
+				font-weight: 300;
+				font-size: 0.92em;
+				line-height: 1;
 				opacity: 0.5;
+			}
+
+			> div {
+				margin-bottom: 0.1em;
 			}
 
 			&.not_found_entry {
