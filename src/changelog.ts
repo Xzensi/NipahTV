@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.74',
+		date: '2025-06-14',
+		description: `
+                  Fix: User message history not loading correctly
+                  Fix: Settings modal showing under emote menu
+                  Chore: Improved commands menu UI
+                  Chore: Refine setting description
+            `
+	},
+	{
 		version: '1.5.73',
 		date: '2025-06-05',
 		description: `

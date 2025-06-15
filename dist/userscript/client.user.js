@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.73
+// @version 1.5.74
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-84c94fe4.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-b6ec8bf8.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12264,6 +12264,16 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.74",
+    date: "2025-06-14",
+    description: `
+                  Fix: User message history not loading correctly
+                  Fix: Settings modal showing under emote menu
+                  Chore: Improved commands menu UI
+                  Chore: Refine setting description
+            `
+  },
+  {
     version: "1.5.73",
     date: "2025-06-05",
     description: `
@@ -14499,7 +14509,7 @@ var SettingsManager = class {
               description: "These settings require a page refresh to take effect.",
               children: [
                 {
-                  label: "Completely disable NipahTV for moderator and creator dashboard pages. WARNING: This will COMPLETELY disable NipahTV for these pages! (You can undo this setting by accessing the settings again on any frontend stream page)",
+                  label: "Completely disable NipahTV for moderator and creator dashboard pages. <br><br>WARNING: This will COMPLETELY disable NipahTV for these pages! (You can undo this setting by accessing the settings again on any frontend stream page)<br><br>USERSCRIPT USERS WARNING: Once enabled sadly this setting CANNOT be undone anymore without manually deleting the setting from database, due to Kick recently changing the domain to dashboard.kick.com. This is simply a limitation of Userscripts, I recommend using the browser extension instead of an Userscript if you want to use this setting. Join the discord if you need help undoing this setting for Userscript users.",
                   key: "moderators.mod_creator_view.disable_ntv",
                   default: false,
                   type: "checkbox"
@@ -19140,7 +19150,38 @@ var UserInfoModal = class extends AbstractModal {
     modLogsPageEl.appendChild(messagesHistoryEl);
     log18("CORE", "UI", `Fetching user messages of ${userInfo.username}..`);
     await this.loadMoreMessagesHistory();
-    messagesHistoryEl.scrollTop = 9999;
+    let autoLoadCount = 0;
+    const MAX_AUTO_LOADS = 5;
+    while (this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight && !this.isLoadingMessages && autoLoadCount < MAX_AUTO_LOADS) {
+      log18(
+        "CORE",
+        "UI",
+        `Content too short (scrollHeight: ${messagesHistoryEl.scrollHeight}, clientHeight: ${messagesHistoryEl.clientHeight}), auto-loading more messages for ${userInfo.username}...`
+      );
+      const previousScrollHeight = messagesHistoryEl.scrollHeight;
+      await this.loadMoreMessagesHistory();
+      autoLoadCount++;
+      if (this.messagesHistoryCursor === null || messagesHistoryEl.scrollHeight === previousScrollHeight) {
+        log18(
+          "CORE",
+          "UI",
+          `Auto-load break: cursor is ${this.messagesHistoryCursor}, scrollHeight changed from ${previousScrollHeight} to ${messagesHistoryEl.scrollHeight}`
+        );
+        break;
+      }
+    }
+    if (autoLoadCount >= MAX_AUTO_LOADS && this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight) {
+      log18(
+        "CORE",
+        "UI",
+        `Max auto-loads (${MAX_AUTO_LOADS}) reached for ${userInfo.username}, but content may still be too short.`
+      );
+    }
+    if (messagesHistoryEl.scrollHeight > messagesHistoryEl.clientHeight) {
+      messagesHistoryEl.scrollTop = messagesHistoryEl.scrollHeight - messagesHistoryEl.clientHeight;
+    } else {
+      messagesHistoryEl.scrollTop = 0;
+    }
     messagesHistoryEl.removeAttribute("loading");
     messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
   }
@@ -19220,8 +19261,10 @@ var UserInfoModal = class extends AbstractModal {
   }
   async messagesScrollHandler(event) {
     const target = event.currentTarget;
-    const scrollTop = target.scrollTop + target.scrollHeight - target.clientHeight;
-    if (scrollTop < 30) this.loadMoreMessagesHistory();
+    if (target.scrollTop < 30 && this.messagesHistoryCursor !== null && !this.isLoadingMessages) {
+      await this.loadMoreMessagesHistory();
+      await this.loadMoreMessagesHistory();
+    }
   }
   enableGiftSubButton() {
     this.giftSubButtonEnabled = true;
@@ -25995,7 +26038,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.73";
+  VERSION = "1.5.74";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

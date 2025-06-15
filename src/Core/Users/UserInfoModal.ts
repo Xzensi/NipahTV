@@ -1,6 +1,6 @@
 import { SteppedInputSliderComponent } from '@core/UI/Components/SteppedInputSliderComponent'
 import { parseHTML, cleanupHTML, formatRelativeTime } from '@core/Common/utils'
-import type { UserChannelInfo, UserInfo } from '../Common/NetworkInterface'
+import type { UserChannelInfo, UserInfo } from '@core/Common/NetworkInterface'
 import { AbstractModal, ModalGeometry } from '@core/UI/Modals/AbstractModal'
 import type { Toaster } from '@core/Common/Toaster'
 import { Logger } from '@core/Common/Logger'
@@ -651,9 +651,54 @@ export default class UserInfoModal extends AbstractModal {
 		modLogsPageEl.appendChild(messagesHistoryEl)
 
 		log('CORE', 'UI', `Fetching user messages of ${userInfo.username}..`)
-		await this.loadMoreMessagesHistory()
+		await this.loadMoreMessagesHistory() // Initial load
 
-		messagesHistoryEl.scrollTop = 9999
+		let autoLoadCount = 0
+		const MAX_AUTO_LOADS = 5
+
+		while (
+			this.messagesHistoryCursor !== null &&
+			messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight &&
+			!this.isLoadingMessages &&
+			autoLoadCount < MAX_AUTO_LOADS
+		) {
+			log(
+				'CORE',
+				'UI',
+				`Content too short (scrollHeight: ${messagesHistoryEl.scrollHeight}, clientHeight: ${messagesHistoryEl.clientHeight}), auto-loading more messages for ${userInfo.username}...`
+			)
+			const previousScrollHeight = messagesHistoryEl.scrollHeight
+			await this.loadMoreMessagesHistory()
+			autoLoadCount++
+
+			if (this.messagesHistoryCursor === null || messagesHistoryEl.scrollHeight === previousScrollHeight) {
+				log(
+					'CORE',
+					'UI',
+					`Auto-load break: cursor is ${this.messagesHistoryCursor}, scrollHeight changed from ${previousScrollHeight} to ${messagesHistoryEl.scrollHeight}`
+				)
+				break
+			}
+		}
+
+		if (
+			autoLoadCount >= MAX_AUTO_LOADS &&
+			this.messagesHistoryCursor !== null &&
+			messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight
+		) {
+			log(
+				'CORE',
+				'UI',
+				`Max auto-loads (${MAX_AUTO_LOADS}) reached for ${userInfo.username}, but content may still be too short.`
+			)
+		}
+
+		if (messagesHistoryEl.scrollHeight > messagesHistoryEl.clientHeight) {
+			messagesHistoryEl.scrollTop = messagesHistoryEl.scrollHeight - messagesHistoryEl.clientHeight
+		} else {
+			messagesHistoryEl.scrollTop = 0
+		}
+
 		messagesHistoryEl.removeAttribute('loading')
 		messagesHistoryEl.addEventListener('scroll', this.messagesScrollHandler.bind(this))
 	}
@@ -753,9 +798,10 @@ export default class UserInfoModal extends AbstractModal {
 	async messagesScrollHandler(event: Event) {
 		const target = event.currentTarget as HTMLElement
 
-		// Scrolled to top, load new messages
-		const scrollTop = target.scrollTop + target.scrollHeight - target.clientHeight
-		if (scrollTop < 30) this.loadMoreMessagesHistory()
+		if (target.scrollTop < 30 && this.messagesHistoryCursor !== null && !this.isLoadingMessages) {
+			await this.loadMoreMessagesHistory()
+			await this.loadMoreMessagesHistory()
+		}
 	}
 
 	enableGiftSubButton() {

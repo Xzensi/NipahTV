@@ -774,7 +774,7 @@ export default class SettingsManager {
 							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
-									label: 'Completely disable NipahTV for moderator and creator dashboard pages. WARNING: This will COMPLETELY disable NipahTV for these pages! (You can undo this setting by accessing the settings again on any frontend stream page)',
+									label: 'Completely disable NipahTV for moderator and creator dashboard pages. <br><br>WARNING: This will COMPLETELY disable NipahTV for these pages! (You can undo this setting by accessing the settings again on any frontend stream page)<br><br>USERSCRIPT USERS WARNING: Once enabled sadly this setting CANNOT be undone anymore without manually deleting the setting from database, due to Kick recently changing the domain to dashboard.kick.com. This is simply a limitation of Userscripts, I recommend using the browser extension instead of an Userscript if you want to use this setting. Join the discord if you need help undoing this setting for Userscript users.',
 									key: 'moderators.mod_creator_view.disable_ntv',
 									default: false,
 									type: 'checkbox'
