@@ -23,6 +23,9 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	private sidebarSetsEl?: HTMLElement
 	private favoritesEmoteSetEl?: HTMLElement
 	private tooltipEl?: HTMLElement
+	private tooltipTimeout?: number | null = null
+	private tooltipTargetEl?: HTMLElement | null = null
+	private tooltipPointerMoveHandler?: (evt: PointerEvent) => void
 
 	private emoteSetEls: Map<EmoteSet['id'], HTMLElement> = new Map()
 	private emoteSetSidebarEls: Map<EmoteSet['id'], HTMLElement> = new Map()
@@ -246,65 +249,102 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		)
 
 		// Tooltip for emotes
-		let prevEnteredEmoteBoxEl: HTMLElement | null = null
-		this.scrollableEl?.addEventListener(
-			'mouseover',
-			evt => {
-				const targetEl = evt.target as HTMLElement
+		this.scrollableEl?.addEventListener('pointerover', evt => {
+			const targetEl = evt.target as HTMLElement
 
-				const emoteBoxEl =
-					(targetEl.classList.contains('ntv__emote-box') && targetEl) ||
-					(targetEl.parentElement!.classList.contains('ntv__emote-box') && targetEl.parentElement) ||
-					null
+			const emoteBoxEl =
+				(targetEl.classList.contains('ntv__emote-box') && targetEl) ||
+				(targetEl.parentElement!.classList.contains('ntv__emote-box') && targetEl.parentElement) ||
+				null
 
-				if (!emoteBoxEl || emoteBoxEl === prevEnteredEmoteBoxEl) return
-				if (this.tooltipEl) this.tooltipEl.remove()
+			if (!emoteBoxEl || emoteBoxEl === this.tooltipTargetEl) return
 
-				prevEnteredEmoteBoxEl = emoteBoxEl
+			if (this.tooltipEl) {
+				this.tooltipEl.remove()
+				this.tooltipEl = undefined
+			}
+			if (this.tooltipPointerMoveHandler) {
+				document.removeEventListener('pointermove', this.tooltipPointerMoveHandler)
+				this.tooltipPointerMoveHandler = undefined
+			}
+			if (this.tooltipTimeout) {
+				window.clearTimeout(this.tooltipTimeout)
+				this.tooltipTimeout = null
+			}
 
-				const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
-				if (!emoteHid) return
+			this.tooltipTargetEl = emoteBoxEl
 
-				const emote = emotesManager.getEmote(emoteHid)
-				if (!emote) return
+			const emoteHid = emoteBoxEl.firstElementChild?.getAttribute('data-emote-hid')
+			if (!emoteHid) return
 
-				const imageInTooltop = settingsManager.getSetting(channelId, 'chat.tooltips.images')
-				const tooltipEl = parseHTML(
-					cleanupHTML(
-						`<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
-									${(imageInTooltop && emotesManager.getRenderableEmote(emote, 'ntv__emote', true)) || ''}
-									<span class="ntv__emote-tooltip__title">${emote.name}</span>
-								</div>`
-					),
-					true
-				) as HTMLElement
+			const emote = emotesManager.getEmote(emoteHid)
+			if (!emote) return
 
-				if (emote.isZeroWidth) {
-					const span = document.createElement('span')
-					span.className = 'ntv__emote-tooltip__zero-width'
-					span.textContent = 'Zero Width'
-					tooltipEl.appendChild(span)
+			const imageInTooltop = settingsManager.getSetting(channelId, 'chat.tooltips.images')
+			const tooltipEl = parseHTML(
+				cleanupHTML(
+					`<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
+						${(imageInTooltop && emotesManager.getRenderableEmote(emote, 'ntv__emote', true)) || ''}
+						<span class="ntv__emote-tooltip__title">${emote.name}</span>
+					</div>`
+				),
+				true
+			) as HTMLElement
+
+			if (emote.isZeroWidth) {
+				const span = document.createElement('span')
+				span.className = 'ntv__emote-tooltip__zero-width'
+				span.textContent = 'Zero Width'
+				tooltipEl.appendChild(span)
+			}
+
+			this.tooltipEl = tooltipEl
+			document.body.appendChild(tooltipEl)
+
+			const rect = emoteBoxEl.getBoundingClientRect()
+			tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
+			tooltipEl.style.top = rect.top + 'px'
+
+			this.tooltipPointerMoveHandler = (moveEvt: PointerEvent) => {
+				const elem = document.elementFromPoint(moveEvt.clientX, moveEvt.clientY) as HTMLElement | null
+				if (!elem) return
+
+				if (
+					elem === emoteBoxEl ||
+					emoteBoxEl.contains(elem) ||
+					elem === tooltipEl ||
+					tooltipEl.contains(elem)
+				) {
+					return
 				}
 
-				this.tooltipEl = tooltipEl
-				document.body.appendChild(tooltipEl)
+				if (this.tooltipEl) this.tooltipEl.remove()
+				this.tooltipEl = undefined
+				this.tooltipTargetEl = null
+				if (this.tooltipPointerMoveHandler) {
+					document.removeEventListener('pointermove', this.tooltipPointerMoveHandler)
+					this.tooltipPointerMoveHandler = undefined
+				}
+				if (this.tooltipTimeout) {
+					window.clearTimeout(this.tooltipTimeout)
+					this.tooltipTimeout = null
+				}
+			}
 
-				const rect = targetEl.getBoundingClientRect()
-				tooltipEl.style.left = rect.left + rect.width / 2 + 'px'
-				tooltipEl.style.top = rect.top + 'px'
+			document.addEventListener('pointermove', this.tooltipPointerMoveHandler)
 
-				targetEl.addEventListener(
-					'mouseleave',
-					() => {
-						if (this.tooltipEl) this.tooltipEl.remove()
-						prevEnteredEmoteBoxEl = null
-					},
-					{ once: true, passive: true }
-				)
-			},
-			{ passive: true }
-		)
-
+			// Fallback auto-remove
+			this.tooltipTimeout = window.setTimeout(() => {
+				if (this.tooltipEl) this.tooltipEl.remove()
+				this.tooltipEl = undefined
+				this.tooltipTargetEl = null
+				if (this.tooltipPointerMoveHandler) {
+					document.removeEventListener('pointermove', this.tooltipPointerMoveHandler)
+					this.tooltipPointerMoveHandler = undefined
+				}
+				this.tooltipTimeout = null
+			}, 5000)
+		})
 		// Search input event
 		this.searchInputEl?.addEventListener('input', this.handleSearchInput.bind(this) as any)
 
@@ -347,6 +387,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		eventBus.subscribe('ntv.datastore.emoteset.added', this.addEmoteSet.bind(this), true)
+		eventBus.subscribe('ntv.datastore.emoteset.updated', this.updateEmoteSet.bind(this), true)
 
 		eventBus.subscribe(
 			'ntv.datastore.emotes.favorites.loaded',
@@ -663,6 +704,22 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		this.scrollableObserver.observe(emoteSetEl)
 	}
 
+	updateEmoteSet(emoteSet: EmoteSet) {
+		log('CORE', 'UI', `Updating emote set "${emoteSet.name}" in emote menu..`)
+
+		if (this.emoteSetEls.has(emoteSet.id)) {
+			this.emoteSetEls.get(emoteSet.id)?.remove()
+			this.emoteSetEls.delete(emoteSet.id)
+			this.emoteSetSidebarEls.get(emoteSet.id)?.remove()
+			this.emoteSetSidebarEls.delete(emoteSet.id)
+
+			this.addEmoteSet(emoteSet)
+			this.renderFavoriteEmotes(emoteSet)
+		} else {
+			this.addEmoteSet(emoteSet)
+		}
+	}
+
 	handleEmoteClick(emoteBoxEl: HTMLElement, emoteHid: string, isHoldingCtrl: boolean) {
 		const { settingsManager } = this.rootContext
 		const { emotesManager, eventBus, channelData } = this.session
@@ -812,6 +869,19 @@ export default class EmoteMenuComponent extends AbstractComponent {
 	}
 
 	destroy() {
+		if (this.tooltipEl) {
+			this.tooltipEl.remove()
+			this.tooltipEl = undefined
+		}
+		if (this.tooltipPointerMoveHandler) {
+			document.removeEventListener('pointermove', this.tooltipPointerMoveHandler)
+			this.tooltipPointerMoveHandler = undefined
+		}
+		if (this.tooltipTimeout) {
+			window.clearTimeout(this.tooltipTimeout)
+			this.tooltipTimeout = null
+		}
+
 		this.containerEl?.remove()
 	}
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.74
+// @version 1.5.75
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12264,6 +12264,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.75",
+    date: "2025-08-28",
+    description: `
+                  Fix: Kick randomly throwing "Page not found." errors on settings pages when navigating too fast
+                  Fix: Emote tooltips sometimes getting stuck on screen
+                  Fix: Emote menu not refreshing emoteset after emote override has been registered #228
+            `
+  },
+  {
     version: "1.5.74",
     date: "2025-06-14",
     description: `
@@ -16277,6 +16286,7 @@ var EmoteDatastore = class {
     }
     this.emoteSetMap.set(emoteSet.provider + "_" + emoteSet.id, emoteSet);
     this.emoteSets.push(emoteSet);
+    let updatedEmoteSets = [];
     for (let i = emoteSet.emotes.length - 1; i >= 0; i--) {
       const emote = emoteSet.emotes[i];
       if (!emote.hid || !emote.id || typeof emote.id !== "string" || !emote.name || void 0 === emote.provider) {
@@ -16291,11 +16301,13 @@ var EmoteDatastore = class {
           log9(
             "CORE",
             "EMOT:STORE",
-            `Registered ${storedEmote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${storedEmoteSet.isGlobalSet ? "global" : "channel"} emote override for ${emote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${emoteSet.isGlobalSet ? "global" : "channel"} ${emote.name} emote`
+            `Registered ${emote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${emoteSet.isGlobalSet ? "global" : "channel"} emote ${emote.name} override for loaded ${storedEmote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${storedEmoteSet.isGlobalSet ? "global" : "channel"} emote`
           );
-          const storedEmoteSetEmotes = storedEmoteSet.emotes;
-          storedEmoteSetEmotes.splice(storedEmoteSetEmotes.indexOf(storedEmote), 1);
+          storedEmoteSet.emotes.splice(storedEmoteSet.emotes.indexOf(storedEmote), 1);
           this.fuse.remove((indexedEmote) => indexedEmote.name === emote.name);
+          if (!updatedEmoteSets.includes(storedEmoteSet)) {
+            updatedEmoteSets.push(storedEmoteSet);
+          }
           this.emoteMap.set(emote.hid, emote);
           this.emoteNameMap.set(emote.name, emote);
           this.emoteEmoteSetMap.set(emote.hid, emoteSet);
@@ -16312,6 +16324,11 @@ var EmoteDatastore = class {
       }
     }
     this.session.eventBus.publish("ntv.datastore.emoteset.added", emoteSet);
+    if (updatedEmoteSets.length > 0) {
+      for (const updatedEmoteSet of updatedEmoteSets) {
+        this.session.eventBus.publish("ntv.datastore.emoteset.updated", updatedEmoteSet);
+      }
+    }
   }
   getEmote(emoteHid) {
     return this.emoteMap.get(emoteHid);
@@ -17722,6 +17739,9 @@ var EmoteMenuComponent = class extends AbstractComponent {
   sidebarSetsEl;
   favoritesEmoteSetEl;
   tooltipEl;
+  tooltipTimeout = null;
+  tooltipTargetEl = null;
+  tooltipPointerMoveHandler;
   emoteSetEls = /* @__PURE__ */ new Map();
   emoteSetSidebarEls = /* @__PURE__ */ new Map();
   scrollableObserver;
@@ -17885,51 +17905,78 @@ var EmoteMenuComponent = class extends AbstractComponent {
       },
       { passive: true }
     );
-    let prevEnteredEmoteBoxEl = null;
-    this.scrollableEl?.addEventListener(
-      "mouseover",
-      (evt) => {
-        const targetEl = evt.target;
-        const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
-        if (!emoteBoxEl || emoteBoxEl === prevEnteredEmoteBoxEl) return;
-        if (this.tooltipEl) this.tooltipEl.remove();
-        prevEnteredEmoteBoxEl = emoteBoxEl;
-        const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
-        if (!emoteHid) return;
-        const emote = emotesManager.getEmote(emoteHid);
-        if (!emote) return;
-        const imageInTooltop = settingsManager.getSetting(channelId, "chat.tooltips.images");
-        const tooltipEl = parseHTML(
-          cleanupHTML(
-            `<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
-									${imageInTooltop && emotesManager.getRenderableEmote(emote, "ntv__emote", true) || ""}
-									<span class="ntv__emote-tooltip__title">${emote.name}</span>
-								</div>`
-          ),
-          true
-        );
-        if (emote.isZeroWidth) {
-          const span = document.createElement("span");
-          span.className = "ntv__emote-tooltip__zero-width";
-          span.textContent = "Zero Width";
-          tooltipEl.appendChild(span);
+    this.scrollableEl?.addEventListener("pointerover", (evt) => {
+      const targetEl = evt.target;
+      const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
+      if (!emoteBoxEl || emoteBoxEl === this.tooltipTargetEl) return;
+      if (this.tooltipEl) {
+        this.tooltipEl.remove();
+        this.tooltipEl = void 0;
+      }
+      if (this.tooltipPointerMoveHandler) {
+        document.removeEventListener("pointermove", this.tooltipPointerMoveHandler);
+        this.tooltipPointerMoveHandler = void 0;
+      }
+      if (this.tooltipTimeout) {
+        window.clearTimeout(this.tooltipTimeout);
+        this.tooltipTimeout = null;
+      }
+      this.tooltipTargetEl = emoteBoxEl;
+      const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
+      if (!emoteHid) return;
+      const emote = emotesManager.getEmote(emoteHid);
+      if (!emote) return;
+      const imageInTooltop = settingsManager.getSetting(channelId, "chat.tooltips.images");
+      const tooltipEl = parseHTML(
+        cleanupHTML(
+          `<div class="ntv__emote-tooltip ${imageInTooltop ? "ntv__emote-tooltip--has-image" : ""}">
+						${imageInTooltop && emotesManager.getRenderableEmote(emote, "ntv__emote", true) || ""}
+						<span class="ntv__emote-tooltip__title">${emote.name}</span>
+					</div>`
+        ),
+        true
+      );
+      if (emote.isZeroWidth) {
+        const span = document.createElement("span");
+        span.className = "ntv__emote-tooltip__zero-width";
+        span.textContent = "Zero Width";
+        tooltipEl.appendChild(span);
+      }
+      this.tooltipEl = tooltipEl;
+      document.body.appendChild(tooltipEl);
+      const rect = emoteBoxEl.getBoundingClientRect();
+      tooltipEl.style.left = rect.left + rect.width / 2 + "px";
+      tooltipEl.style.top = rect.top + "px";
+      this.tooltipPointerMoveHandler = (moveEvt) => {
+        const elem = document.elementFromPoint(moveEvt.clientX, moveEvt.clientY);
+        if (!elem) return;
+        if (elem === emoteBoxEl || emoteBoxEl.contains(elem) || elem === tooltipEl || tooltipEl.contains(elem)) {
+          return;
         }
-        this.tooltipEl = tooltipEl;
-        document.body.appendChild(tooltipEl);
-        const rect = targetEl.getBoundingClientRect();
-        tooltipEl.style.left = rect.left + rect.width / 2 + "px";
-        tooltipEl.style.top = rect.top + "px";
-        targetEl.addEventListener(
-          "mouseleave",
-          () => {
-            if (this.tooltipEl) this.tooltipEl.remove();
-            prevEnteredEmoteBoxEl = null;
-          },
-          { once: true, passive: true }
-        );
-      },
-      { passive: true }
-    );
+        if (this.tooltipEl) this.tooltipEl.remove();
+        this.tooltipEl = void 0;
+        this.tooltipTargetEl = null;
+        if (this.tooltipPointerMoveHandler) {
+          document.removeEventListener("pointermove", this.tooltipPointerMoveHandler);
+          this.tooltipPointerMoveHandler = void 0;
+        }
+        if (this.tooltipTimeout) {
+          window.clearTimeout(this.tooltipTimeout);
+          this.tooltipTimeout = null;
+        }
+      };
+      document.addEventListener("pointermove", this.tooltipPointerMoveHandler);
+      this.tooltipTimeout = window.setTimeout(() => {
+        if (this.tooltipEl) this.tooltipEl.remove();
+        this.tooltipEl = void 0;
+        this.tooltipTargetEl = null;
+        if (this.tooltipPointerMoveHandler) {
+          document.removeEventListener("pointermove", this.tooltipPointerMoveHandler);
+          this.tooltipPointerMoveHandler = void 0;
+        }
+        this.tooltipTimeout = null;
+      }, 5e3);
+    });
     this.searchInputEl?.addEventListener("input", this.handleSearchInput.bind(this));
     this.sidebarSetsEl?.addEventListener("click", (evt) => {
       const target = evt.target;
@@ -17959,6 +18006,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       this.rootContext.eventBus.publish("ntv.ui.settings.toggle_show");
     });
     eventBus.subscribe("ntv.datastore.emoteset.added", this.addEmoteSet.bind(this), true);
+    eventBus.subscribe("ntv.datastore.emoteset.updated", this.updateEmoteSet.bind(this), true);
     eventBus.subscribe(
       "ntv.datastore.emotes.favorites.loaded",
       () => {
@@ -18198,6 +18246,19 @@ var EmoteMenuComponent = class extends AbstractComponent {
     }
     this.scrollableObserver.observe(emoteSetEl);
   }
+  updateEmoteSet(emoteSet) {
+    log16("CORE", "UI", `Updating emote set "${emoteSet.name}" in emote menu..`);
+    if (this.emoteSetEls.has(emoteSet.id)) {
+      this.emoteSetEls.get(emoteSet.id)?.remove();
+      this.emoteSetEls.delete(emoteSet.id);
+      this.emoteSetSidebarEls.get(emoteSet.id)?.remove();
+      this.emoteSetSidebarEls.delete(emoteSet.id);
+      this.addEmoteSet(emoteSet);
+      this.renderFavoriteEmotes(emoteSet);
+    } else {
+      this.addEmoteSet(emoteSet);
+    }
+  }
   handleEmoteClick(emoteBoxEl, emoteHid, isHoldingCtrl) {
     const { settingsManager } = this.rootContext;
     const { emotesManager, eventBus, channelData } = this.session;
@@ -18302,6 +18363,18 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.scrollableHeight = this.scrollableEl?.clientHeight || 0;
   }
   destroy() {
+    if (this.tooltipEl) {
+      this.tooltipEl.remove();
+      this.tooltipEl = void 0;
+    }
+    if (this.tooltipPointerMoveHandler) {
+      document.removeEventListener("pointermove", this.tooltipPointerMoveHandler);
+      this.tooltipPointerMoveHandler = void 0;
+    }
+    if (this.tooltipTimeout) {
+      window.clearTimeout(this.tooltipTimeout);
+      this.tooltipTimeout = null;
+    }
     this.containerEl?.remove();
   }
 };
@@ -22516,6 +22589,10 @@ var KickUserInterface = class extends AbstractUserInterface {
   quickEmotesHolder = null;
   clearQueuedChatMessagesInterval = null;
   reloadUIhackInterval = null;
+  currentEmoteTooltip = null;
+  currentEmoteTooltipTarget = null;
+  emoteTooltipPointerMoveHandler = null;
+  emoteTooltipTimeout = null;
   elm = {
     chatMessagesContainer: null,
     replyMessageWrapper: null,
@@ -23290,17 +23367,35 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, "chat.tooltips.images");
+    const removeEmoteTooltip = () => {
+      if (this.currentEmoteTooltip) {
+        this.currentEmoteTooltip.remove();
+        this.currentEmoteTooltip = null;
+        this.currentEmoteTooltipTarget = null;
+      }
+      if (this.emoteTooltipPointerMoveHandler) {
+        document.removeEventListener("pointermove", this.emoteTooltipPointerMoveHandler);
+        this.emoteTooltipPointerMoveHandler = null;
+      }
+      if (this.emoteTooltipTimeout) {
+        window.clearTimeout(this.emoteTooltipTimeout);
+        this.emoteTooltipTimeout = null;
+      }
+    };
     this.domEventManager.addEventListener(
       chatMessagesContainerEl,
-      "mouseover",
+      "pointerover",
       (evt) => {
+        if (this.currentEmoteTooltip) {
+          removeEmoteTooltip();
+        }
         const target = evt.target;
         if (target.tagName !== "IMG" || !target?.parentElement?.classList.contains("ntv__inline-emote-box"))
           return;
         const emoteName = target.getAttribute("data-emote-name");
         if (!emoteName) return;
         const tooltipEl = parseHTML(
-          `<div class="ntv__emote-tooltip"><span class="ntv__emote-tooltip__title">${emoteName}</span></div>`,
+          `<div class="ntv__emote-tooltip" data-emote-for="${emoteName}"><span class="ntv__emote-tooltip__title">${emoteName}</span></div>`,
           true
         );
         const emote = this.session.emotesManager.getEmoteByName(emoteName);
@@ -23330,13 +23425,18 @@ var KickUserInterface = class extends AbstractUserInterface {
         tooltipEl.style.left = `${rect.x + rect.width / 2}px`;
         tooltipEl.style.top = `${rect.y}px`;
         document.body.append(tooltipEl);
-        target.addEventListener(
-          "mouseleave",
-          () => {
-            tooltipEl.remove();
-          },
-          { once: true, passive: true }
-        );
+        this.currentEmoteTooltip = tooltipEl;
+        this.currentEmoteTooltipTarget = target;
+        this.emoteTooltipPointerMoveHandler = (moveEvt) => {
+          const elem = document.elementFromPoint(moveEvt.clientX, moveEvt.clientY);
+          if (!elem) return;
+          if (elem === target || target.contains(elem) || elem === tooltipEl || tooltipEl.contains(elem)) {
+            return;
+          }
+          removeEmoteTooltip();
+        };
+        document.addEventListener("pointermove", this.emoteTooltipPointerMoveHandler);
+        this.emoteTooltipTimeout = window.setTimeout(() => removeEmoteTooltip(), 5e3);
       },
       { passive: true }
     );
@@ -24038,6 +24138,18 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.quickEmotesHolder) this.quickEmotesHolder.destroy();
     if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval);
     if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval);
+    if (this.currentEmoteTooltip) {
+      this.currentEmoteTooltip.remove();
+      this.currentEmoteTooltip = null;
+    }
+    if (this.emoteTooltipPointerMoveHandler) {
+      document.removeEventListener("pointermove", this.emoteTooltipPointerMoveHandler);
+      this.emoteTooltipPointerMoveHandler = null;
+    }
+    if (this.emoteTooltipTimeout) {
+      window.clearTimeout(this.emoteTooltipTimeout);
+      this.emoteTooltipTimeout = null;
+    }
     this.domEventManager.removeAllEventListeners();
   }
   restoreOriginalUi() {
@@ -26038,7 +26150,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.74";
+  VERSION = "1.5.75";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -26479,6 +26591,15 @@ var NipahClient = class {
 (() => {
   if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) {
     log38("CORE", "MAIN", "KPSDK URL detected, bailing out..");
+    return;
+  }
+  const pathnames = window.location.pathname.split("/");
+  if ("/" === window.location.pathname || ["browse", "settings", "transactions", "following"].includes(pathnames[1] || "")) {
+    log38("CORE", "MAIN", "Not a stream page, nothing to do here.");
+    return;
+  }
+  if (window.location.hostname.split(".")[0] === "dashboard" && pathnames[1] !== "stream") {
+    log38("CORE", "MAIN", "Not a stream page, nothing to do here.");
     return;
   }
   if (true) {

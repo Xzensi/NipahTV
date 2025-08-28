@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.75',
+		date: '2025-08-28',
+		description: `
+                  Fix: Kick randomly throwing "Page not found." errors on settings pages when navigating too fast
+                  Fix: Emote tooltips sometimes getting stuck on screen
+                  Fix: Emote menu not refreshing emoteset after emote override has been registered #228
+            `
+	},
+	{
 		version: '1.5.74',
 		date: '2025-06-14',
 		description: `

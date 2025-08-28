@@ -192,6 +192,8 @@ export class EmoteDatastore {
 		this.emoteSetMap.set(emoteSet.provider + '_' + emoteSet.id, emoteSet)
 		this.emoteSets.push(emoteSet)
 
+		let updatedEmoteSets: EmoteSet[] = []
+
 		for (let i = emoteSet.emotes.length - 1; i >= 0; i--) {
 			const emote = emoteSet.emotes[i]
 
@@ -248,17 +250,19 @@ export class EmoteDatastore {
 					log(
 						'CORE',
 						'EMOT:STORE',
-						`Registered ${storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
-							storedEmoteSet.isGlobalSet ? 'global' : 'channel'
-						} emote override for ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
+						`Registered ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
 							emoteSet.isGlobalSet ? 'global' : 'channel'
-						} ${emote.name} emote`
+						} emote ${emote.name} override for loaded ${
+							storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'
+						} ${storedEmoteSet.isGlobalSet ? 'global' : 'channel'} emote`
 					)
 
 					// Remove previously registered emote because it's being overridden
-					const storedEmoteSetEmotes = storedEmoteSet.emotes
-					storedEmoteSetEmotes.splice(storedEmoteSetEmotes.indexOf(storedEmote), 1)
+					storedEmoteSet.emotes.splice(storedEmoteSet.emotes.indexOf(storedEmote), 1)
 					this.fuse.remove((indexedEmote: any) => indexedEmote.name === emote.name)
+					if (!updatedEmoteSets.includes(storedEmoteSet)) {
+						updatedEmoteSets.push(storedEmoteSet)
+					}
 
 					// Register the new emote
 					this.emoteMap.set(emote.hid, emote)
@@ -279,6 +283,12 @@ export class EmoteDatastore {
 		}
 
 		this.session.eventBus.publish('ntv.datastore.emoteset.added', emoteSet)
+
+		if (updatedEmoteSets.length > 0) {
+			for (const updatedEmoteSet of updatedEmoteSets) {
+				this.session.eventBus.publish('ntv.datastore.emoteset.updated', updatedEmoteSet)
+			}
+		}
 	}
 
 	getEmote(emoteHid: string) {
