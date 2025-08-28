@@ -387,6 +387,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		})
 
 		eventBus.subscribe('ntv.datastore.emoteset.added', this.addEmoteSet.bind(this), true)
+		eventBus.subscribe('ntv.datastore.emoteset.updated', this.updateEmoteSet.bind(this), true)
 
 		eventBus.subscribe(
 			'ntv.datastore.emotes.favorites.loaded',
@@ -701,6 +702,22 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		}
 
 		this.scrollableObserver.observe(emoteSetEl)
+	}
+
+	updateEmoteSet(emoteSet: EmoteSet) {
+		log('CORE', 'UI', `Updating emote set "${emoteSet.name}" in emote menu..`)
+
+		if (this.emoteSetEls.has(emoteSet.id)) {
+			this.emoteSetEls.get(emoteSet.id)?.remove()
+			this.emoteSetEls.delete(emoteSet.id)
+			this.emoteSetSidebarEls.get(emoteSet.id)?.remove()
+			this.emoteSetSidebarEls.delete(emoteSet.id)
+
+			this.addEmoteSet(emoteSet)
+			this.renderFavoriteEmotes(emoteSet)
+		} else {
+			this.addEmoteSet(emoteSet)
+		}
 	}
 
 	handleEmoteClick(emoteBoxEl: HTMLElement, emoteHid: string, isHoldingCtrl: boolean) {
