@@ -658,6 +658,23 @@ class NipahClient {
 		return
 	}
 
+	const pathnames = window.location.pathname.split('/')
+
+	// Don't load on certain pages
+	if (
+		'/' === window.location.pathname ||
+		['browse', 'settings', 'transactions', 'following'].includes(pathnames[1] || '')
+	) {
+		log('CORE', 'MAIN', 'Not a stream page, nothing to do here.')
+		return
+	}
+
+	// Don't load on dashboard pages other than the stream page
+	if (window.location.hostname.split('.')[0] === 'dashboard' && pathnames[1] !== 'stream') {
+		log('CORE', 'MAIN', 'Not a stream page, nothing to do here.')
+		return
+	}
+
 	if (__USERSCRIPT__) {
 		info('CORE', 'INIT', 'Running in userscript mode..')
 	}
