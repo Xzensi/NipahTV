@@ -38,6 +38,11 @@ export class KickUserInterface extends AbstractUserInterface {
 	private clearQueuedChatMessagesInterval: NodeJS.Timeout | null = null
 	private reloadUIhackInterval: NodeJS.Timeout | null = null
 
+	private currentEmoteTooltip: HTMLElement | null = null
+	private currentEmoteTooltipTarget: HTMLElement | null = null
+	private emoteTooltipPointerMoveHandler: ((evt: PointerEvent) => void) | null = null
+	private emoteTooltipTimeout: number | null = null
+
 	protected elm: {
 		chatMessagesContainer: HTMLElement | null
 		replyMessageWrapper: HTMLElement | null
@@ -1102,12 +1107,35 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		// Show emote tooltip with emote name, remove when mouse leaves
+		// Show emote tooltip with emote name. Use pointer events and a single shared tooltip
 		const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, 'chat.tooltips.images')
+
+		const removeEmoteTooltip = () => {
+			if (this.currentEmoteTooltip) {
+				this.currentEmoteTooltip.remove()
+				this.currentEmoteTooltip = null
+				this.currentEmoteTooltipTarget = null
+			}
+
+			if (this.emoteTooltipPointerMoveHandler) {
+				document.removeEventListener('pointermove', this.emoteTooltipPointerMoveHandler)
+				this.emoteTooltipPointerMoveHandler = null
+			}
+
+			if (this.emoteTooltipTimeout) {
+				window.clearTimeout(this.emoteTooltipTimeout)
+				this.emoteTooltipTimeout = null
+			}
+		}
+
 		this.domEventManager.addEventListener(
 			chatMessagesContainerEl,
-			'mouseover',
-			(evt: MouseEvent) => {
+			'pointerover',
+			(evt: PointerEvent) => {
+				if (this.currentEmoteTooltip) {
+					removeEmoteTooltip()
+				}
+
 				const target = evt.target as HTMLElement
 				if (target.tagName !== 'IMG' || !target?.parentElement?.classList.contains('ntv__inline-emote-box'))
 					return
@@ -1116,7 +1144,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (!emoteName) return
 
 				const tooltipEl = parseHTML(
-					`<div class="ntv__emote-tooltip"><span class="ntv__emote-tooltip__title">${emoteName}</span></div>`,
+					`<div class="ntv__emote-tooltip" data-emote-for="${emoteName}"><span class="ntv__emote-tooltip__title">${emoteName}</span></div>`,
 					true
 				) as HTMLElement
 
@@ -1151,13 +1179,26 @@ export class KickUserInterface extends AbstractUserInterface {
 				tooltipEl.style.top = `${rect.y}px`
 				document.body.append(tooltipEl)
 
-				target.addEventListener(
-					'mouseleave',
-					() => {
-						tooltipEl.remove()
-					},
-					{ once: true, passive: true }
-				)
+				this.currentEmoteTooltip = tooltipEl
+				this.currentEmoteTooltipTarget = target
+
+				// Use pointermove to detect when pointer leaves the original target or when DOM changes remove the emote
+				this.emoteTooltipPointerMoveHandler = (moveEvt: PointerEvent) => {
+					const elem = document.elementFromPoint(moveEvt.clientX, moveEvt.clientY) as HTMLElement | null
+					if (!elem) return
+
+					// If the pointer is no longer inside the emote target or its parent, remove tooltip
+					if (elem === target || target.contains(elem) || elem === tooltipEl || tooltipEl.contains(elem)) {
+						return
+					}
+
+					removeEmoteTooltip()
+				}
+
+				document.addEventListener('pointermove', this.emoteTooltipPointerMoveHandler)
+
+				// Fallback: if nothing detects pointer leaving (e.g., pointer capture or weird DOM), auto-remove after 5s
+				this.emoteTooltipTimeout = window.setTimeout(() => removeEmoteTooltip(), 5000)
 			},
 			{ passive: true }
 		)
@@ -2189,6 +2230,19 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
 		if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval)
 		if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval)
+
+		if (this.currentEmoteTooltip) {
+			this.currentEmoteTooltip.remove()
+			this.currentEmoteTooltip = null
+		}
+		if (this.emoteTooltipPointerMoveHandler) {
+			document.removeEventListener('pointermove', this.emoteTooltipPointerMoveHandler)
+			this.emoteTooltipPointerMoveHandler = null
+		}
+		if (this.emoteTooltipTimeout) {
+			window.clearTimeout(this.emoteTooltipTimeout)
+			this.emoteTooltipTimeout = null
+		}
 
 		this.domEventManager.removeAllEventListeners()
 	}
