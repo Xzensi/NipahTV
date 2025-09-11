@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.77',
+		date: '2025-09-11',
+		description: `
+                  Kick's new website update causes NTV to reload itself in attempt of restoring state when the channel points menu is opened. A temporary workaround has been applied but it's not a perfect fix yet. At least it doesn't cause messages to be duplicated anymore because of it.
+
+                  Fix: NTV not loading on moderator dashboard
+                  Fix: Applied a temporary workaround for channel points menu causing NTV to reload
+            `
+	},
+	{
 		version: '1.5.75',
 		date: '2025-08-28',
 		description: `

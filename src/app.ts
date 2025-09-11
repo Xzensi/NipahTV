@@ -47,7 +47,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 class NipahClient {
-	VERSION = '1.5.75'
+	VERSION = '1.5.77'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3010/',
@@ -341,6 +341,11 @@ class NipahClient {
 	}
 
 	async createChannelSession() {
+		if (!this.shouldLoadPage()) {
+			log('CORE', 'MAIN', 'Not a stream page, nothing to do here.')
+			return
+		}
+
 		log('CORE', 'MAIN', `Creating new session for ${window.location.href}...`)
 
 		const rootContext = this.rootContext
@@ -457,6 +462,38 @@ class NipahClient {
 				this.createChannelSession()
 			}, 1000)
 		)
+	}
+
+	shouldLoadPage() {
+		const pathnames = window.location.pathname.split('/')
+
+		// Don't load on settings pages
+		if (
+			window.location.hostname === 'kick.com' &&
+			('/' === window.location.pathname ||
+				['browse', 'settings', 'transactions', 'following'].includes(pathnames[1] || ''))
+		) {
+			return false
+		}
+
+		// Don't load on dashboard pages other than the creator and moderator dashboard pages
+		if (
+			window.location.hostname.split('.')[0] === 'dashboard' &&
+			pathnames[1] !== 'stream' &&
+			pathnames[1] !== 'moderator'
+		) {
+			return false
+		}
+
+		// Don't load on certain pages
+		if (
+			'/' === window.location.pathname ||
+			['browse', 'settings', 'transactions', 'following'].includes(pathnames[1] || '')
+		) {
+			return false
+		}
+
+		return true
 	}
 
 	attachEventServiceListeners(rootContext: RootContext, session: Session) {
@@ -655,23 +692,6 @@ class NipahClient {
 	// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
 	if (window.location.pathname.match('^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+')) {
 		log('CORE', 'MAIN', 'KPSDK URL detected, bailing out..')
-		return
-	}
-
-	const pathnames = window.location.pathname.split('/')
-
-	// Don't load on certain pages
-	if (
-		'/' === window.location.pathname ||
-		['browse', 'settings', 'transactions', 'following'].includes(pathnames[1] || '')
-	) {
-		log('CORE', 'MAIN', 'Not a stream page, nothing to do here.')
-		return
-	}
-
-	// Don't load on dashboard pages other than the stream page
-	if (window.location.hostname.split('.')[0] === 'dashboard' && pathnames[1] !== 'stream') {
-		log('CORE', 'MAIN', 'Not a stream page, nothing to do here.')
 		return
 	}
 
