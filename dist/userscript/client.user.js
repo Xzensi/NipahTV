@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.76
+// @version 1.5.77
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12264,7 +12264,7 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
-    version: "1.5.76",
+    version: "1.5.77",
     date: "2025-09-11",
     description: `
                   Kick's new website update causes NTV to reload itself in attempt of restoring state when the channel points menu is opened. A temporary workaround has been applied but it's not a perfect fix yet. At least it doesn't cause messages to be duplicated anymore because of it.
@@ -22804,7 +22804,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.destroy();
         this.session.eventBus.publish("ntv.session.reload");
       }
-    }, 700);
+    }, 500);
   }
   async loadQuickEmotesHolder(kickFooterEl, kickQuickEmotesHolderEl) {
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
@@ -24167,9 +24167,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     Array.from(document.querySelectorAll(".ntv__chat-message, .ntv__chat-message--unrendered")).forEach((node) => {
       const el = node;
       el.querySelectorAll(".ntv__chat-message__inner").forEach((innerNode) => innerNode.remove());
-      el.querySelectorAll(".kick__chat-message__actions").forEach(
-        (node2) => node2.classList.remove("kick__chat-message__actions")
-      );
+      el.querySelectorAll(".kick__chat-message__actions").forEach((node2) => node2.remove());
       el.querySelectorAll("#chat-message-actions").forEach((node2) => {
         node2.parentElement?.style.removeProperty("display");
       });
@@ -26168,7 +26166,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.76";
+  VERSION = "1.5.77";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
