@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.75
+// @version 1.5.76
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12264,6 +12264,16 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.76",
+    date: "2025-09-11",
+    description: `
+                  Kick's new website update causes NTV to reload itself in attempt of restoring state when the channel points menu is opened. A temporary workaround has been applied but it's not a perfect fix yet. At least it doesn't cause messages to be duplicated anymore because of it.
+
+                  Fix: NTV not loading on moderator dashboard
+                  Fix: Applied a temporary workaround for channel points menu causing NTV to reload
+            `
+  },
+  {
     version: "1.5.75",
     date: "2025-08-28",
     description: `
@@ -24151,15 +24161,23 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.emoteTooltipTimeout = null;
     }
     this.domEventManager.removeAllEventListeners();
+    this.restoreOriginalUi();
   }
   restoreOriginalUi() {
     Array.from(document.querySelectorAll(".ntv__chat-message, .ntv__chat-message--unrendered")).forEach((node) => {
       const el = node;
       el.querySelectorAll(".ntv__chat-message__inner").forEach((innerNode) => innerNode.remove());
+      el.querySelectorAll(".kick__chat-message__actions").forEach(
+        (node2) => node2.classList.remove("kick__chat-message__actions")
+      );
+      el.querySelectorAll("#chat-message-actions").forEach((node2) => {
+        node2.parentElement?.style.removeProperty("display");
+      });
       Array.from(el.classList).forEach((className) => {
         if (className.startsWith("ntv__")) el.classList.remove(className);
       });
     });
+    document.querySelectorAll(".ntv__chat-messages-container").forEach((node) => node.classList.remove("ntv__chat-messages-container"));
     ["ntv__pinned-message__content"].forEach((className) => {
       Array.from(document.querySelectorAll(`.${className}`)).forEach((node) => node.remove());
     });
@@ -26150,7 +26168,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.75";
+  VERSION = "1.5.76";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -26364,6 +26382,10 @@ var NipahClient = class {
     });
   }
   async createChannelSession() {
+    if (!this.shouldLoadPage()) {
+      log38("CORE", "MAIN", "Not a stream page, nothing to do here.");
+      return;
+    }
     log38("CORE", "MAIN", `Creating new session for ${window.location.href}...`);
     const rootContext = this.rootContext;
     if (!rootContext) throw new Error("Root context is not initialized.");
@@ -26449,6 +26471,19 @@ var NipahClient = class {
         this.createChannelSession();
       }, 1e3)
     );
+  }
+  shouldLoadPage() {
+    const pathnames = window.location.pathname.split("/");
+    if (window.location.hostname === "kick.com" && ("/" === window.location.pathname || ["browse", "settings", "transactions", "following"].includes(pathnames[1] || ""))) {
+      return false;
+    }
+    if (window.location.hostname.split(".")[0] === "dashboard" && pathnames[1] !== "stream" && pathnames[1] !== "moderator") {
+      return false;
+    }
+    if ("/" === window.location.pathname || ["browse", "settings", "transactions", "following"].includes(pathnames[1] || "")) {
+      return false;
+    }
+    return true;
   }
   attachEventServiceListeners(rootContext, session) {
     const { eventBus, channelData, meData } = session;
@@ -26591,15 +26626,6 @@ var NipahClient = class {
 (() => {
   if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) {
     log38("CORE", "MAIN", "KPSDK URL detected, bailing out..");
-    return;
-  }
-  const pathnames = window.location.pathname.split("/");
-  if ("/" === window.location.pathname || ["browse", "settings", "transactions", "following"].includes(pathnames[1] || "")) {
-    log38("CORE", "MAIN", "Not a stream page, nothing to do here.");
-    return;
-  }
-  if (window.location.hostname.split(".")[0] === "dashboard" && pathnames[1] !== "stream") {
-    log38("CORE", "MAIN", "Not a stream page, nothing to do here.");
     return;
   }
   if (true) {
