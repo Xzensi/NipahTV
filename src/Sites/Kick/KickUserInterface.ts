@@ -340,7 +340,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.destroy()
 				this.session.eventBus.publish('ntv.session.reload')
 			}
-		}, 700)
+		}, 500)
 	}
 
 	async loadQuickEmotesHolder(kickFooterEl: HTMLElement, kickQuickEmotesHolderEl?: HTMLElement) {
@@ -2254,9 +2254,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		Array.from(document.querySelectorAll('.ntv__chat-message, .ntv__chat-message--unrendered')).forEach(node => {
 			const el = node as HTMLElement
 			el.querySelectorAll('.ntv__chat-message__inner').forEach(innerNode => innerNode.remove())
-			el.querySelectorAll('.kick__chat-message__actions').forEach(node =>
-				node.classList.remove('kick__chat-message__actions')
-			)
+			el.querySelectorAll('.kick__chat-message__actions').forEach(node => node.remove())
 			el.querySelectorAll('#chat-message-actions').forEach(node => {
 				node.parentElement?.style.removeProperty('display')
 			})
