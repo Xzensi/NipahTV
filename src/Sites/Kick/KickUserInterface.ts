@@ -2245,6 +2245,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		this.domEventManager.removeAllEventListeners()
+
+		this.restoreOriginalUi()
 	}
 
 	restoreOriginalUi() {
@@ -2252,12 +2254,22 @@ export class KickUserInterface extends AbstractUserInterface {
 		Array.from(document.querySelectorAll('.ntv__chat-message, .ntv__chat-message--unrendered')).forEach(node => {
 			const el = node as HTMLElement
 			el.querySelectorAll('.ntv__chat-message__inner').forEach(innerNode => innerNode.remove())
+			el.querySelectorAll('.kick__chat-message__actions').forEach(node =>
+				node.classList.remove('kick__chat-message__actions')
+			)
+			el.querySelectorAll('#chat-message-actions').forEach(node => {
+				node.parentElement?.style.removeProperty('display')
+			})
 
 			// Remove all classes starting with ntv__ from the element
 			Array.from(el.classList).forEach(className => {
 				if (className.startsWith('ntv__')) el.classList.remove(className)
 			})
 		})
+
+		document
+			.querySelectorAll('.ntv__chat-messages-container')
+			.forEach(node => node.classList.remove('ntv__chat-messages-container'))
 		;['ntv__pinned-message__content'].forEach(className => {
 			Array.from(document.querySelectorAll(`.${className}`)).forEach(node => node.remove())
 		})
