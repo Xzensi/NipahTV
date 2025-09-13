@@ -29,6 +29,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	private domEventManager = new DOMEventManager()
 
 	private chatObserver: MutationObserver | null = null
+	private footerObserver: MutationObserver | null = null
 	private deletedChatEntryObserver: MutationObserver | null = null
 	private inputComponentsObserver: MutationObserver | null = null
 	private replyObserver: MutationObserver | null = null
@@ -106,6 +107,14 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				const [footerEl] = foundElements as HTMLElement[]
 				footerEl.classList.add('kick__chat-footer')
+
+				// Mutation observer to observe when kick__chat-footer class is removed from footerEl so we can reapply it
+				this.footerObserver = new MutationObserver(mutations => {
+					if (!footerEl.classList.contains('kick__chat-footer')) {
+						footerEl.classList.add('kick__chat-footer')
+					}
+				})
+				this.footerObserver.observe(footerEl, { attributes: true })
 
 				// Initialize a container for the timers UI
 				const timersContainer = document.createElement('div')
@@ -2398,6 +2407,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	destroy() {
 		if (this.abortController) this.abortController.abort()
 		if (this.chatObserver) this.chatObserver.disconnect()
+		if (this.footerObserver) this.footerObserver.disconnect()
 		if (this.deletedChatEntryObserver) this.deletedChatEntryObserver.disconnect()
 		if (this.replyObserver) this.replyObserver.disconnect()
 		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
