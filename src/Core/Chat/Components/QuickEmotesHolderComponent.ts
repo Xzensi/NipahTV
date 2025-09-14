@@ -6,7 +6,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 export default class QuickEmotesHolderComponent extends AbstractComponent {
-	private element!: HTMLElement
+	element!: HTMLElement
 	private favoritesEl!: HTMLElement
 	private commonlyUsedEl!: HTMLElement
 

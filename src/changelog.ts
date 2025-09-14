@@ -4,6 +4,18 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.78',
+		date: '2025-09-14',
+		description: `
+                  The issues with channel points menu are now fixed.
+
+                  Fix: UI components not getting restored correctly when nuked
+                  Fix: Share celebrations not showing correctly when quick emotes holder is disabled
+                  Fix: Channel points menu causing chat footer to become fully transparent in theatre mode
+                  Chore: Improved UI reload handling when UI context is lost
+            `
+	},
+	{
 		version: '1.5.77',
 		date: '2025-09-11',
 		description: `

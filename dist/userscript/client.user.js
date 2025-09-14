@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.77
+// @version 1.5.78
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12264,6 +12264,18 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.78",
+    date: "2025-09-14",
+    description: `
+                  The issues with channel points menu are now fixed.
+
+                  Fix: UI components not getting restored correctly when nuked
+                  Fix: Share celebrations not showing correctly when quick emotes holder is disabled
+                  Fix: Channel points menu causing chat footer to become fully transparent in theatre mode
+                  Chore: Improved UI reload handling when UI context is lost
+            `
+  },
+  {
     version: "1.5.77",
     date: "2025-09-11",
     description: `
@@ -22591,14 +22603,23 @@ var KickUserInterface = class extends AbstractUserInterface {
   abortController = new AbortController();
   domEventManager = new DOMEventManager();
   chatObserver = null;
+  footerObserver = null;
   deletedChatEntryObserver = null;
+  inputComponentsObserver = null;
   replyObserver = null;
   pinnedMessageObserver = null;
   emoteMenu = null;
   emoteMenuButton = null;
+  emoteMenuButtonObserver = null;
   quickEmotesHolder = null;
+  quickEmotesHolderObserver = null;
+  celebrationsContainerEl = null;
   clearQueuedChatMessagesInterval = null;
   reloadUIhackInterval = null;
+  // Timeout handles for resetting panic counters in various MutationObservers
+  emoteMenuButtonPanicResetTimeout = null;
+  quickEmotesHolderPanicResetTimeout = null;
+  inputComponentsPanicResetTimeout = null;
   currentEmoteTooltip = null;
   currentEmoteTooltipTarget = null;
   emoteTooltipPointerMoveHandler = null;
@@ -22629,44 +22650,25 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.loadSettings();
     this.loadStylingVariables();
     this.loadDocumentPatches();
+    this.loadEmoteMenuButton();
+    this.loadQuickEmotesHolder();
+    this.loadCelebrationsBehaviour();
+    this.loadInputBehaviour();
     const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
-    waitForElements(
-      [
-        '#channel-chatroom .editor-input[contenteditable="true"]',
-        `${footerSelector} button.select-none.bg-green-500.rounded`
-      ],
-      15e3,
-      abortSignal
-    ).then((foundElements) => {
-      if (this.session.isDestroyed) return;
-      const [textFieldEl, submitButtonEl] = foundElements;
-      this.loadInputBehaviour(textFieldEl, submitButtonEl);
-      this.loadEmoteMenu();
-    }).catch(() => {
-    });
     waitForElements([`${footerSelector}`], 15e3, abortSignal).then((foundElements) => {
       if (this.session.isDestroyed) return;
       const [footerEl] = foundElements;
       footerEl.classList.add("kick__chat-footer");
+      this.footerObserver = new MutationObserver((mutations) => {
+        if (!footerEl.classList.contains("kick__chat-footer")) {
+          footerEl.classList.add("kick__chat-footer");
+        }
+      });
+      this.footerObserver.observe(footerEl, { attributes: true });
       const timersContainer = document.createElement("div");
       timersContainer.id = "ntv__timers-container";
       footerEl.append(timersContainer);
       this.elm.timersContainer = timersContainer;
-      waitForElements(["#quick-emotes-holder"], 1e4, abortSignal).then((foundElements2) => {
-        const [quickEmotesHolderEl] = foundElements2;
-        this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl);
-      }).catch(() => {
-      });
-      waitForElements(
-        [`${footerSelector} > div.flex > .flex.items-center > div.ml-auto`],
-        15e3,
-        abortSignal
-      ).then((foundElements2) => {
-        if (this.session.isDestroyed) return;
-        const [footerBottomBarEl] = foundElements2;
-        this.loadEmoteMenuButton(footerBottomBarEl);
-      }).catch(() => {
-      });
     }).catch(() => {
     });
     const chatMessagesContainerSelector = "#chatroom-messages > .no-scrollbar";
@@ -22686,6 +22688,13 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.observePinnedMessage();
         this.observeChatEntriesForDeletionEvents();
       }
+      this.reloadUIhackInterval = setInterval(() => {
+        if (!chatMessagesContainerEl.isConnected) {
+          info26("KICK", "UI", "Chat messages container got removed. Reloading session to reinitialize UI.");
+          this.destroy();
+          this.session.eventBus.publish("ntv.session.reload");
+        }
+      }, 500);
     }).catch(() => {
     });
     waitForElements(["#video-player", chatMessagesContainerSelector], 15e3, abortSignal).then((foundElements) => {
@@ -22791,52 +22800,131 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.emoteMenu = new EmoteMenuComponent(this.rootContext, this.session, container).init();
     this.elm.textField.addEventListener("click", this.emoteMenu.toggleShow.bind(this.emoteMenu, false));
   }
-  async loadEmoteMenuButton(kickFooterBottomBarEl) {
-    const placeholder = document.createElement("div");
-    const footerSubmitButtonWrapper = kickFooterBottomBarEl;
-    if (!footerSubmitButtonWrapper)
-      return error29("KICK", "UI", "Footer submit button wrapper not found for emote menu button");
-    footerSubmitButtonWrapper.prepend(placeholder);
-    this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init();
-    this.reloadUIhackInterval = setInterval(() => {
-      if (!this.emoteMenuButton.element.isConnected) {
-        info26("KICK", "UI", "Emote menu button got removed. Reloading session to reinitialize UI.");
-        this.destroy();
-        this.session.eventBus.publish("ntv.session.reload");
-      }
-    }, 500);
+  async loadEmoteMenuButton() {
+    const { abortController } = this;
+    const abortSignal = abortController.signal;
+    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const footerBottomBarSelector = `${footerSelector} > div.flex > .flex.items-center > div.ml-auto`;
+    waitForElements([footerBottomBarSelector], 15e3, abortSignal).then((foundElements) => {
+      if (this.session.isDestroyed) return;
+      const [kickFooterBottomBarEl] = foundElements;
+      if (!kickFooterBottomBarEl)
+        return error29("KICK", "UI", "Footer submit button wrapper not found for emote menu button");
+      const placeholder = document.createElement("div");
+      kickFooterBottomBarEl.prepend(placeholder);
+      this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init();
+      let panicCounter = 0;
+      const resetPanicCounter = () => {
+        panicCounter = 0;
+        this.emoteMenuButtonPanicResetTimeout = null;
+        log28("KICK", "UI", "Emote menu button panic counter reset");
+      };
+      const schedulePanicReset = () => {
+        if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout);
+        this.emoteMenuButtonPanicResetTimeout = window.setTimeout(resetPanicCounter, 5e3);
+      };
+      const observer = this.emoteMenuButtonObserver = new MutationObserver((mutations) => {
+        const emoteMenuButtonElement = this.emoteMenuButton?.element;
+        if (!emoteMenuButtonElement || emoteMenuButtonElement.isConnected) return;
+        if (panicCounter >= 20) {
+          log28("KICK", "UI", "Emote menu button panic limit reached, stopping observer");
+          observer.disconnect();
+          if (this.emoteMenuButtonPanicResetTimeout) {
+            clearTimeout(this.emoteMenuButtonPanicResetTimeout);
+            this.emoteMenuButtonPanicResetTimeout = null;
+          }
+          setTimeout(() => this.loadEmoteMenuButton(), 4e3);
+          return;
+        }
+        log28("KICK", "UI", "Emote menu button got removed");
+        const kickFooterBottomBarEl2 = document.querySelector(footerBottomBarSelector);
+        if (!kickFooterBottomBarEl2) return;
+        log28("KICK", "UI", "Footer bottom bar found, reinjecting emote menu button..");
+        kickFooterBottomBarEl2.prepend(emoteMenuButtonElement);
+        panicCounter++;
+        schedulePanicReset();
+      });
+      observer.observe(kickFooterBottomBarEl.parentElement, { childList: true, subtree: true });
+    }).catch(() => {
+    });
   }
-  async loadQuickEmotesHolder(kickFooterEl, kickQuickEmotesHolderEl) {
+  async loadQuickEmotesHolder() {
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const { channelData } = this.session;
     const { channelId } = channelData;
-    const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, "quick_emote_holder.enabled");
-    if (quickEmotesHolderEnabled) {
-      const quickEmotesHolderPlaceholder = document.createElement("div");
-      kickFooterEl.prepend(quickEmotesHolderPlaceholder);
-      kickQuickEmotesHolderEl?.style.setProperty("display", "none", "important");
-      const celebrationsPlaceholder = document.createElement("div");
-      quickEmotesHolderPlaceholder.after(celebrationsPlaceholder);
-      this.loadCelebrationsBehaviour(celebrationsPlaceholder);
-      this.quickEmotesHolder = new QuickEmotesHolderComponent(
-        this.rootContext,
-        this.session,
-        quickEmotesHolderPlaceholder
-      ).init();
-    }
+    const { abortController } = this;
+    const abortSignal = abortController.signal;
+    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const quickEmotesHolderSelector = "#quick-emotes-holder";
+    const wrapperFunction = () => {
+      waitForElements([footerSelector], 15e3, abortSignal).then((foundElements) => {
+        if (this.session.isDestroyed) return;
+        const [kickFooterEl] = foundElements;
+        waitForElements([quickEmotesHolderSelector], 1e4, abortSignal).then((foundElements2) => {
+          const [kickQuickEmotesHolderEl] = foundElements2;
+          const quickEmotesHolderEnabled = settingsManager.getSetting(
+            channelId,
+            "quick_emote_holder.enabled"
+          );
+          if (quickEmotesHolderEnabled) {
+            const quickEmotesHolderPlaceholder = document.createElement("div");
+            kickFooterEl.prepend(quickEmotesHolderPlaceholder);
+            kickQuickEmotesHolderEl?.style.setProperty("display", "none", "important");
+            this.quickEmotesHolder = new QuickEmotesHolderComponent(
+              this.rootContext,
+              this.session,
+              quickEmotesHolderPlaceholder
+            ).init();
+            let panicCounter = 0;
+            const resetPanicCounter = () => {
+              panicCounter = 0;
+              this.quickEmotesHolderPanicResetTimeout = null;
+            };
+            const schedulePanicReset = () => {
+              if (this.quickEmotesHolderPanicResetTimeout)
+                clearTimeout(this.quickEmotesHolderPanicResetTimeout);
+              this.quickEmotesHolderPanicResetTimeout = window.setTimeout(resetPanicCounter, 5e3);
+            };
+            const observer = this.quickEmotesHolderObserver = new MutationObserver((mutations) => {
+              const quickEmotesHolderElement = this.quickEmotesHolder?.element;
+              if (!quickEmotesHolderElement || quickEmotesHolderElement.isConnected) return;
+              if (panicCounter >= 20) {
+                log28("KICK", "UI", "Quick emote holder panic limit reached, stopping observer");
+                observer.disconnect();
+                if (this.quickEmotesHolderPanicResetTimeout) {
+                  clearTimeout(this.quickEmotesHolderPanicResetTimeout);
+                  this.quickEmotesHolderPanicResetTimeout = null;
+                }
+                return;
+              }
+              log28("KICK", "UI", "Quick emote holder got removed");
+              const kickFooterEl2 = document.querySelector(footerSelector);
+              if (!kickFooterEl2) return;
+              log28("KICK", "UI", "Footer emote holder found, reinjecting quick emote holder..");
+              kickFooterEl2.prepend(quickEmotesHolderElement);
+              if (this.celebrationsContainerEl) {
+                quickEmotesHolderElement.after(this.celebrationsContainerEl);
+              }
+              panicCounter++;
+              schedulePanicReset();
+            });
+            observer.observe(kickFooterEl, {
+              childList: true
+            });
+          }
+        }).catch(() => {
+        });
+      }).catch(() => {
+      });
+    };
+    wrapperFunction();
     rootEventBus.subscribe("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
       this.quickEmotesHolder?.destroy();
       if (value) {
-        const placeholder = document.createElement("div");
-        kickFooterEl.prepend(placeholder);
-        kickQuickEmotesHolderEl?.style.setProperty("display", "none", "important");
-        this.quickEmotesHolder = new QuickEmotesHolderComponent(
-          this.rootContext,
-          this.session,
-          placeholder
-        ).init();
+        wrapperFunction();
       } else {
         this.quickEmotesHolder = null;
+        const kickQuickEmotesHolderEl = document.querySelector(quickEmotesHolderSelector);
         kickQuickEmotesHolderEl?.style.removeProperty("display");
       }
     });
@@ -22925,9 +23013,22 @@ var KickUserInterface = class extends AbstractUserInterface {
       document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap", value);
     });
   }
-  loadInputBehaviour(kickTextFieldEl, kickSubmitButtonEl) {
+  async loadInputBehaviour() {
     if (!this.session.channelData.me.isLoggedIn) return;
     if (this.session.channelData.isVod) return;
+    const { abortController } = this;
+    const abortSignal = abortController.signal;
+    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const foundInputElements = await waitForElements(
+      [
+        '#channel-chatroom .editor-input[contenteditable="true"]',
+        `${footerSelector} button.select-none.bg-green-500.rounded`
+      ],
+      15e3,
+      abortSignal
+    ).catch(() => void 0);
+    if (this.session.isDestroyed || !foundInputElements) return;
+    const [kickTextFieldEl, kickSubmitButtonEl] = foundInputElements;
     Array.from(document.getElementsByClassName("ntv__submit-button")).forEach((element) => {
       element.remove();
     });
@@ -22957,6 +23058,51 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldWrapperEl.append(textFieldEl);
     kickTextFieldEl.parentElement.before(textFieldWrapperEl);
     if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
+    let panicCounter = 0;
+    const resetPanicCounter = () => {
+      panicCounter = 0;
+      this.inputComponentsPanicResetTimeout = null;
+    };
+    const schedulePanicReset = () => {
+      if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout);
+      this.inputComponentsPanicResetTimeout = window.setTimeout(resetPanicCounter, 5e3);
+    };
+    const observer = this.inputComponentsObserver = new MutationObserver((mutations) => {
+      if (panicCounter >= 25) {
+        log28("KICK", "UI", "Emote menu button panic limit reached, stopping observer");
+        observer.disconnect();
+        if (this.inputComponentsPanicResetTimeout) {
+          clearTimeout(this.inputComponentsPanicResetTimeout);
+          this.inputComponentsPanicResetTimeout = null;
+        }
+        return;
+      }
+      if (!submitButtonEl.isConnected) {
+        log28("KICK", "UI", "Submit button got removed");
+        const kickSubmitButtonEl2 = document.querySelector(
+          `${footerSelector} button.select-none.bg-green-500.rounded`
+        );
+        if (kickSubmitButtonEl2) {
+          log28("KICK", "UI", "Footer bottom bar found, reinjecting emote menu button..");
+          kickSubmitButtonEl2.before(submitButtonEl);
+          panicCounter++;
+          schedulePanicReset();
+        }
+      }
+      if (!textFieldWrapperEl.isConnected) {
+        log28("KICK", "UI", "Text field got removed");
+        const kickTextFieldEl2 = document.querySelector(
+          '#channel-chatroom .editor-input[contenteditable="true"]'
+        );
+        if (kickTextFieldEl2) {
+          log28("KICK", "UI", "Footer text field found, reinjecting text field..");
+          kickTextFieldEl2.parentElement.before(textFieldWrapperEl);
+          panicCounter++;
+          schedulePanicReset();
+        }
+      }
+    });
+    observer.observe(document.querySelector(footerSelector), { childList: true, subtree: true });
     const inputController = this.inputController = new InputController(
       this.rootContext,
       this.session,
@@ -22970,6 +23116,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     inputController.loadInputCompletionBehaviour();
     inputController.loadChatHistoryBehaviour();
     this.loadInputStatusBehaviour();
+    this.loadEmoteMenu();
     inputController.addEventListener("is_empty", 10, (event) => {
       if (event.detail.isEmpty) {
         submitButtonEl.setAttribute("disabled", "");
@@ -23182,20 +23329,24 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
   }
-  loadCelebrationsBehaviour(placeholderEl) {
+  loadCelebrationsBehaviour() {
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const { channelData } = this.session;
-    const inputController = this.inputController;
-    if (!inputController) return error29("KICK", "UI", "Input controller not loaded for celebrations behaviour");
-    const celebrations = channelData.me.celebrations;
-    if (!celebrations) return;
-    const celebrationsContainerEl = document.createElement("div");
-    celebrationsContainerEl.classList.add("ntv__celebrations");
-    for (const celebration of celebrations) {
-      if (celebration.type === "subscription_renewed") {
-        const months = celebration.metadata.totalMonths;
-        const celebrationEl = parseHTML(
-          cleanupHTML(`
+    const { abortController } = this;
+    const abortSignal = abortController.signal;
+    waitForElements(["#quick-emotes-holder"], 1e4, abortSignal).then((foundElements) => {
+      const [kickQuickEmotesHolderEl] = foundElements;
+      const celebrationsContainerEl = document.createElement("div");
+      celebrationsContainerEl.classList.add("ntv__celebrations");
+      kickQuickEmotesHolderEl.parentElement.after(celebrationsContainerEl);
+      this.celebrationsContainerEl = celebrationsContainerEl;
+      const celebrations = channelData.me.celebrations;
+      if (!celebrations) return;
+      for (const celebration of celebrations) {
+        if (celebration.type === "subscription_renewed") {
+          const months = celebration.metadata.totalMonths;
+          const celebrationEl = parseHTML(
+            cleanupHTML(`
 					<div class="ntv__celebration ntv__celebration--subscription-renewed relative flex min-h-[60px] flex-row flex-nowrap items-center justify-between gap-2 rounded p-2 text-black [&>svg]:fill-black mb-2" style="background-color: #ff9d00">
 						<div class="flex h-full flex-row flex-nowrap items-center gap-2 empty:hidden shrink grow">
 							<svg width="32" height="32" viewBox="0 0 32 32" class="size-6 shrink-0 grow-0 fill-black" fill="white" xmlns="http://www.w3.org/2000/svg" class="size-6 shrink-0 grow-0 fill-black"><path d="M5.00215 17.5057L12.6433 13.9772C13.2297 13.7058 13.7024 13.233 13.9737 12.6464L17.5011 5.00286L21.0285 12.6464C21.2998 13.233 21.7724 13.7058 22.3589 13.9772L30 17.5057L22.3589 21.0342C21.7724 21.3056 21.2998 21.7784 21.0285 22.365L17.5011 30.0085L13.9737 22.365C13.7024 21.7784 13.2297 21.3056 12.6433 21.0342L4.9934 17.5057H5.00215Z"></path><path d="M2 7.37587L5.29104 5.86117C5.54487 5.74735 5.74618 5.54597 5.85997 5.29207L7.37419 2L8.88842 5.29207C9.0022 5.54597 9.20352 5.74735 9.45735 5.86117L12.7484 7.37587L9.45735 8.89057C9.20352 9.0044 9.0022 9.20577 8.88842 9.45968L7.37419 12.7517L5.85997 9.46844C5.74618 9.21453 5.54487 9.01315 5.29104 8.89933L2 7.38463V7.37587Z"></path></svg>
@@ -23210,69 +23361,73 @@ var KickUserInterface = class extends AbstractUserInterface {
 						</div>
 					</div>
 				`),
-          true
-        );
-        const shareBtn = celebrationEl.querySelector("button");
-        const hamburgerBtn = celebrationEl.querySelector("button:last-of-type");
-        shareBtn.addEventListener("click", () => {
-          log28("KICK", "UI", "Share celebration button clicked");
-          const kickFooterInputContainer = document.querySelector(
-            "div:has(#quick-emotes-holder) ~ div:has(#chat-input-wrapper), #quick-emotes-holder ~ div:has(#chat-input-wrapper)"
+            true
           );
-          if (!kickFooterInputContainer) return error29("KICK", "UI", "Kick footer input container not found");
-          kickFooterInputContainer.classList.add("kick__chat-input-container--share-celebration");
-          this.celebrationData = {
-            id: celebration.id
-          };
-          const channelName = this.session.channelData.channelName;
-          const textEl = parseHTML(
-            cleanupHTML(`
+          const shareBtn = celebrationEl.querySelector("button");
+          const hamburgerBtn = celebrationEl.querySelector("button:last-of-type");
+          shareBtn.addEventListener("click", () => {
+            log28("KICK", "UI", "Share celebration button clicked");
+            const kickFooterInputContainer = document.querySelector(
+              "div:has(#quick-emotes-holder) ~ div:has(#chat-input-wrapper), #quick-emotes-holder ~ div:has(#chat-input-wrapper)"
+            );
+            if (!kickFooterInputContainer)
+              return error29("KICK", "UI", "Kick footer input container not found");
+            kickFooterInputContainer.classList.add("kick__chat-input-container--share-celebration");
+            this.celebrationData = {
+              id: celebration.id
+            };
+            const channelName = this.session.channelData.channelName;
+            const textEl = parseHTML(
+              cleanupHTML(`
 						<span class="text-sm leading-5 font-medium" style="padding-top: 8px">Let <span class="font-bold">${channelName}</span> know you've been subbed for ${months} months</span>
 						`),
-            true
-          );
-          kickFooterInputContainer.prepend(textEl);
-          celebrationEl.querySelector("span").textContent = "Share sub anniversary";
-          celebrationEl.querySelector("& > div:last-of-type").remove();
-          this.session.eventBus.subscribe(
-            "ntv.ui.submitted_input",
-            () => {
-              log28("KICK", "UI", "Submitted input", this.celebrationData);
-              celebrationEl.remove();
-              textEl.remove();
-              kickFooterInputContainer.classList.remove("kick__chat-input-container--share-celebration");
-            },
-            false,
-            true
-          );
-        });
-        hamburgerBtn.addEventListener("click", () => {
-          const menu = new VerticalMenuComponent(hamburgerBtn, [
-            {
-              label: "Share later",
-              value: "share_later"
-            },
-            {
-              label: "Skip for this month",
-              value: "skip"
-            }
-          ]).init();
-          menu.addEventListener("action", (evt) => {
-            const customEvent = evt;
-            const action = customEvent.detail;
-            log28("KICK", "UI", "Menu action", action);
-            this.toastError(
-              "This feature is not yet implemented. If you're willing to help do a couple tests for the sub anniversary so I can implement this feature, please reach out to us in the Discord server!"
+              true
+            );
+            kickFooterInputContainer.prepend(textEl);
+            celebrationEl.querySelector("span").textContent = "Share sub anniversary";
+            celebrationEl.querySelector("& > div:last-of-type").remove();
+            this.session.eventBus.subscribe(
+              "ntv.ui.submitted_input",
+              () => {
+                log28("KICK", "UI", "Submitted input", this.celebrationData);
+                celebrationEl.remove();
+                textEl.remove();
+                kickFooterInputContainer.classList.remove(
+                  "kick__chat-input-container--share-celebration"
+                );
+              },
+              false,
+              true
             );
           });
-          menu.addEventListener("close", (evt) => {
-            delete this.celebrationData;
+          hamburgerBtn.addEventListener("click", () => {
+            const menu = new VerticalMenuComponent(hamburgerBtn, [
+              {
+                label: "Share later",
+                value: "share_later"
+              },
+              {
+                label: "Skip for this month",
+                value: "skip"
+              }
+            ]).init();
+            menu.addEventListener("action", (evt) => {
+              const customEvent = evt;
+              const action = customEvent.detail;
+              log28("KICK", "UI", "Menu action", action);
+              this.toastError(
+                "This feature is not yet implemented. If you're willing to help do a couple tests for the sub anniversary so I can implement this feature, please reach out to us in the Discord server!"
+              );
+            });
+            menu.addEventListener("close", (evt) => {
+              delete this.celebrationData;
+            });
           });
-        });
-        celebrationsContainerEl.append(celebrationEl);
+          celebrationsContainerEl.append(celebrationEl);
+        }
       }
-    }
-    placeholderEl.replaceWith(celebrationsContainerEl);
+    }).catch(() => {
+    });
   }
   getMessageContentString(chatMessageEl) {
     const messageNodes = Array.from(
@@ -24139,15 +24294,23 @@ var KickUserInterface = class extends AbstractUserInterface {
   destroy() {
     if (this.abortController) this.abortController.abort();
     if (this.chatObserver) this.chatObserver.disconnect();
+    if (this.footerObserver) this.footerObserver.disconnect();
     if (this.deletedChatEntryObserver) this.deletedChatEntryObserver.disconnect();
     if (this.replyObserver) this.replyObserver.disconnect();
     if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect();
     if (this.inputController) this.inputController.destroy();
+    if (this.inputComponentsObserver) this.inputComponentsObserver.disconnect();
     if (this.emoteMenu) this.emoteMenu.destroy();
     if (this.emoteMenuButton) this.emoteMenuButton.destroy();
+    if (this.emoteMenuButtonObserver) this.emoteMenuButtonObserver.disconnect();
     if (this.quickEmotesHolder) this.quickEmotesHolder.destroy();
+    if (this.quickEmotesHolderObserver) this.quickEmotesHolderObserver.disconnect();
+    if (this.celebrationsContainerEl) this.celebrationsContainerEl.remove();
     if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval);
     if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval);
+    if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout);
+    if (this.quickEmotesHolderPanicResetTimeout) clearTimeout(this.quickEmotesHolderPanicResetTimeout);
+    if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout);
     if (this.currentEmoteTooltip) {
       this.currentEmoteTooltip.remove();
       this.currentEmoteTooltip = null;
@@ -26166,7 +26329,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.77";
+  VERSION = "1.5.78";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

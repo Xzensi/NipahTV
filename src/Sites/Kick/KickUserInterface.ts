@@ -29,14 +29,24 @@ export class KickUserInterface extends AbstractUserInterface {
 	private domEventManager = new DOMEventManager()
 
 	private chatObserver: MutationObserver | null = null
+	private footerObserver: MutationObserver | null = null
 	private deletedChatEntryObserver: MutationObserver | null = null
+	private inputComponentsObserver: MutationObserver | null = null
 	private replyObserver: MutationObserver | null = null
 	private pinnedMessageObserver: MutationObserver | null = null
 	private emoteMenu: EmoteMenuComponent | null = null
 	private emoteMenuButton: EmoteMenuButtonComponent | null = null
+	private emoteMenuButtonObserver: MutationObserver | null = null
 	private quickEmotesHolder: QuickEmotesHolderComponent | null = null
+	private quickEmotesHolderObserver: MutationObserver | null = null
+	private celebrationsContainerEl: HTMLElement | null = null
 	private clearQueuedChatMessagesInterval: NodeJS.Timeout | null = null
 	private reloadUIhackInterval: NodeJS.Timeout | null = null
+
+	// Timeout handles for resetting panic counters in various MutationObservers
+	private emoteMenuButtonPanicResetTimeout: number | null = null
+	private quickEmotesHolderPanicResetTimeout: number | null = null
+	private inputComponentsPanicResetTimeout: number | null = null
 
 	private currentEmoteTooltip: HTMLElement | null = null
 	private currentEmoteTooltipTarget: HTMLElement | null = null
@@ -83,24 +93,12 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.loadStylingVariables()
 		this.loadDocumentPatches()
 
-		// Wait for text input & submit button to load
-		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
-		waitForElements(
-			[
-				'#channel-chatroom .editor-input[contenteditable="true"]',
-				`${footerSelector} button.select-none.bg-green-500.rounded`
-			],
-			15_000,
-			abortSignal
-		)
-			.then(foundElements => {
-				if (this.session.isDestroyed) return
+		this.loadEmoteMenuButton()
+		this.loadQuickEmotesHolder()
+		this.loadCelebrationsBehaviour()
+		this.loadInputBehaviour()
 
-				const [textFieldEl, submitButtonEl] = foundElements as HTMLElement[]
-				this.loadInputBehaviour(textFieldEl, submitButtonEl)
-				this.loadEmoteMenu()
-			})
-			.catch(() => {})
+		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
 
 		// Wait for chat footer to load
 		waitForElements([`${footerSelector}`], 15_000, abortSignal)
@@ -110,31 +108,19 @@ export class KickUserInterface extends AbstractUserInterface {
 				const [footerEl] = foundElements as HTMLElement[]
 				footerEl.classList.add('kick__chat-footer')
 
+				// Mutation observer to observe when kick__chat-footer class is removed from footerEl so we can reapply it
+				this.footerObserver = new MutationObserver(mutations => {
+					if (!footerEl.classList.contains('kick__chat-footer')) {
+						footerEl.classList.add('kick__chat-footer')
+					}
+				})
+				this.footerObserver.observe(footerEl, { attributes: true })
+
 				// Initialize a container for the timers UI
 				const timersContainer = document.createElement('div')
 				timersContainer.id = 'ntv__timers-container'
 				footerEl.append(timersContainer)
 				this.elm.timersContainer = timersContainer
-
-				waitForElements(['#quick-emotes-holder'], 10_000, abortSignal)
-					.then(foundElements => {
-						const [quickEmotesHolderEl] = foundElements as HTMLElement[]
-						this.loadQuickEmotesHolder(footerEl, quickEmotesHolderEl)
-					})
-					.catch(() => {})
-
-				waitForElements(
-					[`${footerSelector} > div.flex > .flex.items-center > div.ml-auto`],
-					15_000,
-					abortSignal
-				)
-					.then(foundElements => {
-						if (this.session.isDestroyed) return
-
-						const [footerBottomBarEl] = foundElements as HTMLElement[]
-						this.loadEmoteMenuButton(footerBottomBarEl)
-					})
-					.catch(() => {})
 			})
 			.catch(() => {})
 
@@ -167,6 +153,17 @@ export class KickUserInterface extends AbstractUserInterface {
 					this.observePinnedMessage()
 					this.observeChatEntriesForDeletionEvents()
 				}
+
+				// Temporary hack to detect when our elements got removed
+				//  so we can reload the session to reinitialize the UI.
+				// This is primarily needed when switching from desktop to mobile view and back.
+				this.reloadUIhackInterval = setInterval(() => {
+					if (!chatMessagesContainerEl.isConnected) {
+						info('KICK', 'UI', 'Chat messages container got removed. Reloading session to reinitialize UI.')
+						this.destroy()
+						this.session.eventBus.publish('ntv.session.reload')
+					}
+				}, 500)
 			})
 			.catch(() => {})
 
@@ -320,65 +317,169 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.elm.textField.addEventListener('click', this.emoteMenu.toggleShow.bind(this.emoteMenu, false))
 	}
 
-	async loadEmoteMenuButton(kickFooterBottomBarEl: HTMLElement) {
-		const placeholder = document.createElement('div')
-		// const footerBottomBarEl = kickFooterBottomBarEl.lastElementChild?.lastElementChild
-		// if (!footerBottomBarEl) return error('KICK', 'UI', 'Footer bottom bar not found for emote menu button')
+	async loadEmoteMenuButton() {
+		const { abortController } = this
+		const abortSignal = abortController.signal
 
-		const footerSubmitButtonWrapper = kickFooterBottomBarEl
-		if (!footerSubmitButtonWrapper)
-			return error('KICK', 'UI', 'Footer submit button wrapper not found for emote menu button')
+		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const footerBottomBarSelector = `${footerSelector} > div.flex > .flex.items-center > div.ml-auto`
 
-		footerSubmitButtonWrapper.prepend(placeholder)
-		this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init()
+		// Wait for chat footer to load before we insert our component
+		waitForElements([footerBottomBarSelector], 15_000, abortSignal)
+			.then(foundElements => {
+				if (this.session.isDestroyed) return
 
-		// Temporary hack to detect when our elements got removed
-		//  so we can reload the session to reinitialize the UI.
-		this.reloadUIhackInterval = setInterval(() => {
-			if (!this.emoteMenuButton!.element.isConnected) {
-				info('KICK', 'UI', 'Emote menu button got removed. Reloading session to reinitialize UI.')
-				this.destroy()
-				this.session.eventBus.publish('ntv.session.reload')
-			}
-		}, 500)
+				const [kickFooterBottomBarEl] = foundElements as HTMLElement[]
+				if (!kickFooterBottomBarEl)
+					return error('KICK', 'UI', 'Footer submit button wrapper not found for emote menu button')
+
+				const placeholder = document.createElement('div')
+				kickFooterBottomBarEl.prepend(placeholder)
+
+				this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init()
+
+				// Observe footer for changes to reinsert our component if it gets removed
+				let panicCounter = 0
+				const resetPanicCounter = () => {
+					panicCounter = 0
+					this.emoteMenuButtonPanicResetTimeout = null
+					log('KICK', 'UI', 'Emote menu button panic counter reset')
+				}
+				const schedulePanicReset = () => {
+					if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout)
+					this.emoteMenuButtonPanicResetTimeout = window.setTimeout(resetPanicCounter, 5000) // 5s inactivity resets counter
+				}
+				const observer = (this.emoteMenuButtonObserver = new MutationObserver(mutations => {
+					const emoteMenuButtonElement = this.emoteMenuButton?.element
+					if (!emoteMenuButtonElement || emoteMenuButtonElement.isConnected) return
+
+					if (panicCounter >= 20) {
+						log('KICK', 'UI', 'Emote menu button panic limit reached, stopping observer')
+						observer.disconnect()
+						if (this.emoteMenuButtonPanicResetTimeout) {
+							clearTimeout(this.emoteMenuButtonPanicResetTimeout)
+							this.emoteMenuButtonPanicResetTimeout = null
+						}
+						setTimeout(() => this.loadEmoteMenuButton(), 4000)
+						return
+					}
+
+					log('KICK', 'UI', 'Emote menu button got removed')
+
+					const kickFooterBottomBarEl = document.querySelector(footerBottomBarSelector)
+					if (!kickFooterBottomBarEl) return
+
+					log('KICK', 'UI', 'Footer bottom bar found, reinjecting emote menu button..')
+
+					kickFooterBottomBarEl.prepend(emoteMenuButtonElement)
+					panicCounter++
+					schedulePanicReset()
+				}))
+
+				observer.observe(kickFooterBottomBarEl.parentElement as HTMLElement, { childList: true, subtree: true })
+			})
+			.catch(() => {})
 	}
 
-	async loadQuickEmotesHolder(kickFooterEl: HTMLElement, kickQuickEmotesHolderEl?: HTMLElement) {
+	async loadQuickEmotesHolder() {
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		const { channelData } = this.session
 		const { channelId } = channelData
-		const quickEmotesHolderEnabled = settingsManager.getSetting(channelId, 'quick_emote_holder.enabled')
 
-		if (quickEmotesHolderEnabled) {
-			const quickEmotesHolderPlaceholder = document.createElement('div')
-			kickFooterEl.prepend(quickEmotesHolderPlaceholder)
-			kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
+		const { abortController } = this
+		const abortSignal = abortController.signal
 
-			const celebrationsPlaceholder = document.createElement('div')
-			quickEmotesHolderPlaceholder.after(celebrationsPlaceholder)
-			this.loadCelebrationsBehaviour(celebrationsPlaceholder)
+		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const quickEmotesHolderSelector = '#quick-emotes-holder'
 
-			this.quickEmotesHolder = new QuickEmotesHolderComponent(
-				this.rootContext,
-				this.session,
-				quickEmotesHolderPlaceholder
-			).init()
+		const wrapperFunction = () => {
+			waitForElements([footerSelector], 15_000, abortSignal)
+				.then(foundElements => {
+					if (this.session.isDestroyed) return
+
+					const [kickFooterEl] = foundElements as HTMLElement[]
+
+					waitForElements([quickEmotesHolderSelector], 10_000, abortSignal)
+						.then(foundElements => {
+							const [kickQuickEmotesHolderEl] = foundElements as HTMLElement[]
+
+							const quickEmotesHolderEnabled = settingsManager.getSetting(
+								channelId,
+								'quick_emote_holder.enabled'
+							)
+							if (quickEmotesHolderEnabled) {
+								const quickEmotesHolderPlaceholder = document.createElement('div')
+								kickFooterEl.prepend(quickEmotesHolderPlaceholder)
+								kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
+
+								this.quickEmotesHolder = new QuickEmotesHolderComponent(
+									this.rootContext,
+									this.session,
+									quickEmotesHolderPlaceholder
+								).init()
+
+								// Observe container for changes to reinsert our component if it gets removed
+								let panicCounter = 0
+								const resetPanicCounter = () => {
+									panicCounter = 0
+									this.quickEmotesHolderPanicResetTimeout = null
+								}
+								const schedulePanicReset = () => {
+									if (this.quickEmotesHolderPanicResetTimeout)
+										clearTimeout(this.quickEmotesHolderPanicResetTimeout)
+									this.quickEmotesHolderPanicResetTimeout = window.setTimeout(resetPanicCounter, 5000)
+								}
+								const observer = (this.quickEmotesHolderObserver = new MutationObserver(mutations => {
+									const quickEmotesHolderElement = this.quickEmotesHolder?.element
+									if (!quickEmotesHolderElement || quickEmotesHolderElement.isConnected) return
+
+									if (panicCounter >= 20) {
+										log('KICK', 'UI', 'Quick emote holder panic limit reached, stopping observer')
+										observer.disconnect()
+										if (this.quickEmotesHolderPanicResetTimeout) {
+											clearTimeout(this.quickEmotesHolderPanicResetTimeout)
+											this.quickEmotesHolderPanicResetTimeout = null
+										}
+										return
+									}
+
+									log('KICK', 'UI', 'Quick emote holder got removed')
+
+									const kickFooterEl = document.querySelector(footerSelector)
+									if (!kickFooterEl) return
+
+									log('KICK', 'UI', 'Footer emote holder found, reinjecting quick emote holder..')
+
+									kickFooterEl.prepend(quickEmotesHolderElement)
+
+									if (this.celebrationsContainerEl) {
+										quickEmotesHolderElement.after(this.celebrationsContainerEl)
+									}
+
+									panicCounter++
+									schedulePanicReset()
+								}))
+
+								observer.observe(kickFooterEl as HTMLElement, {
+									childList: true
+								})
+							}
+						})
+						.catch(() => {})
+				})
+				.catch(() => {})
 		}
+
+		wrapperFunction()
 
 		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
 			this.quickEmotesHolder?.destroy()
 
 			if (value) {
-				const placeholder = document.createElement('div')
-				kickFooterEl.prepend(placeholder)
-				kickQuickEmotesHolderEl?.style.setProperty('display', 'none', 'important')
-				this.quickEmotesHolder = new QuickEmotesHolderComponent(
-					this.rootContext,
-					this.session,
-					placeholder
-				).init()
+				wrapperFunction()
 			} else {
 				this.quickEmotesHolder = null
+				const kickQuickEmotesHolderEl = document.querySelector(quickEmotesHolderSelector) as HTMLElement | null
 				kickQuickEmotesHolderEl?.style.removeProperty('display')
 			}
 		})
@@ -495,9 +596,27 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 	}
 
-	loadInputBehaviour(kickTextFieldEl: HTMLElement, kickSubmitButtonEl: HTMLElement) {
+	async loadInputBehaviour() {
 		if (!this.session.channelData.me.isLoggedIn) return
 		if (this.session.channelData.isVod) return
+
+		const { abortController } = this
+		const abortSignal = abortController.signal
+
+		// Wait for text input & submit button to load
+		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const foundInputElements = await waitForElements(
+			[
+				'#channel-chatroom .editor-input[contenteditable="true"]',
+				`${footerSelector} button.select-none.bg-green-500.rounded`
+			],
+			15_000,
+			abortSignal
+		).catch(() => undefined)
+
+		if (this.session.isDestroyed || !foundInputElements) return
+
+		const [kickTextFieldEl, kickSubmitButtonEl] = foundInputElements as HTMLElement[]
 
 		//////////////////////////////////////
 		//====// Proxy Submit Button //====//
@@ -550,6 +669,61 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// document.getElementById('chatroom')?.classList.add('ntv__hide-chat-input')
 
+		//////////////////////////////////////////
+		//====// Monitor component state //====//
+		// Observe for changes to reinsert our components if they get removed
+		let panicCounter = 0
+		const resetPanicCounter = () => {
+			panicCounter = 0
+			this.inputComponentsPanicResetTimeout = null
+		}
+		const schedulePanicReset = () => {
+			if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout)
+			this.inputComponentsPanicResetTimeout = window.setTimeout(resetPanicCounter, 5000)
+		}
+		const observer = (this.inputComponentsObserver = new MutationObserver(mutations => {
+			if (panicCounter >= 25) {
+				log('KICK', 'UI', 'Emote menu button panic limit reached, stopping observer')
+				observer.disconnect()
+				if (this.inputComponentsPanicResetTimeout) {
+					clearTimeout(this.inputComponentsPanicResetTimeout)
+					this.inputComponentsPanicResetTimeout = null
+				}
+				return
+			}
+
+			if (!submitButtonEl.isConnected) {
+				log('KICK', 'UI', 'Submit button got removed')
+
+				const kickSubmitButtonEl = document.querySelector(
+					`${footerSelector} button.select-none.bg-green-500.rounded`
+				)
+				if (kickSubmitButtonEl) {
+					log('KICK', 'UI', 'Footer bottom bar found, reinjecting emote menu button..')
+
+					kickSubmitButtonEl.before(submitButtonEl)
+					panicCounter++
+					schedulePanicReset()
+				}
+			}
+
+			if (!textFieldWrapperEl.isConnected) {
+				log('KICK', 'UI', 'Text field got removed')
+
+				const kickTextFieldEl = document.querySelector(
+					'#channel-chatroom .editor-input[contenteditable="true"]'
+				)
+				if (kickTextFieldEl) {
+					log('KICK', 'UI', 'Footer text field found, reinjecting text field..')
+					kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
+					panicCounter++
+					schedulePanicReset()
+				}
+			}
+		}))
+
+		observer.observe(document.querySelector(footerSelector)!, { childList: true, subtree: true })
+
 		//////////////////////////////////////////////
 		//====// Initialize input controller //====//
 		const inputController = (this.inputController = new InputController(
@@ -565,6 +739,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		inputController.loadInputCompletionBehaviour()
 		inputController.loadChatHistoryBehaviour()
 		this.loadInputStatusBehaviour()
+		this.loadEmoteMenu()
 
 		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
 			if (event.detail.isEmpty) {
@@ -831,12 +1006,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 	}
 
-	loadCelebrationsBehaviour(placeholderEl: HTMLElement) {
+	loadCelebrationsBehaviour() {
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		const { channelData } = this.session
-
-		const inputController = this.inputController
-		if (!inputController) return error('KICK', 'UI', 'Input controller not loaded for celebrations behaviour')
 
 		// channelData.me.celebrations = [
 		// 	{
@@ -851,20 +1023,31 @@ export class KickUserInterface extends AbstractUserInterface {
 		// 	}
 		// ]
 
-		const celebrations = channelData.me.celebrations
-		if (!celebrations) return
+		const { abortController } = this
+		const abortSignal = abortController.signal
 
-		const celebrationsContainerEl = document.createElement('div')
-		celebrationsContainerEl.classList.add('ntv__celebrations')
+		// Wait for Kick's quick emotes holder to load before we insert our component
+		waitForElements(['#quick-emotes-holder'], 10_000, abortSignal)
+			.then(foundElements => {
+				const [kickQuickEmotesHolderEl] = foundElements as HTMLElement[]
 
-		for (const celebration of celebrations) {
-			if (celebration.type === 'subscription_renewed') {
-				const months = celebration.metadata.totalMonths
+				const celebrationsContainerEl = document.createElement('div')
+				celebrationsContainerEl.classList.add('ntv__celebrations')
 
-				// Blatantly copy pasted because imminent NTV V2.0 reworks it anyway. Got to love how Tailwind classes make it unreadable garbage.
-				// TODO NOTE: The celebration banner cards should change color based on months subbed.
-				const celebrationEl = parseHTML(
-					cleanupHTML(`
+				kickQuickEmotesHolderEl.parentElement!.after(celebrationsContainerEl)
+				this.celebrationsContainerEl = celebrationsContainerEl
+
+				const celebrations = channelData.me.celebrations
+				if (!celebrations) return
+
+				for (const celebration of celebrations) {
+					if (celebration.type === 'subscription_renewed') {
+						const months = celebration.metadata.totalMonths
+
+						// Blatantly copy pasted because imminent NTV V2.0 reworks it anyway. Got to love how Tailwind classes make it unreadable garbage.
+						// TODO: The celebration banner cards should change color based on months subbed.
+						const celebrationEl = parseHTML(
+							cleanupHTML(`
 					<div class="ntv__celebration ntv__celebration--subscription-renewed relative flex min-h-[60px] flex-row flex-nowrap items-center justify-between gap-2 rounded p-2 text-black [&>svg]:fill-black mb-2" style="background-color: #ff9d00">
 						<div class="flex h-full flex-row flex-nowrap items-center gap-2 empty:hidden shrink grow">
 							<svg width="32" height="32" viewBox="0 0 32 32" class="size-6 shrink-0 grow-0 fill-black" fill="white" xmlns="http://www.w3.org/2000/svg" class="size-6 shrink-0 grow-0 fill-black"><path d="M5.00215 17.5057L12.6433 13.9772C13.2297 13.7058 13.7024 13.233 13.9737 12.6464L17.5011 5.00286L21.0285 12.6464C21.2998 13.233 21.7724 13.7058 22.3589 13.9772L30 17.5057L22.3589 21.0342C21.7724 21.3056 21.2998 21.7784 21.0285 22.365L17.5011 30.0085L13.9737 22.365C13.7024 21.7784 13.2297 21.3056 12.6433 21.0342L4.9934 17.5057H5.00215Z"></path><path d="M2 7.37587L5.29104 5.86117C5.54487 5.74735 5.74618 5.54597 5.85997 5.29207L7.37419 2L8.88842 5.29207C9.0022 5.54597 9.20352 5.74735 9.45735 5.86117L12.7484 7.37587L9.45735 8.89057C9.20352 9.0044 9.0022 9.20577 8.88842 9.45968L7.37419 12.7517L5.85997 9.46844C5.74618 9.21453 5.54487 9.01315 5.29104 8.89933L2 7.38463V7.37587Z"></path></svg>
@@ -879,84 +1062,87 @@ export class KickUserInterface extends AbstractUserInterface {
 						</div>
 					</div>
 				`),
-					true
-				) as HTMLElement
+							true
+						) as HTMLElement
 
-				const shareBtn = celebrationEl.querySelector('button') as HTMLButtonElement
-				const hamburgerBtn = celebrationEl.querySelector('button:last-of-type') as HTMLButtonElement
+						const shareBtn = celebrationEl.querySelector('button') as HTMLButtonElement
+						const hamburgerBtn = celebrationEl.querySelector('button:last-of-type') as HTMLButtonElement
 
-				shareBtn.addEventListener('click', () => {
-					log('KICK', 'UI', 'Share celebration button clicked')
+						shareBtn.addEventListener('click', () => {
+							log('KICK', 'UI', 'Share celebration button clicked')
 
-					const kickFooterInputContainer = document.querySelector(
-						'div:has(#quick-emotes-holder) ~ div:has(#chat-input-wrapper), #quick-emotes-holder ~ div:has(#chat-input-wrapper)'
-					)
-					if (!kickFooterInputContainer) return error('KICK', 'UI', 'Kick footer input container not found')
+							const kickFooterInputContainer = document.querySelector(
+								'div:has(#quick-emotes-holder) ~ div:has(#chat-input-wrapper), #quick-emotes-holder ~ div:has(#chat-input-wrapper)'
+							)
+							if (!kickFooterInputContainer)
+								return error('KICK', 'UI', 'Kick footer input container not found')
 
-					kickFooterInputContainer.classList.add('kick__chat-input-container--share-celebration')
+							kickFooterInputContainer.classList.add('kick__chat-input-container--share-celebration')
 
-					this.celebrationData = {
-						id: celebration.id
-					}
+							this.celebrationData = {
+								id: celebration.id
+							}
 
-					const channelName = this.session.channelData.channelName
-					const textEl = parseHTML(
-						cleanupHTML(`
+							const channelName = this.session.channelData.channelName
+							const textEl = parseHTML(
+								cleanupHTML(`
 						<span class="text-sm leading-5 font-medium" style="padding-top: 8px">Let <span class="font-bold">${channelName}</span> know you've been subbed for ${months} months</span>
 						`),
-						true
-					) as HTMLElement
-					kickFooterInputContainer.prepend(textEl)
+								true
+							) as HTMLElement
+							kickFooterInputContainer.prepend(textEl)
 
-					celebrationEl.querySelector('span')!.textContent = 'Share sub anniversary'
-					celebrationEl.querySelector('& > div:last-of-type')!.remove()
+							celebrationEl.querySelector('span')!.textContent = 'Share sub anniversary'
+							celebrationEl.querySelector('& > div:last-of-type')!.remove()
 
-					this.session.eventBus.subscribe(
-						'ntv.ui.submitted_input',
-						() => {
-							log('KICK', 'UI', 'Submitted input', this.celebrationData)
+							this.session.eventBus.subscribe(
+								'ntv.ui.submitted_input',
+								() => {
+									log('KICK', 'UI', 'Submitted input', this.celebrationData)
 
-							celebrationEl.remove()
-							textEl.remove()
-							kickFooterInputContainer.classList.remove('kick__chat-input-container--share-celebration')
-						},
-						false,
-						true
-					)
-				})
+									celebrationEl.remove()
+									textEl.remove()
+									kickFooterInputContainer.classList.remove(
+										'kick__chat-input-container--share-celebration'
+									)
+								},
+								false,
+								true
+							)
+						})
 
-				hamburgerBtn.addEventListener('click', () => {
-					const menu = new VerticalMenuComponent(hamburgerBtn, [
-						{
-							label: 'Share later',
-							value: 'share_later'
-						},
-						{
-							label: 'Skip for this month',
-							value: 'skip'
-						}
-					]).init()
+						hamburgerBtn.addEventListener('click', () => {
+							const menu = new VerticalMenuComponent(hamburgerBtn, [
+								{
+									label: 'Share later',
+									value: 'share_later'
+								},
+								{
+									label: 'Skip for this month',
+									value: 'skip'
+								}
+							]).init()
 
-					menu.addEventListener('action', evt => {
-						const customEvent = evt as CustomEvent
-						const action = customEvent.detail
+							menu.addEventListener('action', evt => {
+								const customEvent = evt as CustomEvent
+								const action = customEvent.detail
 
-						log('KICK', 'UI', 'Menu action', action)
-						this.toastError(
-							"This feature is not yet implemented. If you're willing to help do a couple tests for the sub anniversary so I can implement this feature, please reach out to us in the Discord server!"
-						)
-					})
+								log('KICK', 'UI', 'Menu action', action)
+								this.toastError(
+									"This feature is not yet implemented. If you're willing to help do a couple tests for the sub anniversary so I can implement this feature, please reach out to us in the Discord server!"
+								)
+							})
 
-					menu.addEventListener('close', evt => {
-						delete this.celebrationData
-					})
-				})
+							menu.addEventListener('close', evt => {
+								delete this.celebrationData
+							})
+						})
 
-				celebrationsContainerEl.append(celebrationEl)
-			}
-		}
-
-		placeholderEl.replaceWith(celebrationsContainerEl)
+						celebrationsContainerEl.append(celebrationEl)
+					}
+				}
+			})
+			.catch(() => {})
 	}
 
 	getMessageContentString(chatMessageEl: HTMLElement) {
@@ -2221,15 +2407,23 @@ export class KickUserInterface extends AbstractUserInterface {
 	destroy() {
 		if (this.abortController) this.abortController.abort()
 		if (this.chatObserver) this.chatObserver.disconnect()
+		if (this.footerObserver) this.footerObserver.disconnect()
 		if (this.deletedChatEntryObserver) this.deletedChatEntryObserver.disconnect()
 		if (this.replyObserver) this.replyObserver.disconnect()
 		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
 		if (this.inputController) this.inputController.destroy()
+		if (this.inputComponentsObserver) this.inputComponentsObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
+		if (this.emoteMenuButtonObserver) this.emoteMenuButtonObserver.disconnect()
 		if (this.quickEmotesHolder) this.quickEmotesHolder.destroy()
+		if (this.quickEmotesHolderObserver) this.quickEmotesHolderObserver.disconnect()
+		if (this.celebrationsContainerEl) this.celebrationsContainerEl.remove()
 		if (this.clearQueuedChatMessagesInterval) clearInterval(this.clearQueuedChatMessagesInterval)
 		if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval)
+		if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout)
+		if (this.quickEmotesHolderPanicResetTimeout) clearTimeout(this.quickEmotesHolderPanicResetTimeout)
+		if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout)
 
 		if (this.currentEmoteTooltip) {
 			this.currentEmoteTooltip.remove()
