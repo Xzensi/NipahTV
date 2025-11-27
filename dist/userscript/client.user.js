@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.78
+// @version 1.5.79
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-b6ec8bf8.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-39a0d9c2.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12264,6 +12264,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.79",
+    date: "2025-11-27",
+    description: `
+                  Fix: Kick website changes to chat has broken UI
+            `
+  },
+  {
     version: "1.5.78",
     date: "2025-09-14",
     description: `
@@ -22685,7 +22692,9 @@ var KickUserInterface = class extends AbstractUserInterface {
       if (channelData.isVod) {
         this.loadVodBehaviour();
       } else {
-        this.observePinnedMessage();
+        this.observePinnedMessage().catch(
+          (err) => error29("KICK", "UI", "Failed to observe pinned messages", err)
+        );
         this.observeChatEntriesForDeletionEvents();
       }
       this.reloadUIhackInterval = setInterval(() => {
@@ -23019,15 +23028,16 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { abortController } = this;
     const abortSignal = abortController.signal;
     const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const submitButtonSelector = "#send-message-button";
+    const editorInputSelector = '#channel-chatroom .editor-input[contenteditable="true"]';
     const foundInputElements = await waitForElements(
-      [
-        '#channel-chatroom .editor-input[contenteditable="true"]',
-        `${footerSelector} button.select-none.bg-green-500.rounded`
-      ],
+      [editorInputSelector, submitButtonSelector],
       15e3,
       abortSignal
     ).catch(() => void 0);
-    if (this.session.isDestroyed || !foundInputElements) return;
+    if (this.session.isDestroyed)
+      return error29("KICK", "UI", "Session destroyed before input elements could be loaded");
+    if (!foundInputElements || foundInputElements.length < 2) return error29("KICK", "UI", "Input elements not found");
     const [kickTextFieldEl, kickSubmitButtonEl] = foundInputElements;
     Array.from(document.getElementsByClassName("ntv__submit-button")).forEach((element) => {
       element.remove();
@@ -23079,9 +23089,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
       if (!submitButtonEl.isConnected) {
         log28("KICK", "UI", "Submit button got removed");
-        const kickSubmitButtonEl2 = document.querySelector(
-          `${footerSelector} button.select-none.bg-green-500.rounded`
-        );
+        const kickSubmitButtonEl2 = document.querySelector(submitButtonSelector);
         if (kickSubmitButtonEl2) {
           log28("KICK", "UI", "Footer bottom bar found, reinjecting emote menu button..");
           kickSubmitButtonEl2.before(submitButtonEl);
@@ -23091,9 +23099,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
       if (!textFieldWrapperEl.isConnected) {
         log28("KICK", "UI", "Text field got removed");
-        const kickTextFieldEl2 = document.querySelector(
-          '#channel-chatroom .editor-input[contenteditable="true"]'
-        );
+        const kickTextFieldEl2 = document.querySelector(editorInputSelector);
         if (kickTextFieldEl2) {
           log28("KICK", "UI", "Footer text field found, reinjecting text field..");
           kickTextFieldEl2.parentElement.before(textFieldWrapperEl);
@@ -23738,10 +23744,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       processKickUserProfileModal(userInfoModal, kickUserInfoModalContainerEl2);
     }
   }
-  observePinnedMessage() {
-    const pinnedMessageContainerEl = document.getElementById("channel-chatroom")?.querySelector(
-      "& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden"
-    );
+  async observePinnedMessage() {
+    const pinnedMessagesContainerSelector = "#channel-chatroom div:has(+ #chatroom-messages) > div";
+    const pinnedMessageContentSelector = ".\\[\\&\\>a\\:hover\\]\\:text-primary-base";
+    const pinnedMessageContainerEl = document.querySelector(pinnedMessagesContainerSelector);
     if (!pinnedMessageContainerEl) return error29("KICK", "UI", "Pinned message container not found for observation");
     const renderPinnedMessageBody = (contentBodyEl) => {
       Array.from(document.getElementsByClassName("ntv__pinned-message__content")).forEach((node) => {
@@ -23753,7 +23759,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       const observer = this.pinnedMessageObserver = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
           if (mutation.type === "characterData") {
-            if (mutation.target.parentElement?.classList.contains("[&>a:hover]:text-primary")) {
+            if (mutation.target.parentElement?.classList.contains("[&>a:hover]:text-primary-base")) {
               const contentBodyEl = mutation.target.parentElement;
               renderPinnedMessageBody(contentBodyEl);
               return;
@@ -23761,11 +23767,11 @@ var KickUserInterface = class extends AbstractUserInterface {
           } else if (mutation.addedNodes.length) {
             for (const node of mutation.addedNodes) {
               if (node instanceof HTMLElement && node.classList.contains("z-absolute")) {
-                const contentBodyEl = node.querySelector(".\\[\\&\\>a\\:hover\\]\\:text-primary");
+                const contentBodyEl = node.querySelector(pinnedMessageContentSelector);
                 if (!contentBodyEl) return;
                 renderPinnedMessageBody(contentBodyEl);
                 return;
-              } else if (node.parentElement?.classList.contains("[&>a:hover]:text-primary")) {
+              } else if (node.parentElement?.classList.contains("[&>a:hover]:text-primary-base")) {
                 renderPinnedMessageBody(node.parentElement);
                 return;
               }
@@ -23774,8 +23780,8 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       });
       observer.observe(pinnedMessageContainerEl, { childList: true, subtree: true, characterData: true });
-      const pinnedMessageContent = document.getElementById("channel-chatroom")?.querySelector(
-        "& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden .\\[\\&\\>a\\:hover\\]\\:text-primary"
+      const pinnedMessageContent = document.querySelector(
+        pinnedMessagesContainerSelector + " " + pinnedMessageContentSelector
       );
       if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent);
     });
@@ -26329,7 +26335,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.78";
+  VERSION = "1.5.79";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
