@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.79',
+		date: '2025-11-27',
+		description: `
+                  Fix: Kick website changes to chat has broken UI
+            `
+	},
+	{
 		version: '1.5.78',
 		date: '2025-09-14',
 		description: `

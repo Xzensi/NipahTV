@@ -150,7 +150,9 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (channelData.isVod) {
 					this.loadVodBehaviour()
 				} else {
-					this.observePinnedMessage()
+					this.observePinnedMessage().catch((err: Error) =>
+						error('KICK', 'UI', 'Failed to observe pinned messages', err)
+					)
 					this.observeChatEntriesForDeletionEvents()
 				}
 
@@ -605,16 +607,18 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Wait for text input & submit button to load
 		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const submitButtonSelector = '#send-message-button'
+		const editorInputSelector = '#channel-chatroom .editor-input[contenteditable="true"]'
+
 		const foundInputElements = await waitForElements(
-			[
-				'#channel-chatroom .editor-input[contenteditable="true"]',
-				`${footerSelector} button.select-none.bg-green-500.rounded`
-			],
+			[editorInputSelector, submitButtonSelector],
 			15_000,
 			abortSignal
 		).catch(() => undefined)
 
-		if (this.session.isDestroyed || !foundInputElements) return
+		if (this.session.isDestroyed)
+			return error('KICK', 'UI', 'Session destroyed before input elements could be loaded')
+		if (!foundInputElements || foundInputElements.length < 2) return error('KICK', 'UI', 'Input elements not found')
 
 		const [kickTextFieldEl, kickSubmitButtonEl] = foundInputElements as HTMLElement[]
 
@@ -695,9 +699,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!submitButtonEl.isConnected) {
 				log('KICK', 'UI', 'Submit button got removed')
 
-				const kickSubmitButtonEl = document.querySelector(
-					`${footerSelector} button.select-none.bg-green-500.rounded`
-				)
+				const kickSubmitButtonEl = document.querySelector(submitButtonSelector)
 				if (kickSubmitButtonEl) {
 					log('KICK', 'UI', 'Footer bottom bar found, reinjecting emote menu button..')
 
@@ -710,9 +712,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (!textFieldWrapperEl.isConnected) {
 				log('KICK', 'UI', 'Text field got removed')
 
-				const kickTextFieldEl = document.querySelector(
-					'#channel-chatroom .editor-input[contenteditable="true"]'
-				)
+				const kickTextFieldEl = document.querySelector(editorInputSelector)
 				if (kickTextFieldEl) {
 					log('KICK', 'UI', 'Footer text field found, reinjecting text field..')
 					kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
@@ -1584,12 +1584,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 	}
 
-	observePinnedMessage() {
-		const pinnedMessageContainerEl = document
-			.getElementById('channel-chatroom')
-			?.querySelector(
-				'& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden'
-			) as HTMLElement
+	async observePinnedMessage() {
+		const pinnedMessagesContainerSelector = '#channel-chatroom div:has(+ #chatroom-messages) > div'
+		const pinnedMessageContentSelector = '.\\[\\&\\>a\\:hover\\]\\:text-primary-base'
+
+		const pinnedMessageContainerEl = document.querySelector(pinnedMessagesContainerSelector) as HTMLElement | null
 		if (!pinnedMessageContainerEl) return error('KICK', 'UI', 'Pinned message container not found for observation')
 
 		const renderPinnedMessageBody = (contentBodyEl: HTMLElement) => {
@@ -1605,7 +1604,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
 				for (const mutation of mutations) {
 					if (mutation.type === 'characterData') {
-						if (mutation.target.parentElement?.classList.contains('[&>a:hover]:text-primary')) {
+						if (mutation.target.parentElement?.classList.contains('[&>a:hover]:text-primary-base')) {
 							const contentBodyEl = mutation.target.parentElement
 							renderPinnedMessageBody(contentBodyEl)
 							return
@@ -1613,12 +1612,12 @@ export class KickUserInterface extends AbstractUserInterface {
 					} else if (mutation.addedNodes.length) {
 						for (const node of mutation.addedNodes) {
 							if (node instanceof HTMLElement && node.classList.contains('z-absolute')) {
-								const contentBodyEl = node.querySelector('.\\[\\&\\>a\\:hover\\]\\:text-primary')
+								const contentBodyEl = node.querySelector(pinnedMessageContentSelector)
 								if (!contentBodyEl) return
 
 								renderPinnedMessageBody(contentBodyEl as HTMLElement)
 								return
-							} else if (node.parentElement?.classList.contains('[&>a:hover]:text-primary')) {
+							} else if (node.parentElement?.classList.contains('[&>a:hover]:text-primary-base')) {
 								renderPinnedMessageBody(node.parentElement)
 								return
 							}
@@ -1629,11 +1628,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 			observer.observe(pinnedMessageContainerEl, { childList: true, subtree: true, characterData: true })
 
-			const pinnedMessageContent = document
-				.getElementById('channel-chatroom')
-				?.querySelector(
-					'& > .bg-surface-lower > .bg-surface-lower > .empty\\:hidden > .empty\\:hidden .\\[\\&\\>a\\:hover\\]\\:text-primary'
-				)
+			const pinnedMessageContent = document.querySelector(
+				pinnedMessagesContainerSelector + ' ' + pinnedMessageContentSelector
+			)
 			if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent as HTMLElement)
 		})
 

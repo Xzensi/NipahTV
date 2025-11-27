@@ -52,13 +52,13 @@
 		font-size: $root_font_size;
 
 		// Hide the original Kick pinned message content
-		& + .\[\&\>a\:hover\]\:text-primary {
+		& + .\[\&\>a\:hover\]\:text-primary-base {
 			display: none !important;
 		}
 
 		// Hide the collapse/expand button, it doesn't work now anyway
-		& ~ button {
-			display: none !important;
-		}
+		// & ~ button {
+		// 	display: none !important;
+		// }
 	}
 }
