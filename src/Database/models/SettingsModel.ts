@@ -7,7 +7,7 @@ export interface SettingDocument {
 	platformId: 'global' | PlatformId
 	channelId: 'shared' | ChannelId
 	key: string
-	value: string | number | boolean
+	value: string | number | boolean | object
 }
 
 export default class SettingsModel {
