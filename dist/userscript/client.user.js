@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.79
+// @version 1.5.80
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-39a0d9c2.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-a33828e4.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12264,6 +12264,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.80",
+    date: "2025-11-29",
+    description: `
+                  Feat: Add visual cues of favorited emotes in emote menu
+                  Fix: Kick website update has broken chat overlay mode transparency
+            `
+  },
+  {
     version: "1.5.79",
     date: "2025-11-27",
     description: `
@@ -14020,10 +14028,10 @@ var SettingsManager = class {
                 {
                   label: "Message emote overlap",
                   key: "chat.messages.emotes.overlap",
-                  default: "-0.4em",
+                  default: 3,
                   type: "stepped_slider",
                   labels: ["No overlap", "Slight overlap", "Moderate overlap", "Default"],
-                  steps: ["0", "-0.2em", "-0.3em", "-0.4em"]
+                  steps: [0, 1, 2, 3]
                 }
               ]
             },
@@ -14609,6 +14617,25 @@ var SettingsManager = class {
     for (const setting of settingsRecords) {
       const { id, value } = setting;
       this.settingsMap.set(id, value);
+    }
+    const messageEmoteOverlapSetting = this.settingsMap.get("global.shared.chat.messages.emotes.overlap");
+    if (typeof messageEmoteOverlapSetting === "string") {
+      let messageEmoteOverlapValue = 0;
+      if (messageEmoteOverlapSetting === "0") {
+        messageEmoteOverlapValue = 0;
+      } else if (messageEmoteOverlapSetting === "-0.2em") {
+        messageEmoteOverlapValue = 1;
+      } else if (messageEmoteOverlapSetting === "-0.3em") {
+        messageEmoteOverlapValue = 2;
+      } else if (messageEmoteOverlapSetting === "-0.4em") {
+        messageEmoteOverlapValue = 3;
+      }
+      this.setSetting("global", "shared", "chat.messages.emotes.overlap", messageEmoteOverlapValue);
+    }
+    const quickEmoteHolderRowsSetting = this.settingsMap.get("global.shared.quick_emote_holder.rows");
+    if (typeof quickEmoteHolderRowsSetting === "string") {
+      const rows = parseInt(quickEmoteHolderRowsSetting, 10);
+      this.setSetting("global", "shared", "quick_emote_holder.rows", isNaN(rows) ? 2 : rows);
     }
     this.isLoaded = true;
     eventBus.publish("ntv.settings.loaded");
@@ -17182,6 +17209,9 @@ var SettingsModel = class {
   async putRecord(setting) {
     return this.db.settings.put(setting);
   }
+  async updateRecord(id, updates) {
+    return this.db.settings.update(id, updates);
+  }
   async deleteRecord(id) {
     return this.db.settings.delete(id);
   }
@@ -17971,6 +18001,12 @@ var EmoteMenuComponent = class extends AbstractComponent {
         span.textContent = "Zero Width";
         tooltipEl.appendChild(span);
       }
+      if (emotesManager.isEmoteFavorited(emote.hid)) {
+        const span = document.createElement("span");
+        span.className = "ntv__emote-tooltip__favorited";
+        span.textContent = "Favorited";
+        tooltipEl.appendChild(span);
+      }
       this.tooltipEl = tooltipEl;
       document.body.appendChild(tooltipEl);
       const rect = emoteBoxEl.getBoundingClientRect();
@@ -18034,12 +18070,12 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.settingsBtnEl?.addEventListener("click", () => {
       this.rootContext.eventBus.publish("ntv.ui.settings.toggle_show");
     });
-    eventBus.subscribe("ntv.datastore.emoteset.added", this.addEmoteSet.bind(this), true);
-    eventBus.subscribe("ntv.datastore.emoteset.updated", this.updateEmoteSet.bind(this), true);
     eventBus.subscribe(
       "ntv.datastore.emotes.favorites.loaded",
       () => {
+        eventBus.subscribe("ntv.datastore.emoteset.added", this.addEmoteSet.bind(this), true);
         eventBus.subscribe("ntv.datastore.emoteset.added", this.renderFavoriteEmotes.bind(this), true);
+        eventBus.subscribe("ntv.datastore.emoteset.updated", this.updateEmoteSet.bind(this), true);
       },
       true,
       true
@@ -18051,7 +18087,11 @@ var EmoteMenuComponent = class extends AbstractComponent {
           this.lastDraggedEmoteEl = null;
           return;
         }
-        this.renderFavoriteEmotes();
+        const emoteHid = data.added || data.reordered || data.removed;
+        if (!emoteHid) return error17("CORE", "UI", "Invalid emote hid in favorites changed event", data);
+        const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
+        if (!emoteSet) return error17("CORE", "UI", "Invalid emote set in favorites changed event", data);
+        this.updateEmoteSet(emoteSet);
       }
     );
     eventBus.subscribe("ntv.ui.footer.click", this.toggleShow.bind(this));
@@ -18248,21 +18288,19 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const emoteSetEmotesEl = document.createElement("div");
     emoteSetEmotesEl.className = "ntv__emote-set__emotes";
     for (const emote of sortedEmotes) {
-      const zeroWidthClass = emote.isZeroWidth && " ntv__emote-box--zero-width" || "";
+      let emoteBoxClasses = emote.isZeroWidth && "ntv__emote-box--zero-width" || "";
+      if (emotesManager.isEmoteFavorited(emote.hid)) {
+        emoteBoxClasses += " ntv__emote-box--favorited";
+      }
       if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
         if (hideSubscribersEmotes) continue;
-        emoteSetEmotesEl.append(
-          parseHTML(
-            `<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
-          )
-        );
-      } else {
-        emoteSetEmotesEl.append(
-          parseHTML(
-            `<div class="ntv__emote-box${zeroWidthClass}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
-          )
-        );
+        emoteBoxClasses += " ntv__emote-box--locked";
       }
+      emoteSetEmotesEl.append(
+        parseHTML(
+          `<div class="ntv__emote-box ${emoteBoxClasses}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote-set__emote ntv__emote")}</div>`
+        )
+      );
     }
     this.emoteSetSidebarEls.set(emoteSet.id, sidebarIconEl);
     emoteSetEl.append(emoteSetEmotesEl);
@@ -22655,8 +22693,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     const abortSignal = abortController.signal;
     this.loadAnnouncements();
     this.loadSettings();
-    this.loadStylingVariables();
     this.loadDocumentPatches();
+    rootEventBus.subscribe("ntv.settings.loaded", this.loadStylingVariables.bind(this), true, true);
     this.loadEmoteMenuButton();
     this.loadQuickEmotesHolder();
     this.loadCelebrationsBehaviour();
@@ -22995,7 +23033,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   loadStylingVariables() {
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
-    const { channelData } = this.session;
+    const { channelData, eventBus } = this.session;
     const channelId = channelData.channelId;
     const messageFontSize = settingsManager.getSetting(channelId, "chat.messages.font_size") || "13px";
     document.documentElement.style.setProperty("--ntv-chat-message-font-size", messageFontSize);
@@ -23009,17 +23047,22 @@ var KickUserInterface = class extends AbstractUserInterface {
       if (!value) return;
       document.documentElement.style.setProperty("--ntv-chat-message-spacing", value);
     });
-    const emoteSize = settingsManager.getSetting(channelId, "chat.messages.emotes.size") || "0";
+    const emoteSize = settingsManager.getSetting(channelId, "chat.messages.emotes.size") || "28px";
     document.documentElement.style.setProperty("--ntv-chat-message-emote-size", emoteSize);
     rootEventBus.subscribe("ntv.settings.change.chat.messages.emotes.size", ({ value }) => {
       if (!value) return;
       document.documentElement.style.setProperty("--ntv-chat-message-emote-size", value);
     });
-    const emoteOverlap = settingsManager.getSetting(channelId, "chat.messages.emotes.overlap") || "0";
-    document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap", emoteOverlap);
+    const setEmoteOverlap = (settingValue) => {
+      const overlapValue = ["0", "0.2em", "0.3em", "0.4em"][settingValue] || "0.4em";
+      document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap", "-" + overlapValue);
+      document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap-compensation", overlapValue);
+    };
+    const emoteOverlap = settingsManager.getSetting(channelId, "chat.messages.emotes.overlap") || 3;
+    setEmoteOverlap(emoteOverlap);
     rootEventBus.subscribe("ntv.settings.change.chat.messages.emotes.overlap", ({ value }) => {
-      if (!value) return;
-      document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap", value);
+      if (value === void 0) return;
+      setEmoteOverlap(value);
     });
   }
   async loadInputBehaviour() {
@@ -24047,6 +24090,12 @@ var KickUserInterface = class extends AbstractUserInterface {
       } else {
         messageParts.push(contentNode.cloneNode(true));
       }
+    }
+    const hasEmotesInMessage = messageParts.some(
+      (part) => typeof part === "object" && part !== null && "type" in part && part.type === "emote"
+    );
+    if (hasEmotesInMessage) {
+      messageNode.classList.add("ntv__chat-message--has-emotes");
     }
     const clipAttachmentEl = contentWrapperNode.nextElementSibling;
     if (clipAttachmentEl && clipAttachmentEl.nodeName === "BUTTON") {
@@ -26335,7 +26384,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.79";
+  VERSION = "1.5.80";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -26814,7 +26863,7 @@ var NipahClient = class {
 })();
 //! Temporary migration code
 //! Temporary delete old settings records
-//! Temporary patch for message spacing setting
+//! Temporary patch for setting format changes
 //! Dirty reload UI hack to check if UI elements of session is destroyed and reload it
 /*! Bundled license information:
 

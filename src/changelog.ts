@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.80',
+		date: '2025-11-29',
+		description: `
+                  Feat: Add visual cues of favorited emotes in emote menu
+                  Fix: Kick website update has broken chat overlay mode transparency
+            `
+	},
+	{
 		version: '1.5.79',
 		date: '2025-11-27',
 		description: `
