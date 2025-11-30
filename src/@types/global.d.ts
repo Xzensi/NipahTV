@@ -187,9 +187,11 @@ declare global {
 		isReply: boolean
 		isReplyToMe: boolean
 		badges: string[] //Badge[],
-		content: ({ type: string; emote: Emote } | Node)[]
+		content: ChatMessagePart[]
 		style: {
 			color: string
 		}
 	}
+
+	type ChatMessagePart = string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
 }

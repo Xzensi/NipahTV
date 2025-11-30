@@ -21,7 +21,7 @@
 
 .ntv__emote-box {
 	// outline: 1px solid red;
-	background: rgba(255, 255, 255, 0.034);
+	background: rgba(255, 255, 255, 0.05);
 
 	vertical-align: middle;
 	display: inline-flex;
@@ -51,11 +51,17 @@
 	}
 
 	&--zero-width {
+		background: rgba(255, 196, 0, 0.2);
 		outline: 1px solid #ffc400a1;
 	}
 
 	&--favorite {
-		background: rgba(255, 174, 0, 0.034);
+		background: rgba(255, 174, 0, 0.06);
+	}
+
+	&--favorited {
+		background: rgba(255, 96, 0, 0.2);
+		outline: 1px solid #ff6000a1;
 	}
 
 	&--unavailable {

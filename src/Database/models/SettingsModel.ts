@@ -7,7 +7,7 @@ export interface SettingDocument {
 	platformId: 'global' | PlatformId
 	channelId: 'shared' | ChannelId
 	key: string
-	value: string
+	value: string | number | boolean
 }
 
 export default class SettingsModel {
@@ -27,6 +27,10 @@ export default class SettingsModel {
 
 	async putRecord(setting: SettingDocument) {
 		return this.db.settings.put(setting)
+	}
+
+	async updateRecord(id: string, updates: Partial<SettingDocument>) {
+		return this.db.settings.update(id, updates)
 	}
 
 	async deleteRecord(id: string) {

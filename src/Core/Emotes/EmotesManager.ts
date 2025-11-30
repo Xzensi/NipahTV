@@ -246,8 +246,10 @@ export default class EmotesManager {
 
 	parseEmoteText(
 		text: string,
-		resultArray: any[] = []
-	): Array<string | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }> {
+		resultArray: Array<
+			string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
+		> = []
+	) {
 		if (text.endsWith(U_TAG_NTV_AFFIX)) {
 			text = text.slice(0, (1 + U_TAG_NTV_AFFIX.length) * -1)
 		}
@@ -273,7 +275,7 @@ export default class EmotesManager {
 					type: 'emoji',
 					url: emojiData.url,
 					alt: emojiData.text
-				})
+				} as { type: 'emoji'; url: string; alt: string })
 
 				// Update lastIndex to the end of the current emoji
 				lastIndex = emojiData.indices[1]
@@ -327,7 +329,7 @@ export default class EmotesManager {
 					result.push({
 						type: 'emote',
 						emote: emote
-					})
+					} as { type: 'emote'; emote: Emote })
 				}
 
 				// This should never happen, but just in case
@@ -345,7 +347,7 @@ export default class EmotesManager {
 					result.push({
 						type: 'emote',
 						emote: emote
-					})
+					} as { type: 'emote'; emote: Emote })
 				}
 			}
 		}

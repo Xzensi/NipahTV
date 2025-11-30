@@ -90,8 +90,8 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		this.loadAnnouncements()
 		this.loadSettings()
-		this.loadStylingVariables()
 		this.loadDocumentPatches()
+		rootEventBus.subscribe('ntv.settings.loaded', this.loadStylingVariables.bind(this), true, true)
 
 		this.loadEmoteMenuButton()
 		this.loadQuickEmotesHolder()
@@ -558,7 +558,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	loadStylingVariables() {
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
-		const { channelData } = this.session
+		const { channelData, eventBus } = this.session
 		const channelId = channelData.channelId
 
 		// Chat message font size
@@ -580,7 +580,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 
 		// Emote size
-		const emoteSize = settingsManager.getSetting(channelId, 'chat.messages.emotes.size') || '0'
+		const emoteSize = settingsManager.getSetting(channelId, 'chat.messages.emotes.size') || '28px'
 		document.documentElement.style.setProperty('--ntv-chat-message-emote-size', emoteSize)
 
 		rootEventBus.subscribe('ntv.settings.change.chat.messages.emotes.size', ({ value }: { value?: string }) => {
@@ -589,12 +589,18 @@ export class KickUserInterface extends AbstractUserInterface {
 		})
 
 		// Emote overlap
-		const emoteOverlap = settingsManager.getSetting(channelId, 'chat.messages.emotes.overlap') || '0'
-		document.documentElement.style.setProperty('--ntv-chat-message-emote-overlap', emoteOverlap)
+		const setEmoteOverlap = (settingValue: number) => {
+			const overlapValue = ['0', '0.2em', '0.3em', '0.4em'][settingValue] || '0.4em'
+			// const overlapCompensationValue = ['0', '0.2em', '0.25em', '0.3em'][settingValue] || '0.3em'
+			document.documentElement.style.setProperty('--ntv-chat-message-emote-overlap', '-' + overlapValue)
+			document.documentElement.style.setProperty('--ntv-chat-message-emote-overlap-compensation', overlapValue)
+		}
 
-		rootEventBus.subscribe('ntv.settings.change.chat.messages.emotes.overlap', ({ value }: { value?: string }) => {
-			if (!value) return
-			document.documentElement.style.setProperty('--ntv-chat-message-emote-overlap', value)
+		const emoteOverlap = settingsManager.getSetting(channelId, 'chat.messages.emotes.overlap') || 3
+		setEmoteOverlap(emoteOverlap)
+		rootEventBus.subscribe('ntv.settings.change.chat.messages.emotes.overlap', ({ value }: { value?: number }) => {
+			if (value === undefined) return
+			setEmoteOverlap(value)
 		})
 	}
 
@@ -1996,7 +2002,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (ntvModBtnsWrapperEl) ntvIdentityWrapperEl.append(ntvModBtnsWrapperEl)
 		ntvIdentityWrapperEl.append(ntvTimestampEl, ntvBadgesEl, ntvUsernameEl, ntvSeparatorEl)
 
-		const messageParts = []
+		const messageParts: ChatMessagePart[] = []
 		for (const contentNode of contentWrapperNode.childNodes) {
 			if (contentNode.nodeType === Node.TEXT_NODE) {
 				emotesManager.parseEmoteText(contentNode.textContent || '', messageParts)
@@ -2034,6 +2040,14 @@ export class KickUserInterface extends AbstractUserInterface {
 			} else {
 				messageParts.push(contentNode.cloneNode(true))
 			}
+		}
+
+		const hasEmotesInMessage = messageParts.some(
+			part => typeof part === 'object' && part !== null && 'type' in part && part.type === 'emote'
+		)
+
+		if (hasEmotesInMessage) {
+			messageNode.classList.add('ntv__chat-message--has-emotes')
 		}
 
 		const clipAttachmentEl = contentWrapperNode.nextElementSibling
