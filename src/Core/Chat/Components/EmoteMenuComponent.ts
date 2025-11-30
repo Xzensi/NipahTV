@@ -298,6 +298,13 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				tooltipEl.appendChild(span)
 			}
 
+			if (emotesManager.isEmoteFavorited(emote.hid)) {
+				const span = document.createElement('span')
+				span.className = 'ntv__emote-tooltip__favorited'
+				span.textContent = 'Favorited'
+				tooltipEl.appendChild(span)
+			}
+
 			this.tooltipEl = tooltipEl
 			document.body.appendChild(tooltipEl)
 
@@ -386,13 +393,12 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			this.rootContext.eventBus.publish('ntv.ui.settings.toggle_show')
 		})
 
-		eventBus.subscribe('ntv.datastore.emoteset.added', this.addEmoteSet.bind(this), true)
-		eventBus.subscribe('ntv.datastore.emoteset.updated', this.updateEmoteSet.bind(this), true)
-
 		eventBus.subscribe(
 			'ntv.datastore.emotes.favorites.loaded',
 			() => {
+				eventBus.subscribe('ntv.datastore.emoteset.added', this.addEmoteSet.bind(this), true)
 				eventBus.subscribe('ntv.datastore.emoteset.added', this.renderFavoriteEmotes.bind(this), true)
+				eventBus.subscribe('ntv.datastore.emoteset.updated', this.updateEmoteSet.bind(this), true)
 			},
 			true,
 			true
@@ -405,7 +411,12 @@ export default class EmoteMenuComponent extends AbstractComponent {
 					this.lastDraggedEmoteEl = null
 					return
 				}
-				this.renderFavoriteEmotes()
+				const emoteHid = data.added || data.reordered || data.removed
+				if (!emoteHid) return error('CORE', 'UI', 'Invalid emote hid in favorites changed event', data)
+				const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid)
+				if (!emoteSet) return error('CORE', 'UI', 'Invalid emote set in favorites changed event', data)
+
+				this.updateEmoteSet(emoteSet)
 			}
 		)
 		eventBus.subscribe('ntv.ui.footer.click', this.toggleShow.bind(this))
@@ -666,26 +677,25 @@ export default class EmoteMenuComponent extends AbstractComponent {
 		const emoteSetEmotesEl = document.createElement('div')
 		emoteSetEmotesEl.className = 'ntv__emote-set__emotes'
 		for (const emote of sortedEmotes) {
-			const zeroWidthClass = (emote.isZeroWidth && ' ntv__emote-box--zero-width') || ''
+			let emoteBoxClasses = (emote.isZeroWidth && 'ntv__emote-box--zero-width') || ''
+
+			if (emotesManager.isEmoteFavorited(emote.hid)) {
+				emoteBoxClasses += ' ntv__emote-box--favorited'
+			}
+
 			if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
 				if (hideSubscribersEmotes) continue
 
-				emoteSetEmotesEl.append(
-					parseHTML(
-						`<div class="ntv__emote-box ntv__emote-box--locked${zeroWidthClass}" size="${
-							emote.size
-						}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
-					)
-				)
-			} else {
-				emoteSetEmotesEl.append(
-					parseHTML(
-						`<div class="ntv__emote-box${zeroWidthClass}" size="${
-							emote.size
-						}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
-					)
-				)
+				emoteBoxClasses += ' ntv__emote-box--locked'
 			}
+
+			emoteSetEmotesEl.append(
+				parseHTML(
+					`<div class="ntv__emote-box ${emoteBoxClasses}" size="${
+						emote.size
+					}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
+				)
+			)
 		}
 
 		this.emoteSetSidebarEls.set(emoteSet.id, sidebarIconEl)

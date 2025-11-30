@@ -1,18 +1,19 @@
 @use 'variables' as *;
 
 .ntv__chat-message {
-	padding: var(--ntv-chat-message-spacing) 0.9em;
+	padding: var(--ntv-chat-message-spacing) 1em;
 	font-size: var(--ntv-chat-message-font-size);
 	margin: 0;
 
 	&:hover {
-		background-color: rgba(128, 128, 128, 0.09);
+		background-color: rgba(128, 128, 128, 0.12);
 	}
 
 	&__inner {
 		overflow: hidden;
-		padding: 4px 0;
+		padding: 0.25em 0;
 	}
+
 	&__attachment {
 		color: var(--ntv-text-color-disabled-emphasis);
 		margin-bottom: 0.5em;
@@ -105,6 +106,12 @@
 
 		img[data-emote-name] {
 			cursor: pointer;
+		}
+	}
+
+	&--has-emotes {
+		.ntv__chat-message__inner {
+			padding: var(--ntv-chat-message-emote-overlap-compensation) 0;
 		}
 	}
 

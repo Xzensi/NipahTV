@@ -247,10 +247,10 @@ export default class SettingsManager {
 								{
 									label: 'Message emote overlap',
 									key: 'chat.messages.emotes.overlap',
-									default: '-0.4em',
+									default: 3,
 									type: 'stepped_slider',
 									labels: ['No overlap', 'Slight overlap', 'Moderate overlap', 'Default'],
-									steps: ['0', '-0.2em', '-0.3em', '-0.4em']
+									steps: [0, 1, 2, 3]
 								}
 							]
 						},
@@ -869,17 +869,32 @@ export default class SettingsManager {
 		// 	database.settings.deleteRecord(key)
 		// })
 
-		//! Temporary patch for message spacing setting
-		// const messageSpacingSetting = this.settingsMap.get('global.shared.chat.messages.spacing')
-		// if (
-		// 	messageSpacingSetting === 'none' ||
-		// 	messageSpacingSetting === 'little-spacing' ||
-		// 	messageSpacingSetting === 'large-spacing'
-		// ) {
-		// 	const key = 'global.shared.chat.messages.spacing'
-		// 	this.settingsMap.delete(key)
-		// 	database.settings.deleteRecord(key)
-		// }
+		//! Temporary patch for setting format changes
+		const messageEmoteOverlapSetting = this.settingsMap.get('global.shared.chat.messages.emotes.overlap')
+		if (typeof messageEmoteOverlapSetting === 'string') {
+			// const key = 'global.shared.chat.messages.emotes.overlap'
+			// this.settingsMap.delete(key)
+			// database.settings.deleteRecord(key)
+
+			let messageEmoteOverlapValue = 0
+			if (messageEmoteOverlapSetting === '0') {
+				messageEmoteOverlapValue = 0
+			} else if (messageEmoteOverlapSetting === '-0.2em') {
+				messageEmoteOverlapValue = 1
+			} else if (messageEmoteOverlapSetting === '-0.3em') {
+				messageEmoteOverlapValue = 2
+			} else if (messageEmoteOverlapSetting === '-0.4em') {
+				messageEmoteOverlapValue = 3
+			}
+
+			this.setSetting('global', 'shared', 'chat.messages.emotes.overlap', messageEmoteOverlapValue)
+		}
+
+		const quickEmoteHolderRowsSetting = this.settingsMap.get('global.shared.quick_emote_holder.rows')
+		if (typeof quickEmoteHolderRowsSetting === 'string') {
+			const rows = parseInt(quickEmoteHolderRowsSetting as string, 10)
+			this.setSetting('global', 'shared', 'quick_emote_holder.rows', isNaN(rows) ? 2 : rows)
+		}
 
 		this.isLoaded = true
 		eventBus.publish('ntv.settings.loaded')
@@ -888,8 +903,8 @@ export default class SettingsManager {
 	registerSetting(
 		platformId: SettingDocument['platformId'],
 		channelId: SettingDocument['channelId'],
-		key: string,
-		defaultVal: any
+		key: SettingDocument['key'],
+		defaultVal: SettingDocument['value']
 	) {
 		const id = `${platformId}.${channelId}.${key}`
 
@@ -900,8 +915,8 @@ export default class SettingsManager {
 	setSetting(
 		platformId: SettingDocument['platformId'],
 		channelId: SettingDocument['channelId'],
-		key: string,
-		value: any
+		key: SettingDocument['key'],
+		value: SettingDocument['value']
 	) {
 		if (!platformId || !channelId || !key || undefined === value)
 			return error('CORE', 'SETTINGS', 'Unable to set setting, invalid parameters:', {
