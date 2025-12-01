@@ -614,7 +614,7 @@ export default class SevenTVExtension extends Extension {
 
 		const displayName = user.display_name.replaceAll('"', '&quot;').replaceAll("'", '&apos;')
 		const chatMessages = document.querySelectorAll(
-			`.ntv__chat-message__username[title="${displayName}"]`
+			`.ntv__chat-message__username[ntv-username="${displayName}"]`
 		) as NodeListOf<HTMLElement>
 
 		for (const message of chatMessages) {
