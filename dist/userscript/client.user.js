@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.80
+// @version 1.5.81
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12264,6 +12264,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.81",
+    date: "2025-12-02",
+    description: `
+                  Feat: Make user info modal username handle better compatible with other extensions @igorovh
+            `
+  },
+  {
     version: "1.5.80",
     date: "2025-11-29",
     description: `
@@ -23666,7 +23673,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         evt.stopPropagation();
         if (!target.classList.contains("ntv__chat-message__username")) return;
         const usernameEl = target;
-        const username = usernameEl?.textContent;
+        const username = usernameEl?.getAttribute("ntv-username") ?? usernameEl.title ?? usernameEl.textContent;
         const rect = usernameEl.getBoundingClientRect();
         const screenPosition = { x: rect.x, y: rect.y - 100 };
         if (username) this.handleUserInfoModalClick(username, screenPosition);
@@ -24015,6 +24022,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const ntvUsernameEl = document.createElement("span");
     ntvUsernameEl.className = "ntv__chat-message__username";
     ntvUsernameEl.title = username;
+    ntvUsernameEl.setAttribute("ntv-username", username);
     ntvUsernameEl.textContent = usernameEl.textContent || "Unknown user";
     ntvUsernameEl.style.color = usernameEl.style.color;
     if (!channelData.isVod && username) {
@@ -26215,7 +26223,7 @@ var SevenTVExtension = class extends Extension {
     if (!paint) return;
     const displayName = user.display_name.replaceAll('"', "&quot;").replaceAll("'", "&apos;");
     const chatMessages = document.querySelectorAll(
-      `.ntv__chat-message__username[title="${displayName}"]`
+      `.ntv__chat-message__username[ntv-username="${displayName}"]`
     );
     for (const message of chatMessages) {
       message.setAttribute("seventv-painted-content", "true");
@@ -26384,7 +26392,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.80";
+  VERSION = "1.5.81";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

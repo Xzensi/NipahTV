@@ -1420,7 +1420,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (!target.classList.contains('ntv__chat-message__username')) return
 
 				const usernameEl = target
-				const username = usernameEl?.textContent
+				const username = usernameEl?.getAttribute('ntv-username') ?? usernameEl.title ?? usernameEl.textContent;
 				const rect = usernameEl.getBoundingClientRect()
 				const screenPosition = { x: rect.x, y: rect.y - 100 }
 				if (username) this.handleUserInfoModalClick(username, screenPosition)
@@ -1945,6 +1945,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const ntvUsernameEl = document.createElement('span')
 		ntvUsernameEl.className = 'ntv__chat-message__username'
 		ntvUsernameEl.title = username
+		ntvUsernameEl.setAttribute('ntv-username', username);
 		ntvUsernameEl.textContent = usernameEl.textContent || 'Unknown user'
 		ntvUsernameEl.style.color = usernameEl.style.color
 
