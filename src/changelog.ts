@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.81',
+		date: '2025-12-02',
+		description: `
+                  Feat: Make user info modal username handle better compatible with other extensions @igorovh
+            `
+	},
+	{
 		version: '1.5.80',
 		date: '2025-11-29',
 		description: `
