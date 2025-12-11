@@ -1063,7 +1063,7 @@ export class KickUserInterface extends AbstractUserInterface {
 						</div>
 
 						<div class="flex h-full flex-row flex-nowrap items-center gap-2 empty:hidden ml-auto shrink-0 grow-0">
-							<button class="group inline-flex gap-1.5 items-center justify-center rounded font-semibold box-border relative transition-all betterhover:active:scale-[0.98] disabled:pointer-events-none select-none whitespace-nowrap [&amp;_svg]:size-[1em] outline-transparent outline outline-2 outline-offset-2 focus-visible:outline-grey-300 text-white [&amp;_svg]:fill-current focus-visible:bg-secondary/40 disabled:bg-transparent disabled:opacity-30 px-3 py-1.5 text-sm betterhover:hover:bg-surface-base bg-surface-tint" dir="ltr">Share</button>
+							<button class="group inline-flex gap-1.5 items-center justify-center rounded font-semibold box-border relative transition-all betterhover:active:scale-[0.98] disabled:pointer-events-none select-none whitespace-nowrap [&amp;_svg]:size-[1em] outline-transparent outline-2 outline-offset-2 disabled:text-disabled-onSurface focus-visible:outline-outline-decorative text-white [&amp;_svg]:fill-current focus-visible:bg-secondary-base/40 disabled:opacity-30 px-3 py-1.5 text-sm betterhover:hover:bg-surface-base bg-surface-highest" dir="ltr">Share</button>
 							<button class="group relative box-border flex shrink-0 grow-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded font-semibold ring-0 transition-all focus-visible:outline-none active:scale-[0.95] disabled:pointer-events-none [&amp;_svg]:size-[1em] bg-transparent focus-visible:outline-grey-300 [&amp;_svg]:fill-current lg:data-[state=open]:bg-surface-tint data-[state=active]:bg-surface-tint disabled:text-grey-600 disabled:bg-grey-1000 size-8 text-sm leading-none betterhover:hover:bg-black/10 text-black" data-state="closed" type="button" id="radix-:r8t:" aria-haspopup="menu" aria-expanded="true" aria-controls="radix-:r8u:" data-aria-hidden="true" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M19 4H13V10H19V4Z" fill="current"></path><path d="M19 13H13V19H19V13Z" fill="current"></path><path d="M19 22H13V28H19V22Z" fill="current"></path></svg></button>
 						</div>
 					</div>
@@ -1420,7 +1420,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (!target.classList.contains('ntv__chat-message__username')) return
 
 				const usernameEl = target
-				const username = usernameEl?.getAttribute('ntv-username') ?? usernameEl.title ?? usernameEl.textContent;
+				const username = usernameEl?.getAttribute('ntv-username') ?? usernameEl.title ?? usernameEl.textContent
 				const rect = usernameEl.getBoundingClientRect()
 				const screenPosition = { x: rect.x, y: rect.y - 100 }
 				if (username) this.handleUserInfoModalClick(username, screenPosition)
@@ -1945,7 +1945,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const ntvUsernameEl = document.createElement('span')
 		ntvUsernameEl.className = 'ntv__chat-message__username'
 		ntvUsernameEl.title = username
-		ntvUsernameEl.setAttribute('ntv-username', username);
+		ntvUsernameEl.setAttribute('ntv-username', username)
 		ntvUsernameEl.textContent = usernameEl.textContent || 'Unknown user'
 		ntvUsernameEl.style.color = usernameEl.style.color
 
