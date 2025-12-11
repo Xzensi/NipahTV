@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.82',
+		date: '2025-12-11',
+		description: `
+                  Fix: Celebration share button styling
+            `
+	},
+	{
 		version: '1.5.81',
 		date: '2025-12-02',
 		description: `
