@@ -24,15 +24,28 @@
 </head>
 <body>
 	<header>
-		<div class="container">
-			<a href="/"><img src="img/NTV_icon_128.png" alt="Logo icon" /></a>
-			<nav>
+		<div class="container header__container">
+			<a href="/" class="header__logo"><img src="img/NTV_icon_128.png" alt="Logo icon" /></a>
+			<nav class="nav nav--desktop" aria-label="Primary">
 				<ul>
 					<li><a href="/">HOME</a></li>
 					<li class="active"><a href="userscript">USERSCRIPT</a></li>
 					<li><a href="seventv_compatibility">7TV COMPATIBILITY</a></li>
 				</ul>
 			</nav>
+			<div class="nav nav--mobile" aria-label="Primary">
+				<input class="nav__toggle" type="checkbox" id="nav-toggle" aria-controls="nav-panel" />
+				<label class="nav__button" for="nav-toggle" aria-label="Toggle navigation">
+					<span class="nav__icon" aria-hidden="true"></span>
+				</label>
+				<div class="nav__panel" id="nav-panel">
+					<ul>
+						<li><a href="/">HOME</a></li>
+						<li class="active"><a href="userscript">USERSCRIPT</a></li>
+						<li><a href="seventv_compatibility">7TV COMPATIBILITY</a></li>
+					</ul>
+				</div>
+			</div>
 		</div>
 	</header>
 	

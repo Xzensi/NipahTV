@@ -30,39 +30,63 @@
 	</head>
 	<body>
 		<header>
-			<div class="container">
-				<a href="/"><img src="img/NTV_icon_128.png" alt="Logo icon" /></a>
-				<nav>
+			<div class="container header__container">
+				<a href="/" class="header__logo"><img src="img/NTV_icon_128.png" alt="Logo icon" /></a>
+				<nav class="nav nav--desktop" aria-label="Primary">
 					<ul>
 						<li class="active"><a href="/">HOME</a></li>
 						<li><a href="userscript">USERSCRIPT</a></li>
 						<li><a href="seventv_compatibility">7TV COMPATIBILITY</a></li>
 					</ul>
 				</nav>
+				<div class="nav nav--mobile" aria-label="Primary">
+					<input class="nav__toggle" type="checkbox" id="nav-toggle" aria-controls="nav-panel" />
+					<label class="nav__button" for="nav-toggle" aria-label="Toggle navigation">
+						<span class="nav__icon" aria-hidden="true"></span>
+					</label>
+					<div class="nav__panel" id="nav-panel">
+						<ul>
+							<li class="active"><a href="/">HOME</a></li>
+							<li><a href="userscript">USERSCRIPT</a></li>
+							<li><a href="seventv_compatibility">7TV COMPATIBILITY</a></li>
+						</ul>
+					</div>
+				</div>
 			</div>
 		</header>
 
 		<main>
 			<section id="banner">
 				<div class="emotes_box"></div>
-				<img src="img/logo_full.png" alt="NipahTV Logo" />
-				<h2>A Better Kick and 7TV Emote Extension for Kick.</h2>
-				<a
-					href="https://chromewebstore.google.com/detail/nipahtv/bjggmgekoncaaalaalhchepgkjoahjln"
-					class="button"
-					target="_blank"
-					rel="noopener"
-					>Extension for Chrome | Opera | Edge</a
-				>
-				<a
-					href="https://addons.mozilla.org/en-US/firefox/addon/nipahtv/"
-					class="button"
-					target="_blank"
-					rel="noopener"
-					>Add-on for Firefox</a
-				>
-				<a href="userscript.html" class="button">Install as Userscript</a>
-				<a href="https://discord.gg/u2gEQZrB6h" target="_blank" class="button">Join Discord Community</a>
+				<div class="banner_content">
+					<img src="img/logo_full.png" alt="NipahTV Logo" />
+					<h2>A Better Kick and 7TV Emote Extension for Kick.</h2>
+					<a
+						href="https://chromewebstore.google.com/detail/nipahtv/bjggmgekoncaaalaalhchepgkjoahjln"
+						class="button"
+						target="_blank"
+						rel="noopener"
+						>Extension for Chrome | Opera | Edge</a
+					>
+					<a
+						href="https://addons.mozilla.org/en-US/firefox/addon/nipahtv/"
+						class="button"
+						target="_blank"
+						rel="noopener"
+						>Add-on for Firefox</a
+					>
+					<a href="userscript.html" class="button">Install as Userscript</a>
+				</div>
+				<div class="banner_footer">
+					<a href="https://discord.gg/u2gEQZrB6h" target="_blank" class="button button--small button--discord"
+						>Join Discord Community</a
+					>
+					<script type="text/javascript" src="https://storage.ko-fi.com/cdn/widget/Widget_2.js"></script>
+					<script type="text/javascript">
+						kofiwidget2.init('Support me on Ko-fi', '#FF3E64', 'R6R41J6NX7')
+						kofiwidget2.draw()
+					</script>
+				</div>
 			</section>
 			<section>
 				<div class="container">
@@ -136,6 +160,8 @@
 		</script>
 
 		<script>
+			return
+
 			const emojis = [
 				'peped',
 				'petthemods',
