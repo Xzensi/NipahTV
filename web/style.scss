@@ -414,8 +414,8 @@ section {
 #banner {
 	flex-direction: column;
 	position: relative;
+	padding: 1em 1em 1em 1em;
 	max-height: 70vh;
-	padding: 0 25px;
 	display: flex;
 	height: 750px;
 	gap: 1.618em;
@@ -470,8 +470,14 @@ section {
 	}
 
 	.banner_footer {
-		padding: 1em 0;
+		margin-top: 2em;
 		gap: 0.86em;
+	}
+
+	@media (max-width: 468px) {
+		padding: 2.5em 1em 1em 1em;
+		max-height: none;
+		height: auto;
 	}
 }
 
