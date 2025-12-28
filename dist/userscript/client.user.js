@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.82
+// @version 1.5.83
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12264,6 +12264,15 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.83",
+    date: "2025-12-27",
+    description: `
+                  Just a little fix before closing off the year 2025. Happy holidays everyone!
+
+                  Fix: NipahTV not loading when in mobile split screen mode
+            `
+  },
+  {
     version: "1.5.82",
     date: "2025-12-11",
     description: `
@@ -22664,7 +22673,8 @@ var KickUserInterface = class extends AbstractUserInterface {
   chatObserver = null;
   footerObserver = null;
   deletedChatEntryObserver = null;
-  inputComponentsObserver = null;
+  inputComponentObserver = null;
+  submitButtonObserver = null;
   replyObserver = null;
   pinnedMessageObserver = null;
   emoteMenu = null;
@@ -22678,7 +22688,8 @@ var KickUserInterface = class extends AbstractUserInterface {
   // Timeout handles for resetting panic counters in various MutationObservers
   emoteMenuButtonPanicResetTimeout = null;
   quickEmotesHolderPanicResetTimeout = null;
-  inputComponentsPanicResetTimeout = null;
+  inputComponentPanicResetTimeout = null;
+  submitButtonPanicResetTimeout = null;
   currentEmoteTooltip = null;
   currentEmoteTooltipTarget = null;
   emoteTooltipPointerMoveHandler = null;
@@ -23085,27 +23096,14 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { abortController } = this;
     const abortSignal = abortController.signal;
     const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
-    const submitButtonSelector = "#send-message-button";
     const editorInputSelector = '#channel-chatroom .editor-input[contenteditable="true"]';
-    const foundInputElements = await waitForElements(
-      [editorInputSelector, submitButtonSelector],
-      15e3,
-      abortSignal
-    ).catch(() => void 0);
+    const foundInputElements = await waitForElements([editorInputSelector], 15e3, abortSignal).catch(
+      () => void 0
+    );
     if (this.session.isDestroyed)
-      return error29("KICK", "UI", "Session destroyed before input elements could be loaded");
-    if (!foundInputElements || foundInputElements.length < 2) return error29("KICK", "UI", "Input elements not found");
-    const [kickTextFieldEl, kickSubmitButtonEl] = foundInputElements;
-    Array.from(document.getElementsByClassName("ntv__submit-button")).forEach((element) => {
-      element.remove();
-    });
-    const submitButtonEl = this.elm.submitButton = document.createElement("button");
-    submitButtonEl.classList.add("ntv__submit-button", "disabled");
-    submitButtonEl.textContent = "Chat";
-    this.elm.originalSubmitButton = kickSubmitButtonEl;
-    kickSubmitButtonEl.before(submitButtonEl);
-    submitButtonEl.addEventListener("click", (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event));
-    this.submitButtonPriorityEventTarget.addEventListener("click", 10, () => this.submitInput(false));
+      return error29("KICK", "UI", "Session destroyed before input element could be loaded");
+    if (!foundInputElements || !foundInputElements.length) return error29("KICK", "UI", "Input element not found");
+    const [kickTextFieldEl] = foundInputElements;
     Array.from(document.getElementsByClassName("ntv__message-input__wrapper")).forEach((el) => el.remove());
     Array.from(document.getElementsByClassName("ntv__message-input")).forEach((el) => el.remove());
     document.querySelectorAll(".ntv__message-input__wrapper").forEach((el) => el.remove());
@@ -23125,47 +23123,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldWrapperEl.append(textFieldEl);
     kickTextFieldEl.parentElement.before(textFieldWrapperEl);
     if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
-    let panicCounter = 0;
-    const resetPanicCounter = () => {
-      panicCounter = 0;
-      this.inputComponentsPanicResetTimeout = null;
-    };
-    const schedulePanicReset = () => {
-      if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout);
-      this.inputComponentsPanicResetTimeout = window.setTimeout(resetPanicCounter, 5e3);
-    };
-    const observer = this.inputComponentsObserver = new MutationObserver((mutations) => {
-      if (panicCounter >= 25) {
-        log28("KICK", "UI", "Emote menu button panic limit reached, stopping observer");
-        observer.disconnect();
-        if (this.inputComponentsPanicResetTimeout) {
-          clearTimeout(this.inputComponentsPanicResetTimeout);
-          this.inputComponentsPanicResetTimeout = null;
-        }
-        return;
-      }
-      if (!submitButtonEl.isConnected) {
-        log28("KICK", "UI", "Submit button got removed");
-        const kickSubmitButtonEl2 = document.querySelector(submitButtonSelector);
-        if (kickSubmitButtonEl2) {
-          log28("KICK", "UI", "Footer bottom bar found, reinjecting emote menu button..");
-          kickSubmitButtonEl2.before(submitButtonEl);
-          panicCounter++;
-          schedulePanicReset();
-        }
-      }
-      if (!textFieldWrapperEl.isConnected) {
-        log28("KICK", "UI", "Text field got removed");
-        const kickTextFieldEl2 = document.querySelector(editorInputSelector);
-        if (kickTextFieldEl2) {
-          log28("KICK", "UI", "Footer text field found, reinjecting text field..");
-          kickTextFieldEl2.parentElement.before(textFieldWrapperEl);
-          panicCounter++;
-          schedulePanicReset();
-        }
-      }
-    });
-    observer.observe(document.querySelector(footerSelector), { childList: true, subtree: true });
     const inputController = this.inputController = new InputController(
       this.rootContext,
       this.session,
@@ -23178,17 +23135,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     inputController.initialize();
     inputController.loadInputCompletionBehaviour();
     inputController.loadChatHistoryBehaviour();
+    this.loadSubmitButtonBehaviour();
     this.loadInputStatusBehaviour();
     this.loadEmoteMenu();
-    inputController.addEventListener("is_empty", 10, (event) => {
-      if (event.detail.isEmpty) {
-        submitButtonEl.setAttribute("disabled", "");
-        submitButtonEl.classList.add("disabled");
-      } else {
-        submitButtonEl.removeAttribute("disabled");
-        submitButtonEl.classList.remove("disabled");
-      }
-    });
     this.session.eventBus.subscribe("ntv.input_controller.character_count", ({ value }) => {
       if (value > this.maxMessageLength) {
         textFieldWrapperEl.setAttribute("data-char-count", value);
@@ -23257,6 +23206,104 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.inputController?.contentEditableEditor.forwardEvent(evt);
       });
     }
+    let panicCounter = 0;
+    const resetPanicCounter = () => {
+      panicCounter = 0;
+      this.inputComponentPanicResetTimeout = null;
+    };
+    const schedulePanicReset = () => {
+      if (this.inputComponentPanicResetTimeout) clearTimeout(this.inputComponentPanicResetTimeout);
+      this.inputComponentPanicResetTimeout = window.setTimeout(resetPanicCounter, 5e3);
+    };
+    const observer = this.inputComponentObserver = new MutationObserver((mutations) => {
+      if (panicCounter >= 25) {
+        log28("KICK", "UI", "Emote menu button panic limit reached, stopping observer");
+        observer.disconnect();
+        if (this.inputComponentPanicResetTimeout) {
+          clearTimeout(this.inputComponentPanicResetTimeout);
+          this.inputComponentPanicResetTimeout = null;
+        }
+        return;
+      }
+      if (!textFieldWrapperEl.isConnected) {
+        log28("KICK", "UI", "Text field got removed");
+        const kickTextFieldEl2 = document.querySelector(editorInputSelector);
+        if (kickTextFieldEl2) {
+          log28("KICK", "UI", "Footer text field found, reinjecting text field..");
+          kickTextFieldEl2.parentElement.before(textFieldWrapperEl);
+          panicCounter++;
+          schedulePanicReset();
+        }
+      }
+    });
+    observer.observe(document.querySelector(footerSelector), { childList: true, subtree: true });
+  }
+  async loadSubmitButtonBehaviour() {
+    if (!this.session.channelData.me.isLoggedIn) return;
+    if (this.session.channelData.isVod) return;
+    const { abortController, inputController } = this;
+    const abortSignal = abortController.signal;
+    if (!inputController) return log28("KICK", "UI", "Input controller not initialized for submit button behaviour");
+    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const submitButtonSelector = "#send-message-button";
+    const foundInputElements = await waitForElements([submitButtonSelector], 15e3, abortSignal).catch(
+      () => void 0
+    );
+    if (this.session.isDestroyed)
+      return error29("KICK", "UI", "Session destroyed before input elements could be loaded");
+    if (!foundInputElements || !foundInputElements.length)
+      return error29("KICK", "UI", "Submit button element not found");
+    const [kickSubmitButtonEl] = foundInputElements;
+    Array.from(document.getElementsByClassName("ntv__submit-button")).forEach((element) => {
+      element.remove();
+    });
+    const submitButtonEl = this.elm.submitButton = document.createElement("button");
+    submitButtonEl.classList.add("ntv__submit-button", "disabled");
+    submitButtonEl.textContent = "Chat";
+    this.elm.originalSubmitButton = kickSubmitButtonEl;
+    kickSubmitButtonEl.before(submitButtonEl);
+    submitButtonEl.addEventListener("click", (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event));
+    this.submitButtonPriorityEventTarget.addEventListener("click", 10, () => this.submitInput(false));
+    inputController.addEventListener("is_empty", 10, (event) => {
+      if (event.detail.isEmpty) {
+        submitButtonEl.setAttribute("disabled", "");
+        submitButtonEl.classList.add("disabled");
+      } else {
+        submitButtonEl.removeAttribute("disabled");
+        submitButtonEl.classList.remove("disabled");
+      }
+    });
+    let panicCounter = 0;
+    const resetPanicCounter = () => {
+      panicCounter = 0;
+      this.submitButtonPanicResetTimeout = null;
+    };
+    const schedulePanicReset = () => {
+      if (this.submitButtonPanicResetTimeout) clearTimeout(this.submitButtonPanicResetTimeout);
+      this.submitButtonPanicResetTimeout = window.setTimeout(resetPanicCounter, 5e3);
+    };
+    const observer = this.submitButtonObserver = new MutationObserver((mutations) => {
+      if (panicCounter >= 25) {
+        log28("KICK", "UI", "Emote menu button panic limit reached, stopping observer");
+        observer.disconnect();
+        if (this.submitButtonPanicResetTimeout) {
+          clearTimeout(this.submitButtonPanicResetTimeout);
+          this.submitButtonPanicResetTimeout = null;
+        }
+        return;
+      }
+      if (!submitButtonEl.isConnected) {
+        log28("KICK", "UI", "Submit button got removed");
+        const kickSubmitButtonEl2 = document.querySelector(submitButtonSelector);
+        if (kickSubmitButtonEl2) {
+          log28("KICK", "UI", "Footer bottom bar found, reinjecting emote menu button..");
+          kickSubmitButtonEl2.before(submitButtonEl);
+          panicCounter++;
+          schedulePanicReset();
+        }
+      }
+    });
+    observer.observe(document.querySelector(footerSelector), { childList: true, subtree: true });
   }
   loadScrollingBehaviour() {
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
@@ -24369,7 +24416,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.replyObserver) this.replyObserver.disconnect();
     if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect();
     if (this.inputController) this.inputController.destroy();
-    if (this.inputComponentsObserver) this.inputComponentsObserver.disconnect();
+    if (this.inputComponentObserver) this.inputComponentObserver.disconnect();
+    if (this.submitButtonObserver) this.submitButtonObserver.disconnect();
     if (this.emoteMenu) this.emoteMenu.destroy();
     if (this.emoteMenuButton) this.emoteMenuButton.destroy();
     if (this.emoteMenuButtonObserver) this.emoteMenuButtonObserver.disconnect();
@@ -24380,7 +24428,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval);
     if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout);
     if (this.quickEmotesHolderPanicResetTimeout) clearTimeout(this.quickEmotesHolderPanicResetTimeout);
-    if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout);
+    if (this.inputComponentPanicResetTimeout) clearTimeout(this.inputComponentPanicResetTimeout);
     if (this.currentEmoteTooltip) {
       this.currentEmoteTooltip.remove();
       this.currentEmoteTooltip = null;
@@ -26399,7 +26447,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.82";
+  VERSION = "1.5.83";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

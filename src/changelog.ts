@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.83',
+		date: '2025-12-27',
+		description: `
+                  Just a little fix before closing off the year 2025. Happy holidays everyone!
+
+                  Fix: NipahTV not loading when in mobile split screen mode
+            `
+	},
+	{
 		version: '1.5.82',
 		date: '2025-12-11',
 		description: `

@@ -31,7 +31,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	private chatObserver: MutationObserver | null = null
 	private footerObserver: MutationObserver | null = null
 	private deletedChatEntryObserver: MutationObserver | null = null
-	private inputComponentsObserver: MutationObserver | null = null
+	private inputComponentObserver: MutationObserver | null = null
+	private submitButtonObserver: MutationObserver | null = null
 	private replyObserver: MutationObserver | null = null
 	private pinnedMessageObserver: MutationObserver | null = null
 	private emoteMenu: EmoteMenuComponent | null = null
@@ -46,7 +47,8 @@ export class KickUserInterface extends AbstractUserInterface {
 	// Timeout handles for resetting panic counters in various MutationObservers
 	private emoteMenuButtonPanicResetTimeout: number | null = null
 	private quickEmotesHolderPanicResetTimeout: number | null = null
-	private inputComponentsPanicResetTimeout: number | null = null
+	private inputComponentPanicResetTimeout: number | null = null
+	private submitButtonPanicResetTimeout: number | null = null
 
 	private currentEmoteTooltip: HTMLElement | null = null
 	private currentEmoteTooltipTarget: HTMLElement | null = null
@@ -613,41 +615,18 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Wait for text input & submit button to load
 		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
-		const submitButtonSelector = '#send-message-button'
 		const editorInputSelector = '#channel-chatroom .editor-input[contenteditable="true"]'
 
-		const foundInputElements = await waitForElements(
-			[editorInputSelector, submitButtonSelector],
-			15_000,
-			abortSignal
-		).catch(() => undefined)
+		const foundInputElements = await waitForElements([editorInputSelector], 15_000, abortSignal).catch(
+			() => undefined
+		)
 
 		if (this.session.isDestroyed)
-			return error('KICK', 'UI', 'Session destroyed before input elements could be loaded')
-		if (!foundInputElements || foundInputElements.length < 2) return error('KICK', 'UI', 'Input elements not found')
+			return error('KICK', 'UI', 'Session destroyed before input element could be loaded')
+		if (!foundInputElements || !foundInputElements.length) return error('KICK', 'UI', 'Input element not found')
 
-		const [kickTextFieldEl, kickSubmitButtonEl] = foundInputElements as HTMLElement[]
+		const [kickTextFieldEl] = foundInputElements as HTMLElement[]
 
-		//////////////////////////////////////
-		//====// Proxy Submit Button //====//
-		Array.from(document.getElementsByClassName('ntv__submit-button')).forEach(element => {
-			element.remove()
-		})
-
-		const submitButtonEl = (this.elm.submitButton = document.createElement('button'))
-		submitButtonEl.classList.add('ntv__submit-button', 'disabled')
-		submitButtonEl.textContent = 'Chat'
-
-		this.elm.originalSubmitButton = kickSubmitButtonEl
-		// kickSubmitButtonEl.style.setProperty('display', 'none', 'important')
-		kickSubmitButtonEl.before(submitButtonEl)
-		// kickSubmitButtonEl.remove()
-
-		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
-		this.submitButtonPriorityEventTarget.addEventListener('click', 10, () => this.submitInput(false))
-
-		///////////////////////////////////
-		//====// Proxy Text Field //====//
 		// Cleanup any remaining NTV elements from previous sessions
 		Array.from(document.getElementsByClassName('ntv__message-input__wrapper')).forEach(el => el.remove())
 		Array.from(document.getElementsByClassName('ntv__message-input')).forEach(el => el.remove())
@@ -679,59 +658,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// document.getElementById('chatroom')?.classList.add('ntv__hide-chat-input')
 
-		//////////////////////////////////////////
-		//====// Monitor component state //====//
-		// Observe for changes to reinsert our components if they get removed
-		let panicCounter = 0
-		const resetPanicCounter = () => {
-			panicCounter = 0
-			this.inputComponentsPanicResetTimeout = null
-		}
-		const schedulePanicReset = () => {
-			if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout)
-			this.inputComponentsPanicResetTimeout = window.setTimeout(resetPanicCounter, 5000)
-		}
-		const observer = (this.inputComponentsObserver = new MutationObserver(mutations => {
-			if (panicCounter >= 25) {
-				log('KICK', 'UI', 'Emote menu button panic limit reached, stopping observer')
-				observer.disconnect()
-				if (this.inputComponentsPanicResetTimeout) {
-					clearTimeout(this.inputComponentsPanicResetTimeout)
-					this.inputComponentsPanicResetTimeout = null
-				}
-				return
-			}
-
-			if (!submitButtonEl.isConnected) {
-				log('KICK', 'UI', 'Submit button got removed')
-
-				const kickSubmitButtonEl = document.querySelector(submitButtonSelector)
-				if (kickSubmitButtonEl) {
-					log('KICK', 'UI', 'Footer bottom bar found, reinjecting emote menu button..')
-
-					kickSubmitButtonEl.before(submitButtonEl)
-					panicCounter++
-					schedulePanicReset()
-				}
-			}
-
-			if (!textFieldWrapperEl.isConnected) {
-				log('KICK', 'UI', 'Text field got removed')
-
-				const kickTextFieldEl = document.querySelector(editorInputSelector)
-				if (kickTextFieldEl) {
-					log('KICK', 'UI', 'Footer text field found, reinjecting text field..')
-					kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
-					panicCounter++
-					schedulePanicReset()
-				}
-			}
-		}))
-
-		observer.observe(document.querySelector(footerSelector)!, { childList: true, subtree: true })
-
-		//////////////////////////////////////////////
-		//====// Initialize input controller //====//
 		const inputController = (this.inputController = new InputController(
 			this.rootContext,
 			this.session,
@@ -744,18 +670,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		inputController.initialize()
 		inputController.loadInputCompletionBehaviour()
 		inputController.loadChatHistoryBehaviour()
+
+		this.loadSubmitButtonBehaviour()
 		this.loadInputStatusBehaviour()
 		this.loadEmoteMenu()
-
-		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
-			if (event.detail.isEmpty) {
-				submitButtonEl.setAttribute('disabled', '')
-				submitButtonEl.classList.add('disabled')
-			} else {
-				submitButtonEl.removeAttribute('disabled')
-				submitButtonEl.classList.remove('disabled')
-			}
-		})
 
 		this.session.eventBus.subscribe('ntv.input_controller.character_count', ({ value }: any) => {
 			if (value > this.maxMessageLength) {
@@ -844,6 +762,132 @@ export class KickUserInterface extends AbstractUserInterface {
 				this.inputController?.contentEditableEditor.forwardEvent(evt)
 			})
 		}
+
+		// Observe for changes to reinsert our components if they get removed
+		let panicCounter = 0
+		const resetPanicCounter = () => {
+			panicCounter = 0
+			this.inputComponentPanicResetTimeout = null
+		}
+		const schedulePanicReset = () => {
+			if (this.inputComponentPanicResetTimeout) clearTimeout(this.inputComponentPanicResetTimeout)
+			this.inputComponentPanicResetTimeout = window.setTimeout(resetPanicCounter, 5000)
+		}
+		const observer = (this.inputComponentObserver = new MutationObserver(mutations => {
+			if (panicCounter >= 25) {
+				log('KICK', 'UI', 'Emote menu button panic limit reached, stopping observer')
+				observer.disconnect()
+				if (this.inputComponentPanicResetTimeout) {
+					clearTimeout(this.inputComponentPanicResetTimeout)
+					this.inputComponentPanicResetTimeout = null
+				}
+				return
+			}
+
+			if (!textFieldWrapperEl.isConnected) {
+				log('KICK', 'UI', 'Text field got removed')
+
+				const kickTextFieldEl = document.querySelector(editorInputSelector)
+				if (kickTextFieldEl) {
+					log('KICK', 'UI', 'Footer text field found, reinjecting text field..')
+					kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
+					panicCounter++
+					schedulePanicReset()
+				}
+			}
+		}))
+
+		observer.observe(document.querySelector(footerSelector)!, { childList: true, subtree: true })
+	}
+
+	async loadSubmitButtonBehaviour() {
+		if (!this.session.channelData.me.isLoggedIn) return
+		if (this.session.channelData.isVod) return
+
+		const { abortController, inputController } = this
+		const abortSignal = abortController.signal
+
+		if (!inputController) return log('KICK', 'UI', 'Input controller not initialized for submit button behaviour')
+
+		// Wait for text input & submit button to load
+		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const submitButtonSelector = '#send-message-button'
+
+		const foundInputElements = await waitForElements([submitButtonSelector], 15_000, abortSignal).catch(
+			() => undefined
+		)
+
+		if (this.session.isDestroyed)
+			return error('KICK', 'UI', 'Session destroyed before input elements could be loaded')
+		if (!foundInputElements || !foundInputElements.length)
+			return error('KICK', 'UI', 'Submit button element not found')
+
+		const [kickSubmitButtonEl] = foundInputElements as HTMLElement[]
+
+		//////////////////////////////////////
+		//====// Proxy Submit Button //====//
+		Array.from(document.getElementsByClassName('ntv__submit-button')).forEach(element => {
+			element.remove()
+		})
+
+		const submitButtonEl = (this.elm.submitButton = document.createElement('button'))
+		submitButtonEl.classList.add('ntv__submit-button', 'disabled')
+		submitButtonEl.textContent = 'Chat'
+
+		this.elm.originalSubmitButton = kickSubmitButtonEl
+		// kickSubmitButtonEl.style.setProperty('display', 'none', 'important')
+		kickSubmitButtonEl.before(submitButtonEl)
+		// kickSubmitButtonEl.remove()
+
+		submitButtonEl.addEventListener('click', event => this.submitButtonPriorityEventTarget.dispatchEvent(event))
+		this.submitButtonPriorityEventTarget.addEventListener('click', 10, () => this.submitInput(false))
+
+		inputController.addEventListener('is_empty', 10, (event: CustomEvent) => {
+			if (event.detail.isEmpty) {
+				submitButtonEl.setAttribute('disabled', '')
+				submitButtonEl.classList.add('disabled')
+			} else {
+				submitButtonEl.removeAttribute('disabled')
+				submitButtonEl.classList.remove('disabled')
+			}
+		})
+
+		// Observe for changes to reinsert our components if they get removed
+		let panicCounter = 0
+		const resetPanicCounter = () => {
+			panicCounter = 0
+			this.submitButtonPanicResetTimeout = null
+		}
+		const schedulePanicReset = () => {
+			if (this.submitButtonPanicResetTimeout) clearTimeout(this.submitButtonPanicResetTimeout)
+			this.submitButtonPanicResetTimeout = window.setTimeout(resetPanicCounter, 5000)
+		}
+		const observer = (this.submitButtonObserver = new MutationObserver(mutations => {
+			if (panicCounter >= 25) {
+				log('KICK', 'UI', 'Emote menu button panic limit reached, stopping observer')
+				observer.disconnect()
+				if (this.submitButtonPanicResetTimeout) {
+					clearTimeout(this.submitButtonPanicResetTimeout)
+					this.submitButtonPanicResetTimeout = null
+				}
+				return
+			}
+
+			if (!submitButtonEl.isConnected) {
+				log('KICK', 'UI', 'Submit button got removed')
+
+				const kickSubmitButtonEl = document.querySelector(submitButtonSelector)
+				if (kickSubmitButtonEl) {
+					log('KICK', 'UI', 'Footer bottom bar found, reinjecting emote menu button..')
+
+					kickSubmitButtonEl.before(submitButtonEl)
+					panicCounter++
+					schedulePanicReset()
+				}
+			}
+		}))
+
+		observer.observe(document.querySelector(footerSelector)!, { childList: true, subtree: true })
 	}
 
 	loadScrollingBehaviour() {
@@ -2424,7 +2468,8 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.replyObserver) this.replyObserver.disconnect()
 		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
 		if (this.inputController) this.inputController.destroy()
-		if (this.inputComponentsObserver) this.inputComponentsObserver.disconnect()
+		if (this.inputComponentObserver) this.inputComponentObserver.disconnect()
+		if (this.submitButtonObserver) this.submitButtonObserver.disconnect()
 		if (this.emoteMenu) this.emoteMenu.destroy()
 		if (this.emoteMenuButton) this.emoteMenuButton.destroy()
 		if (this.emoteMenuButtonObserver) this.emoteMenuButtonObserver.disconnect()
@@ -2435,7 +2480,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.reloadUIhackInterval) clearInterval(this.reloadUIhackInterval)
 		if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout)
 		if (this.quickEmotesHolderPanicResetTimeout) clearTimeout(this.quickEmotesHolderPanicResetTimeout)
-		if (this.inputComponentsPanicResetTimeout) clearTimeout(this.inputComponentsPanicResetTimeout)
+		if (this.inputComponentPanicResetTimeout) clearTimeout(this.inputComponentPanicResetTimeout)
 
 		if (this.currentEmoteTooltip) {
 			this.currentEmoteTooltip.remove()
