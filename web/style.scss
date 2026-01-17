@@ -3,7 +3,7 @@
 }
 
 body {
-	background-color: #1c1719;
+	background-color: #5e2238;
 	font-family: 'Inter', sans-serif;
 	font-variation-settings: 'slnt' 0;
 	font-optical-sizing: auto;
@@ -57,7 +57,9 @@ img {
 }
 
 .elevation-3 {
-	box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+	box-shadow:
+		0 10px 20px rgba(0, 0, 0, 0.19),
+		0 6px 6px rgba(0, 0, 0, 0.23);
 }
 
 .flex-center {
@@ -173,7 +175,9 @@ img {
 		width: 100%;
 
 		img {
-			box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+			box-shadow:
+				0 10px 20px rgba(0, 0, 0, 0.19),
+				0 6px 6px rgba(0, 0, 0, 0.23);
 			margin: 1.618em 0;
 		}
 	}
@@ -196,7 +200,7 @@ img {
 }
 
 header {
-	background-color: #700f39;
+	background-color: #701033;
 	color: white;
 	position: relative;
 	/* padding: 1em 0; */
@@ -378,14 +382,14 @@ section {
 	justify-content: center;
 	align-content: center;
 	align-items: center;
-	padding: 200px 25px;
+	padding: 13rem 25px;
 	row-gap: 1.618em;
 	column-gap: 5em;
 	flex-wrap: wrap;
 	display: flex;
 
 	&:nth-of-type(odd) {
-		background-color: #140c10;
+		background: #140c10;
 		flex-direction: row-reverse;
 	}
 
@@ -412,12 +416,13 @@ section {
 }
 
 #banner {
+	border-bottom: 1rem solid #271019;
+	padding: 1em 1em 1em 1em;
 	flex-direction: column;
 	position: relative;
-	padding: 1em 1em 1em 1em;
-	max-height: 70vh;
+	max-height: 85vh;
 	display: flex;
-	height: 750px;
+	height: 900vh;
 	gap: 1.618em;
 
 	img {
