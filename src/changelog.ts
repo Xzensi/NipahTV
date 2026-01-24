@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.84',
+		date: '2026-01-24',
+		description: `
+                  Feat: 7TV channel emote changes now show added/removed messages in chat
+                  Feat: Added setting to disable channel emote added/removed messages in chat
+            `
+	},
+	{
 		version: '1.5.83',
 		date: '2025-12-27',
 		description: `

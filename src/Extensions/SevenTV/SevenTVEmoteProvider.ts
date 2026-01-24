@@ -1,13 +1,14 @@
 import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
 import { BROWSER_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
 import type SettingsManager from '@core/Settings/SettingsManager'
-import { REST, md5 } from '@core/Common/utils'
+import { REST, md5, splitEmoteName } from '@core/Common/utils'
 import { Logger } from '@core/Common/Logger'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 export default class SevenTVEmoteProvider extends AbstractEmoteProvider implements IAbstractEmoteProvider {
+	static id = PROVIDER_ENUM.SEVENTV
 	id = PROVIDER_ENUM.SEVENTV
 	name = '7TV'
 
@@ -68,17 +69,19 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		return (userEmoteSet && [...globalEmoteSet, ...userEmoteSet]) || [...globalEmoteSet]
 	}
 
-	private unpackGlobalEmotes(channelId: ChannelId, globalData: any) {
+	private unpackGlobalEmotes(channelId: ChannelId, globalData: any): EmoteSet[] | void {
 		if (!globalData.emotes || !globalData.emotes?.length) {
 			error('EXT:STV', 'EMOT:PROV', 'No global emotes found for SevenTV provider')
 			return
 		}
 
-		let emotesMapped = globalData.emotes.map((emote: any) => {
+		let emotesMapped = globalData.emotes.map((emote: any): Emote | void => {
 			if (!emote.data?.host?.files || !emote.data.host.files.length) {
 				error('EXT:STV', 'EMOT:PROV', 'Emote has no files:', emote)
 				return
 			}
+			// Map of emote names splitted into parts for more relevant search results
+			const parts = splitEmoteName(emote.name, 2)
 			const file = emote.data.host.files[0]
 			let size
 			switch (true) {
@@ -102,8 +105,9 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				isZeroWidth: (emote.flags & 1) !== 0,
 				spacing: true,
 				width: file.width,
-				size
-			} as Emote
+				size,
+				parts
+			}
 		})
 
 		// removed undefined entries from the array
@@ -125,36 +129,17 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				isSubscribed: false,
 				icon: globalData.owner?.avatar_url || 'https://7tv.app/favicon.svg',
 				id: '7tv_global'
-			} as EmoteSet
+			}
 		]
 	}
 
-	private unpackUserEmotes(channelId: ChannelId, userData: any) {
+	private unpackUserEmotes(channelId: ChannelId, userData: any): EmoteSet[] | void {
 		if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
 			log('EXT:STV', 'EMOT:PROV', 'No user emotes found for SevenTV provider')
 			return
 		}
 
-		let emotesMapped = userData.emote_set.emotes.map((emote: any) => {
-			if (!emote.data?.host?.files || !emote.data.host.files.length) {
-				error('EXT:STV', 'EMOT:PROV', 'Emote has no files:', emote)
-				return
-			}
-			const file = emote.data.host.files[0]
-			const size = (file.width / 24 + 0.5) << 0
-
-			const sanitizedEmoteName = emote.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
-			return {
-				id: '' + emote.id,
-				hid: md5(emote.name),
-				name: sanitizedEmoteName,
-				provider: this.id,
-				isZeroWidth: (emote.flags & 1) !== 0,
-				spacing: true,
-				width: file.width,
-				size
-			} as Emote
-		})
+		let emotesMapped = userData.emote_set.emotes.map(SevenTVEmoteProvider.unpackUserEmote)
 
 		// removed undefined entries from the array
 		emotesMapped = emotesMapped.filter(Boolean)
@@ -178,8 +163,34 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				isSubscribed: false,
 				icon: userData.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.svg',
 				id: '7tv_' + userData.emote_set.id
-			} as EmoteSet
+			}
 		]
+	}
+
+	static unpackUserEmote(emoteData: any): Emote | void {
+		if (!emoteData.data?.host?.files || !emoteData.data.host.files.length) {
+			error('EXT:STV', 'EMOT:PROV', 'Emote has no files:', emoteData)
+			return
+		}
+		const file = emoteData.data.host.files[0]
+		const size = (file.width / 24 + 0.5) << 0
+
+		const sanitizedEmoteName = emoteData.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
+
+		// Map of emote names splitted into parts for more relevant search results
+		const parts = splitEmoteName(sanitizedEmoteName, 2)
+
+		return {
+			id: '' + emoteData.id,
+			hid: md5(emoteData.name),
+			name: sanitizedEmoteName,
+			provider: SevenTVEmoteProvider.id,
+			isZeroWidth: (emoteData.flags & 1) !== 0,
+			spacing: true,
+			width: file.width,
+			size,
+			parts
+		}
 	}
 
 	getRenderableEmote(emote: Emote, classes = '', srcSetWidthDescriptor?: boolean) {

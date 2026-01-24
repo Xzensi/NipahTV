@@ -20,6 +20,7 @@ import type { Badge } from '@core/Emotes/BadgeProvider'
 import { Logger } from '@core/Common/Logger'
 import { Caret } from '@core/UI/Caret'
 import { VerticalMenuComponent } from '@core/UI/Components/VerticalMenuComponent'
+import { User } from '@core/Users/UsersDatastore'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -1299,9 +1300,27 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	observeChatMessages(chatMessagesContainerEl: HTMLElement) {
-		const channelId = this.session.channelData.channelId
 		const settingsManager = this.rootContext.settingsManager
-		const channelData = this.session.channelData
+		const channelId = this.session.channelData.channelId
+
+		const chatEmoteUpdateMessagesSetting = settingsManager.getSetting(
+			channelId,
+			'chat.messages.emote_updates.enabled'
+		)
+		if (chatEmoteUpdateMessagesSetting) {
+			this.session.eventBus.subscribe(
+				'ntv.channel.moderation.emote_added',
+				({ actor, emote }: { actor: User; emote: Emote }) => {
+					this.addEmoteEventChatMessage('emote_added', emote, actor.name)
+				}
+			)
+			this.session.eventBus.subscribe(
+				'ntv.channel.moderation.emote_removed',
+				({ actor, emote }: { actor: User; emote: Emote }) => {
+					this.addEmoteEventChatMessage('emote_removed', emote, actor.name)
+				}
+			)
+		}
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
@@ -1722,6 +1741,38 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		messageEl.classList.add('ntv__chat-message', 'ntv__chat-message--unrendered')
+	}
+
+	addEmoteEventChatMessage(type: 'emote_added' | 'emote_removed', emote: Emote, actorName: string) {
+		const { emotesManager } = this.session
+
+		const messageTemplate = parseHTML(
+			cleanupHTML(`
+			<div class="ntv__event-message ntv__event-message--emote-update">
+				<div class="ntv__event-message__inner">
+					<span class="ntv__chat-message__part">Emote</span>
+					<span class="ntv__chat-message__part">
+						<div class="ntv__inline-emote-box">
+							${emotesManager.getRenderableEmote(emote, '', true)}
+						</div>
+					</span>
+					<span class="ntv__chat-message__part">got ${type === 'emote_added' ? 'added to' : 'removed from'} channel by ${actorName}</span>
+				</div>
+			</div>
+		`)
+		)
+
+		// Kick makes it impossible to insert new messages, so we inject into an existing processed message instead
+		const lastProcessedMessage = this.elm.chatMessagesContainer?.querySelector(
+			'& > .ntv__chat-message:not(.ntv__chat-message--unrendered):last-of-type'
+		) as HTMLElement | null
+
+		if (!lastProcessedMessage) {
+			log('KICK', 'UI', 'No processed chat message found to insert emote event message into')
+			return
+		}
+
+		lastProcessedMessage.appendChild(messageTemplate)
 	}
 
 	renderChatMessage(messageNode: HTMLElement) {

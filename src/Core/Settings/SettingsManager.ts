@@ -279,6 +279,7 @@ export default class SettingsManager {
 					children: [
 						{
 							label: 'Appearance',
+							description: 'These settings require a page refresh to take effect.',
 							children: [
 								{
 									label: 'Choose the style of the emote menu button',
@@ -328,19 +329,19 @@ export default class SettingsManager {
 								// 	type: 'checkbox'
 								// },
 								{
-									label: 'Show the search box (requires page refresh)',
+									label: 'Show the search box',
 									key: 'chat.emote_menu.search_box',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: 'Show favorited emotes in the emote menu (requires page refresh)',
+									label: 'Show favorited emotes in the emote menu',
 									key: 'emote_menu.show_favorites',
 									default: true,
 									type: 'checkbox'
 								},
 								{
-									label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes (requires page refresh)",
+									label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes",
 									key: 'emote_menu.show_unavailable_favorites',
 									default: false,
 									type: 'checkbox'
@@ -561,6 +562,17 @@ export default class SettingsManager {
 									label: 'Display lines with alternating background colors',
 									key: 'chat.messages.alternating_background',
 									default: false,
+									type: 'checkbox'
+								}
+							]
+						},
+						{
+							label: 'Events',
+							children: [
+								{
+									label: 'Show emote added/removed event messages in chat',
+									key: 'chat.messages.emote_updates.enabled',
+									default: true,
 									type: 'checkbox'
 								}
 							]

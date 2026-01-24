@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.83
+// @version 1.5.84
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-a33828e4.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-6a78ce4c.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12264,6 +12264,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.84",
+    date: "2026-01-24",
+    description: `
+                  Feat: 7TV channel emote changes now show added/removed messages in chat
+                  Feat: Added setting to disable channel emote added/removed messages in chat
+            `
+  },
+  {
     version: "1.5.83",
     date: "2025-12-27",
     description: `
@@ -14083,6 +14091,7 @@ var SettingsManager = class {
           children: [
             {
               label: "Appearance",
+              description: "These settings require a page refresh to take effect.",
               children: [
                 {
                   label: "Choose the style of the emote menu button",
@@ -14132,19 +14141,19 @@ var SettingsManager = class {
                 // 	type: 'checkbox'
                 // },
                 {
-                  label: "Show the search box (requires page refresh)",
+                  label: "Show the search box",
                   key: "chat.emote_menu.search_box",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show favorited emotes in the emote menu (requires page refresh)",
+                  label: "Show favorited emotes in the emote menu",
                   key: "emote_menu.show_favorites",
                   default: true,
                   type: "checkbox"
                 },
                 {
-                  label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes (requires page refresh)",
+                  label: "Show favorited emotes of other channels that cannot be used, because they're not cross-channel emotes",
                   key: "emote_menu.show_unavailable_favorites",
                   default: false,
                   type: "checkbox"
@@ -14365,6 +14374,17 @@ var SettingsManager = class {
                   label: "Display lines with alternating background colors",
                   key: "chat.messages.alternating_background",
                   default: false,
+                  type: "checkbox"
+                }
+              ]
+            },
+            {
+              label: "Events",
+              children: [
+                {
+                  label: "Show emote added/removed event messages in chat",
+                  key: "chat.messages.emote_updates.enabled",
+                  default: true,
                   type: "checkbox"
                 }
               ]
@@ -16252,6 +16272,7 @@ var EmoteDatastore = class {
   rootContext;
   session;
   channelId;
+  providerOverrideOrder = [2 /* SEVENTV */, 1 /* KICK */];
   constructor(rootContext, session) {
     this.rootContext = rootContext;
     this.session = session;
@@ -16359,47 +16380,18 @@ var EmoteDatastore = class {
     log9("CORE", "EMOT:STORE", "Synced emote data changes to database");
     this.hasPendingChanges = false;
   }
-  registerEmoteSet(emoteSet, providerOverrideOrder) {
-    if (this.emoteSetMap.has(emoteSet.provider + "_" + emoteSet.id)) {
+  registerEmoteSet(emoteSet) {
+    if (this.emoteSetMap.has(emoteSet.id)) {
       return;
     }
-    this.emoteSetMap.set(emoteSet.provider + "_" + emoteSet.id, emoteSet);
+    this.emoteSetMap.set(emoteSet.id, emoteSet);
     this.emoteSets.push(emoteSet);
     let updatedEmoteSets = [];
     for (let i = emoteSet.emotes.length - 1; i >= 0; i--) {
       const emote = emoteSet.emotes[i];
-      if (!emote.hid || !emote.id || typeof emote.id !== "string" || !emote.name || void 0 === emote.provider) {
-        return error10("CORE", "EMOT:STORE", "Invalid emote data", emote);
-      }
-      this.emoteIdMap.set(emote.id, emote);
-      const storedEmote = this.emoteNameMap.get(emote.name);
-      const storedEmoteSet = this.emoteEmoteSetMap.get(emote.hid);
-      if (storedEmote && storedEmoteSet) {
-        const isHigherProviderOrder = providerOverrideOrder.indexOf(emoteSet.provider) > providerOverrideOrder.indexOf(storedEmote.provider);
-        if (isHigherProviderOrder && storedEmoteSet.isGlobalSet || isHigherProviderOrder && storedEmoteSet.isEmoji || isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmoteSet.isCurrentChannel || isHigherProviderOrder && (emoteSet.isCurrentChannel || emoteSet.isOtherChannel) && storedEmoteSet.isOtherChannel || !isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmoteSet.isCurrentChannel || !isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet) {
-          log9(
-            "CORE",
-            "EMOT:STORE",
-            `Registered ${emote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${emoteSet.isGlobalSet ? "global" : "channel"} emote ${emote.name} override for loaded ${storedEmote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${storedEmoteSet.isGlobalSet ? "global" : "channel"} emote`
-          );
-          storedEmoteSet.emotes.splice(storedEmoteSet.emotes.indexOf(storedEmote), 1);
-          this.fuse.remove((indexedEmote) => indexedEmote.name === emote.name);
-          if (!updatedEmoteSets.includes(storedEmoteSet)) {
-            updatedEmoteSets.push(storedEmoteSet);
-          }
-          this.emoteMap.set(emote.hid, emote);
-          this.emoteNameMap.set(emote.name, emote);
-          this.emoteEmoteSetMap.set(emote.hid, emoteSet);
-          this.fuse.add(emote);
-        } else {
-          emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1);
-          log9("CORE", "EMOT:STORE", "Skipped overridden emote", emote.name);
-        }
-      } else {
-        this.emoteMap.set(emote.hid, emote);
-        this.emoteNameMap.set(emote.name, emote);
-        this.emoteEmoteSetMap.set(emote.hid, emoteSet);
-        this.fuse.add(emote);
+      const hasUpdatedEmoteSet = this.registerEmote(emote, emoteSet);
+      if (hasUpdatedEmoteSet && !updatedEmoteSets.includes(emoteSet)) {
+        updatedEmoteSets.push(emoteSet);
       }
     }
     this.session.eventBus.publish("ntv.datastore.emoteset.added", emoteSet);
@@ -16408,6 +16400,84 @@ var EmoteDatastore = class {
         this.session.eventBus.publish("ntv.datastore.emoteset.updated", updatedEmoteSet);
       }
     }
+  }
+  registerEmote(emote, emoteSet) {
+    if (!emote.hid || !emote.id || typeof emote.id !== "string" || !emote.name || void 0 === emote.provider) {
+      return error10("CORE", "EMOT:STORE", "Invalid emote data", emote);
+    }
+    let hasUpdatedEmoteSet = false;
+    this.emoteIdMap.set(emote.id, emote);
+    const storedEmote = this.emoteNameMap.get(emote.name);
+    const storedEmoteSet = this.emoteEmoteSetMap.get(emote.hid);
+    if (storedEmote && storedEmoteSet) {
+      const isHigherProviderOrder = this.providerOverrideOrder.indexOf(emoteSet.provider) > this.providerOverrideOrder.indexOf(storedEmote.provider);
+      if (isHigherProviderOrder && storedEmoteSet.isGlobalSet || isHigherProviderOrder && storedEmoteSet.isEmoji || isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmoteSet.isCurrentChannel || isHigherProviderOrder && (emoteSet.isCurrentChannel || emoteSet.isOtherChannel) && storedEmoteSet.isOtherChannel || !isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmoteSet.isCurrentChannel || !isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet) {
+        log9(
+          "CORE",
+          "EMOT:STORE",
+          `Registered ${emote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${emoteSet.isGlobalSet ? "global" : "channel"} emote ${emote.name} override for loaded ${storedEmote.provider === 1 /* KICK */ ? "Kick" : "7TV"} ${storedEmoteSet.isGlobalSet ? "global" : "channel"} emote`
+        );
+        storedEmoteSet.emotes.splice(storedEmoteSet.emotes.indexOf(storedEmote), 1);
+        this.fuse.remove((indexedEmote) => indexedEmote.name === emote.name);
+        if (!hasUpdatedEmoteSet) hasUpdatedEmoteSet = true;
+        this.emoteMap.set(emote.hid, emote);
+        this.emoteNameMap.set(emote.name, emote);
+        this.emoteEmoteSetMap.set(emote.hid, emoteSet);
+        this.fuse.add(emote);
+      } else {
+        emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1);
+        log9("CORE", "EMOT:STORE", "Skipped overridden emote", emote.name);
+      }
+    } else {
+      this.emoteMap.set(emote.hid, emote);
+      this.emoteNameMap.set(emote.name, emote);
+      this.emoteEmoteSetMap.set(emote.hid, emoteSet);
+      this.fuse.add(emote);
+    }
+    return hasUpdatedEmoteSet;
+  }
+  addEmoteToEmoteSetById(emote, emoteSetId) {
+    if (this.emoteIdMap.get(emote.id)) return;
+    const emoteSet = this.emoteSetMap.get(emoteSetId);
+    if (!emoteSet) {
+      return error10("CORE", "EMOT:STORE", "Unable to add emote to emote set, emote set not found", emoteSetId);
+    }
+    if (emoteSet.emotes.find((e) => e.id === emote.id)) {
+      return error10(
+        "CORE",
+        "EMOT:STORE",
+        "Unable to add emote to emote set, emote already exists in emote set",
+        emote.name
+      );
+    }
+    emoteSet.emotes.push(emote);
+    this.registerEmote(emote, emoteSet);
+    this.session.eventBus.publish("ntv.datastore.emoteset.updated", emoteSet);
+  }
+  removeEmoteFromEmoteSetById(emoteId, emoteSetId) {
+    const emote = this.emoteIdMap.get(emoteId);
+    if (!emote) return;
+    const emoteSet = this.emoteSetMap.get(emoteSetId);
+    if (emoteSet) {
+      const index = emoteSet.emotes.findIndex((e) => e.id === emoteId);
+      if (index !== -1) {
+        emoteSet.emotes.splice(index, 1);
+      } else {
+        error10(
+          "CORE",
+          "EMOT:STORE",
+          "Unable to remove emote from emote set, emote not found in emote set",
+          emote.name
+        );
+      }
+    } else error10("CORE", "EMOT:STORE", "Unable to remove emote from emote set, emote set not found", emoteSetId);
+    this.emoteMap.delete(emote.hid);
+    this.emoteIdMap.delete(emoteId);
+    this.emoteNameMap.delete(emote.name);
+    this.emoteEmoteSetMap.delete(emote.hid);
+    this.fuse.remove((indexedEmote) => indexedEmote.name === emote.name);
+    this.session.eventBus.publish("ntv.datastore.emoteset.updated", emoteSet);
+    return emote;
   }
   getEmote(emoteHid) {
     return this.emoteMap.get(emoteHid);
@@ -16592,7 +16662,7 @@ var EmotesManager = class {
    * @param channelData The channel data object containing channel and user information.
    * @param providerOverrideOrder The index of emote providers in the array determines their override order incase of emote conflicts.
    */
-  async loadProviderEmotes(channelData, providerOverrideOrder) {
+  async loadProviderEmotes(channelData) {
     const { datastore, providers } = this;
     const { eventBus } = this.session;
     info9("CORE", "EMOT:MGR", "Indexing emote providers..");
@@ -16602,17 +16672,7 @@ var EmotesManager = class {
       fetchEmoteProviderPromises.push(providerPromise);
       providerPromise.then((emoteSets) => {
         if (!emoteSets) return;
-        for (const emoteSet of emoteSets) {
-          for (const emote of emoteSet.emotes) {
-            const parts = splitEmoteName(emote.name, 2);
-            if (parts.length && parts[0] !== emote.name) {
-              emote.parts = parts;
-            } else {
-              emote.parts = [];
-            }
-          }
-          datastore.registerEmoteSet(emoteSet, providerOverrideOrder);
-        }
+        for (const emoteSet of emoteSets) datastore.registerEmoteSet(emoteSet);
       }).catch((err) => {
         this.session.userInterface?.toastError(`Failed to fetch emotes from provider ${provider.name}`);
         error11("CORE", "EMOT:MGR", "Failed to fetch emotes from provider", provider.id, err.message);
@@ -16634,6 +16694,12 @@ var EmotesManager = class {
   }
   hasLoadedProviders() {
     return this.loaded;
+  }
+  addEmoteToEmoteSetById(emote, emoteSetId) {
+    return this.datastore.addEmoteToEmoteSetById(emote, emoteSetId);
+  }
+  removeEmoteFromEmoteSetById(emoteId, emoteSetId) {
+    return this.datastore.removeEmoteFromEmoteSetById(emoteId, emoteSetId);
   }
   getEmote(emoteHid) {
     return this.datastore.getEmote("" + emoteHid);
@@ -23608,9 +23674,26 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
   }
   observeChatMessages(chatMessagesContainerEl) {
-    const channelId = this.session.channelData.channelId;
     const settingsManager = this.rootContext.settingsManager;
-    const channelData = this.session.channelData;
+    const channelId = this.session.channelData.channelId;
+    const chatEmoteUpdateMessagesSetting = settingsManager.getSetting(
+      channelId,
+      "chat.messages.emote_updates.enabled"
+    );
+    if (chatEmoteUpdateMessagesSetting) {
+      this.session.eventBus.subscribe(
+        "ntv.channel.moderation.emote_added",
+        ({ actor, emote }) => {
+          this.addEmoteEventChatMessage("emote_added", emote, actor.name);
+        }
+      );
+      this.session.eventBus.subscribe(
+        "ntv.channel.moderation.emote_removed",
+        ({ actor, emote }) => {
+          this.addEmoteEventChatMessage("emote_removed", emote, actor.name);
+        }
+      );
+    }
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
     const loadObserver = () => {
       const observer = this.chatObserver = new MutationObserver((mutations) => {
@@ -23918,6 +24001,32 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     }
     messageEl.classList.add("ntv__chat-message", "ntv__chat-message--unrendered");
+  }
+  addEmoteEventChatMessage(type, emote, actorName) {
+    const { emotesManager } = this.session;
+    const messageTemplate = parseHTML(
+      cleanupHTML(`
+			<div class="ntv__event-message ntv__event-message--emote-update">
+				<div class="ntv__event-message__inner">
+					<span class="ntv__chat-message__part">Emote</span>
+					<span class="ntv__chat-message__part">
+						<div class="ntv__inline-emote-box">
+							${emotesManager.getRenderableEmote(emote, "", true)}
+						</div>
+					</span>
+					<span class="ntv__chat-message__part">got ${type === "emote_added" ? "added to" : "removed from"} channel by ${actorName}</span>
+				</div>
+			</div>
+		`)
+    );
+    const lastProcessedMessage = this.elm.chatMessagesContainer?.querySelector(
+      "& > .ntv__chat-message:not(.ntv__chat-message--unrendered):last-of-type"
+    );
+    if (!lastProcessedMessage) {
+      log28("KICK", "UI", "No processed chat message found to insert emote event message into");
+      return;
+    }
+    lastProcessedMessage.appendChild(messageTemplate);
   }
   renderChatMessage(messageNode) {
     const { settingsManager } = this.rootContext;
@@ -24911,6 +25020,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
     for (const dataSet of dataSets) {
       const emotesMapped = dataSet.emotes.map((emote) => {
         const sanitizedEmoteName = emote.name.replaceAll("<", "&lt;").replaceAll('"', "&quot;");
+        const parts = splitEmoteName(sanitizedEmoteName, 2);
         return {
           id: "" + emote.id,
           hid: md5(emote.name),
@@ -24918,7 +25028,8 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
           isSubscribersOnly: emote.subscribers_only,
           provider: this.id,
           width: 32,
-          size: 1
+          size: 1,
+          parts
         };
       });
       const emoteSetIcon = dataSet?.user?.profile_pic || "https://kick.com/favicon.ico";
@@ -24960,7 +25071,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
         isGlobalSet,
         isCurrentChannel: dataSetId === channelId,
         isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
-        isSubscribed: dataSetId === channelId ? me.isSubscribed || me.isBroadcaster : true,
+        isSubscribed: dataSetId === channelId ? !!me.isSubscribed || !!me.isBroadcaster : true,
         icon: emoteSetIcon,
         id: "kick_" + dataSetId
       });
@@ -25110,7 +25221,8 @@ var KickBadgeProvider = class {
 // src/Extensions/SevenTV/SevenTVEmoteProvider.ts
 var logger33 = new Logger();
 var { log: log32, info: info30, error: error33 } = logger33.destruct();
-var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
+var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProvider {
+  static id = 2 /* SEVENTV */;
   id = 2 /* SEVENTV */;
   name = "7TV";
   constructor(settingsManager) {
@@ -25169,6 +25281,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         error33("EXT:STV", "EMOT:PROV", "Emote has no files:", emote);
         return;
       }
+      const parts = splitEmoteName(emote.name, 2);
       const file = emote.data.host.files[0];
       let size;
       switch (true) {
@@ -25192,7 +25305,8 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         isZeroWidth: (emote.flags & 1) !== 0,
         spacing: true,
         width: file.width,
-        size
+        size,
+        parts
       };
     });
     emotesMapped = emotesMapped.filter(Boolean);
@@ -25219,25 +25333,7 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
       log32("EXT:STV", "EMOT:PROV", "No user emotes found for SevenTV provider");
       return;
     }
-    let emotesMapped = userData.emote_set.emotes.map((emote) => {
-      if (!emote.data?.host?.files || !emote.data.host.files.length) {
-        error33("EXT:STV", "EMOT:PROV", "Emote has no files:", emote);
-        return;
-      }
-      const file = emote.data.host.files[0];
-      const size = file.width / 24 + 0.5 << 0;
-      const sanitizedEmoteName = emote.name.replaceAll("<", "&lt;").replaceAll('"', "&quot;");
-      return {
-        id: "" + emote.id,
-        hid: md5(emote.name),
-        name: sanitizedEmoteName,
-        provider: this.id,
-        isZeroWidth: (emote.flags & 1) !== 0,
-        spacing: true,
-        width: file.width,
-        size
-      };
-    });
+    let emotesMapped = userData.emote_set.emotes.map(_SevenTVEmoteProvider.unpackUserEmote);
     emotesMapped = emotesMapped.filter(Boolean);
     const isMenuEnabled = !!this.settingsManager.getSetting(
       channelId,
@@ -25259,6 +25355,27 @@ var SevenTVEmoteProvider = class extends AbstractEmoteProvider {
         id: "7tv_" + userData.emote_set.id
       }
     ];
+  }
+  static unpackUserEmote(emoteData) {
+    if (!emoteData.data?.host?.files || !emoteData.data.host.files.length) {
+      error33("EXT:STV", "EMOT:PROV", "Emote has no files:", emoteData);
+      return;
+    }
+    const file = emoteData.data.host.files[0];
+    const size = file.width / 24 + 0.5 << 0;
+    const sanitizedEmoteName = emoteData.name.replaceAll("<", "&lt;").replaceAll('"', "&quot;");
+    const parts = splitEmoteName(sanitizedEmoteName, 2);
+    return {
+      id: "" + emoteData.id,
+      hid: md5(emoteData.name),
+      name: sanitizedEmoteName,
+      provider: _SevenTVEmoteProvider.id,
+      isZeroWidth: (emoteData.flags & 1) !== 0,
+      spacing: true,
+      width: file.width,
+      size,
+      parts
+    };
   }
   getRenderableEmote(emote, classes = "", srcSetWidthDescriptor) {
     const ext = NTV_SUPPORTS_AVIF && NTV_BROWSER !== 5 /* SAFARI */ && "avif" || "webp";
@@ -25412,15 +25529,17 @@ function getUserEmoteSetConnectionsDataByConnection(platformId, userId) {
 // src/Extensions/SevenTV/SevenTVEventAPI.ts
 var logger34 = new Logger();
 var { log: log33, info: info31, error: error34 } = logger34.destruct();
-function createRoom(channelId, userId, emoteSetId) {
-  return userId && {
+function createRoom(channelId, stvChannelUserId, stvUserId, emoteSetId) {
+  return stvUserId && {
     presenceTimestamp: 0,
     channelId,
-    userId,
+    stvChannelUserId,
+    stvUserId,
     emoteSetId
   } || {
     presenceTimestamp: 0,
-    channelId
+    channelId,
+    stvChannelUserId
   };
 }
 var SevenTVEventAPI = class _SevenTVEventAPI {
@@ -25449,11 +25568,53 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
   connectionId = null;
   rooms = [];
   eventTarget = new EventTarget();
+  scopedEventTarget = new EventTarget();
+  // stvListenerWrappers maps: channelId -> eventType -> originalListener -> wrapper
+  stvListenerWrappers = /* @__PURE__ */ new Map();
   addEventListener(type, listener) {
     this.eventTarget.addEventListener(type, listener);
   }
+  addEventListenerByStvUser(room, type, listener) {
+    if (!room.stvChannelUserId) {
+      throw new Error("Cannot add EventAPI listener by STV user without STV channel user ID");
+    }
+    const wrapper = (event) => {
+      const detail = event.detail;
+      if (detail && (!detail.object?.user || detail.object?.user?.id === room.stvChannelUserId)) {
+        if (typeof listener === "function") {
+          ;
+          listener(event);
+        } else {
+          ;
+          listener.handleEvent(event);
+        }
+      }
+    };
+    let typeMap = this.stvListenerWrappers.get(room.channelId);
+    if (!typeMap) {
+      typeMap = /* @__PURE__ */ new Map();
+      this.stvListenerWrappers.set(room.channelId, typeMap);
+    }
+    let listenerMap = typeMap.get(type);
+    if (!listenerMap) {
+      listenerMap = /* @__PURE__ */ new Map();
+      typeMap.set(type, listenerMap);
+    }
+    listenerMap.set(listener, wrapper);
+    this.scopedEventTarget.addEventListener(type, wrapper);
+  }
   removeEventlistener(type, listener) {
     this.eventTarget.removeEventListener(type, listener);
+  }
+  removeEventListenerByStvUser(room) {
+    const typeMap = this.stvListenerWrappers.get(room.channelId);
+    if (!typeMap) return;
+    for (const [type, listenerMap] of typeMap.entries()) {
+      for (const wrapper of listenerMap.values()) {
+        this.scopedEventTarget.removeEventListener(type, wrapper);
+      }
+    }
+    this.stvListenerWrappers.delete(room.channelId);
   }
   /**
    * Connection State Flow:
@@ -25625,18 +25786,22 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     this.connectionState = 0 /* DISCONNECTED */;
     this.connectionId = null;
   }
-  registerRoom(channelId, userId, emoteSetId) {
-    log33("EXT:STV", "EVENTAPI", `Registering room <${channelId}> with user <${userId}>`);
+  registerRoom(channelId, stvChannelUserId, stvUserId, emoteSetId) {
+    log33(
+      "EXT:STV",
+      "EVENTAPI",
+      `Registering room <${channelId}@${stvChannelUserId || "no channel"}> with user <${stvUserId || "no user"}>`
+    );
     if (this.rooms.some((room2) => room2.channelId === channelId))
       return error34("EXT:STV", "EVENTAPI", "EventAPI Room is already registered!");
-    const room = createRoom(channelId, userId, emoteSetId);
+    const room = createRoom(channelId, stvChannelUserId, stvUserId, emoteSetId);
     if (this.connectionState !== 2 /* CONNECTED */) {
       this.roomBuffer.push(room);
       return room;
     }
     this.rooms.push(room);
     this.subscribeRoom(room);
-    if (userId) this.sendPresence(room, true, true);
+    if (stvUserId) this.sendPresence(room, true, true);
     return room;
   }
   removeRoom(channelId) {
@@ -25683,19 +25848,19 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
   }
   sendPresences() {
     for (const room of this.rooms) {
-      if (room.userId) this.sendPresence(room);
+      if (room.stvUserId) this.sendPresence(room);
     }
   }
   sendPresence(room, self2 = false, force = false) {
     if (this.connectionState !== 2 /* CONNECTED */) return;
-    const { channelId, userId } = room;
-    if (!userId) return error34("EXT:STV", "EVENTAPI", "No user ID provided for presence update");
+    const { channelId, stvUserId } = room;
+    if (!stvUserId) return error34("EXT:STV", "EVENTAPI", "No user ID provided for presence update");
     if (!force) {
       const now = Date.now();
       if (room.presenceTimestamp > now - _SevenTVEventAPI.PRESENCE_THROTTLE_INTERVAL) return;
       room.presenceTimestamp = now;
     }
-    REST.post(`https://7tv.io/v3/users/${userId}/presences`, {
+    REST.post(`https://7tv.io/v3/users/${stvUserId}/presences`, {
       kind: 1,
       passive: self2,
       session_id: self2 ? this.connectionId : void 0,
@@ -25743,8 +25908,8 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     this.connectionId = event.session_id;
     this.shouldResume = false;
     if (this.roomBuffer.length) {
-      for (const { channelId, userId } of this.roomBuffer) {
-        this.registerRoom(channelId);
+      for (const { channelId, stvChannelUserId, stvUserId } of this.roomBuffer) {
+        this.registerRoom(channelId, stvChannelUserId);
       }
       this.roomBuffer = [];
     }
@@ -25830,8 +25995,26 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     }
   }
   onDispatchEvent(event) {
+    log33("EXT:STV", "EVENTAPI", `[DISPATCH] <${event.type}>`, event);
     switch (event.type) {
       case "system.announcement" /* SYSTEM_ANNOUNCEMENT */:
+        break;
+      case "emote_set.update" /* EMOTE_SET_UPDATED */:
+        const emoteSetUpdate = event.body;
+        if (emoteSetUpdate.pushed) {
+          this.scopedEventTarget.dispatchEvent(
+            new CustomEvent("emotes_added", {
+              detail: emoteSetUpdate
+            })
+          );
+        }
+        if (emoteSetUpdate.pulled) {
+          this.scopedEventTarget.dispatchEvent(
+            new CustomEvent("emotes_removed", {
+              detail: emoteSetUpdate
+            })
+          );
+        }
         break;
       case "entitlement.create" /* ENTITLEMENT_CREATED */:
         const entitlement = event.body.object;
@@ -26107,7 +26290,7 @@ var SevenTVExtension = class extends Extension {
   }
   async onSessionCreate(session) {
     const { datastore } = this;
-    const { eventBus } = session;
+    const { eventBus, emotesManager } = session;
     const { settingsManager } = this.rootContext;
     if (!session.channelData)
       return error36("EXT:STV", "MAIN", `Skipping session without channel data, you're probably not in a channel..`);
@@ -26132,7 +26315,7 @@ var SevenTVExtension = class extends Extension {
           return this.cachedStvMeUser = user;
         }).then((user) => {
           if (user.id === STV_ID_NULL) return;
-          (async () => {
+          queueMicrotask(() => {
             const paint = user.style?.paint;
             if (paint) {
               datastore.createEntitlement({
@@ -26148,7 +26331,7 @@ var SevenTVExtension = class extends Extension {
               });
               this.handlePaintCreated(new CustomEvent("paint_created", { detail: paint }));
             }
-          })();
+          });
         }).catch((err) => this.cachedStvMeUser = { id: STV_ID_NULL })
       );
     }
@@ -26158,22 +26341,85 @@ var SevenTVExtension = class extends Extension {
       })
     );
     const promiseRes = await Promise.allSettled(promises);
-    const channelUser = promiseRes[promiseRes.length - 1].status === "fulfilled" ? (
-      //@ts-ignore
-      promiseRes[promiseRes.length - 1].value || { id: STV_ID_NULL }
-    ) : { id: STV_ID_NULL };
+    const stvChannelUser = promiseRes[1].status === "fulfilled" ? promiseRes[1].value : void 0;
     let activeEmoteSet;
-    if (channelUser.id !== STV_ID_NULL && "emote_sets" in channelUser && channelUser.emote_sets) {
-      activeEmoteSet = channelUser.emote_sets.find(
-        (set) => set.id === channelUser.connections?.find((c) => c.platform === platformId)?.emote_set_id
+    if (stvChannelUser && "emote_sets" in stvChannelUser && stvChannelUser.emote_sets) {
+      activeEmoteSet = stvChannelUser.emote_sets.find(
+        (set) => set.id === stvChannelUser.connections?.find((c) => c.platform === platformId)?.emote_set_id
       );
     }
     const stvMeUserId = !this.cachedStvMeUser || this.cachedStvMeUser.id === STV_ID_NULL ? void 0 : this.cachedStvMeUser.id;
-    const room = this.eventAPI.registerRoom(channelUserId, stvMeUserId, activeEmoteSet?.id);
-    if (room && room.userId && room.userId !== STV_ID_NULL) {
+    const room = this.eventAPI.registerRoom(channelUserId, stvChannelUser?.id, stvMeUserId, activeEmoteSet?.id);
+    if (room && room.stvUserId && room.stvUserId !== STV_ID_NULL) {
       eventBus.subscribe("ntv.chat.message.new", (message) => {
         this.eventAPI?.sendPresence(room);
       });
+      if (stvChannelUser && activeEmoteSet) {
+        this.eventAPI.addEventListenerByStvUser(
+          room,
+          "emotes_added",
+          ((event) => {
+            const data = event.detail;
+            if (!data.pushed) return;
+            if (data.id !== activeEmoteSet?.id) return;
+            if (!data.actor) return;
+            const emotesAdded = [];
+            for (const pushed of data.pushed) {
+              if (pushed.key === "emotes" && pushed.value) {
+                const unpackedEmote = SevenTVEmoteProvider.unpackUserEmote(pushed.value);
+                if (unpackedEmote) emotesAdded.push(unpackedEmote);
+              }
+            }
+            log35(
+              "EXT:STV",
+              "MAIN",
+              `${data.actor?.display_name} added ${emotesAdded.length} new emotes to emoteset ${activeEmoteSet?.name}:`,
+              emotesAdded
+            );
+            for (const emote of emotesAdded) {
+              const emoteSetId = "7tv_" + activeEmoteSet.id;
+              emotesManager.addEmoteToEmoteSetById(emote, emoteSetId);
+              eventBus.publish("ntv.channel.moderation.emote_added", {
+                emote,
+                actor: { id: data.actor.id, name: data.actor.display_name }
+              });
+            }
+          }).bind(this)
+        );
+        this.eventAPI.addEventListenerByStvUser(
+          room,
+          "emotes_removed",
+          ((event) => {
+            const data = event.detail;
+            if (!data.pulled) return;
+            if (data.id !== activeEmoteSet?.id) return;
+            if (!data.actor) return;
+            const emotesRemoved = [];
+            for (const pulled of data.pulled) {
+              if (pulled.key === "emotes" && pulled.old_value) {
+                const unpackedEmote = SevenTVEmoteProvider.unpackUserEmote(pulled.old_value);
+                if (unpackedEmote) emotesRemoved.push(unpackedEmote);
+              }
+            }
+            log35(
+              "EXT:STV",
+              "MAIN",
+              `${data.actor?.display_name} removed ${emotesRemoved.length} emotes from emoteset ${activeEmoteSet?.name}:`,
+              emotesRemoved
+            );
+            for (const stvEmote of emotesRemoved) {
+              const emote = emotesManager.getEmoteById(stvEmote.id);
+              if (!emote) continue;
+              const emoteSetId = "7tv_" + activeEmoteSet.id;
+              emotesManager.removeEmoteFromEmoteSetById(emote.id, emoteSetId);
+              eventBus.publish("ntv.channel.moderation.emote_removed", {
+                emote,
+                actor: { id: data.actor.id, name: data.actor.display_name }
+              });
+            }
+          }).bind(this)
+        );
+      }
     }
   }
   onSessionDestroy(session) {
@@ -26447,7 +26693,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.83";
+  VERSION = "1.5.84";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -26740,8 +26986,7 @@ var NipahClient = class {
     } else {
       userInterface.loadInterface();
     }
-    const providerOverrideOrder = [2 /* SEVENTV */, 1 /* KICK */];
-    emotesManager.loadProviderEmotes(channelData, providerOverrideOrder);
+    emotesManager.loadProviderEmotes(channelData);
     eventBus.subscribe(
       "ntv.session.reload",
       debounce(() => {
@@ -26800,10 +27045,13 @@ var NipahClient = class {
         eventBus.publish("ntv.channel.chatroom.me.banned", data);
         if (unbanTimeoutHandle) clearTimeout(unbanTimeoutHandle);
         if (!data.permanent) {
-          unbanTimeoutHandle = setTimeout(() => {
-            delete session.channelData.me.isBanned;
-            eventBus.publish("ntv.channel.chatroom.me.unbanned");
-          }, data.duration * 60 * 1e3);
+          unbanTimeoutHandle = setTimeout(
+            () => {
+              delete session.channelData.me.isBanned;
+              eventBus.publish("ntv.channel.chatroom.me.unbanned");
+            },
+            data.duration * 60 * 1e3
+          );
         }
       }
     });

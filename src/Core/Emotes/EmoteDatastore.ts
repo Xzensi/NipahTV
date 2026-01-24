@@ -39,6 +39,8 @@ export class EmoteDatastore {
 	private session: Session
 	private channelId: string
 
+	private providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
+
 	constructor(rootContext: RootContext, session: Session) {
 		this.rootContext = rootContext
 		this.session = session
@@ -184,101 +186,22 @@ export class EmoteDatastore {
 		this.hasPendingChanges = false
 	}
 
-	registerEmoteSet(emoteSet: EmoteSet, providerOverrideOrder: number[]) {
-		if (this.emoteSetMap.has(emoteSet.provider + '_' + emoteSet.id)) {
+	registerEmoteSet(emoteSet: EmoteSet) {
+		if (this.emoteSetMap.has(emoteSet.id)) {
 			return
 		}
 
-		this.emoteSetMap.set(emoteSet.provider + '_' + emoteSet.id, emoteSet)
+		this.emoteSetMap.set(emoteSet.id, emoteSet)
 		this.emoteSets.push(emoteSet)
 
 		let updatedEmoteSets: EmoteSet[] = []
 
 		for (let i = emoteSet.emotes.length - 1; i >= 0; i--) {
 			const emote = emoteSet.emotes[i]
+			const hasUpdatedEmoteSet = this.registerEmote(emote, emoteSet)
 
-			if (
-				!emote.hid ||
-				!emote.id ||
-				typeof emote.id !== 'string' ||
-				!emote.name ||
-				undefined === emote.provider
-			) {
-				return error('CORE', 'EMOT:STORE', 'Invalid emote data', emote)
-			}
-
-			this.emoteIdMap.set(emote.id, emote)
-
-			/**
-			 * Emote override priority order. The order of which emotes override each other.
-			 * 1. Current channel emotes, overrides 2 and 3
-			 * 2. Other channel emotes, overrides 3
-			 * 3. Global emotes
-			 *
-			 * Additionally sorted by provider order as per providerLoadOrder argument.
-			 *
-			 * 7tv > bttv > twitch/kick
-			 * Channel > other channel > global
-			 *
-			 * Channel emotes always override global emotes
-			 *
-			 * 7tv.global > twitch.global
-			 * twitch.channel > 7tv.global
-			 * 7tv.channel > twitch.channel
-			 *
-			 * Emojis always get overridden by higher priority providers
-			 */
-			const storedEmote = this.emoteNameMap.get(emote.name)
-			const storedEmoteSet = this.emoteEmoteSetMap.get(emote.hid)
-
-			// TODO what if all emotes are overridden leaving no emotes in the set? Might happen with personal emote sets overriding small channel emote sets
-			if (storedEmote && storedEmoteSet) {
-				const isHigherProviderOrder =
-					providerOverrideOrder.indexOf(emoteSet.provider) >
-					providerOverrideOrder.indexOf(storedEmote.provider)
-
-				if (
-					(isHigherProviderOrder && storedEmoteSet.isGlobalSet) ||
-					(isHigherProviderOrder && storedEmoteSet.isEmoji) ||
-					(isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmoteSet.isCurrentChannel) ||
-					(isHigherProviderOrder &&
-						(emoteSet.isCurrentChannel || emoteSet.isOtherChannel) &&
-						storedEmoteSet.isOtherChannel) ||
-					(!isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmoteSet.isCurrentChannel) ||
-					(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet)
-				) {
-					log(
-						'CORE',
-						'EMOT:STORE',
-						`Registered ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
-							emoteSet.isGlobalSet ? 'global' : 'channel'
-						} emote ${emote.name} override for loaded ${
-							storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'
-						} ${storedEmoteSet.isGlobalSet ? 'global' : 'channel'} emote`
-					)
-
-					// Remove previously registered emote because it's being overridden
-					storedEmoteSet.emotes.splice(storedEmoteSet.emotes.indexOf(storedEmote), 1)
-					this.fuse.remove((indexedEmote: any) => indexedEmote.name === emote.name)
-					if (!updatedEmoteSets.includes(storedEmoteSet)) {
-						updatedEmoteSets.push(storedEmoteSet)
-					}
-
-					// Register the new emote
-					this.emoteMap.set(emote.hid, emote)
-					this.emoteNameMap.set(emote.name, emote)
-					this.emoteEmoteSetMap.set(emote.hid, emoteSet)
-					this.fuse.add(emote)
-				} else {
-					// Remove the emote from the emote set because we already have a higher priority emote
-					emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1)
-					log('CORE', 'EMOT:STORE', 'Skipped overridden emote', emote.name)
-				}
-			} else {
-				this.emoteMap.set(emote.hid, emote)
-				this.emoteNameMap.set(emote.name, emote)
-				this.emoteEmoteSetMap.set(emote.hid, emoteSet)
-				this.fuse.add(emote)
+			if (hasUpdatedEmoteSet && !updatedEmoteSets.includes(emoteSet)) {
+				updatedEmoteSets.push(emoteSet)
 			}
 		}
 
@@ -289,6 +212,142 @@ export class EmoteDatastore {
 				this.session.eventBus.publish('ntv.datastore.emoteset.updated', updatedEmoteSet)
 			}
 		}
+	}
+
+	registerEmote(emote: Emote, emoteSet: EmoteSet) {
+		if (!emote.hid || !emote.id || typeof emote.id !== 'string' || !emote.name || undefined === emote.provider) {
+			return error('CORE', 'EMOT:STORE', 'Invalid emote data', emote)
+		}
+
+		let hasUpdatedEmoteSet = false
+
+		this.emoteIdMap.set(emote.id, emote)
+
+		/**
+		 * Emote override priority order. The order of which emotes override each other.
+		 * 1. Current channel emotes, overrides 2 and 3
+		 * 2. Other channel emotes, overrides 3
+		 * 3. Global emotes
+		 *
+		 * Additionally sorted by provider order as per providerLoadOrder argument.
+		 *
+		 * 7tv > bttv > twitch/kick
+		 * Channel > other channel > global
+		 *
+		 * Channel emotes always override global emotes
+		 *
+		 * 7tv.global > twitch.global
+		 * twitch.channel > 7tv.global
+		 * 7tv.channel > twitch.channel
+		 *
+		 * Emojis always get overridden by higher priority providers
+		 */
+		const storedEmote = this.emoteNameMap.get(emote.name)
+		const storedEmoteSet = this.emoteEmoteSetMap.get(emote.hid)
+
+		// TODO what if all emotes are overridden leaving no emotes in the set? Might happen with personal emote sets overriding small channel emote sets
+		if (storedEmote && storedEmoteSet) {
+			const isHigherProviderOrder =
+				this.providerOverrideOrder.indexOf(emoteSet.provider) >
+				this.providerOverrideOrder.indexOf(storedEmote.provider)
+
+			if (
+				(isHigherProviderOrder && storedEmoteSet.isGlobalSet) ||
+				(isHigherProviderOrder && storedEmoteSet.isEmoji) ||
+				(isHigherProviderOrder && emoteSet.isCurrentChannel && storedEmoteSet.isCurrentChannel) ||
+				(isHigherProviderOrder &&
+					(emoteSet.isCurrentChannel || emoteSet.isOtherChannel) &&
+					storedEmoteSet.isOtherChannel) ||
+				(!isHigherProviderOrder && emoteSet.isCurrentChannel && !storedEmoteSet.isCurrentChannel) ||
+				(!isHigherProviderOrder && emoteSet.isOtherChannel && storedEmoteSet.isGlobalSet)
+			) {
+				log(
+					'CORE',
+					'EMOT:STORE',
+					`Registered ${emote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'} ${
+						emoteSet.isGlobalSet ? 'global' : 'channel'
+					} emote ${emote.name} override for loaded ${
+						storedEmote.provider === PROVIDER_ENUM.KICK ? 'Kick' : '7TV'
+					} ${storedEmoteSet.isGlobalSet ? 'global' : 'channel'} emote`
+				)
+
+				// Remove previously registered emote because it's being overridden
+				storedEmoteSet.emotes.splice(storedEmoteSet.emotes.indexOf(storedEmote), 1)
+				this.fuse.remove((indexedEmote: any) => indexedEmote.name === emote.name)
+				if (!hasUpdatedEmoteSet) hasUpdatedEmoteSet = true
+
+				// Register the new emote
+				this.emoteMap.set(emote.hid, emote)
+				this.emoteNameMap.set(emote.name, emote)
+				this.emoteEmoteSetMap.set(emote.hid, emoteSet)
+				this.fuse.add(emote)
+			} else {
+				// Remove the emote from the emote set because we already have a higher priority emote
+				emoteSet.emotes.splice(emoteSet.emotes.indexOf(emote), 1)
+				log('CORE', 'EMOT:STORE', 'Skipped overridden emote', emote.name)
+			}
+		} else {
+			this.emoteMap.set(emote.hid, emote)
+			this.emoteNameMap.set(emote.name, emote)
+			this.emoteEmoteSetMap.set(emote.hid, emoteSet)
+			this.fuse.add(emote)
+		}
+
+		return hasUpdatedEmoteSet
+	}
+
+	addEmoteToEmoteSetById(emote: Emote, emoteSetId: EmoteSet['id']) {
+		if (this.emoteIdMap.get(emote.id)) return
+
+		const emoteSet = this.emoteSetMap.get(emoteSetId)
+		if (!emoteSet) {
+			return error('CORE', 'EMOT:STORE', 'Unable to add emote to emote set, emote set not found', emoteSetId)
+		}
+
+		if (emoteSet.emotes.find(e => e.id === emote.id)) {
+			return error(
+				'CORE',
+				'EMOT:STORE',
+				'Unable to add emote to emote set, emote already exists in emote set',
+				emote.name
+			)
+		}
+
+		emoteSet.emotes.push(emote)
+
+		this.registerEmote(emote, emoteSet)
+
+		this.session.eventBus.publish('ntv.datastore.emoteset.updated', emoteSet)
+	}
+
+	removeEmoteFromEmoteSetById(emoteId: Emote['id'], emoteSetId: EmoteSet['id']) {
+		const emote = this.emoteIdMap.get(emoteId)
+		if (!emote) return
+
+		const emoteSet = this.emoteSetMap.get(emoteSetId)
+		if (emoteSet) {
+			const index = emoteSet.emotes.findIndex(e => e.id === emoteId)
+			if (index !== -1) {
+				emoteSet.emotes.splice(index, 1)
+			} else {
+				error(
+					'CORE',
+					'EMOT:STORE',
+					'Unable to remove emote from emote set, emote not found in emote set',
+					emote.name
+				)
+			}
+		} else error('CORE', 'EMOT:STORE', 'Unable to remove emote from emote set, emote set not found', emoteSetId)
+
+		this.emoteMap.delete(emote.hid)
+		this.emoteIdMap.delete(emoteId)
+		this.emoteNameMap.delete(emote.name)
+		this.emoteEmoteSetMap.delete(emote.hid)
+		this.fuse.remove((indexedEmote: any) => indexedEmote.name === emote.name)
+
+		this.session.eventBus.publish('ntv.datastore.emoteset.updated', emoteSet)
+
+		return emote
 	}
 
 	getEmote(emoteHid: string) {

@@ -72,41 +72,64 @@ export enum DispatchEventType {
 	ENTITLEMENT_RESET = 'entitlement.reset'
 }
 
+export type DispatchBody<T extends DispatchEventType> = {
+	id: SevenTV.ObjectID
+	kind: SevenTV.ObjectKind
+
+	object: {
+		[DispatchEventType.SYSTEM_ANNOUNCEMENT]: object
+		[DispatchEventType.CLOSE]: object
+
+		[DispatchEventType.COSMETIC_CREATED]: SevenTV.Cosmetic<'BADGE' | 'PAINT' | 'AVATAR'>
+
+		[DispatchEventType.ENTITLEMENT_CREATED]: SevenTV.Entitlement
+		[DispatchEventType.ENTITLEMENT_UPDATED]: SevenTV.Entitlement
+		[DispatchEventType.ENTITLEMENT_DELETED]: SevenTV.Entitlement
+		[DispatchEventType.ENTITLEMENT_RESET]: {
+			id: SevenTV.ObjectID
+			kind: SevenTV.ObjectKind.ENTITLEMENT
+		}
+
+		[DispatchEventType.EMOTE_SET_CREATED]: SevenTV.EmoteSet
+		[DispatchEventType.EMOTE_SET_UPDATED]: {
+			// id: SevenTV.ObjectID
+			// pushed: {
+			//     index: number
+			//     key: string
+			//     type: string
+			//     value: SevenTV.Emote
+			// }[]
+			// emotes_added: SevenTV.ActiveEmote[]
+			// emotes_updated: [SevenTV.ActiveEmote, SevenTV.ActiveEmote][]
+			// emotes_removed: SevenTV.ActiveEmote[]
+			// user: SevenTV.User
+		}
+		user: {
+			[DispatchEventType.ENTITLEMENT_CREATED]: SevenTV.User
+		}
+	}[T]
+} & (T extends DispatchEventType.EMOTE_SET_UPDATED
+	? {
+			actor?: SevenTV.User // Actor is not set when actor is Me
+			pushed?: {
+				index: number
+				key: 'emotes'
+				type: string
+				value: SevenTV.Emote | null
+			}[]
+			pulled?: {
+				index: number
+				key: 'emotes'
+				type: string
+				value: null
+				old_value?: SevenTV.Emote | null
+			}[]
+		}
+	: {})
+
 export interface DispatchEvent<T extends DispatchEventType> {
 	type: T
-	body: {
-		id: SevenTV.ObjectID
-		kind: SevenTV.ObjectKind
-		object: {
-			[DispatchEventType.SYSTEM_ANNOUNCEMENT]: object
-			[DispatchEventType.CLOSE]: object
-
-			[DispatchEventType.COSMETIC_CREATED]: SevenTV.Cosmetic<'BADGE' | 'PAINT' | 'AVATAR'>
-
-			[DispatchEventType.ENTITLEMENT_CREATED]: SevenTV.Entitlement
-			[DispatchEventType.ENTITLEMENT_UPDATED]: SevenTV.Entitlement
-			[DispatchEventType.ENTITLEMENT_DELETED]: SevenTV.Entitlement
-			[DispatchEventType.ENTITLEMENT_RESET]: {
-				id: SevenTV.ObjectID
-				kind: SevenTV.ObjectKind.ENTITLEMENT
-			}
-
-			[DispatchEventType.EMOTE_SET_CREATED]: SevenTV.EmoteSet
-			[DispatchEventType.EMOTE_SET_UPDATED]: {
-				// id: SevenTV.ObjectID
-				// pushed: {
-				// 	index: number
-				// 	key: string
-				// 	type: string
-				// 	value: SevenTV.Emote
-				// }[]
-				// emotes_added: SevenTV.ActiveEmote[]
-				// emotes_updated: [SevenTV.ActiveEmote, SevenTV.ActiveEmote][]
-				// emotes_removed: SevenTV.ActiveEmote[]
-				// user: SevenTV.User
-			}
-		}[T]
-	}
+	body: DispatchBody<T>
 }
 
 export interface AckEvent {
@@ -177,21 +200,34 @@ export type EventAPITypes =
 	| 'entitlement.delete'
 	| 'system.announcement'
 
-function createRoom(channelId: ChannelId, userId?: SevenTV.User['id'], emoteSetId?: SevenTV.EmoteSet['id']) {
+export type EventAPIRoom = {
+	presenceTimestamp: number
+	channelId: ChannelId
+	stvChannelUserId?: SevenTV.User['id']
+	stvUserId?: SevenTV.User['id']
+	emoteSetId?: SevenTV.EmoteSet['id']
+}
+
+function createRoom(
+	channelId: ChannelId,
+	stvChannelUserId?: SevenTV.User['id'],
+	stvUserId?: SevenTV.User['id'],
+	emoteSetId?: SevenTV.EmoteSet['id']
+): EventAPIRoom {
 	return (
-		(userId && {
+		(stvUserId && {
 			presenceTimestamp: 0,
 			channelId,
-			userId,
+			stvChannelUserId,
+			stvUserId,
 			emoteSetId
 		}) || {
 			presenceTimestamp: 0,
-			channelId
+			channelId,
+			stvChannelUserId
 		}
 	)
 }
-
-export type EventAPIRoom = ReturnType<typeof createRoom>
 
 enum ConnectionState {
 	DISCONNECTED,
@@ -210,7 +246,8 @@ export default class SevenTVEventAPI {
 	private msgBuffer: any[] = []
 	private roomBuffer: {
 		channelId: ChannelId
-		userId?: SevenTV.User['id']
+		stvChannelUserId?: SevenTV.User['id']
+		stvUserId?: SevenTV.User['id']
 		emoteSetId?: SevenTV.EmoteSet['id']
 	}[] = []
 	private connectionState: ConnectionState = ConnectionState.DISCONNECTED
@@ -222,15 +259,69 @@ export default class SevenTVEventAPI {
 	private connectionId: string | null = null
 	private rooms: EventAPIRoom[] = []
 	private eventTarget = new EventTarget()
+	private scopedEventTarget = new EventTarget()
 
-	constructor(private rootContext: RootContext, private datastore: SevenTVDatastore) {}
+	// stvListenerWrappers maps: channelId -> eventType -> originalListener -> wrapper
+	private stvListenerWrappers: Map<ChannelId, Map<string, Map<EventListenerOrEventListenerObject, EventListener>>> =
+		new Map()
+
+	constructor(
+		private rootContext: RootContext,
+		private datastore: SevenTVDatastore
+	) {}
 
 	addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
 		this.eventTarget.addEventListener(type, listener)
 	}
 
+	addEventListenerByStvUser(room: EventAPIRoom, type: string, listener: EventListenerOrEventListenerObject) {
+		if (!room.stvChannelUserId) {
+			throw new Error('Cannot add EventAPI listener by STV user without STV channel user ID')
+		}
+
+		const wrapper: EventListener = (event: Event) => {
+			const detail = (event as CustomEvent).detail
+			if (detail && (!detail.object?.user || detail.object?.user?.id === room.stvChannelUserId)) {
+				if (typeof listener === 'function') {
+					;(listener as EventListener)(event)
+				} else {
+					;(listener as EventListenerObject).handleEvent(event)
+				}
+			}
+		}
+
+		// store wrapper for later removal
+		let typeMap = this.stvListenerWrappers.get(room.channelId)
+		if (!typeMap) {
+			typeMap = new Map()
+			this.stvListenerWrappers.set(room.channelId, typeMap)
+		}
+
+		let listenerMap = typeMap.get(type)
+		if (!listenerMap) {
+			listenerMap = new Map()
+			typeMap.set(type, listenerMap)
+		}
+
+		listenerMap.set(listener, wrapper)
+		this.scopedEventTarget.addEventListener(type, wrapper)
+	}
+
 	removeEventlistener(type: string, listener: EventListenerOrEventListenerObject) {
 		this.eventTarget.removeEventListener(type, listener)
+	}
+
+	removeEventListenerByStvUser(room: EventAPIRoom) {
+		const typeMap = this.stvListenerWrappers.get(room.channelId)
+		if (!typeMap) return
+
+		for (const [type, listenerMap] of typeMap.entries()) {
+			for (const wrapper of listenerMap.values()) {
+				this.scopedEventTarget.removeEventListener(type, wrapper)
+			}
+		}
+
+		this.stvListenerWrappers.delete(room.channelId)
 	}
 
 	/**
@@ -439,13 +530,22 @@ export default class SevenTVEventAPI {
 		this.connectionId = null
 	}
 
-	registerRoom(channelId: ChannelId, userId?: SevenTV.User['id'], emoteSetId?: SevenTV.EmoteSet['id']) {
-		log('EXT:STV', 'EVENTAPI', `Registering room <${channelId}> with user <${userId}>`)
+	registerRoom(
+		channelId: ChannelId,
+		stvChannelUserId?: SevenTV.User['id'],
+		stvUserId?: SevenTV.User['id'],
+		emoteSetId?: SevenTV.EmoteSet['id']
+	) {
+		log(
+			'EXT:STV',
+			'EVENTAPI',
+			`Registering room <${channelId}@${stvChannelUserId || 'no channel'}> with user <${stvUserId || 'no user'}>`
+		)
 
 		if (this.rooms.some(room => room.channelId === channelId))
 			return error('EXT:STV', 'EVENTAPI', 'EventAPI Room is already registered!')
 
-		const room = createRoom(channelId, userId, emoteSetId)
+		const room = createRoom(channelId, stvChannelUserId, stvUserId, emoteSetId)
 
 		if (this.connectionState !== ConnectionState.CONNECTED) {
 			this.roomBuffer.push(room)
@@ -457,7 +557,7 @@ export default class SevenTVEventAPI {
 
 		// Send presence to self to ensure current user loads entitlements
 		// (already got them earlier through GraphQL, but just in case)
-		if (userId) this.sendPresence(room, true, true)
+		if (stvUserId) this.sendPresence(room, true, true)
 
 		return room
 	}
@@ -521,15 +621,15 @@ export default class SevenTVEventAPI {
 
 	sendPresences() {
 		for (const room of this.rooms) {
-			if (room.userId) this.sendPresence(room)
+			if (room.stvUserId) this.sendPresence(room)
 		}
 	}
 
 	sendPresence(room: EventAPIRoom, self: boolean = false, force: boolean = false) {
 		if (this.connectionState !== ConnectionState.CONNECTED) return
 
-		const { channelId, userId } = room
-		if (!userId) return error('EXT:STV', 'EVENTAPI', 'No user ID provided for presence update')
+		const { channelId, stvUserId: stvUserId } = room
+		if (!stvUserId) return error('EXT:STV', 'EVENTAPI', 'No user ID provided for presence update')
 
 		if (!force) {
 			// Limit presence updates to 10 seconds interval
@@ -538,7 +638,7 @@ export default class SevenTVEventAPI {
 			room.presenceTimestamp = now
 		}
 
-		REST.post(`https://7tv.io/v3/users/${userId}/presences`, {
+		REST.post(`https://7tv.io/v3/users/${stvUserId}/presences`, {
 			kind: 1,
 			passive: self,
 			session_id: self ? this.connectionId : undefined,
@@ -549,7 +649,7 @@ export default class SevenTVEventAPI {
 			}
 		})
 			// .then(() => {
-			// 	log('EXT:STV', 'EVENTAPI', `Sent presence update for user <${userId}> in channel <${channelId}>`)
+			// 	log('EXT:STV', 'EVENTAPI', `Sent presence update for user <${stvUserId}> in channel <${channelId}>`)
 			// })
 			.catch(err => {
 				error('EXT:STV', 'EVENTAPI', 'Failed to send presence:', err)
@@ -602,8 +702,8 @@ export default class SevenTVEventAPI {
 		this.shouldResume = false
 
 		if (this.roomBuffer.length) {
-			for (const { channelId, userId } of this.roomBuffer) {
-				this.registerRoom(channelId) // Don't spam presence updates
+			for (const { channelId, stvChannelUserId, stvUserId } of this.roomBuffer) {
+				this.registerRoom(channelId, stvChannelUserId) // Don't spam presence updates
 			}
 			this.roomBuffer = []
 		}
@@ -713,10 +813,30 @@ export default class SevenTVEventAPI {
 	}
 
 	private onDispatchEvent(event: DispatchEvent<DispatchEventType>) {
-		// log('EXT:STV', 'EVENTAPI', `[DISPATCH] <${event.type}>`, event.body.object)
+		log('EXT:STV', 'EVENTAPI', `[DISPATCH] <${event.type}>`, event)
 
 		switch (event.type) {
 			case DispatchEventType.SYSTEM_ANNOUNCEMENT:
+				break
+			case DispatchEventType.EMOTE_SET_UPDATED:
+				const emoteSetUpdate = event.body as DispatchBody<DispatchEventType.EMOTE_SET_UPDATED>
+
+				if (emoteSetUpdate.pushed) {
+					this.scopedEventTarget.dispatchEvent(
+						new CustomEvent('emotes_added', {
+							detail: emoteSetUpdate
+						})
+					)
+				}
+
+				if (emoteSetUpdate.pulled) {
+					this.scopedEventTarget.dispatchEvent(
+						new CustomEvent('emotes_removed', {
+							detail: emoteSetUpdate
+						})
+					)
+				}
+
 				break
 			case DispatchEventType.ENTITLEMENT_CREATED:
 				const entitlement = event.body.object as SevenTV.Entitlement

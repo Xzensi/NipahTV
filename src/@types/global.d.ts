@@ -1,7 +1,7 @@
 import type InputCompletionStrategyRegister from '../Core/Input/Completion/InputCompletionStrategyRegister'
 import type InputCompletionStrategyManager from '../Core/Input/Completion/InputCompletionStrategyManager'
 import type InputExecutionStrategyRegister from '../Core/Input/Execution/InputExecutionStrategyRegister'
-import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM } from '../Core/Common/constants'
+import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM, PROVIDER_ENUM } from '../Core/Common/constants'
 import type { LexicalCommandFromMain, ReactivePropsFromMain, RESTFromMain } from '../Core/Common/utils'
 import type RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
 import type AnnouncementService from '../Core/Services/AnnouncementService'
@@ -154,7 +154,7 @@ declare global {
 	}
 
 	interface EmoteSet {
-		provider: number
+		provider: PROVIDER_ENUM
 		orderIndex: number
 		name: string
 		emotes: Array<Emote>
@@ -172,7 +172,7 @@ declare global {
 		id: string
 		hid: EmoteHid
 		name: string
-		provider: number
+		provider: PROVIDER_ENUM
 		isSubscribersOnly?: boolean
 		isZeroWidth?: boolean
 		spacing?: boolean
