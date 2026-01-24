@@ -62,3 +62,13 @@
 		// }
 	}
 }
+
+.ntv__event-message--emote-update {
+	border: solid 1px #ffffff42;
+	margin: 0.5em -1em 0 -1em;
+	padding: 1em 1em;
+}
+
+.ntv__chat-message > .ntv__event-message {
+	margin-top: 0.7em;
+}

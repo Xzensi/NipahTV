@@ -1,9 +1,9 @@
 import { DatabaseProxy, DatabaseProxyFactory } from '@database/DatabaseProxy'
 import SevenTVEmoteProvider from './SevenTVEmoteProvider'
 import SevenTVDatabase from './Database/SevenTVDatabase'
-import { PLATFORM_ENUM } from '@core/Common/constants'
+import { PLATFORM_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
 import { getUserCosmeticDataByConnection, getUserEmoteSetConnectionsDataByConnection } from './SevenTVGraphQL'
-import SevenTVEventAPI, { EventAPIRoom } from './SevenTVEventAPI'
+import SevenTVEventAPI, { DispatchBody, DispatchEventType, EventAPIRoom } from './SevenTVEventAPI'
 import { Logger } from '@core/Common/Logger'
 import { Extension } from '../Extension'
 import Dexie from 'dexie'
@@ -11,6 +11,7 @@ import { NTVMessageEvent } from '@core/Common/EventService'
 import SevenTVDatastore from './SevenTVDatastore'
 import SevenTVPaintStyleGenerator from './SevenTVPaintStyleGenerator'
 import RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
+import { User } from '@core/Users/UsersDatastore'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -387,7 +388,7 @@ export default class SevenTVExtension extends Extension {
 
 	async onSessionCreate(session: Session) {
 		const { datastore } = this
-		const { eventBus } = session
+		const { eventBus, emotesManager } = session
 		const { settingsManager } = this.rootContext
 
 		if (!session.channelData)
@@ -423,7 +424,8 @@ export default class SevenTVExtension extends Extension {
 					})
 					.then(user => {
 						if (user.id === STV_ID_NULL) return // No need to wait for this to finish before continuing
-						;(async () => {
+
+						queueMicrotask(() => {
 							// Immediately entitle the current user to their cosmetics, if they have any
 							const paint = user.style?.paint
 							if (paint) {
@@ -433,14 +435,14 @@ export default class SevenTVExtension extends Extension {
 									ref_id: paint.id,
 									user: user
 								})
-								datastore!.createCosmetic({
+								datastore.createCosmetic({
 									id: paint.id,
 									kind: 'PAINT',
 									data: paint
 								})
 								this.handlePaintCreated(new CustomEvent('paint_created', { detail: paint }))
 							}
-						})()
+						})
 					})
 					.catch(err => (this.cachedStvMeUser = { id: STV_ID_NULL }))
 			)
@@ -455,17 +457,15 @@ export default class SevenTVExtension extends Extension {
 		)
 
 		const promiseRes = await Promise.allSettled(promises)
-		const channelUser = (
-			promiseRes[promiseRes.length - 1].status === 'fulfilled'
-				? //@ts-ignore
-				  promiseRes[promiseRes.length - 1].value || { id: STV_ID_NULL }
-				: { id: STV_ID_NULL }
-		) as { id: string } | Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>
+		const stvChannelUser =
+			promiseRes[1].status === 'fulfilled'
+				? (promiseRes[1].value as Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>)
+				: undefined
 
 		let activeEmoteSet: SevenTV.EmoteSet | undefined
-		if (channelUser.id !== STV_ID_NULL && 'emote_sets' in channelUser && channelUser.emote_sets) {
-			activeEmoteSet = channelUser.emote_sets.find(
-				set => set.id === channelUser.connections?.find(c => c.platform === platformId)?.emote_set_id
+		if (stvChannelUser && 'emote_sets' in stvChannelUser && stvChannelUser.emote_sets) {
+			activeEmoteSet = stvChannelUser.emote_sets.find(
+				set => set.id === stvChannelUser.connections?.find(c => c.platform === platformId)?.emote_set_id
 			)
 		}
 
@@ -474,12 +474,13 @@ export default class SevenTVExtension extends Extension {
 
 		/**
 		 * Channel user here is the platform user, not the 7TV user
-		 * activeEmoteSet is the emote set that the channel user has selected
+		 * stvChannelUser is the 7TV user linked to the channel user
 		 * stvMeUser is the current user's 7TV user
+		 * activeEmoteSet is the emote set that the channel user has selected
 		 */
-		const room = this.eventAPI.registerRoom(channelUserId, stvMeUserId, activeEmoteSet?.id)
+		const room = this.eventAPI.registerRoom(channelUserId, stvChannelUser?.id, stvMeUserId, activeEmoteSet?.id)
 
-		if (room && room.userId && room.userId !== STV_ID_NULL) {
+		if (room && room.stvUserId && room.stvUserId !== STV_ID_NULL) {
 			eventBus.subscribe('ntv.chat.message.new', (message: NTVMessageEvent) => {
 				// if (message.sender.id !== platformMeUserId) {
 				// 	this.eventAPI?.sendPresence(room)
@@ -487,6 +488,90 @@ export default class SevenTVExtension extends Extension {
 				// We need to send presence on every message to be able to discover our own cosmetic changes
 				this.eventAPI?.sendPresence(room)
 			})
+
+			if (stvChannelUser && activeEmoteSet) {
+				this.eventAPI.addEventListenerByStvUser(
+					room,
+					'emotes_added',
+					((event: Event) => {
+						const data = (event as CustomEvent).detail as DispatchBody<DispatchEventType.EMOTE_SET_UPDATED>
+						if (!data.pushed) return
+
+						// Check if emotes updated event is for the active emote set of this session's channel
+						if (data.id !== activeEmoteSet?.id) return
+
+						// Emoteset updates for channel always has an actor
+						if (!data.actor) return
+
+						const emotesAdded: Emote[] = []
+						for (const pushed of data.pushed) {
+							if (pushed.key === 'emotes' && pushed.value) {
+								const unpackedEmote = SevenTVEmoteProvider.unpackUserEmote(pushed.value)
+								if (unpackedEmote) emotesAdded.push(unpackedEmote)
+							}
+						}
+
+						log(
+							'EXT:STV',
+							'MAIN',
+							`${data.actor?.display_name} added ${emotesAdded.length} new emotes to emoteset ${activeEmoteSet?.name}:`,
+							emotesAdded
+						)
+
+						for (const emote of emotesAdded) {
+							const emoteSetId = '7tv_' + activeEmoteSet.id
+							emotesManager.addEmoteToEmoteSetById(emote, emoteSetId)
+
+							eventBus.publish('ntv.channel.moderation.emote_added', {
+								emote,
+								actor: { id: data.actor.id, name: data.actor.display_name } as User
+							})
+						}
+					}).bind(this)
+				)
+
+				this.eventAPI.addEventListenerByStvUser(
+					room,
+					'emotes_removed',
+					((event: Event) => {
+						const data = (event as CustomEvent).detail as DispatchBody<DispatchEventType.EMOTE_SET_UPDATED>
+						if (!data.pulled) return
+
+						// Check if emotes updated event is for the active emote set of this session's channel
+						if (data.id !== activeEmoteSet?.id) return
+
+						// Emoteset updates for channel always has an actor
+						if (!data.actor) return
+
+						const emotesRemoved: Emote[] = []
+						for (const pulled of data.pulled) {
+							if (pulled.key === 'emotes' && pulled.old_value) {
+								const unpackedEmote = SevenTVEmoteProvider.unpackUserEmote(pulled.old_value)
+								if (unpackedEmote) emotesRemoved.push(unpackedEmote)
+							}
+						}
+
+						log(
+							'EXT:STV',
+							'MAIN',
+							`${data.actor?.display_name} removed ${emotesRemoved.length} emotes from emoteset ${activeEmoteSet?.name}:`,
+							emotesRemoved
+						)
+
+						for (const stvEmote of emotesRemoved) {
+							const emote = emotesManager.getEmoteById(stvEmote.id)
+							if (!emote) continue
+
+							const emoteSetId = '7tv_' + activeEmoteSet.id
+							emotesManager.removeEmoteFromEmoteSetById(emote.id, emoteSetId)
+							eventBus.publish('ntv.channel.moderation.emote_removed', {
+								emote,
+								actor: { id: data.actor.id, name: data.actor.display_name } as User
+							})
+						}
+					}).bind(this)
+				)
+			}
 		}
 	}
 
@@ -494,6 +579,8 @@ export default class SevenTVExtension extends Extension {
 		if (this.eventAPI && session.channelData?.userId) {
 			this.eventAPI.removeRoom(session.channelData.userId)
 		}
+
+		// TODO clean up room event listeners
 	}
 
 	registerEmoteProvider(session: Session) {

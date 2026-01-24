@@ -1,7 +1,7 @@
 import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
 import type SettingsManager from '@core/Settings/SettingsManager'
 import { PROVIDER_ENUM } from '@core/Common/constants'
-import { REST, md5 } from '@core/Common/utils'
+import { REST, md5, splitEmoteName } from '@core/Common/utils'
 import { Logger } from '@core/Common/Logger'
 
 const logger = new Logger()
@@ -15,7 +15,7 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 		super(settingsManager)
 	}
 
-	async fetchEmotes({ channelId, channelName, userId, me }: ChannelData) {
+	async fetchEmotes({ channelId, channelName, userId, me }: ChannelData): Promise<EmoteSet[] | void> {
 		if (!channelId) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
 			throw new Error('Missing channel id for Kick provider')
@@ -41,10 +41,12 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 			return error('KICK', 'EMOT:PROV', 'Failed to fetch Kick emotes')
 		}
 
-		const emoteSets = []
+		const emoteSets: EmoteSet[] = []
 		for (const dataSet of dataSets) {
-			const emotesMapped = dataSet.emotes.map((emote: any) => {
+			const emotesMapped = dataSet.emotes.map((emote: any): Emote => {
 				const sanitizedEmoteName = emote.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
+				// Map of emote names splitted into parts for more relevant search results
+				const parts = splitEmoteName(sanitizedEmoteName, 2)
 				return {
 					id: '' + emote.id,
 					hid: md5(emote.name),
@@ -52,8 +54,9 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 					isSubscribersOnly: emote.subscribers_only,
 					provider: this.id,
 					width: 32,
-					size: 1
-				} as Emote
+					size: 1,
+					parts
+				}
 			})
 
 			const emoteSetIcon = dataSet?.user?.profile_pic || 'https://kick.com/favicon.ico'
@@ -102,10 +105,10 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 				isGlobalSet,
 				isCurrentChannel: dataSetId === channelId,
 				isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
-				isSubscribed: dataSetId === channelId ? me.isSubscribed || me.isBroadcaster : true,
+				isSubscribed: dataSetId === channelId ? !!me.isSubscribed || !!me.isBroadcaster : true,
 				icon: emoteSetIcon,
 				id: 'kick_' + dataSetId
-			} as EmoteSet)
+			})
 		}
 
 		if (!emoteSets.length) {

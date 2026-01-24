@@ -449,8 +449,7 @@ class NipahClient {
 			userInterface.loadInterface()
 		}
 
-		const providerOverrideOrder = [PROVIDER_ENUM.SEVENTV, PROVIDER_ENUM.KICK]
-		emotesManager.loadProviderEmotes(channelData, providerOverrideOrder)
+		emotesManager.loadProviderEmotes(channelData)
 
 		//! Dirty reload UI hack to check if UI elements of session is destroyed and reload it
 		eventBus.subscribe(
@@ -547,10 +546,13 @@ class NipahClient {
 
 				if (unbanTimeoutHandle) clearTimeout(unbanTimeoutHandle)
 				if (!data.permanent) {
-					unbanTimeoutHandle = setTimeout(() => {
-						delete session.channelData.me.isBanned
-						eventBus.publish('ntv.channel.chatroom.me.unbanned')
-					}, data.duration * 60 * 1000)
+					unbanTimeoutHandle = setTimeout(
+						() => {
+							delete session.channelData.me.isBanned
+							eventBus.publish('ntv.channel.chatroom.me.unbanned')
+						},
+						data.duration * 60 * 1000
+					)
 				}
 			}
 		})

@@ -50,7 +50,9 @@
 	}
 
 	&__timestamp {
-		font-family: Helvetica Neue, sans-serif;
+		font-family:
+			Helvetica Neue,
+			sans-serif;
 		font-variant-numeric: tabular-nums;
 		margin-right: 0.45em;
 		white-space: nowrap;
@@ -185,7 +187,7 @@
 	}
 }
 
-// TODO why is this separate from the above?
+// TODO why is this seperate from the above?
 .ntv__chat-message-separator {
 	align-items: center;
 	display: flex;

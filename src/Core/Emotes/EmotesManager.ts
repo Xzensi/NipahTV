@@ -64,7 +64,7 @@ export default class EmotesManager {
 	 * @param channelData The channel data object containing channel and user information.
 	 * @param providerOverrideOrder The index of emote providers in the array determines their override order incase of emote conflicts.
 	 */
-	async loadProviderEmotes(channelData: ChannelData, providerOverrideOrder: number[]) {
+	async loadProviderEmotes(channelData: ChannelData) {
 		const { datastore, providers } = this
 		const { eventBus } = this.session
 
@@ -79,19 +79,7 @@ export default class EmotesManager {
 				.then(emoteSets => {
 					if (!emoteSets) return // Can be NO_EMOTES
 
-					for (const emoteSet of emoteSets) {
-						for (const emote of emoteSet.emotes) {
-							// Map of emote names splitted into parts for more relevant search results
-							const parts = splitEmoteName(emote.name, 2)
-							if (parts.length && parts[0] !== emote.name) {
-								emote.parts = parts
-							} else {
-								emote.parts = []
-							}
-						}
-
-						datastore.registerEmoteSet(emoteSet, providerOverrideOrder)
-					}
+					for (const emoteSet of emoteSets) datastore.registerEmoteSet(emoteSet)
 				})
 				.catch(err => {
 					this.session.userInterface?.toastError(`Failed to fetch emotes from provider ${provider.name}`)
@@ -121,6 +109,14 @@ export default class EmotesManager {
 
 	hasLoadedProviders() {
 		return this.loaded
+	}
+
+	addEmoteToEmoteSetById(emote: Emote, emoteSetId: EmoteSet['id']) {
+		return this.datastore.addEmoteToEmoteSetById(emote, emoteSetId)
+	}
+
+	removeEmoteFromEmoteSetById(emoteId: Emote['id'], emoteSetId: EmoteSet['id']) {
+		return this.datastore.removeEmoteFromEmoteSetById(emoteId, emoteSetId)
 	}
 
 	getEmote(emoteHid: string) {
