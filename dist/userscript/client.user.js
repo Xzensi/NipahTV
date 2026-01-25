@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.84
+// @version 1.5.85
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-6a78ce4c.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-d94a0691.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12264,6 +12264,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.85",
+    date: "2026-01-25",
+    description: `
+                  Fix: Setting channel emote added/removed messages in chat requiring page refresh to apply
+            `
+  },
+  {
     version: "1.5.84",
     date: "2026-01-24",
     description: `
@@ -23674,26 +23681,34 @@ var KickUserInterface = class extends AbstractUserInterface {
     }
   }
   observeChatMessages(chatMessagesContainerEl) {
-    const settingsManager = this.rootContext.settingsManager;
+    const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const channelId = this.session.channelData.channelId;
+    const emoteAddedCb = ({ actor, emote }) => {
+      this.addEmoteEventChatMessage("emote_added", emote, actor.name);
+    };
+    const emoteRemovedCb = ({ actor, emote }) => {
+      this.addEmoteEventChatMessage("emote_removed", emote, actor.name);
+    };
     const chatEmoteUpdateMessagesSetting = settingsManager.getSetting(
       channelId,
       "chat.messages.emote_updates.enabled"
     );
     if (chatEmoteUpdateMessagesSetting) {
-      this.session.eventBus.subscribe(
-        "ntv.channel.moderation.emote_added",
-        ({ actor, emote }) => {
-          this.addEmoteEventChatMessage("emote_added", emote, actor.name);
-        }
-      );
-      this.session.eventBus.subscribe(
-        "ntv.channel.moderation.emote_removed",
-        ({ actor, emote }) => {
-          this.addEmoteEventChatMessage("emote_removed", emote, actor.name);
-        }
-      );
+      this.session.eventBus.subscribe("ntv.channel.moderation.emote_added", emoteAddedCb);
+      this.session.eventBus.subscribe("ntv.channel.moderation.emote_removed", emoteRemovedCb);
     }
+    rootEventBus.subscribe(
+      "ntv.settings.change.chat.messages.emote_updates.enabled",
+      ({ value, prevValue }) => {
+        if (value && value !== "none") {
+          this.session.eventBus.subscribe("ntv.channel.moderation.emote_added", emoteAddedCb);
+          this.session.eventBus.subscribe("ntv.channel.moderation.emote_removed", emoteRemovedCb);
+        } else {
+          this.session.eventBus.unsubscribe("ntv.channel.moderation.emote_added", emoteAddedCb);
+          this.session.eventBus.unsubscribe("ntv.channel.moderation.emote_removed", emoteRemovedCb);
+        }
+      }
+    );
     const scrollToBottom = () => chatMessagesContainerEl.scrollTop = 99999;
     const loadObserver = () => {
       const observer = this.chatObserver = new MutationObserver((mutations) => {
@@ -26693,7 +26708,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.84";
+  VERSION = "1.5.85";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

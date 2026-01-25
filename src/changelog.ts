@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.85',
+		date: '2026-01-25',
+		description: `
+                  Fix: Setting channel emote added/removed messages in chat requiring page refresh to apply
+            `
+	},
+	{
 		version: '1.5.84',
 		date: '2026-01-24',
 		description: `
