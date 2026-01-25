@@ -1300,27 +1300,38 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	observeChatMessages(chatMessagesContainerEl: HTMLElement) {
-		const settingsManager = this.rootContext.settingsManager
+		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		const channelId = this.session.channelData.channelId
+
+		const emoteAddedCb = ({ actor, emote }: { actor: User; emote: Emote }) => {
+			this.addEmoteEventChatMessage('emote_added', emote, actor.name)
+		}
+
+		const emoteRemovedCb = ({ actor, emote }: { actor: User; emote: Emote }) => {
+			this.addEmoteEventChatMessage('emote_removed', emote, actor.name)
+		}
 
 		const chatEmoteUpdateMessagesSetting = settingsManager.getSetting(
 			channelId,
 			'chat.messages.emote_updates.enabled'
 		)
 		if (chatEmoteUpdateMessagesSetting) {
-			this.session.eventBus.subscribe(
-				'ntv.channel.moderation.emote_added',
-				({ actor, emote }: { actor: User; emote: Emote }) => {
-					this.addEmoteEventChatMessage('emote_added', emote, actor.name)
-				}
-			)
-			this.session.eventBus.subscribe(
-				'ntv.channel.moderation.emote_removed',
-				({ actor, emote }: { actor: User; emote: Emote }) => {
-					this.addEmoteEventChatMessage('emote_removed', emote, actor.name)
-				}
-			)
+			this.session.eventBus.subscribe('ntv.channel.moderation.emote_added', emoteAddedCb)
+			this.session.eventBus.subscribe('ntv.channel.moderation.emote_removed', emoteRemovedCb)
 		}
+
+		rootEventBus.subscribe(
+			'ntv.settings.change.chat.messages.emote_updates.enabled',
+			({ value, prevValue }: { value: string; prevValue?: string }) => {
+				if (value && value !== 'none') {
+					this.session.eventBus.subscribe('ntv.channel.moderation.emote_added', emoteAddedCb)
+					this.session.eventBus.subscribe('ntv.channel.moderation.emote_removed', emoteRemovedCb)
+				} else {
+					this.session.eventBus.unsubscribe('ntv.channel.moderation.emote_added', emoteAddedCb)
+					this.session.eventBus.unsubscribe('ntv.channel.moderation.emote_removed', emoteRemovedCb)
+				}
+			}
+		)
 
 		const scrollToBottom = () => (chatMessagesContainerEl.scrollTop = 99999)
 
