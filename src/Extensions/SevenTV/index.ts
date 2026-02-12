@@ -407,8 +407,16 @@ export default class SevenTVExtension extends Extension {
 		const STV_ID_NULL = '00000000000000000000000000'
 		const platformId = getStvPlatformId()
 
-		// Fetch both our own 7TV user and the platform channel user
+		// Fetch both the platform channel user and our own 7TV user
 		let promises = []
+		promises.push(
+			getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId)
+				.then(res => res ?? { id: STV_ID_NULL })
+				.catch(err => {
+					id: STV_ID_NULL
+				})
+		)
+
 		if (!this.cachedStvMeUser) {
 			promises.push(
 				getUserCosmeticDataByConnection(platformId, platformMeUserId)
@@ -448,18 +456,10 @@ export default class SevenTVExtension extends Extension {
 			)
 		}
 
-		promises.push(
-			getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId)
-				.then(res => res ?? { id: STV_ID_NULL })
-				.catch(err => {
-					id: STV_ID_NULL
-				})
-		)
-
 		const promiseRes = await Promise.allSettled(promises)
 		const stvChannelUser =
-			promiseRes[1].status === 'fulfilled'
-				? (promiseRes[1].value as Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>)
+			promiseRes[0].status === 'fulfilled'
+				? (promiseRes[0].value as Pick<SevenTV.User, 'id' | 'emote_sets' | 'connections'>)
 				: undefined
 
 		let activeEmoteSet: SevenTV.EmoteSet | undefined

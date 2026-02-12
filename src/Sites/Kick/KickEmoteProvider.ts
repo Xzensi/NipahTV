@@ -73,13 +73,15 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 				isGlobalSet = false,
 				isEmoji = false
 
+			let dataSetId = '' + dataSet.id
+
 			if (dataSet.id === 'Global') {
 				isGlobalSet = true
-				dataSet.id = 'kick_global'
+				dataSetId = 'global'
 				isMenuEnabled = !!settingsManager.getSetting(channelId, 'emote_menu.emote_providers.kick.show_global')
 			} else if (dataSet.id === 'Emoji') {
 				isEmoji = true
-				dataSet.id = 'kick_emoji'
+				dataSetId = 'emoji'
 				isMenuEnabled = !!settingsManager.getSetting(channelId, 'emote_menu.emote_providers.kick.show_emojis')
 			} else if ('' + dataSet.id === channelId) {
 				isMenuEnabled = !!settingsManager.getSetting(
@@ -93,8 +95,6 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 				)
 			}
 
-			const dataSetId = '' + dataSet.id
-
 			emoteSets.push({
 				provider: this.id,
 				orderIndex: orderIndex,
@@ -105,7 +105,10 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 				isGlobalSet,
 				isCurrentChannel: dataSetId === channelId,
 				isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
-				isSubscribed: dataSetId === channelId ? !!me.isSubscribed || !!me.isBroadcaster : true,
+				isSubscribed:
+					!isGlobalSet &&
+					!isEmoji &&
+					(dataSetId === channelId ? !!me.isSubscribed || !!me.isBroadcaster : true),
 				icon: emoteSetIcon,
 				id: 'kick_' + dataSetId
 			})
