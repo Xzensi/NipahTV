@@ -4,6 +4,19 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.86',
+		date: '2026-02-12',
+		description: `
+                  I've finetuned the emote searching strategy to be more strict and apply more bias to subscribed channels. This should result in more accurate search results that are more relevant to the channel you're currently in, and channels you're subscribed to. Let me know if these changes had any negative impact on your search results.
+
+                  Feat: Finetuned emote searching strategy for more accurate results
+                  Fix: Menu search results not showing emote favorited/zero-width/locked attributes
+                  Fix: Emotes wrong size in menu search
+                  Fix: 7TV fetch error when channel user does not exist
+                  Fix: Searching bias settings are flipped around
+            `
+	},
+	{
 		version: '1.5.85',
 		date: '2026-01-25',
 		description: `

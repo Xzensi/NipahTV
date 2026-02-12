@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.85
+// @version 1.5.86
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-d94a0691.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-06071c55.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12264,6 +12264,19 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.86",
+    date: "2026-02-12",
+    description: `
+                  I've finetuned the emote searching strategy to be more strict and apply more bias to subscribed channels. This should result in more accurate search results that are more relevant to the channel you're currently in, and channels you're subscribed to. Let me know if these changes had any negative impact on your search results.
+
+                  Feat: Finetuned emote searching strategy for more accurate results
+                  Fix: Menu search results not showing emote favorited/zero-width/locked attributes
+                  Fix: Emotes wrong size in menu search
+                  Fix: 7TV fetch error when channel user does not exist
+                  Fix: Searching bias settings are flipped around
+            `
+  },
+  {
     version: "1.5.85",
     date: "2026-01-25",
     description: `
@@ -16273,7 +16286,8 @@ var EmoteDatastore = class {
     // includeMatches: true,
     // isCaseSensitive: true,
     findAllMatches: true,
-    threshold: 0.35,
+    threshold: 0.225,
+    ignoreLocation: false,
     keys: [["name"], ["parts"]]
   });
   rootContext;
@@ -16597,23 +16611,30 @@ var EmoteDatastore = class {
     return this.fuse.search(search2).sort((a, b) => {
       const aItem = a.item;
       const bItem = b.item;
-      if (aItem.name.toLowerCase() === search2.toLowerCase()) {
+      const aLowercase = aItem.name.toLowerCase();
+      const bLowercase = bItem.name.toLowerCase();
+      const searchLowercase = search2.toLowerCase();
+      if (aItem.name === search2) {
         return -1;
-      } else if (bItem.name.toLowerCase() === search2.toLowerCase()) {
+      } else if (bItem.name === search2) {
         return 1;
       }
-      const perfectMatchWeight = 1;
+      if (aLowercase === searchLowercase) {
+        return -1;
+      } else if (bLowercase === searchLowercase) {
+        return 1;
+      }
       const scoreWeight = 1;
-      const partsWeight = 0.1;
-      const nameLengthWeight = 0.04;
-      const subscribedChannelWeight = 0.15;
-      const currentChannelWeight = 0.1;
+      const partsCountWeight = 0.1;
+      const nameLengthWeight = 0.01;
+      const subscribedChannelWeight = 0.22;
+      const currentChannelWeight = biasSubscribedChannels && 0.025 || subscribedChannelWeight;
+      let relevancyDelta = (a.score - b.score) * scoreWeight;
       let aPartsLength = aItem.parts.length;
       if (aPartsLength) aPartsLength -= 2;
       let bPartsLength = bItem.parts.length;
       if (bPartsLength) bPartsLength -= 2;
-      let relevancyDelta = (a.score - b.score) * scoreWeight;
-      relevancyDelta += (aPartsLength - bPartsLength) * partsWeight;
+      relevancyDelta += (aPartsLength - bPartsLength) * partsCountWeight;
       relevancyDelta += (aItem.name.length - bItem.name.length) * nameLengthWeight;
       const aEmoteSet = this.emoteEmoteSetMap.get(aItem.hid);
       const bEmoteSet = this.emoteEmoteSetMap.get(bItem.hid);
@@ -16885,14 +16906,11 @@ var EmotesManager = class {
   searchEmotes(search2, limit = 0) {
     const { settingsManager } = this.rootContext;
     const channelId = this.session.channelData.channelId;
-    const biasCurrentChannel = settingsManager.getSetting(
+    const biasSubscribedChannels = settingsManager.getSetting(
       channelId,
       "chat.behavior.search_bias_subscribed_channels"
     );
-    const biasSubscribedChannels = settingsManager.getSetting(
-      channelId,
-      "chat.behavior.search_bias_current_channels"
-    );
+    const biasCurrentChannel = settingsManager.getSetting(channelId, "chat.behavior.search_bias_current_channels");
     const results = this.datastore.searchEmotes(search2, biasCurrentChannel, biasSubscribedChannels);
     if (limit) return results.slice(0, limit);
     return results;
@@ -18229,38 +18247,33 @@ var EmoteMenuComponent = class extends AbstractComponent {
     } else {
       this.switchPanel("emotes");
     }
-    const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20));
+    const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20), 75);
     log16("CORE", "UI", `Searching for emotes, found ${emotesResult.length} matches"`);
     while (this.panels.search?.firstChild) {
       this.panels.search.removeChild(this.panels.search.firstChild);
     }
     const hideSubscribersEmotes = settingsManager.getSetting(channelId, "chat.emotes.hide_subscriber_emotes");
-    let maxResults = 75;
+    if (!this.panels.search) return error17("CORE", "UI", "Search panel element does not exist");
     for (const emoteResult of emotesResult) {
       const emote = emoteResult.item;
-      if (maxResults-- <= 0) break;
       const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid);
       if (!emoteSet) {
         error17("CORE", "UI", "Emote set not found for emote", emote.name);
         continue;
       }
+      let emoteBoxClasses = emote.isZeroWidth && "ntv__emote-box--zero-width" || "";
+      if (emotesManager.isEmoteFavorited(emote.hid)) {
+        emoteBoxClasses += " ntv__emote-box--favorited";
+      }
       if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
         if (hideSubscribersEmotes) continue;
-        this.panels.search?.append(
-          parseHTML(
-            `<div class="ntv__emote-box ntv__emote-box--locked">${emotesManager.getRenderableEmote(
-              emote,
-              "ntv__emote"
-            )}</div>`
-          )
-        );
-      } else {
-        this.panels.search?.append(
-          parseHTML(
-            `<div class="ntv__emote-box">${emotesManager.getRenderableEmote(emote, "ntv__emote")}</div>`
-          )
-        );
+        emoteBoxClasses += " ntv__emote-box--locked";
       }
+      this.panels.search.append(
+        parseHTML(
+          `<div class="ntv__emote-box ${emoteBoxClasses}" size="${emote.size}">${emotesManager.getRenderableEmote(emote, "ntv__emote")}</div>`
+        )
+      );
     }
   }
   switchPanel(panel) {
@@ -25056,13 +25069,14 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
         orderIndex = 15;
       }
       let isMenuEnabled = true, isGlobalSet = false, isEmoji = false;
+      let dataSetId = "" + dataSet.id;
       if (dataSet.id === "Global") {
         isGlobalSet = true;
-        dataSet.id = "kick_global";
+        dataSetId = "global";
         isMenuEnabled = !!settingsManager.getSetting(channelId, "emote_menu.emote_providers.kick.show_global");
       } else if (dataSet.id === "Emoji") {
         isEmoji = true;
-        dataSet.id = "kick_emoji";
+        dataSetId = "emoji";
         isMenuEnabled = !!settingsManager.getSetting(channelId, "emote_menu.emote_providers.kick.show_emojis");
       } else if ("" + dataSet.id === channelId) {
         isMenuEnabled = !!settingsManager.getSetting(
@@ -25075,7 +25089,6 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
           "emote_menu.emote_providers.kick.show_other_channels"
         );
       }
-      const dataSetId = "" + dataSet.id;
       emoteSets.push({
         provider: this.id,
         orderIndex,
@@ -25086,7 +25099,7 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
         isGlobalSet,
         isCurrentChannel: dataSetId === channelId,
         isOtherChannel: dataSetId !== channelId && !isGlobalSet && !isEmoji,
-        isSubscribed: dataSetId === channelId ? !!me.isSubscribed || !!me.isBroadcaster : true,
+        isSubscribed: !isGlobalSet && !isEmoji && (dataSetId === channelId ? !!me.isSubscribed || !!me.isBroadcaster : true),
         icon: emoteSetIcon,
         id: "kick_" + dataSetId
       });
@@ -26318,6 +26331,11 @@ var SevenTVExtension = class extends Extension {
     const STV_ID_NULL = "00000000000000000000000000";
     const platformId = getStvPlatformId();
     let promises = [];
+    promises.push(
+      getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId).then((res) => res ?? { id: STV_ID_NULL }).catch((err) => {
+        id: STV_ID_NULL;
+      })
+    );
     if (!this.cachedStvMeUser) {
       promises.push(
         getUserCosmeticDataByConnection(platformId, platformMeUserId).then((res) => res?.userByConnection ?? { id: STV_ID_NULL }).then((user) => {
@@ -26350,13 +26368,8 @@ var SevenTVExtension = class extends Extension {
         }).catch((err) => this.cachedStvMeUser = { id: STV_ID_NULL })
       );
     }
-    promises.push(
-      getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId).then((res) => res ?? { id: STV_ID_NULL }).catch((err) => {
-        id: STV_ID_NULL;
-      })
-    );
     const promiseRes = await Promise.allSettled(promises);
-    const stvChannelUser = promiseRes[1].status === "fulfilled" ? promiseRes[1].value : void 0;
+    const stvChannelUser = promiseRes[0].status === "fulfilled" ? promiseRes[0].value : void 0;
     let activeEmoteSet;
     if (stvChannelUser && "emote_sets" in stvChannelUser && stvChannelUser.emote_sets) {
       activeEmoteSet = stvChannelUser.emote_sets.find(
@@ -26708,7 +26721,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.85";
+  VERSION = "1.5.86";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
