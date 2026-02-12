@@ -472,7 +472,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			this.switchPanel('emotes')
 		}
 
-		const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20))
+		const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20), 75)
 		log('CORE', 'UI', `Searching for emotes, found ${emotesResult.length} matches"`)
 
 		// More performant than innerHTML
@@ -482,11 +482,11 @@ export default class EmoteMenuComponent extends AbstractComponent {
 
 		const hideSubscribersEmotes = settingsManager.getSetting(channelId, 'chat.emotes.hide_subscriber_emotes')
 
+		if (!this.panels.search) return error('CORE', 'UI', 'Search panel element does not exist')
+
 		// Render the found emotes
-		let maxResults = 75
 		for (const emoteResult of emotesResult) {
 			const emote = emoteResult.item
-			if (maxResults-- <= 0) break
 
 			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid)
 			if (!emoteSet) {
@@ -494,24 +494,25 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				continue
 			}
 
+			let emoteBoxClasses = (emote.isZeroWidth && 'ntv__emote-box--zero-width') || ''
+
+			if (emotesManager.isEmoteFavorited(emote.hid)) {
+				emoteBoxClasses += ' ntv__emote-box--favorited'
+			}
+
 			if (emote.isSubscribersOnly && !emoteSet.isSubscribed) {
 				if (hideSubscribersEmotes) continue
 
-				this.panels.search?.append(
-					parseHTML(
-						`<div class="ntv__emote-box ntv__emote-box--locked">${emotesManager.getRenderableEmote(
-							emote,
-							'ntv__emote'
-						)}</div>`
-					)
-				)
-			} else {
-				this.panels.search?.append(
-					parseHTML(
-						`<div class="ntv__emote-box">${emotesManager.getRenderableEmote(emote, 'ntv__emote')}</div>`
-					)
-				)
+				emoteBoxClasses += ' ntv__emote-box--locked'
 			}
+
+			this.panels.search.append(
+				parseHTML(
+					`<div class="ntv__emote-box ${emoteBoxClasses}" size="${
+						emote.size
+					}">${emotesManager.getRenderableEmote(emote, 'ntv__emote')}</div>`
+				)
+			)
 		}
 	}
 

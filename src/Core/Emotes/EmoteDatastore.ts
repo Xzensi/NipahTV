@@ -31,7 +31,8 @@ export class EmoteDatastore {
 		// includeMatches: true,
 		// isCaseSensitive: true,
 		findAllMatches: true,
-		threshold: 0.35,
+		threshold: 0.225,
+		ignoreLocation: false,
 		keys: [['name'], ['parts']]
 	})
 
@@ -514,28 +515,28 @@ export class EmoteDatastore {
 			// const aMatches = a.matches
 			// const bMatches = b.matches
 
-			if (aItem.name.toLowerCase() === search.toLowerCase()) {
+			const aLowercase = aItem.name.toLowerCase()
+			const bLowercase = bItem.name.toLowerCase()
+			const searchLowercase = search.toLowerCase()
+
+			if (aItem.name === search) {
 				return -1
-			} else if (bItem.name.toLowerCase() === search.toLowerCase()) {
+			} else if (bItem.name === search) {
 				return 1
 			}
-			// if (aMatches[0].key[0] === 'name' && )
+
+			if (aLowercase === searchLowercase) {
+				return -1
+			} else if (bLowercase === searchLowercase) {
+				return 1
+			}
 
 			// Define weights for each criterion
-			const perfectMatchWeight = 1
 			const scoreWeight = 1
-			const partsWeight = 0.1
-			const nameLengthWeight = 0.04
-			const subscribedChannelWeight = 0.15
-			const currentChannelWeight = 0.1 // Cascades with subscribedChannelWeight
-
-			// Subtract 2 because any parts split means always at least 2 parts
-			//  bias against long emotes with many parts
-			let aPartsLength = aItem.parts.length
-			if (aPartsLength) aPartsLength -= 2
-
-			let bPartsLength = bItem.parts.length
-			if (bPartsLength) bPartsLength -= 2
+			const partsCountWeight = 0.1
+			const nameLengthWeight = 0.01
+			const subscribedChannelWeight = 0.22
+			const currentChannelWeight = (biasSubscribedChannels && 0.025) || subscribedChannelWeight // Cascades with subscribedChannelWeight
 
 			// Calculate differences for each criterion
 			let relevancyDelta = (a.score - b.score) * scoreWeight
@@ -546,7 +547,15 @@ export class EmoteDatastore {
 			// relevancyDelta += (aItem.name.toLowerCase() === search.toLowerCase()) * perfectMatchWeight
 			// relevancyDelta += (bItem.name.toLowerCase() === search.toLowerCase()) * -perfectMatchWeight
 
-			relevancyDelta += (aPartsLength - bPartsLength) * partsWeight
+			// Subtract 2 because any parts split means always at least 2 parts
+			//  bias against long emotes with many parts
+			let aPartsLength = aItem.parts.length
+			if (aPartsLength) aPartsLength -= 2
+
+			let bPartsLength = bItem.parts.length
+			if (bPartsLength) bPartsLength -= 2
+
+			relevancyDelta += (aPartsLength - bPartsLength) * partsCountWeight
 
 			// relevancyDelta += (aItem.name.length > bItem.name.length || -1) * nameLengthWeight
 			relevancyDelta += (aItem.name.length - bItem.name.length) * nameLengthWeight
