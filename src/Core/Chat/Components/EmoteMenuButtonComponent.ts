@@ -10,7 +10,11 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 	element!: HTMLElement
 	private footerLogoBtnEl?: HTMLElement
 
-	constructor(private rootContext: RootContext, private session: Session, private placeholder: HTMLElement) {
+	constructor(
+		private rootContext: RootContext,
+		private session: Session,
+		private placeholder: HTMLElement
+	) {
 		super()
 	}
 
@@ -85,7 +89,7 @@ export default class EmoteMenuButtonComponent extends AbstractComponent {
 				}
 			case 'logo':
 				return {
-					path: 'assets/img/NTV_Logo.svg',
+					path: 'assets/img/NTV_logo.svg',
 					className: `ntv__emote-menu-button--${buttonStyle}`
 				}
 			case 'ntv_3d':
