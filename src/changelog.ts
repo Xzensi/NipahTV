@@ -4,7 +4,7 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
-		version: '1.5.87',
+		version: '1.5.88',
 		date: '2026-02-21',
 		description: `
                   Fix: Broken emote menu button image href
