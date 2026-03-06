@@ -2199,10 +2199,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		// messageNode.style.removeProperty('display')
 		messageNode.classList.remove('ntv__chat-message--unrendered')
 
-		// Pull out the chat message actions
-		let chatMessageActionsEl = groupElementNode.lastElementChild
-		while (chatMessageActionsEl && chatMessageActionsEl.id !== 'chat-message-actions')
-			chatMessageActionsEl = chatMessageActionsEl.previousElementSibling
+		// Pull out the chat message actions wrapper with action buttons
+		let chatMessageActionsEl = groupElementNode.querySelector('.z-absolute.rounded')
+		log('KICK', 'UI', 'AAAAAAA Chat message actions element found', chatMessageActionsEl)
+
 		if (chatMessageActionsEl) {
 			// chatMessageActionsEl.removeAttribute('id')
 			// chatMessageActionsEl.classList.add('kick__chat-message__actions')
@@ -2212,25 +2212,25 @@ export class KickUserInterface extends AbstractUserInterface {
 			ntvChatMessageActionsEl.classList.add('kick__chat-message__actions')
 			ntvChatMessageActionsEl.classList.remove('hidden')
 
-			// Hide the reply button because it doesnt work yet
-			const replyButtonEl =
-				chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement
-			if (replyButtonEl) replyButtonEl.classList.add('kick__reply-button')
+			// const replyButtonEl = chatMessageActionsEl.querySelector('[aria-label="Reply"]')
 
 			// We clone the buttons and attach new event listeners to forward the click events to the original buttons
 			for (const buttonEl of chatMessageActionsEl.children) {
-				// if (buttonEl.classList.contains('kick__reply-button')) continue
-
 				const ntvBtnEl = buttonEl.cloneNode(true)
 				ntvBtnEl.addEventListener('click', evt => {
 					evt.preventDefault()
 					evt.stopPropagation()
 					evt.stopImmediatePropagation()
 
-					if (evt.target instanceof HTMLElement && evt.target.classList.contains('kick__reply-button')) {
+					// Is the click the reply action button?
+					if (
+						evt.currentTarget instanceof HTMLElement &&
+						evt.currentTarget.getAttribute('aria-label') === 'Reply'
+					) {
 						this.handleMessageReplyBtnClick(messageNode, buttonEl as HTMLElement)
-					} else {
-						// TODO implement the rest of the buttons
+					}
+					// Forward the event to the original button for other actions (like pinning message, etc)
+					else {
 						const event = new MouseEvent('click', { bubbles: true, cancelable: true })
 						Object.defineProperty(event, 'target', { writable: false, value: buttonEl })
 						buttonEl.dispatchEvent(event)
