@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.89',
+		date: '2026-03-06',
+		description: `
+                  Fix: Kick website update broke chat message action buttons #239
+            `
+	},
+	{
 		version: '1.5.88',
 		date: '2026-02-21',
 		description: `
