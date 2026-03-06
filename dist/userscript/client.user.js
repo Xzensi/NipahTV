@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.88
+// @version 1.5.89
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12264,6 +12264,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.89",
+    date: "2026-03-06",
+    description: `
+                  Fix: Kick website update broke chat message action buttons #239
+            `
+  },
+  {
     version: "1.5.88",
     date: "2026-02-21",
     description: `
@@ -24325,23 +24332,22 @@ var KickUserInterface = class extends AbstractUserInterface {
     messageNode.append(ntvMessageInnerEl);
     messageNode.classList.add("ntv__chat-message");
     messageNode.classList.remove("ntv__chat-message--unrendered");
-    let chatMessageActionsEl = groupElementNode.lastElementChild;
-    while (chatMessageActionsEl && chatMessageActionsEl.id !== "chat-message-actions")
-      chatMessageActionsEl = chatMessageActionsEl.previousElementSibling;
+    let chatMessageActionsEl = groupElementNode.querySelector(".z-absolute.rounded");
+    log28("KICK", "UI", "AAAAAAA Chat message actions element found", chatMessageActionsEl);
     if (chatMessageActionsEl) {
       const ntvChatMessageActionsEl = document.createElement("div");
       ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
       ntvChatMessageActionsEl.classList.add("kick__chat-message__actions");
       ntvChatMessageActionsEl.classList.remove("hidden");
-      const replyButtonEl = chatMessageActionsEl.querySelector('[d*="M18.64 8.82996H"]')?.parentElement?.parentElement;
-      if (replyButtonEl) replyButtonEl.classList.add("kick__reply-button");
+      const replyButtonEl = chatMessageActionsEl.querySelector('[aria-label="Reply"]');
+      replyButtonEl?.classList.add("kick__reply-button");
       for (const buttonEl of chatMessageActionsEl.children) {
         const ntvBtnEl = buttonEl.cloneNode(true);
         ntvBtnEl.addEventListener("click", (evt) => {
           evt.preventDefault();
           evt.stopPropagation();
           evt.stopImmediatePropagation();
-          if (evt.target instanceof HTMLElement && evt.target.classList.contains("kick__reply-button")) {
+          if (evt.currentTarget instanceof HTMLElement && evt.currentTarget.getAttribute("aria-label") === "Reply") {
             this.handleMessageReplyBtnClick(messageNode, buttonEl);
           } else {
             const event = new MouseEvent("click", { bubbles: true, cancelable: true });
@@ -26728,7 +26734,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.88";
+  VERSION = "1.5.89";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
