@@ -2212,7 +2212,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			ntvChatMessageActionsEl.classList.add('kick__chat-message__actions')
 			ntvChatMessageActionsEl.classList.remove('hidden')
 
-			// const replyButtonEl = chatMessageActionsEl.querySelector('[aria-label="Reply"]')
+			// Backwards compatibility
+			const replyButtonEl = chatMessageActionsEl.querySelector('[aria-label="Reply"]')
+			replyButtonEl?.classList.add('kick__reply-button')
 
 			// We clone the buttons and attach new event listeners to forward the click events to the original buttons
 			for (const buttonEl of chatMessageActionsEl.children) {
