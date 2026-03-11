@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.89
+// @version 1.5.90
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11137,6 +11137,20 @@ var KICK_COMMANDS = [
     }
   },
   {
+    name: "clip",
+    params: "[duration] [title]",
+    description: "Create a clip of the stream. Duration in seconds (10-180).",
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("clip");
+    },
+    argValidators: {
+      "[duration]": (arg) => {
+        const x = parseInt(arg, 10);
+        return !arg || isStringNumber(arg) && x >= 10 && x <= 180 ? null : "Seconds must be a number between 10 and 180";
+      }
+    }
+  },
+  {
     name: "user",
     params: "<username>",
     // minAllowedRole: 'moderator',
@@ -12263,6 +12277,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.90",
+    date: "2026-03-11",
+    description: `
+                  Feat: Add 'clip' command to create stream clips
+            `
+  },
   {
     version: "1.5.89",
     date: "2026-03-06",
@@ -24333,7 +24354,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     messageNode.classList.add("ntv__chat-message");
     messageNode.classList.remove("ntv__chat-message--unrendered");
     let chatMessageActionsEl = groupElementNode.querySelector(".z-absolute.rounded");
-    log28("KICK", "UI", "AAAAAAA Chat message actions element found", chatMessageActionsEl);
     if (chatMessageActionsEl) {
       const ntvChatMessageActionsEl = document.createElement("div");
       ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
@@ -26734,7 +26754,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.89";
+  VERSION = "1.5.90";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
