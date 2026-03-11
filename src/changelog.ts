@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.91',
+		date: '2026-03-11',
+		description: `
+                  Fix: 'clip' command not passing arguments to lexical editor
+            `
+	},
+	{
 		version: '1.5.90',
 		date: '2026-03-11',
 		description: `
