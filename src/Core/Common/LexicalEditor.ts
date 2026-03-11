@@ -231,8 +231,9 @@ export default class LexicalEditor {
 	 * Programmatically executes a slash command (e.g., "/clear") by setting the editor content
 	 * and then dispatching the 'slashCommandEnter' Lexical command.
 	 * @param slashCommandText The slash command string (e.g., "/clear").
+	 * @param commandContent Optional content to include with the slash command.
 	 */
-	async executeSlashCommand(slashCommandText: string): Promise<void> {
+	async executeSlashCommand(slashCommandText: string, commandContent?: string): Promise<void> {
 		const editor = this.editor
 		const command = this.mappedCommands.slashCommandEnter
 
@@ -247,6 +248,11 @@ export default class LexicalEditor {
 		this.appendText(slashCommandText)
 
 		await new Promise(resolve => setTimeout(resolve, 0))
+
+		if (commandContent) {
+			this.appendText(` ${commandContent}`)
+			await new Promise(resolve => setTimeout(resolve, 0))
+		}
 
 		const mockEnterEvent = new KeyboardEvent('keydown', {
 			key: 'Enter',

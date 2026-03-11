@@ -66,7 +66,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '[duration] [title]',
 		description: 'Create a clip of the stream. Duration in seconds (10-180).',
 		execute: async (deps: RootContext & Session, args) => {
-			return LexicalCommandFromMain.executeCommand('clip')
+			return LexicalCommandFromMain.executeCommand('clip', args.join(' '))
 		},
 		argValidators: {
 			'[duration]': arg => {

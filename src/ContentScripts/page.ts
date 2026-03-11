@@ -127,7 +127,7 @@ document.addEventListener('ntv_downstream_reactive_props', function (evt: Event)
 
 document.addEventListener('ntv_downstream_lexical_command', function (evt: Event) {
 	const data = JSON.parse((evt as CustomEvent).detail)
-	const { rID, command } = data
+	const { rID, command, commandContent } = data
 
 	const editorDOMElement = document.querySelector('.editor-input')
 	const editor = (editorDOMElement as any)?.__lexicalEditor
@@ -142,7 +142,7 @@ document.addEventListener('ntv_downstream_lexical_command', function (evt: Event
 
 	try {
 		const lexicalEditor = new LexicalEditor(editor)
-		lexicalEditor.executeSlashCommand(command)
+		lexicalEditor.executeSlashCommand(command, commandContent)
 	} catch (error) {
 		console.error('[NTV] [Page] Error executing command:', error)
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error'

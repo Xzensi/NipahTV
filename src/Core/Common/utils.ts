@@ -312,13 +312,15 @@ export class LexicalCommandFromMain {
 		}
 	}
 
-	executeCommand(command: string) {
+	executeCommand(command: string, commandContent?: string) {
 		return new Promise((resolve, reject) => {
 			if (__EXTENSION__) {
 				const rID = ++this.requestID
 				this.promiseMap.set(rID, { resolve, reject })
 				document.dispatchEvent(
-					new CustomEvent('ntv_downstream_lexical_command', { detail: JSON.stringify({ rID, command }) })
+					new CustomEvent('ntv_downstream_lexical_command', {
+						detail: JSON.stringify({ rID, command, commandContent })
+					})
 				)
 			} else {
 				const editorDOMElement = document.querySelector('.editor-input')
@@ -328,7 +330,7 @@ export class LexicalCommandFromMain {
 				}
 
 				const lexicalEditor = new LexicalEditor(editor)
-				lexicalEditor.executeSlashCommand(command)
+				lexicalEditor.executeSlashCommand(command, commandContent)
 
 				resolve()
 			}
