@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.89
+// @version 1.5.91
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10447,8 +10447,9 @@ var LexicalEditor = class {
    * Programmatically executes a slash command (e.g., "/clear") by setting the editor content
    * and then dispatching the 'slashCommandEnter' Lexical command.
    * @param slashCommandText The slash command string (e.g., "/clear").
+   * @param commandContent Optional content to include with the slash command.
    */
-  async executeSlashCommand(slashCommandText) {
+  async executeSlashCommand(slashCommandText, commandContent) {
     const editor = this.editor;
     const command = this.mappedCommands.slashCommandEnter;
     if (!command) {
@@ -10458,6 +10459,10 @@ var LexicalEditor = class {
     await new Promise((resolve) => setTimeout(resolve, 0));
     this.appendText(slashCommandText);
     await new Promise((resolve) => setTimeout(resolve, 0));
+    if (commandContent) {
+      this.appendText(` ${commandContent}`);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     const mockEnterEvent = new KeyboardEvent("keydown", {
       key: "Enter",
       code: "Enter",
@@ -10726,13 +10731,15 @@ var LexicalCommandFromMain2 = class {
       });
     }
   }
-  executeCommand(command) {
+  executeCommand(command, commandContent) {
     return new Promise((resolve, reject) => {
       if (false) {
         const rID = ++this.requestID;
         this.promiseMap.set(rID, { resolve, reject });
         document.dispatchEvent(
-          new CustomEvent("ntv_downstream_lexical_command", { detail: JSON.stringify({ rID, command }) })
+          new CustomEvent("ntv_downstream_lexical_command", {
+            detail: JSON.stringify({ rID, command, commandContent })
+          })
         );
       } else {
         const editorDOMElement = document.querySelector(".editor-input");
@@ -10741,7 +10748,7 @@ var LexicalCommandFromMain2 = class {
           reject("Lexical editor not found.");
         }
         const lexicalEditor = new LexicalEditor(editor);
-        lexicalEditor.executeSlashCommand(command);
+        lexicalEditor.executeSlashCommand(command, commandContent);
         resolve();
       }
     });
@@ -11134,6 +11141,20 @@ var KICK_COMMANDS = [
       },
       errorMessage: "Failed to ban user.",
       successMessage: "User has been banned."
+    }
+  },
+  {
+    name: "clip",
+    params: "[duration] [title]",
+    description: "Create a clip of the stream. Duration in seconds (10-180).",
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("clip", args.join(" "));
+    },
+    argValidators: {
+      "[duration]": (arg) => {
+        const x = parseInt(arg, 10);
+        return !arg || isStringNumber(arg) && x >= 10 && x <= 180 ? null : "Seconds must be a number between 10 and 180";
+      }
     }
   },
   {
@@ -12263,6 +12284,20 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.91",
+    date: "2026-03-11",
+    description: `
+                  Fix: 'clip' command not passing arguments to lexical editor
+            `
+  },
+  {
+    version: "1.5.90",
+    date: "2026-03-11",
+    description: `
+                  Feat: Add 'clip' command to create stream clips
+            `
+  },
   {
     version: "1.5.89",
     date: "2026-03-06",
@@ -24333,7 +24368,6 @@ var KickUserInterface = class extends AbstractUserInterface {
     messageNode.classList.add("ntv__chat-message");
     messageNode.classList.remove("ntv__chat-message--unrendered");
     let chatMessageActionsEl = groupElementNode.querySelector(".z-absolute.rounded");
-    log28("KICK", "UI", "AAAAAAA Chat message actions element found", chatMessageActionsEl);
     if (chatMessageActionsEl) {
       const ntvChatMessageActionsEl = document.createElement("div");
       ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
@@ -26734,7 +26768,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.89";
+  VERSION = "1.5.91";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
