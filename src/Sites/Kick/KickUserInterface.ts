@@ -2201,7 +2201,6 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Pull out the chat message actions wrapper with action buttons
 		let chatMessageActionsEl = groupElementNode.querySelector('.z-absolute.rounded')
-		log('KICK', 'UI', 'AAAAAAA Chat message actions element found', chatMessageActionsEl)
 
 		if (chatMessageActionsEl) {
 			// chatMessageActionsEl.removeAttribute('id')

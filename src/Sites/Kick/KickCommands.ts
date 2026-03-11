@@ -62,6 +62,22 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		}
 	},
 	{
+		name: 'clip',
+		params: '[duration] [title]',
+		description: 'Create a clip of the stream. Duration in seconds (10-180).',
+		execute: async (deps: RootContext & Session, args) => {
+			return LexicalCommandFromMain.executeCommand('clip')
+		},
+		argValidators: {
+			'[duration]': arg => {
+				const x = parseInt(arg, 10)
+				return !arg || (isStringNumber(arg) && x >= 10 && x <= 180)
+					? null
+					: 'Seconds must be a number between 10 and 180'
+			}
+		}
+	},
+	{
 		name: 'user',
 		params: '<username>',
 		// minAllowedRole: 'moderator',
