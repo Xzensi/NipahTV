@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.91
+// @version 1.5.92
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12285,6 +12285,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.92",
+    date: "2026-03-12",
+    description: `
+                  Fix: Message reply button not working in other languages
+            `
+  },
+  {
     version: "1.5.91",
     date: "2026-03-11",
     description: `
@@ -24381,7 +24388,57 @@ var KickUserInterface = class extends AbstractUserInterface {
           evt.preventDefault();
           evt.stopPropagation();
           evt.stopImmediatePropagation();
-          if (evt.currentTarget instanceof HTMLElement && evt.currentTarget.getAttribute("aria-label") === "Reply") {
+          let ariaLabel;
+          switch (document.documentElement.lang) {
+            case "ar":
+              ariaLabel = "\u0631\u062F\u0651";
+              break;
+            case "de":
+              ariaLabel = "Antworten";
+              break;
+            case "es":
+              ariaLabel = "Responder";
+              break;
+            case "fi":
+              ariaLabel = "Vastaa";
+              break;
+            case "fr":
+              ariaLabel = "R\xE9pondre";
+              break;
+            case "hi":
+              ariaLabel = "\u091C\u0935\u093E\u092C \u0926\u0947\u0928\u093E";
+              break;
+            case "id":
+              ariaLabel = "Jawab";
+              break;
+            case "ja":
+              ariaLabel = "\u8FD4\u4FE1";
+              break;
+            case "ko":
+              ariaLabel = "\uB2F5\uC7A5";
+              break;
+            case "pl":
+              ariaLabel = "Odpowiedz";
+              break;
+            case "pt":
+              ariaLabel = "Responder";
+              break;
+            case "ru":
+              ariaLabel = "\u041E\u0442\u0432\u0435\u0442\u0438\u0442\u044C";
+              break;
+            case "tr":
+              ariaLabel = "Yan\u0131tla";
+              break;
+            case "vi":
+              ariaLabel = "H\u1ED3i \u0111\xE1p";
+              break;
+            case "zh":
+              ariaLabel = "\u56DE\u590D";
+              break;
+            default:
+              ariaLabel = "Reply";
+          }
+          if (evt.currentTarget instanceof HTMLElement && evt.currentTarget.getAttribute("aria-label") === ariaLabel) {
             this.handleMessageReplyBtnClick(messageNode, buttonEl);
           } else {
             const event = new MouseEvent("click", { bubbles: true, cancelable: true });
@@ -26768,7 +26825,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.91";
+  VERSION = "1.5.92";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

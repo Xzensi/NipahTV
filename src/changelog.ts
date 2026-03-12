@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.92',
+		date: '2026-03-12',
+		description: `
+                  Fix: Message reply button not working in other languages
+            `
+	},
+	{
 		version: '1.5.91',
 		date: '2026-03-11',
 		description: `
