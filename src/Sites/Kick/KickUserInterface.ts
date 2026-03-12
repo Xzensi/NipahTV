@@ -2223,10 +2223,61 @@ export class KickUserInterface extends AbstractUserInterface {
 					evt.stopPropagation()
 					evt.stopImmediatePropagation()
 
+					let ariaLabel
+					switch (document.documentElement.lang) {
+						case 'ar': // Arabic
+							ariaLabel = 'ردّ'
+							break
+						case 'de': // German
+							ariaLabel = 'Antworten'
+							break
+						case 'es': // Spain
+							ariaLabel = 'Responder'
+							break
+						case 'fi': // Suomi
+							ariaLabel = 'Vastaa'
+							break
+						case 'fr': // French
+							ariaLabel = 'Répondre'
+							break
+						case 'hi': // Hindi
+							ariaLabel = 'जवाब देना'
+							break
+						case 'id': // Indonesian
+							ariaLabel = 'Jawab'
+							break
+						case 'ja': // Japanese
+							ariaLabel = '返信'
+							break
+						case 'ko': // Korean
+							ariaLabel = '답장'
+							break
+						case 'pl': // Polish
+							ariaLabel = 'Odpowiedz'
+							break
+						case 'pt': // Portuguese
+							ariaLabel = 'Responder'
+							break
+						case 'ru': // Russian
+							ariaLabel = 'Ответить'
+							break
+						case 'tr': // Turkish
+							ariaLabel = 'Yanıtla'
+							break
+						case 'vi': // Vietnamese
+							ariaLabel = 'Hồi đáp'
+							break
+						case 'zh': // Chinese
+							ariaLabel = '回复'
+							break
+						default:
+							ariaLabel = 'Reply'
+					}
+
 					// Is the click the reply action button?
 					if (
 						evt.currentTarget instanceof HTMLElement &&
-						evt.currentTarget.getAttribute('aria-label') === 'Reply'
+						evt.currentTarget.getAttribute('aria-label') === ariaLabel
 					) {
 						this.handleMessageReplyBtnClick(messageNode, buttonEl as HTMLElement)
 					}
