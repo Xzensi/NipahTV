@@ -26,7 +26,7 @@
 div:has(> #chat-input-wrapper) {
 	border-radius: 0.25rem;
 	position: relative;
-	overflow: clip;
+	// overflow: clip;
 }
 
 #message-input {

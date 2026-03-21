@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.95',
+		date: '2026-03-21',
+		description: `
+                  Hotfix: Accidentally clipped the input causing emote completion list to be invisible
+            `
+	},
+	{
 		version: '1.5.93',
 		date: '2026-03-21',
 		description: `
