@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.92
+// @version 1.5.93
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-06071c55.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-eed30434.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12285,6 +12285,18 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.93",
+    date: "2026-03-21",
+    description: `
+                  Kick has decided to tighten down the ratelimiting on server-side to a pretty low limit of 6 messages per 10 seconds. In my opinion this is rather low and should be raised to 10-15 messages per second because this low ratelimit is not going to make any difference in fighting bot spammers at all and now only serves to punish talkative chatters. Instead of lowering the bar like this, empower streamers to decide on the ratelimit for their own channels. But who am I to say.
+
+                  Instead of annoying you with large obnoxious RATE_LIMIT_ERROR warnings that completely block your input, I have implemented a more user-friendly visual feedback for when you hit the ratelimit.
+
+                  Feat: Add ratelimiting for sending messages
+                  Feat: Add visual feedback for ratelimiter cooldown
+            `
+  },
+  {
     version: "1.5.92",
     date: "2026-03-12",
     description: `
@@ -17485,6 +17497,94 @@ var Database = class extends DatabaseAbstract {
   }
 };
 
+// src/Core/UI/Components/RateLimitProgressBarComponent.ts
+var RateLimitProgressBarComponent = class extends AbstractComponent {
+  element;
+  fillElement = null;
+  activeCooldownKey = null;
+  hideTimeout = null;
+  constructor() {
+    super();
+    this.element = parseHTML(
+      cleanupHTML(`
+				<div class="ntv__rate-limit-progress" role="progressbar" aria-label="Chat rate limit cooldown">
+					<div class="ntv__rate-limit-progress__track">
+						<div class="ntv__rate-limit-progress__fill"></div>
+					</div>
+				</div>
+			`),
+      true
+    );
+  }
+  render() {
+    this.fillElement = this.element.querySelector(".ntv__rate-limit-progress__fill");
+  }
+  attachEventHandlers() {
+  }
+  update(state) {
+    if (!state.isCoolingDown || !state.cooldownEndsAt || state.remainingMs <= 0) {
+      this.hide();
+      return;
+    }
+    const cooldownKey = `${state.cooldownStartedAt ?? "unknown"}:${state.cooldownEndsAt}`;
+    const cooldownDurationMs = Math.max(state.cooldownDurationMs, state.remainingMs, 1);
+    const elapsedMs = Math.max(cooldownDurationMs - state.remainingMs, 0);
+    this.element.classList.add("ntv__rate-limit-progress--active");
+    this.element.setAttribute(
+      "ntv-tooltip",
+      state.queueSize > 0 ? `Chat rate limit active. ${state.queueSize} message${state.queueSize === 1 ? "" : "s"} queued.` : "Chat rate limit active."
+    );
+    this.element.setAttribute("aria-valuemin", "0");
+    this.element.setAttribute("aria-valuemax", `${cooldownDurationMs}`);
+    this.element.setAttribute("aria-valuenow", `${Math.max(state.remainingMs, 0)}`);
+    if (this.fillElement && this.activeCooldownKey !== cooldownKey) {
+      this.activeCooldownKey = cooldownKey;
+      this.fillElement.style.setProperty("--ntv-rate-limit-progress-duration", `${cooldownDurationMs}ms`);
+      this.fillElement.style.setProperty("--ntv-rate-limit-progress-delay", `${-elapsedMs}ms`);
+      this.restartAnimation();
+    }
+    this.scheduleHide(state.remainingMs);
+  }
+  destroy() {
+    this.clearHideTimeout();
+    this.element.remove();
+  }
+  hide() {
+    this.activeCooldownKey = null;
+    this.clearHideTimeout();
+    this.element.classList.remove("ntv__rate-limit-progress--active");
+    this.element.removeAttribute("ntv-tooltip");
+    this.element.removeAttribute("aria-valuemin");
+    this.element.removeAttribute("aria-valuemax");
+    this.element.removeAttribute("aria-valuenow");
+    if (this.fillElement) {
+      this.fillElement.classList.remove("ntv__rate-limit-progress__fill--animating");
+      this.fillElement.style.removeProperty("--ntv-rate-limit-progress-duration");
+      this.fillElement.style.removeProperty("--ntv-rate-limit-progress-delay");
+    }
+  }
+  restartAnimation() {
+    if (!this.fillElement) return;
+    this.fillElement.classList.remove("ntv__rate-limit-progress__fill--animating");
+    void this.fillElement.offsetWidth;
+    this.fillElement.classList.add("ntv__rate-limit-progress__fill--animating");
+  }
+  scheduleHide(remainingMs) {
+    this.clearHideTimeout();
+    this.hideTimeout = setTimeout(
+      () => {
+        this.hide();
+      },
+      Math.max(remainingMs, 0) + 50
+    );
+  }
+  clearHideTimeout() {
+    if (!this.hideTimeout) return;
+    clearTimeout(this.hideTimeout);
+    this.hideTimeout = null;
+  }
+};
+
 // src/Core/Chat/Components/QuickEmotesHolderComponent.ts
 var logger15 = new Logger();
 var { log: log14, info: info12, error: error15 } = logger15.destruct();
@@ -17950,9 +18050,59 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
   }
 };
 
-// src/Core/Chat/Components/EmoteMenuComponent.ts
+// src/Core/UI/Components/VerticalMenuComponent.ts
 var logger17 = new Logger();
 var { log: log16, info: info14, error: error17 } = logger17.destruct();
+var VerticalMenuComponent = class extends AbstractComponent {
+  constructor(anchorElement, options) {
+    super();
+    this.anchorElement = anchorElement;
+    this.options = options;
+    this.element = document.createElement("div");
+    this.element.classList.add("ntv__vertical-menu");
+    for (const option of options) {
+      const button = document.createElement("button");
+      button.textContent = option.label;
+      button.dataset.value = option.value;
+      this.element.appendChild(button);
+    }
+  }
+  event = new EventTarget();
+  element;
+  render() {
+    const boundRect = this.anchorElement.getBoundingClientRect();
+    this.element.style.left = boundRect.right + "px";
+    this.element.style.top = boundRect.top + "px";
+    document.body.appendChild(this.element);
+  }
+  attachEventHandlers() {
+    const closeMenu = (event) => {
+      if (event.target === this.element || this.element.contains(event.target)) return;
+      this.element.remove();
+      document.removeEventListener("click", closeMenu);
+      this.event.dispatchEvent(new Event("close"));
+    };
+    const buttonEls = this.element.querySelectorAll("button");
+    buttonEls.forEach((buttonEl) => {
+      buttonEl.addEventListener("click", (event) => {
+        this.element.remove();
+        document.removeEventListener("click", closeMenu);
+        this.event.dispatchEvent(new CustomEvent("action", { detail: buttonEl.dataset.value }));
+        this.event.dispatchEvent(new Event("close"));
+      });
+    });
+    setTimeout(() => {
+      document.addEventListener("click", closeMenu);
+    }, 0);
+  }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
+  }
+};
+
+// src/Core/Chat/Components/EmoteMenuComponent.ts
+var logger18 = new Logger();
+var { log: log17, info: info15, error: error18 } = logger18.destruct();
 var EmoteMenuComponent = class extends AbstractComponent {
   toggleStates = {};
   isShowing = false;
@@ -18055,7 +18205,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         entries.forEach((entry) => {
           const emoteSetId = entry.target.getAttribute("data-id");
           const sidebarIcon = this.emoteSetSidebarEls.get(emoteSetId);
-          if (!sidebarIcon) return error17("CORE", "UI", "Invalid emote set sidebar element");
+          if (!sidebarIcon) return error18("CORE", "UI", "Invalid emote set sidebar element");
           sidebarIcon.style.backgroundColor = `rgba(255, 255, 255, ${entry.intersectionRect.height / this.scrollableHeight / 7})`;
         });
       },
@@ -18091,7 +18241,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
       if (!emoteBoxEl) return;
       const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
-      if (!emoteHid) return error17("CORE", "UI", "Invalid emote hid");
+      if (!emoteHid) return error18("CORE", "UI", "Invalid emote hid");
       if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
       if (skipClickEvent) {
         skipClickEvent = false;
@@ -18107,7 +18257,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         if (emoteBoxEl) {
           if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
           const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
-          if (!emoteHid) return error17("CORE", "UI", "Unable to start dragging emote, invalid emote hid");
+          if (!emoteHid) return error18("CORE", "UI", "Unable to start dragging emote, invalid emote hid");
           mouseDownTimeout = setTimeout(() => {
             if (!emoteBoxEl.isConnected) return;
             this.startDragFavoriteEmote(evt, emoteBoxEl);
@@ -18221,7 +18371,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       const emoteSetEl = this.containerEl?.querySelector(
         `.ntv__emote-set[data-id="${emoteSetId}"]`
       );
-      if (!emoteSetEl) return error17("CORE", "UI", "Invalid emote set element");
+      if (!emoteSetEl) return error18("CORE", "UI", "Invalid emote set element");
       const headerHeight = emoteSetEl.querySelector(".ntv__emote-set__header")?.clientHeight || 0;
       scrollableEl.scrollTo({
         top: emoteSetEl.offsetTop - headerHeight,
@@ -18258,9 +18408,9 @@ var EmoteMenuComponent = class extends AbstractComponent {
           return;
         }
         const emoteHid = data.added || data.reordered || data.removed;
-        if (!emoteHid) return error17("CORE", "UI", "Invalid emote hid in favorites changed event", data);
+        if (!emoteHid) return error18("CORE", "UI", "Invalid emote hid in favorites changed event", data);
         const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
-        if (!emoteSet) return error17("CORE", "UI", "Invalid emote set in favorites changed event", data);
+        if (!emoteSet) return error18("CORE", "UI", "Invalid emote set in favorites changed event", data);
         this.updateEmoteSet(emoteSet);
       }
     );
@@ -18304,17 +18454,17 @@ var EmoteMenuComponent = class extends AbstractComponent {
       this.switchPanel("emotes");
     }
     const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20), 75);
-    log16("CORE", "UI", `Searching for emotes, found ${emotesResult.length} matches"`);
+    log17("CORE", "UI", `Searching for emotes, found ${emotesResult.length} matches"`);
     while (this.panels.search?.firstChild) {
       this.panels.search.removeChild(this.panels.search.firstChild);
     }
     const hideSubscribersEmotes = settingsManager.getSetting(channelId, "chat.emotes.hide_subscriber_emotes");
-    if (!this.panels.search) return error17("CORE", "UI", "Search panel element does not exist");
+    if (!this.panels.search) return error18("CORE", "UI", "Search panel element does not exist");
     for (const emoteResult of emotesResult) {
       const emote = emoteResult.item;
       const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid);
       if (!emoteSet) {
-        error17("CORE", "UI", "Emote set not found for emote", emote.name);
+        error18("CORE", "UI", "Emote set not found for emote", emote.name);
         continue;
       }
       let emoteBoxClasses = emote.isZeroWidth && "ntv__emote-box--zero-width" || "";
@@ -18350,7 +18500,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { sidebarSetsEl, scrollableEl } = this;
     const channelId = this.session.channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
-    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error17("CORE", "UI", "Invalid emote menu elements");
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error18("CORE", "UI", "Invalid emote menu elements");
     const { settingsManager } = this.rootContext;
     if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
     const sidebarFavoritesBtn = parseHTML(
@@ -18381,13 +18531,13 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { settingsManager } = this.rootContext;
     const channelId = this.session.channelData.channelId;
     if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
-    if (!this.favoritesEmoteSetEl) return error17("CORE", "UI", "Invalid favorites emote set element");
+    if (!this.favoritesEmoteSetEl) return error18("CORE", "UI", "Invalid favorites emote set element");
     const { emotesManager } = this.session;
     const favoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
     if (emoteSet && !favoriteEmoteDocuments.some((doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid))) {
       return;
     }
-    log16("CORE", "UI", "Rendering favorite emote set in emote menu..");
+    log17("CORE", "UI", "Rendering favorite emote set in emote menu..");
     const emotesEl = this.favoritesEmoteSetEl.getElementsByClassName("ntv__emote-set__emotes")[0];
     while (emotesEl.firstChild) emotesEl.removeChild(emotesEl.firstChild);
     this.favoriteEmoteElHIDMap = /* @__PURE__ */ new Map();
@@ -18409,14 +18559,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
     }
   }
   addEmoteSet(emoteSet) {
-    log16("CORE", "UI", `Adding emote set "${emoteSet.name}" to emote menu..`);
+    log17("CORE", "UI", `Adding emote set "${emoteSet.name}" to emote menu..`);
     const { sidebarSetsEl, scrollableEl, rootContext } = this;
     const { emotesManager, channelData } = this.session;
     const channelId = channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
-    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error17("CORE", "UI", "Invalid emote menu elements");
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error18("CORE", "UI", "Invalid emote menu elements");
     if (this.emoteSetEls.has(emoteSet.id)) {
-      error17("CORE", "UI", `Emote set "${emoteSet.name}" already exists, removing it before re-adding..`);
+      error18("CORE", "UI", `Emote set "${emoteSet.name}" already exists, removing it before re-adding..`);
       this.emoteSetEls.get(emoteSet.id)?.remove();
       this.emoteSetEls.delete(emoteSet.id);
       this.emoteSetSidebarEls.get(emoteSet.id)?.remove();
@@ -18424,7 +18574,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     }
     const emoteSets = emotesManager.getMenuEnabledEmoteSets();
     if (!emoteSets.find((set) => set.id === emoteSet.id)) {
-      log16("CORE", "UI", `Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`);
+      log17("CORE", "UI", `Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`);
       return;
     }
     const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
@@ -18479,7 +18629,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.scrollableObserver.observe(emoteSetEl);
   }
   updateEmoteSet(emoteSet) {
-    log16("CORE", "UI", `Updating emote set "${emoteSet.name}" in emote menu..`);
+    log17("CORE", "UI", `Updating emote set "${emoteSet.name}" in emote menu..`);
     if (this.emoteSetEls.has(emoteSet.id)) {
       this.emoteSetEls.get(emoteSet.id)?.remove();
       this.emoteSetEls.delete(emoteSet.id);
@@ -18504,7 +18654,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     } else {
       if (isUnavailable || isLocked) return;
       const emote = emotesManager.getEmote(emoteHid);
-      if (!emote) return error17("CORE", "UI", "Emote not found");
+      if (!emote) return error18("CORE", "UI", "Emote not found");
       eventBus.publish("ntv.ui.emote.click", { emoteHid });
       const closeOnClick = settingsManager.getSetting(channelId, "chat.emote_menu.close_on_click");
       if (closeOnClick) this.toggleShow(false);
@@ -18518,8 +18668,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   startDragFavoriteEmote(event, emoteBoxEl) {
     if (!this.favoritesEmoteSetEl)
-      return error17("CORE", "UI", "Unable to drag emote, favorites emote set does not exist..");
-    log16("CORE", "UI", "Starting emote drag mode..");
+      return error18("CORE", "UI", "Unable to drag emote, favorites emote set does not exist..");
+    log17("CORE", "UI", "Starting emote drag mode..");
     this.isDraggingEmote = true;
     this.favoritesEmoteSetEl.classList.add("ntv__emote-set--dragging-emote");
     const favoriteEmotesSetBodyEl = this.favoritesEmoteSetEl.querySelector(".ntv__emote-set__emotes");
@@ -18541,10 +18691,10 @@ var EmoteMenuComponent = class extends AbstractComponent {
         const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl);
         const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl);
         const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl);
-        if (!hoveredEmoteHid) return error17("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
+        if (!hoveredEmoteHid) return error18("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
         const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid);
         if (void 0 === hoveredEmoteOrderIndex)
-          return error17("CORE", "UI", "Invalid favorite emote order index..");
+          return error18("CORE", "UI", "Invalid favorite emote order index..");
         if (hoveredEmoteIndex > emoteIndex) {
           hoveredEmoteEl.after(emoteBoxEl);
           this.dragEmoteNewIndex = hoveredEmoteOrderIndex + 1;
@@ -18558,8 +18708,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   stopDragFavoriteEmote(emoteBoxEl, emoteHid) {
     if (!this.favoritesEmoteSetEl)
-      return error17("CORE", "UI", "Unable to stop dragging emote, favorites emote set does not exist..");
-    log16("CORE", "UI", "Stopped emote drag mode");
+      return error18("CORE", "UI", "Unable to stop dragging emote, favorites emote set does not exist..");
+    log17("CORE", "UI", "Stopped emote drag mode");
     this.favoritesEmoteSetEl.classList.remove("ntv__emote-set--dragging-emote");
     emoteBoxEl?.classList.remove("ntv__emote-box--dragging");
     this.isDraggingEmote = false;
@@ -18611,9 +18761,12 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
 };
 
+// src/Sites/Kick/KickEvents.ts
+var KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE = "ntv.kick.send_message.rate_limit.updated";
+
 // src/Core/Chat/Components/ReplyMessageComponent.ts
-var logger18 = new Logger();
-var { log: log17, info: info15, error: error18 } = logger18.destruct();
+var logger19 = new Logger();
+var { log: log18, info: info16, error: error19 } = logger19.destruct();
 var ReplyMessageComponent = class extends AbstractComponent {
   element;
   containerEl;
@@ -18660,7 +18813,7 @@ var ReplyMessageComponent = class extends AbstractComponent {
     this.eventTarget.addEventListener(event, callback);
   }
   destroy() {
-    log17("CORE", "UI", "Destroying reply message component..", this.element);
+    log18("CORE", "UI", "Destroying reply message component..", this.element);
     this.element.remove();
   }
 };
@@ -18935,8 +19088,8 @@ var SteppedInputSliderComponent = class extends AbstractComponent {
 };
 
 // src/Core/Users/UserInfoModal.ts
-var logger19 = new Logger();
-var { log: log18, info: info16, error: error19 } = logger19.destruct();
+var logger20 = new Logger();
+var { log: log19, info: info17, error: error20 } = logger20.destruct();
 var UserInfoModal = class extends AbstractModal {
   rootContext;
   session;
@@ -19153,7 +19306,7 @@ var UserInfoModal = class extends AbstractModal {
     this.actionFollowEl?.addEventListener("click", this.clickFollowHandler.bind(this));
     this.actionMuteEl?.addEventListener("click", this.clickMuteHandler.bind(this));
     this.actionReportEl?.addEventListener("click", () => {
-      log18("CORE", "UI", "Report button clicked");
+      log19("CORE", "UI", "Report button clicked");
     });
     this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
     this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
@@ -19209,11 +19362,11 @@ var UserInfoModal = class extends AbstractModal {
     const user = usersManager.getUserById(username);
     if (!user) return;
     if (user.muted) {
-      log18("CORE", "UI", "Unmuting user:", username);
+      log19("CORE", "UI", "Unmuting user:", username);
       usersManager.unmuteUserById(user.id);
       this.actionMuteEl.textContent = "Mute";
     } else {
-      log18("CORE", "UI", "Muting user:", username);
+      log19("CORE", "UI", "Muting user:", username);
       usersManager.muteUserById(user.id, channelId);
       this.actionMuteEl.textContent = "Unmute";
     }
@@ -19273,7 +19426,7 @@ var UserInfoModal = class extends AbstractModal {
       timeoutPageEl.removeAttribute("disabled");
       delete this.timeoutSliderComponent;
       this.updateModStatusPage();
-      log18("CORE", "UI", `Successfully timed out user: ${this.username} for ${duration} minutes`);
+      log19("CORE", "UI", `Successfully timed out user: ${this.username} for ${duration} minutes`);
     });
   }
   async clickVIPHandler() {
@@ -19287,12 +19440,12 @@ var UserInfoModal = class extends AbstractModal {
     }
     this.modActionButtonVIPEl.classList.add("ntv__icon-button--disabled");
     if (this.isUserVIP()) {
-      log18("CORE", "UI", `Attempting to remove VIP status from user: ${userInfo.username}..`);
+      log19("CORE", "UI", `Attempting to remove VIP status from user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("unvip", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log18("CORE", "UI", "Successfully removed VIP status from user:", userInfo.username);
+        log19("CORE", "UI", "Successfully removed VIP status from user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast(
@@ -19311,12 +19464,12 @@ var UserInfoModal = class extends AbstractModal {
       this.removeUserVIPStatus();
       this.modActionButtonVIPEl?.removeAttribute("active");
     } else {
-      log18("CORE", "UI", `Attempting to give VIP status to user: ${userInfo.username}..`);
+      log19("CORE", "UI", `Attempting to give VIP status to user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("vip", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log18("CORE", "UI", "Successfully gave VIP status to user:", userInfo.username);
+        log19("CORE", "UI", "Successfully gave VIP status to user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast("Failed to give VIP status to user: " + err.errors.join(" "), 6e3, "error");
@@ -19345,12 +19498,12 @@ var UserInfoModal = class extends AbstractModal {
     }
     this.modActionButtonModEl.classList.add("ntv__icon-button--disabled");
     if (this.isUserPrivileged()) {
-      log18("CORE", "UI", `Attempting to remove mod status from user: ${userInfo.username}..`);
+      log19("CORE", "UI", `Attempting to remove mod status from user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("unmod", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log18("CORE", "UI", "Successfully removed mod status from user:", userInfo.username);
+        log19("CORE", "UI", "Successfully removed mod status from user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast(
@@ -19369,12 +19522,12 @@ var UserInfoModal = class extends AbstractModal {
       this.removeUserModStatus();
       this.modActionButtonModEl?.removeAttribute("active");
     } else {
-      log18("CORE", "UI", `Attempting to give mod status to user: ${userInfo.username}..`);
+      log19("CORE", "UI", `Attempting to give mod status to user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("mod", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log18("CORE", "UI", "Successfully gave mod status to user:", userInfo.username);
+        log19("CORE", "UI", "Successfully gave mod status to user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast("Failed to give mod status to user: " + err.errors.join(" "), 6e3, "error");
@@ -19399,12 +19552,12 @@ var UserInfoModal = class extends AbstractModal {
     const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo) return;
     if (userChannelInfo.banned) {
-      log18("CORE", "UI", `Attempting to unban user: ${userInfo.username}..`);
+      log19("CORE", "UI", `Attempting to unban user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("unban", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log18("CORE", "UI", "Successfully unbanned user:", userInfo.username);
+        log19("CORE", "UI", "Successfully unbanned user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast("Failed to unban user: " + err.errors.join(" "), 6e3, "error");
@@ -19419,12 +19572,12 @@ var UserInfoModal = class extends AbstractModal {
       delete userChannelInfo.banned;
       this.modActionButtonBanEl.removeAttribute("active");
     } else {
-      log18("CORE", "UI", `Attempting to ban user: ${userInfo.username}..`);
+      log19("CORE", "UI", `Attempting to ban user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("ban", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log18("CORE", "UI", "Successfully banned user:", userInfo.username);
+        log19("CORE", "UI", "Successfully banned user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast("Failed to ban user: " + err.errors.join(" "), 6e3, "error");
@@ -19453,12 +19606,12 @@ var UserInfoModal = class extends AbstractModal {
       true
     );
     modLogsPageEl.appendChild(messagesHistoryEl);
-    log18("CORE", "UI", `Fetching user messages of ${userInfo.username}..`);
+    log19("CORE", "UI", `Fetching user messages of ${userInfo.username}..`);
     await this.loadMoreMessagesHistory();
     let autoLoadCount = 0;
     const MAX_AUTO_LOADS = 5;
     while (this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight && !this.isLoadingMessages && autoLoadCount < MAX_AUTO_LOADS) {
-      log18(
+      log19(
         "CORE",
         "UI",
         `Content too short (scrollHeight: ${messagesHistoryEl.scrollHeight}, clientHeight: ${messagesHistoryEl.clientHeight}), auto-loading more messages for ${userInfo.username}...`
@@ -19467,7 +19620,7 @@ var UserInfoModal = class extends AbstractModal {
       await this.loadMoreMessagesHistory();
       autoLoadCount++;
       if (this.messagesHistoryCursor === null || messagesHistoryEl.scrollHeight === previousScrollHeight) {
-        log18(
+        log19(
           "CORE",
           "UI",
           `Auto-load break: cursor is ${this.messagesHistoryCursor}, scrollHeight changed from ${previousScrollHeight} to ${messagesHistoryEl.scrollHeight}`
@@ -19476,7 +19629,7 @@ var UserInfoModal = class extends AbstractModal {
       }
     }
     if (autoLoadCount >= MAX_AUTO_LOADS && this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight) {
-      log18(
+      log19(
         "CORE",
         "UI",
         `Max auto-loads (${MAX_AUTO_LOADS}) reached for ${userInfo.username}, but content may still be too short.`
@@ -19796,8 +19949,8 @@ var Toaster = class {
 };
 
 // src/Core/UI/Caret.ts
-var logger20 = new Logger();
-var { log: log19, info: info17, error: error20 } = logger20.destruct();
+var logger21 = new Logger();
+var { log: log20, info: info18, error: error21 } = logger21.destruct();
 var Caret = class {
   static moveCaretTo(container, offset) {
     const selection = window.getSelection();
@@ -19809,7 +19962,7 @@ var Caret = class {
   }
   static collapseToEndOfNode(node) {
     const selection = window.getSelection();
-    if (!selection) return error20("CORE", "UI", "Unable to get selection, cannot collapse to end of node", node);
+    if (!selection) return error21("CORE", "UI", "Unable to get selection, cannot collapse to end of node", node);
     const range = document.createRange();
     if (node instanceof Text) {
       const offset = node.textContent ? node.textContent.length : 0;
@@ -19965,7 +20118,7 @@ var Caret = class {
   }
   static insertNodeAtCaret(range, node) {
     if (!node.nodeType || node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) {
-      return error20("CORE", "UI", "Invalid node type", node);
+      return error21("CORE", "UI", "Invalid node type", node);
     }
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
       range.insertNode(node);
@@ -19989,7 +20142,7 @@ var Caret = class {
   // Replacement can be a string or an element node.
   static replaceTextInRange(container, start, end, replacement) {
     if (container.nodeType !== Node.TEXT_NODE) {
-      error20("CORE", "UI", "Invalid container node type", container);
+      error21("CORE", "UI", "Invalid container node type", container);
       return 0;
     }
     const text = container.textContent || "";
@@ -20007,8 +20160,8 @@ var Caret = class {
 };
 
 // src/Core/Common/Clipboard.ts
-var logger21 = new Logger();
-var { log: log20, info: info18, error: error21 } = logger21.destruct();
+var logger22 = new Logger();
+var { log: log21, info: info19, error: error22 } = logger22.destruct();
 function flattenNestedElement(node) {
   const result = [];
   function traverse(node2) {
@@ -20029,7 +20182,7 @@ var Clipboard2 = class {
   domParser = new DOMParser();
   handleCopyEvent(event) {
     const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return error21("CORE", "UI", "Selection is null");
+    if (!selection || !selection.rangeCount) return error22("CORE", "UI", "Selection is null");
     event.preventDefault();
     const fragment = document.createDocumentFragment();
     const nodeList = [];
@@ -20056,7 +20209,7 @@ var Clipboard2 = class {
       }
     }).filter((text) => typeof text === "string" && text.length > 0).join(" ").replaceAll(CHAR_ZWSP, "");
     event.clipboardData?.setData("text/plain", copyString);
-    log20("CORE", "UI", `Copied: "${copyString}"`);
+    log21("CORE", "UI", `Copied: "${copyString}"`);
   }
   handleCutEvent(event) {
     const selection = document.getSelection();
@@ -20122,7 +20275,7 @@ var Clipboard2 = class {
         }
       }
       if (startFragmentComment === null || endFragmentComment === null) {
-        error21("CORE", "UI", "Failed to find fragment markers, clipboard data seems to be corrupted.");
+        error22("CORE", "UI", "Failed to find fragment markers, clipboard data seems to be corrupted.");
         return [];
       }
       const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
@@ -20149,8 +20302,8 @@ var Clipboard2 = class {
 };
 
 // src/Core/UI/AbstractUserInterface.ts
-var logger22 = new Logger();
-var { log: log21, info: info19, error: error22 } = logger22.destruct();
+var logger23 = new Logger();
+var { log: log22, info: info20, error: error23 } = logger23.destruct();
 var AbstractUserInterface = class {
   rootContext;
   session;
@@ -20241,7 +20394,7 @@ var AbstractUserInterface = class {
         spanEl.appendChild(emojiNode);
         result.push(spanEl);
       } else {
-        error22("CORE", "UI", "Unknown message part type", part);
+        error23("CORE", "UI", "Unknown message part type", part);
       }
       prevPart = part;
     }
@@ -20256,7 +20409,7 @@ var AbstractUserInterface = class {
     spanEl.appendChild(emoteBoxEl);
     const emoteRender = this.session.emotesManager.getRenderableEmote(emote);
     if (!emoteRender) {
-      error22(
+      error23(
         "CORE",
         "UI",
         "Failed to create emote message part element, emote render not found.",
@@ -20271,17 +20424,17 @@ var AbstractUserInterface = class {
   insertZeroWidthEmotePart(emote, messagePartEl) {
     const emoteRender = this.session.emotesManager.getRenderableEmote(emote, "ntv__emote--zero-width");
     if (!emoteRender) {
-      error22("CORE", "UI", "Failed to insert zero width emote part, emote render not found.", emote);
+      error23("CORE", "UI", "Failed to insert zero width emote part, emote render not found.", emote);
       return;
     }
     const emoteBoxEl = messagePartEl.firstElementChild;
     if (!emoteBoxEl)
-      return error22("CORE", "UI", "Failed to insert zero width emote part, target does not have child element.");
+      return error23("CORE", "UI", "Failed to insert zero width emote part, target does not have child element.");
     emoteBoxEl.appendChild(parseHTML(emoteRender));
   }
   createPlainTextMessagePartNode(textContent) {
     if (textContent === " ") {
-      error22("CORE", "UI", "Attempted to create a text node with a single space character.");
+      error23("CORE", "UI", "Attempted to create a text node with a single space character.");
       return document.createTextNode(" ");
     }
     const newNode = document.createElement("span");
@@ -20290,7 +20443,7 @@ var AbstractUserInterface = class {
     return newNode;
   }
   changeInputStatus(status, reason) {
-    if (!this.inputController) return error22("CORE", "UI", "Input controller not loaded yet.");
+    if (!this.inputController) return error23("CORE", "UI", "Input controller not loaded yet.");
     const contentEditableEditor = this.inputController.contentEditableEditor;
     if (status === "enabled") {
       contentEditableEditor.enableInput();
@@ -20303,19 +20456,19 @@ var AbstractUserInterface = class {
   }
   loadInputStatusBehaviour() {
     if (!this.inputController)
-      return error22("CORE", "UI", "Input controller not loaded yet. Cannot load input status behaviour.");
+      return error23("CORE", "UI", "Input controller not loaded yet. Cannot load input status behaviour.");
     const chatroomData = this.session.channelData.chatroom;
     const channelMeData = this.session.channelData.me;
-    if (!chatroomData) return error22("CORE", "UI", "Chatroom data is missing from channelData");
-    if (!channelMeData) return error22("CORE", "UI", "Channel me data is missing from channelData");
+    if (!chatroomData) return error23("CORE", "UI", "Chatroom data is missing from channelData");
+    if (!channelMeData) return error23("CORE", "UI", "Channel me data is missing from channelData");
     const updateInputStatus = () => {
       const chatroomData2 = this.session.channelData.chatroom;
       const channelMeData2 = this.session.channelData.me;
       const isPrivileged2 = channelMeData2.isSuperAdmin || channelMeData2.isBroadcaster || channelMeData2.isModerator;
       let inputChanged = false;
-      if (!chatroomData2) return error22("CORE", "UI", "Chatroom data is missing from channelData");
+      if (!chatroomData2) return error23("CORE", "UI", "Chatroom data is missing from channelData");
       if (!isPrivileged2 && channelMeData2.isBanned) {
-        log21("CORE", "UI", "You got banned from chat");
+        log22("CORE", "UI", "You got banned from chat");
         if (channelMeData2.isBanned.permanent) {
           this.changeInputStatus("disabled", `You are banned from chat.`);
         } else {
@@ -20329,7 +20482,7 @@ var AbstractUserInterface = class {
         inputChanged = true;
       }
       if (!inputChanged && chatroomData2.subscribersMode?.enabled && (!channelMeData2.isSubscribed || isPrivileged2)) {
-        log21("CORE", "UI", "Subscribers only mode enabled");
+        log22("CORE", "UI", "Subscribers only mode enabled");
         this.changeInputStatus(
           isPrivileged2 || channelMeData2.isSubscribed ? "enabled" : "disabled",
           "Subscribers only"
@@ -20337,7 +20490,7 @@ var AbstractUserInterface = class {
         inputChanged = true;
       }
       if (!inputChanged && chatroomData2.followersMode?.enabled && (!channelMeData2.isFollowing || isPrivileged2)) {
-        log21("CORE", "UI", "Followers only mode enabled");
+        log22("CORE", "UI", "Followers only mode enabled");
         this.changeInputStatus(
           isPrivileged2 || channelMeData2.isFollowing ? "enabled" : "disabled",
           "Followers only"
@@ -20366,11 +20519,11 @@ var AbstractUserInterface = class {
         }
       }
       if (!inputChanged && chatroomData2.emotesMode?.enabled) {
-        log21("CORE", "UI", "Emotes only mode enabled");
+        log22("CORE", "UI", "Emotes only mode enabled");
         this.changeInputStatus("enabled", "Emotes only");
       }
       if (!inputChanged) {
-        log21("CORE", "UI", "Normal chat input restored");
+        log22("CORE", "UI", "Normal chat input restored");
         this.changeInputStatus("enabled", "Send message..");
       }
     };
@@ -20412,7 +20565,7 @@ var AbstractUserInterface = class {
     this.session.eventBus.subscribe("ntv.channel.chatroom.me.unbanned", updateInputStatus);
   }
   showUserInfoModal(username, position) {
-    log21("CORE", "UI", "Loading user info modal..");
+    log22("CORE", "UI", "Loading user info modal..");
     return new UserInfoModal(
       this.rootContext,
       this.session,
@@ -20424,9 +20577,9 @@ var AbstractUserInterface = class {
     ).init();
   }
   addTimer({ duration, description }) {
-    log21("CORE", "UI", "Adding timer..", duration, description);
+    log22("CORE", "UI", "Adding timer..", duration, description);
     const timersContainer = this.elm.timersContainer;
-    if (!timersContainer) return error22("CORE", "UI", "Unable to add timet, UI container does not exist yet.");
+    if (!timersContainer) return error23("CORE", "UI", "Unable to add timet, UI container does not exist yet.");
     const timer = new TimerComponent(duration, description).init();
     timersContainer.appendChild(timer.element);
   }
@@ -20435,13 +20588,13 @@ var AbstractUserInterface = class {
     const { eventBus, inputExecutionStrategyRegister } = this.session;
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor)
-      return error22("CORE", "UI", "Unable to submit input, the input controller is not loaded yet.");
+      return error23("CORE", "UI", "Unable to submit input, the input controller is not loaded yet.");
     if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
-      error22("CORE", "UI", "Message is too long to send.");
+      error23("CORE", "UI", "Message is too long to send.");
       return this.toastError("Message is too long to send.");
     }
     const messageContent = contentEditableEditor.getMessageContent();
-    if (!messageContent.length) return log21("CORE", "UI", "No message content to send.");
+    if (!messageContent.length) return log22("CORE", "UI", "No message content to send.");
     eventBus.publish("ntv.ui.submit_input", { suppressEngagementEvent });
     if (this.celebrationData) {
       const celebrationId = this.celebrationData.id;
@@ -20470,10 +20623,10 @@ var AbstractUserInterface = class {
         eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
       }).catch((err) => {
         if (err && err.message) {
-          error22("CORE", "UI", err.message);
+          error23("CORE", "UI", err.message);
           this.toastError(err.message);
         } else {
-          error22("CORE", "UI", "Failed to reply to message. Reason unknown.");
+          error23("CORE", "UI", "Failed to reply to message. Reason unknown.");
           this.toastError("Failed to reply to message. Reason unknown.");
         }
       });
@@ -20506,10 +20659,10 @@ var AbstractUserInterface = class {
         eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
       }).catch((err) => {
         if (err && err.message) {
-          error22("CORE", "UI", err.message);
+          error23("CORE", "UI", err.message);
           this.toastError(err.message);
         } else {
-          error22("CORE", "UI", "Failed to send message. Reason unknown.");
+          error23("CORE", "UI", "Failed to send message. Reason unknown.");
           this.toastError("Failed to send message. Reason unknown.");
         }
       });
@@ -20519,31 +20672,31 @@ var AbstractUserInterface = class {
     const { emotesManager, inputExecutionStrategyRegister } = this.session;
     const contentEditableEditor = this.inputController?.contentEditableEditor;
     if (!contentEditableEditor)
-      return error22("CORE", "UI", "Unable to send emote to chat, input controller is not loaded yet.");
+      return error23("CORE", "UI", "Unable to send emote to chat, input controller is not loaded yet.");
     const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
-    if (!emoteEmbedding) return error22("CORE", "UI", "Failed to send emote to chat, emote embedding not found.");
+    if (!emoteEmbedding) return error23("CORE", "UI", "Failed to send emote to chat, emote embedding not found.");
     inputExecutionStrategyRegister.routeInput(contentEditableEditor, {
       input: emoteEmbedding,
       isReply: false
     }).catch((err) => {
       if (err) {
-        error22("CORE", "UI", "Failed to send emote because:", err);
+        error23("CORE", "UI", "Failed to send emote because:", err);
         this.toastError("Failed to send emote because: " + err);
       } else {
-        error22("CORE", "UI", "Failed to send emote to chat. Reason unknown.");
+        error23("CORE", "UI", "Failed to send emote to chat. Reason unknown.");
         this.toastError("Failed to send emote to chat. Reason unknown.");
       }
     });
   }
   replyMessage(messageNodes, chatEntryId, chatEntryContent, chatEntrySenderId, chatEntrySenderUsername) {
-    log21(
+    log22(
       "CORE",
       "UI",
       `Replying to message ${chatEntryId} of user ${chatEntrySenderUsername} with ID ${chatEntrySenderId}..`
     );
-    if (!this.inputController) return error22("CORE", "UI", "Input controller not loaded for reply behaviour");
+    if (!this.inputController) return error23("CORE", "UI", "Input controller not loaded for reply behaviour");
     if (!this.elm.replyMessageWrapper)
-      return error22("CORE", "UI", "Unable to load reply message, reply message wrapper not found");
+      return error23("CORE", "UI", "Unable to load reply message, reply message wrapper not found");
     if (this.replyMessageData) this.destroyReplyMessageContext();
     this.replyMessageData = {
       chatEntryId,
@@ -20625,8 +20778,8 @@ var AbstractInputCompletionStrategy = class {
 };
 
 // src/Core/Input/Completion/Strategies/ColonEmoteCompletionStrategy.ts
-var logger23 = new Logger();
-var { log: log22, info: info20, error: error23 } = logger23.destruct();
+var logger24 = new Logger();
+var { log: log23, info: info21, error: error24 } = logger24.destruct();
 var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
     super(rootContext, session, contentEditableEditor, navListWindowManager);
@@ -20732,29 +20885,29 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
     navWindow.setSelectedIndex(0);
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error23("CORE", "EMCOMPS", "No tab completion window to move selector up");
+    if (!this.navWindow) return error24("CORE", "EMCOMPS", "No tab completion window to move selector up");
     if (this.hasNavigated) this.navWindow.moveSelectorUp();
     else this.navWindow.setSelectedIndex(0);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error23("CORE", "EMCOMPS", "No tab completion window to move selector down");
+    if (!this.navWindow) return error24("CORE", "EMCOMPS", "No tab completion window to move selector down");
     if (this.hasNavigated) this.navWindow.moveSelectorDown();
     else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error23("CORE", "EMCOMPS", "No tab completion window to render inline completion");
+    if (!this.navWindow) return error24("CORE", "EMCOMPS", "No tab completion window to render inline completion");
     const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error23("CORE", "EMCOMPS", "No selected entry to render completion");
+    if (!selectedEntry) return error24("CORE", "EMCOMPS", "No selected entry to render completion");
     const { emoteHid } = selectedEntry;
-    if (!emoteHid) return error23("CORE", "EMCOMPS", "No emote hid to render inline emote");
+    if (!emoteHid) return error24("CORE", "EMCOMPS", "No emote hid to render inline emote");
     if (this.emoteComponent) {
       this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
     } else {
-      if (!this.node) return error23("CORE", "EMCOMPS", "Invalid node to restore original text");
+      if (!this.node) return error24("CORE", "EMCOMPS", "Invalid node to restore original text");
       const range = document.createRange();
       range.setStart(this.node, this.start);
       range.setEnd(this.node, this.end);
@@ -20770,7 +20923,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
   }
   restoreOriginalText() {
     if (this.word) {
-      if (!this.emoteComponent) return error23("CORE", "EMCOMPS", "Invalid embed node to restore original text");
+      if (!this.emoteComponent) return error24("CORE", "EMCOMPS", "Invalid embed node to restore original text");
       this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
     }
   }
@@ -20863,8 +21016,8 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
 };
 
 // src/Core/Input/Completion/Strategies/CommandCompletionStrategy.ts
-var logger24 = new Logger();
-var { log: log23, info: info21, error: error24 } = logger24.destruct();
+var logger25 = new Logger();
+var { log: log24, info: info22, error: error25 } = logger25.destruct();
 var CommandCompletionStrategy = class extends AbstractInputCompletionStrategy {
   // private handleEventInKeyUp = false
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
@@ -20987,24 +21140,24 @@ var CommandCompletionStrategy = class extends AbstractInputCompletionStrategy {
     }
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error24("CORE", "COMCOMS", "Tab completion window does not exist yet");
+    if (!this.navWindow) return error25("CORE", "COMCOMS", "Tab completion window does not exist yet");
     const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error24("CORE", "COMCOMS", "No selected entry to render completion");
+    if (!selectedEntry) return error25("CORE", "COMCOMS", "No selected entry to render completion");
     const { name } = selectedEntry;
     this.contentEditableEditor.setInputContent("/" + name);
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error24("CORE", "COMCOMS", "No tab completion window to move selector up");
+    if (!this.navWindow) return error25("CORE", "COMCOMS", "No tab completion window to move selector up");
     this.navWindow.moveSelectorUp();
     this.renderInlineCompletion();
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error24("CORE", "COMCOMS", "No tab completion window to move selector down");
+    if (!this.navWindow) return error25("CORE", "COMCOMS", "No tab completion window to move selector down");
     this.navWindow.moveSelectorDown();
     this.renderInlineCompletion();
   }
   handleBlockingKeyDownEvent(event) {
-    log23("CORE", "COMCOMS", "CommandCompletionStrategy.handleBlockingKeyDownEvent", event.key);
+    log24("CORE", "COMCOMS", "CommandCompletionStrategy.handleBlockingKeyDownEvent", event.key);
   }
   handleKeyDownEvent(event) {
     const { contentEditableEditor } = this;
@@ -21067,8 +21220,8 @@ var CommandCompletionStrategy = class extends AbstractInputCompletionStrategy {
 };
 
 // src/Core/Input/Completion/Strategies/MentionCompletionStrategy.ts
-var logger25 = new Logger();
-var { log: log24, info: info22, error: error25 } = logger25.destruct();
+var logger26 = new Logger();
+var { log: log25, info: info23, error: error26 } = logger26.destruct();
 var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
     super(rootContext, session, contentEditableEditor, navListWindowManager);
@@ -21151,24 +21304,24 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
     navWindow.setSelectedIndex(0);
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error25("CORE", "MENCOMST", "No tab completion window to move selector up");
+    if (!this.navWindow) return error26("CORE", "MENCOMST", "No tab completion window to move selector up");
     if (this.hasNavigated) this.navWindow.moveSelectorUp();
     else this.navWindow.setSelectedIndex(0);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error25("CORE", "MENCOMST", "No tab completion window to move selector down");
+    if (!this.navWindow) return error26("CORE", "MENCOMST", "No tab completion window to move selector down");
     if (this.hasNavigated) this.navWindow.moveSelectorDown();
     else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error25("CORE", "MENCOMST", "Tab completion window does not exist yet");
-    if (!this.node) return error25("CORE", "MENCOMST", "Invalid node to render inline user mention");
+    if (!this.navWindow) return error26("CORE", "MENCOMST", "Tab completion window does not exist yet");
+    if (!this.node) return error26("CORE", "MENCOMST", "Invalid node to render inline user mention");
     const entry = this.navWindow.getSelectedEntry();
-    if (!entry) return error25("CORE", "MENCOMST", "No selected entry to render inline user mention");
+    if (!entry) return error26("CORE", "MENCOMST", "No selected entry to render inline user mention");
     const { userId, userName } = entry;
     const userMention = `@${userName}`;
     this.end = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
@@ -21181,7 +21334,7 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
       switch (event.key) {
         case "Tab":
           event.preventDefault();
-          log24(
+          log25(
             "CORE",
             "MENCOMST",
             "Tab key pressed in mention completion strategy",
@@ -21598,8 +21751,8 @@ var InputCompletionStrategyManager = class {
 };
 
 // src/Core/Input/Completion/Strategies/EmoteCompletionStrategy.ts
-var logger26 = new Logger();
-var { log: log25, info: info23, error: error26 } = logger26.destruct();
+var logger27 = new Logger();
+var { log: log26, info: info24, error: error27 } = logger27.destruct();
 var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
     super(rootContext, session, contentEditableEditor, navListWindowManager);
@@ -21668,25 +21821,25 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
     this.renderInlineCompletion();
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error26("CORE", "EMCOMST", "No tab completion window to move selector up");
+    if (!this.navWindow) return error27("CORE", "EMCOMST", "No tab completion window to move selector up");
     this.navWindow.moveSelectorUp();
     this.renderInlineCompletion();
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error26("CORE", "EMCOMST", "No tab completion window to move selector down");
+    if (!this.navWindow) return error27("CORE", "EMCOMST", "No tab completion window to move selector down");
     this.navWindow.moveSelectorDown();
     this.renderInlineCompletion();
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error26("CORE", "EMCOMST", "Tab completion window does not exist yet");
+    if (!this.navWindow) return error27("CORE", "EMCOMST", "Tab completion window does not exist yet");
     const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error26("CORE", "EMCOMST", "No selected entry to render completion");
+    if (!selectedEntry) return error27("CORE", "EMCOMST", "No selected entry to render completion");
     const { emoteHid } = selectedEntry;
-    if (!emoteHid) return error26("CORE", "EMCOMST", "No emote hid to render inline emote");
+    if (!emoteHid) return error27("CORE", "EMCOMST", "No emote hid to render inline emote");
     if (this.emoteComponent) {
       this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
     } else {
-      if (!this.node) return error26("CORE", "EMCOMST", "Invalid node to restore original text");
+      if (!this.node) return error27("CORE", "EMCOMST", "Invalid node to restore original text");
       const range = document.createRange();
       range.setStart(this.node, this.start);
       range.setEnd(this.node, this.end);
@@ -21702,7 +21855,7 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
   }
   restoreOriginalText() {
     if (this.word) {
-      if (!this.emoteComponent) return error26("CORE", "EMCOMST", "Invalid embed node to restore original text");
+      if (!this.emoteComponent) return error27("CORE", "EMCOMST", "Invalid embed node to restore original text");
       this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
     }
   }
@@ -21765,8 +21918,8 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
 };
 
 // src/Core/Input/ContentEditableEditor.ts
-var logger27 = new Logger();
-var { log: log26, info: info24, error: error27 } = logger27.destruct();
+var logger28 = new Logger();
+var { log: log27, info: info25, error: error28 } = logger28.destruct();
 var ContentEditableEditor = class {
   rootContext;
   session;
@@ -21878,7 +22031,7 @@ var ContentEditableEditor = class {
           if (emoteHid) {
             const emoteEmbed = this.createEmoteComponent(emoteHid);
             if (!emoteEmbed) {
-              error27("CORE", "EDITOR", "Failed to create emote component for", token);
+              error28("CORE", "EDITOR", "Failed to create emote component for", token);
               continue;
             }
             newNodes.push(emoteEmbed);
@@ -22104,7 +22257,7 @@ var ContentEditableEditor = class {
     for (let i = 0; i < components.length; i++) {
       const component = components[i];
       if (!component.childNodes[1] || component.childNodes[1].className !== "ntv__input-component__body") {
-        log26("CORE", "EDITOR", "!! Cleaning up empty component", component);
+        log27("CORE", "EDITOR", "!! Cleaning up empty component", component);
         component.remove();
       }
     }
@@ -22112,9 +22265,9 @@ var ContentEditableEditor = class {
   createEmoteComponent(emoteHID) {
     const emotesManager = this.session.emotesManager;
     const emote = emotesManager.getEmote(emoteHID);
-    if (!emote) return error27("CORE", "EDITOR", "Emote not found for HID", emoteHID);
+    if (!emote) return error28("CORE", "EDITOR", "Emote not found for HID", emoteHID);
     const emoteHTML = emotesManager.getRenderableEmote(emote, emote.isZeroWidth && "ntv__emote--zero-width" || "");
-    if (!emoteHTML) return error27("CORE", "EDITOR", "Failed to get renderable emote for HID", emoteHID);
+    if (!emoteHTML) return error28("CORE", "EDITOR", "Failed to get renderable emote for HID", emoteHID);
     const component = document.createElement("span");
     component.className = "ntv__input-component";
     component.appendChild(document.createTextNode(CHAR_ZWSP));
@@ -22161,7 +22314,7 @@ var ContentEditableEditor = class {
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         const componentBody = node.childNodes[1];
         if (!componentBody) {
-          error27("CORE", "EDITOR", "Invalid component node", node);
+          error28("CORE", "EDITOR", "Invalid component node", node);
           continue;
         }
         const emoteBox = componentBody.childNodes[0];
@@ -22173,10 +22326,10 @@ var ContentEditableEditor = class {
             emotesInMessage.add(emoteHid);
             buffer.push(emotesManager.getEmoteEmbeddable(emoteHid));
           } else {
-            error27("CORE", "EDITOR", "Invalid emote node, missing HID", emoteBox);
+            error28("CORE", "EDITOR", "Invalid emote node, missing HID", emoteBox);
           }
         } else {
-          error27("CORE", "EDITOR", "Invalid component node", componentBody.childNodes);
+          error28("CORE", "EDITOR", "Invalid component node", componentBody.childNodes);
         }
       }
     }
@@ -22190,7 +22343,7 @@ var ContentEditableEditor = class {
   deleteBackwards(event) {
     const { inputNode } = this;
     const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return error27("CORE", "EDITOR", "No ranges found in selection");
+    if (!selection || !selection.rangeCount) return error28("CORE", "EDITOR", "No ranges found in selection");
     const { focusNode, focusOffset } = selection;
     if (focusNode === inputNode && focusOffset === 0) {
       event.preventDefault();
@@ -22234,7 +22387,7 @@ var ContentEditableEditor = class {
   deleteForwards(event) {
     const { inputNode } = this;
     const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return error27("CORE", "EDITOR", "No ranges found in selection");
+    if (!selection || !selection.rangeCount) return error28("CORE", "EDITOR", "No ranges found in selection");
     let range = selection.getRangeAt(0);
     this.adjustSelectionForceOutOfComponent(selection);
     range = selection.getRangeAt(0);
@@ -22374,7 +22527,7 @@ var ContentEditableEditor = class {
         }
       }
     } else {
-      error27(
+      error28(
         "CORE",
         "EDITOR",
         "Unadjusted selection focus somehow reached inside component. This should never happen."
@@ -22481,7 +22634,7 @@ var ContentEditableEditor = class {
     if (!selection) {
       inputNode.appendChild(component);
       this.hasUnprocessedContentChanges = true;
-      return error27(
+      return error28(
         "CORE",
         "EDITOR",
         "Selection API is not available, please use a modern browser supports the Selection API."
@@ -22536,7 +22689,7 @@ var ContentEditableEditor = class {
     } else if (startContainer instanceof Text) {
       range.insertNode(component);
     } else {
-      return error27(
+      return error28(
         "CORE",
         "EDITOR",
         "Encountered unexpected unprocessable node",
@@ -22560,7 +22713,7 @@ var ContentEditableEditor = class {
     messageHistory.resetCursor();
     const emoteComponent = this.createEmoteComponent(emoteHid);
     if (!emoteComponent) {
-      error27("CORE", "EDITOR", "Invalid emote embed");
+      error28("CORE", "EDITOR", "Invalid emote embed");
       return null;
     }
     this.insertComponent(emoteComponent);
@@ -22572,12 +22725,12 @@ var ContentEditableEditor = class {
     const { emotesManager } = this.session;
     const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
     if (!emoteHTML) {
-      error27("CORE", "EDITOR", "Invalid emote embed");
+      error28("CORE", "EDITOR", "Invalid emote embed");
       return null;
     }
     const emoteBox = component.querySelector(".ntv__inline-emote-box");
     if (!emoteBox) {
-      error27("CORE", "EDITOR", "Component does not contain emote box");
+      error28("CORE", "EDITOR", "Component does not contain emote box");
       return null;
     }
     emoteBox.innerHTML = emoteHTML;
@@ -22756,56 +22909,6 @@ var InputController = class {
   }
 };
 
-// src/Core/UI/Components/VerticalMenuComponent.ts
-var logger28 = new Logger();
-var { log: log27, info: info25, error: error28 } = logger28.destruct();
-var VerticalMenuComponent = class extends AbstractComponent {
-  constructor(anchorElement, options) {
-    super();
-    this.anchorElement = anchorElement;
-    this.options = options;
-    this.element = document.createElement("div");
-    this.element.classList.add("ntv__vertical-menu");
-    for (const option of options) {
-      const button = document.createElement("button");
-      button.textContent = option.label;
-      button.dataset.value = option.value;
-      this.element.appendChild(button);
-    }
-  }
-  event = new EventTarget();
-  element;
-  render() {
-    const boundRect = this.anchorElement.getBoundingClientRect();
-    this.element.style.left = boundRect.right + "px";
-    this.element.style.top = boundRect.top + "px";
-    document.body.appendChild(this.element);
-  }
-  attachEventHandlers() {
-    const closeMenu = (event) => {
-      if (event.target === this.element || this.element.contains(event.target)) return;
-      this.element.remove();
-      document.removeEventListener("click", closeMenu);
-      this.event.dispatchEvent(new Event("close"));
-    };
-    const buttonEls = this.element.querySelectorAll("button");
-    buttonEls.forEach((buttonEl) => {
-      buttonEl.addEventListener("click", (event) => {
-        this.element.remove();
-        document.removeEventListener("click", closeMenu);
-        this.event.dispatchEvent(new CustomEvent("action", { detail: buttonEl.dataset.value }));
-        this.event.dispatchEvent(new Event("close"));
-      });
-    });
-    setTimeout(() => {
-      document.addEventListener("click", closeMenu);
-    }, 0);
-  }
-  addEventListener(event, callback) {
-    this.event.addEventListener(event, callback);
-  }
-};
-
 // src/Sites/Kick/KickUserInterface.ts
 var logger29 = new Logger();
 var { log: log28, info: info26, error: error29 } = logger29.destruct();
@@ -22823,6 +22926,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   emoteMenuButton = null;
   emoteMenuButtonObserver = null;
   quickEmotesHolder = null;
+  sendMessageRateLimitProgressBar = null;
   quickEmotesHolderObserver = null;
   celebrationsContainerEl = null;
   clearQueuedChatMessagesInterval = null;
@@ -23265,6 +23369,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldWrapperEl.append(textFieldEl);
     kickTextFieldEl.parentElement.before(textFieldWrapperEl);
     if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
+    const sendMessageRateLimitProgressBar = new RateLimitProgressBarComponent().init();
+    kickTextFieldEl.parentElement.parentElement.parentElement.append(sendMessageRateLimitProgressBar.element);
+    this.sendMessageRateLimitProgressBar = sendMessageRateLimitProgressBar;
     const inputController = this.inputController = new InputController(
       this.rootContext,
       this.session,
@@ -23297,6 +23404,15 @@ var KickUserInterface = class extends AbstractUserInterface {
         );
       }
     });
+    this.session.eventBus.subscribe(
+      KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE,
+      (state) => {
+        const isCoolingDown = state.isCoolingDown && state.remainingMs > 0;
+        textFieldWrapperEl.classList.toggle("ntv__message-input__wrapper--rate-limit-active", isCoolingDown);
+        sendMessageRateLimitProgressBar.update(state);
+      },
+      true
+    );
     const ignoredKeys = {
       ArrowUp: true,
       ArrowDown: true,
@@ -24707,9 +24823,126 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
 };
 
+// src/Core/Common/RateLimiter.ts
+var RateLimiter = class {
+  constructor(maxExecutions, windowMs) {
+    this.maxExecutions = maxExecutions;
+    this.windowMs = windowMs;
+    if (maxExecutions < 1) throw new Error("maxExecutions must be at least 1.");
+    if (windowMs < 1) throw new Error("windowMs must be at least 1.");
+  }
+  queue = [];
+  listeners = /* @__PURE__ */ new Set();
+  cooldownTimeout = null;
+  cooldownStartedAt = null;
+  cooldownEndsAt = null;
+  windowStartedAt = null;
+  executionsInWindow = 0;
+  isProcessingQueue = false;
+  schedule(task) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({
+        task: () => task(),
+        resolve: (value) => resolve(value),
+        reject
+      });
+      this.emitState();
+      this.processQueue();
+    });
+  }
+  subscribe(listener, emitInitialState = true) {
+    this.listeners.add(listener);
+    if (emitInitialState) {
+      listener(this.getState());
+    }
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+  getState(now = Date.now()) {
+    const remainingMs = this.cooldownEndsAt ? Math.max(this.cooldownEndsAt - now, 0) : 0;
+    return {
+      isCoolingDown: remainingMs > 0,
+      queueSize: this.queue.length,
+      maxExecutions: this.maxExecutions,
+      windowMs: this.windowMs,
+      cooldownStartedAt: this.cooldownStartedAt,
+      cooldownEndsAt: this.cooldownEndsAt,
+      cooldownDurationMs: this.cooldownStartedAt && this.cooldownEndsAt ? this.cooldownEndsAt - this.cooldownStartedAt : 0,
+      remainingMs
+    };
+  }
+  async processQueue() {
+    if (this.isProcessingQueue) return;
+    this.isProcessingQueue = true;
+    try {
+      if (this.cooldownTimeout) {
+        clearTimeout(this.cooldownTimeout);
+        this.cooldownTimeout = null;
+      }
+      while (this.queue.length) {
+        const now = Date.now();
+        this.refreshWindow(now);
+        if (this.executionsInWindow >= this.maxExecutions) {
+          const cooldownStartedAt = this.windowStartedAt ?? now;
+          const cooldownEndsAt = cooldownStartedAt + this.windowMs;
+          const waitMs = Math.max(cooldownEndsAt - now, 0);
+          this.setCooldownState(cooldownStartedAt, cooldownEndsAt);
+          this.emitState(now);
+          this.cooldownTimeout = setTimeout(() => {
+            this.cooldownTimeout = null;
+            this.processQueue();
+          }, waitMs);
+          return;
+        }
+        this.clearCooldownState();
+        const queuedTask = this.queue.shift();
+        if (!queuedTask) return;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (this.executionsInWindow === 0 || this.windowStartedAt === null) {
+          this.windowStartedAt = now;
+        }
+        this.executionsInWindow++;
+        this.emitState(now);
+        try {
+          Promise.resolve(queuedTask.task()).then(queuedTask.resolve, queuedTask.reject);
+        } catch (error40) {
+          queuedTask.reject(error40);
+        }
+      }
+      this.clearCooldownState();
+      this.emitState();
+    } finally {
+      this.isProcessingQueue = false;
+    }
+  }
+  refreshWindow(now) {
+    if (this.windowStartedAt === null) return;
+    if (now < this.windowStartedAt + this.windowMs) return;
+    this.windowStartedAt = null;
+    this.executionsInWindow = 0;
+  }
+  clearCooldownState() {
+    this.cooldownStartedAt = null;
+    this.cooldownEndsAt = null;
+  }
+  setCooldownState(startedAt, endsAt) {
+    this.cooldownStartedAt = startedAt;
+    this.cooldownEndsAt = endsAt;
+  }
+  emitState(now = Date.now()) {
+    const state = this.getState(now);
+    for (const listener of this.listeners) {
+      listener(state);
+    }
+  }
+};
+
 // src/Sites/Kick/KickNetworkInterface.ts
 var logger30 = new Logger();
 var { log: log29, info: info27, error: error30 } = logger30.destruct();
+var SEND_MESSAGE_RATE_LIMIT_MAX_REQUESTS = 6;
+var SEND_MESSAGE_RATE_LIMIT_WINDOW_MS = 10100;
 function tryParseErrorMessage(res) {
   if (res.status && res.status.error && res.status.message) {
     return res.status.message;
@@ -24752,7 +24985,15 @@ function handleApiError(res, defaultMessage) {
 var KickNetworkInterface = class {
   constructor(session) {
     this.session = session;
+    this.sendMessageRateLimiter = new RateLimiter(
+      SEND_MESSAGE_RATE_LIMIT_MAX_REQUESTS,
+      SEND_MESSAGE_RATE_LIMIT_WINDOW_MS
+    );
+    this.sendMessageRateLimiter.subscribe((state) => {
+      this.session.eventBus.publish(KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE, state, true);
+    });
   }
+  sendMessageRateLimiter;
   async connect() {
     return Promise.resolve();
   }
@@ -24941,7 +25182,7 @@ var KickNetworkInterface = class {
     if (!this.session.channelData.chatroom) throw new Error("Chatroom data is not loaded yet.");
     if (!noUtag) message[message.length - 1] === " " || (message += " ");
     const chatroomId = this.session.channelData.chatroom.id;
-    return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
+    const makeRequest = async () => RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
       content: message + (noUtag ? "" : U_TAG_NTV_AFFIX),
       type: "message"
       // metadata: {} // Pinned messages break if we send metadata
@@ -24951,13 +25192,18 @@ var KickNetworkInterface = class {
     }).catch((err) => {
       handleApiError(err, "Failed to send message.");
     });
+    const isPrivileged = this.session.channelData.me.isBroadcaster || this.session.channelData.me.isModerator || this.session.channelData.me.isSuperAdmin;
+    if (isPrivileged) {
+      return makeRequest();
+    }
+    return this.sendMessageRateLimiter.schedule(makeRequest);
   }
   async sendReply(message, originalMessageId, originalMessageContent, originalSenderId, originalSenderUsername, noUtag = false) {
     if (!this.session.channelData) throw new Error("Channel data is not loaded yet.");
     if (!this.session.channelData.chatroom) throw new Error("Chatroom data is not loaded yet.");
     if (!noUtag) message[message.length - 1] === " " || (message += " ");
     const chatroomId = this.session.channelData.chatroom.id;
-    return RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
+    const makeRequest = async () => RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
       content: message + (noUtag ? "" : U_TAG_NTV_AFFIX),
       type: "reply",
       metadata: {
@@ -24976,6 +25222,11 @@ var KickNetworkInterface = class {
     }).catch((err) => {
       handleApiError(err, "Failed to reply to message.");
     });
+    const isPrivileged = this.session.channelData.me.isBroadcaster || this.session.channelData.me.isModerator || this.session.channelData.me.isSuperAdmin;
+    if (isPrivileged) {
+      return makeRequest();
+    }
+    return this.sendMessageRateLimiter.schedule(makeRequest);
   }
   async sendCelebrationAction(celebrationId, message, action) {
     if (!this.session.channelData) throw new Error("Channel data is not loaded yet.");
@@ -26825,7 +27076,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.92";
+  VERSION = "1.5.93";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
