@@ -2,9 +2,13 @@ import type { NetworkInterface, UserMessage } from '@core/Common/NetworkInterfac
 import { U_TAG_NTV_AFFIX } from '@core/Common/constants'
 import { KICK_COMMANDS } from './KickCommands'
 import { Logger } from '@core/Common/Logger'
+import RateLimiter from '@core/Common/RateLimiter'
+import { KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE } from './KickEvents'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
+const SEND_MESSAGE_RATE_LIMIT_MAX_REQUESTS = 6
+const SEND_MESSAGE_RATE_LIMIT_WINDOW_MS = 10_100
 
 namespace Kick {
 	export interface Celebration {
@@ -79,7 +83,18 @@ function handleApiError(res: any, defaultMessage: string): never {
 }
 
 export default class KickNetworkInterface implements NetworkInterface {
-	constructor(private session: Session) {}
+	private readonly sendMessageRateLimiter: RateLimiter
+
+	constructor(private session: Session) {
+		this.sendMessageRateLimiter = new RateLimiter(
+			SEND_MESSAGE_RATE_LIMIT_MAX_REQUESTS,
+			SEND_MESSAGE_RATE_LIMIT_WINDOW_MS
+		)
+
+		this.sendMessageRateLimiter.subscribe(state => {
+			this.session.eventBus.publish(KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE, state, true)
+		})
+	}
 
 	async connect() {
 		return Promise.resolve()
@@ -374,19 +389,33 @@ export default class KickNetworkInterface implements NetworkInterface {
 		if (!noUtag) message[message.length - 1] === ' ' || (message += ' ')
 
 		const chatroomId = this.session.channelData.chatroom.id
-		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
-			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
-			type: 'message'
-			// metadata: {} // Pinned messages break if we send metadata
-		})
-			.then(res => {
-				const parsedError = tryParseErrorMessage(res)
-				if (parsedError) throw new Error(parsedError)
-				// No need to return anything
+
+		const makeRequest = async () =>
+			RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
+				content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
+				type: 'message'
+				// metadata: {} // Pinned messages break if we send metadata
 			})
-			.catch(err => {
-				handleApiError(err, 'Failed to send message.')
-			})
+				.then(res => {
+					const parsedError = tryParseErrorMessage(res)
+					if (parsedError) throw new Error(parsedError)
+					// No need to return anything
+				})
+				.catch(err => {
+					handleApiError(err, 'Failed to send message.')
+				})
+
+		const isPrivileged =
+			this.session.channelData.me.isBroadcaster ||
+			this.session.channelData.me.isModerator ||
+			this.session.channelData.me.isSuperAdmin
+
+		if (isPrivileged) {
+			// Privileged users are not affected by rate limits, so we can send the message immediately without using the rate limiter
+			return makeRequest()
+		}
+
+		return this.sendMessageRateLimiter.schedule(makeRequest)
 	}
 
 	async sendReply(
@@ -403,28 +432,41 @@ export default class KickNetworkInterface implements NetworkInterface {
 		if (!noUtag) message[message.length - 1] === ' ' || (message += ' ')
 
 		const chatroomId = this.session.channelData.chatroom.id
-		return RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
-			content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
-			type: 'reply',
-			metadata: {
-				original_message: {
-					id: originalMessageId
-					// content: originalMessageContent
-				},
-				original_sender: {
-					id: +originalSenderId
-					// username: originalSenderUsername
+		const makeRequest = async () =>
+			RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
+				content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
+				type: 'reply',
+				metadata: {
+					original_message: {
+						id: originalMessageId
+						// content: originalMessageContent
+					},
+					original_sender: {
+						id: +originalSenderId
+						// username: originalSenderUsername
+					}
 				}
-			}
-		})
-			.then(res => {
-				const parsedError = tryParseErrorMessage(res)
-				if (parsedError) throw new Error(parsedError)
-				// No need to return anything
 			})
-			.catch(err => {
-				handleApiError(err, 'Failed to reply to message.')
-			})
+				.then(res => {
+					const parsedError = tryParseErrorMessage(res)
+					if (parsedError) throw new Error(parsedError)
+					// No need to return anything
+				})
+				.catch(err => {
+					handleApiError(err, 'Failed to reply to message.')
+				})
+
+		const isPrivileged =
+			this.session.channelData.me.isBroadcaster ||
+			this.session.channelData.me.isModerator ||
+			this.session.channelData.me.isSuperAdmin
+
+		if (isPrivileged) {
+			// Privileged users are not affected by rate limits, so we can send the message immediately without using the rate limiter
+			return makeRequest()
+		}
+
+		return this.sendMessageRateLimiter.schedule(makeRequest)
 	}
 
 	async sendCelebrationAction(celebrationId: string, message: string, action?: 'defer' | 'cancel') {
@@ -571,7 +613,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 							? new Date(channelUserInfo.banned?.expires_at)
 							: null,
 						permanent: channelUserInfo.banned?.permanent || false
-				  }
+					}
 				: void 0
 		}
 	}

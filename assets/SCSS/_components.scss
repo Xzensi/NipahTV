@@ -473,3 +473,54 @@
 		}
 	}
 }
+
+.ntv__rate-limit-progress {
+	transition-timing-function: ease-in;
+	transition-property: opacity;
+	transition-duration: 0.209s;
+	will-change: opacity;
+	pointer-events: none;
+	position: absolute;
+	opacity: 0;
+	bottom: 0;
+	right: 0;
+	left: 0;
+
+	&--active {
+		opacity: 1;
+	}
+
+	&__track {
+		// background: rgba(255, 255, 255, 0.14);
+		overflow: hidden;
+		height: 2px;
+	}
+
+	&__fill {
+		background: linear-gradient(90deg, #53fc18 0%, #c6ff52 100%);
+		transform-origin: left center;
+		will-change: transform;
+		transform: scaleX(0);
+		opacity: 0.618;
+		height: 100%;
+		width: 100%;
+
+		&--animating {
+			animation-name: ntv__rate-limit-progress-deflate;
+			animation-duration: var(--ntv-rate-limit-progress-duration, 0ms);
+			animation-delay: var(--ntv-rate-limit-progress-delay, 0ms);
+			animation-timing-function: linear;
+			animation-fill-mode: both;
+		}
+	}
+}
+
+@keyframes ntv__rate-limit-progress-deflate {
+	from {
+		transform: scaleX(1);
+	}
+
+	to {
+		transform: scaleX(0);
+	}
+}
