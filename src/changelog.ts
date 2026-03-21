@@ -7,7 +7,7 @@ export const CHANGELOG: {
 		version: '1.5.93',
 		date: '2026-03-21',
 		description: `
-                  Kick has decided to tighten down the ratelimiting on server-side to a pretty low limit of 6 messages per 10 seconds. In my opinion this is rather low and should be raised to 10-15 messages per second because this low ratelimit is not going to make any difference in fighting bot spammers at all and now only serves to punish talkative chatters. Instead of lowering the bar like this, empower streamers to decide on the ratelimit for their own channels. But who am I to say.
+                  Kick has decided to tighten down the ratelimiting on server-side to a pretty low limit of 6 messages per 10 seconds. In my opinion this is rather low and should be raised to 10-15 messages per 10 seconds because this low ratelimit is not going to make any difference in fighting bot spammers at all and now only serves to punish talkative chatters. Instead of lowering the bar like this, empower streamers to decide on the ratelimit for their own channels. But who am I to say.
 
                   Instead of annoying you with large obnoxious RATE_LIMIT_ERROR warnings that completely block your input, I have implemented a more user-friendly visual feedback for when you hit the ratelimit.
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.93
+// @version 1.5.94
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12288,7 +12288,7 @@ var CHANGELOG = [
     version: "1.5.93",
     date: "2026-03-21",
     description: `
-                  Kick has decided to tighten down the ratelimiting on server-side to a pretty low limit of 6 messages per 10 seconds. In my opinion this is rather low and should be raised to 10-15 messages per second because this low ratelimit is not going to make any difference in fighting bot spammers at all and now only serves to punish talkative chatters. Instead of lowering the bar like this, empower streamers to decide on the ratelimit for their own channels. But who am I to say.
+                  Kick has decided to tighten down the ratelimiting on server-side to a pretty low limit of 6 messages per 10 seconds. In my opinion this is rather low and should be raised to 10-15 messages per 10 seconds because this low ratelimit is not going to make any difference in fighting bot spammers at all and now only serves to punish talkative chatters. Instead of lowering the bar like this, empower streamers to decide on the ratelimit for their own channels. But who am I to say.
 
                   Instead of annoying you with large obnoxious RATE_LIMIT_ERROR warnings that completely block your input, I have implemented a more user-friendly visual feedback for when you hit the ratelimit.
 
@@ -27076,7 +27076,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.93";
+  VERSION = "1.5.94";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
