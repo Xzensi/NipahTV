@@ -5,9 +5,13 @@
 }
 
 #chat-input-wrapper {
-	transition: box-shadow 100ms ease-in, border 100ms ease-in, background-color 100ms ease-in;
+	transition:
+		box-shadow 100ms ease-in,
+		border 100ms ease-in,
+		background-color 100ms ease-in;
 	box-shadow: inset 0 0 0 1px rgba(236, 234, 255, 0.32);
 	background: transparent;
+	overflow: clip;
 	outline: none;
 	border: none;
 
@@ -17,6 +21,12 @@
 		background: transparent;
 		outline: none;
 	}
+}
+
+div:has(> #chat-input-wrapper) {
+	border-radius: 0.25rem;
+	position: relative;
+	overflow: clip;
 }
 
 #message-input {
@@ -38,11 +48,18 @@
 }
 
 .ntv__message-input__wrapper {
+	position: relative;
+
 	// Hide the original Kick input
 	& ~ div[dir],
 	& ~ svg {
 		display: none;
 	}
+
+	// When rate limit is active, add extra padding to prevent the progress bar from overlapping the input
+	// &--rate-limit-active {
+	// 	padding-bottom: 0.55rem;
+	// }
 }
 
 // Select the bottom bar container under chat input

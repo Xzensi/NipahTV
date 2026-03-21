@@ -8,18 +8,21 @@ import {
 	isElementInDOM,
 	cleanupHTML
 } from '@core/Common/utils'
+import RateLimitProgressBarComponent from '@core/UI/Components/RateLimitProgressBarComponent'
 import QuickEmotesHolderComponent from '@core/Chat/Components/QuickEmotesHolderComponent'
 import EmoteMenuButtonComponent from '@core/Chat/Components/EmoteMenuButtonComponent'
+import { VerticalMenuComponent } from '@core/UI/Components/VerticalMenuComponent'
 import EmoteMenuComponent from '@core/Chat/Components/EmoteMenuComponent'
-import AbstractUserInterface from '@core/UI/AbstractUserInterface'
+import { KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE } from './KickEvents'
 import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '@core/Common/constants'
+import AbstractUserInterface from '@core/UI/AbstractUserInterface'
+import type { RateLimiterState } from '@core/Common/RateLimiter'
 import type UserInfoModal from '@core/Users/UserInfoModal'
 import DOMEventManager from '@core/Common/DOMEventManager'
 import InputController from '@core/Input/InputController'
 import type { Badge } from '@core/Emotes/BadgeProvider'
 import { Logger } from '@core/Common/Logger'
 import { Caret } from '@core/UI/Caret'
-import { VerticalMenuComponent } from '@core/UI/Components/VerticalMenuComponent'
 import { User } from '@core/Users/UsersDatastore'
 
 const logger = new Logger()
@@ -40,6 +43,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	private emoteMenuButton: EmoteMenuButtonComponent | null = null
 	private emoteMenuButtonObserver: MutationObserver | null = null
 	private quickEmotesHolder: QuickEmotesHolderComponent | null = null
+	private sendMessageRateLimitProgressBar: RateLimitProgressBarComponent | null = null
 	private quickEmotesHolderObserver: MutationObserver | null = null
 	private celebrationsContainerEl: HTMLElement | null = null
 	private clearQueuedChatMessagesInterval: NodeJS.Timeout | null = null
@@ -654,6 +658,10 @@ export class KickUserInterface extends AbstractUserInterface {
 		kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
 		if (document.activeElement === kickTextFieldEl) textFieldEl.focus()
 
+		const sendMessageRateLimitProgressBar = new RateLimitProgressBarComponent().init()
+		kickTextFieldEl.parentElement!.parentElement!.parentElement!.append(sendMessageRateLimitProgressBar.element)
+		this.sendMessageRateLimitProgressBar = sendMessageRateLimitProgressBar
+
 		// const moderatorChatIdentityBadgeIconEl = document.querySelector('.chat-input-wrapper .chat-input-icon')
 		// if (moderatorChatIdentityBadgeIconEl) textFieldEl.before(moderatorChatIdentityBadgeIconEl)
 
@@ -693,6 +701,17 @@ export class KickUserInterface extends AbstractUserInterface {
 				)
 			}
 		})
+
+		this.session.eventBus.subscribe(
+			KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE,
+			(state: RateLimiterState) => {
+				const isCoolingDown = state.isCoolingDown && state.remainingMs > 0
+
+				textFieldWrapperEl.classList.toggle('ntv__message-input__wrapper--rate-limit-active', isCoolingDown)
+				sendMessageRateLimitProgressBar.update(state)
+			},
+			true
+		)
 
 		// // Ignore control keys that are not used for typing
 		const ignoredKeys: { [key: string]: boolean } = {
