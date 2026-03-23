@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.96',
+		date: '2026-03-23',
+		description: `
+                  Fix: Kick website update broke chat position settings
+            `
+	},
+	{
 		version: '1.5.95',
 		date: '2026-03-21',
 		description: `
