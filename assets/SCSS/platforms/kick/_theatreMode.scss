@@ -1,5 +1,50 @@
 body > [data-theatre='true'].ntv__theatre-overlay {
+	&__video-alignment {
+		&--center {
+			#video-player {
+				object-position: center;
+			}
+		}
+
+		&--aligned-left {
+			#video-player {
+				object-position: left;
+			}
+		}
+
+		&--aligned-right {
+			#video-player {
+				object-position: right;
+			}
+		}
+	}
+}
+
+body > [data-theatre='true'].ntv__theatre-overlay__mode.ntv__theatre-overlay {
+	&__position {
+		&--right {
+			#channel-chatroom {
+				right: 0;
+			}
+		}
+
+		&--left {
+			#channel-chatroom {
+				left: 0;
+			}
+
+			#video-player + div {
+				left: auto;
+				right: 0;
+			}
+		}
+	}
+
 	&__mode {
+		:has(> #channel-chatroom) {
+			position: static;
+		}
+
 		#channel-chatroom {
 			background: transparent;
 			position: absolute;
@@ -67,45 +112,6 @@ body > [data-theatre='true'].ntv__theatre-overlay {
 			.ntv__chat-message.pinned-message {
 				backdrop-filter: blur(9px);
 				background-color: rgba(0, 0, 10, 0.618) !important;
-			}
-		}
-	}
-
-	&__video-alignment {
-		&--center {
-			#video-player {
-				object-position: center;
-			}
-		}
-
-		&--aligned-left {
-			#video-player {
-				object-position: left;
-			}
-		}
-
-		&--aligned-right {
-			#video-player {
-				object-position: right;
-			}
-		}
-	}
-
-	&__position {
-		&--right {
-			#channel-chatroom {
-				right: 0;
-			}
-		}
-
-		&--left {
-			#channel-chatroom {
-				left: 0;
-			}
-
-			#video-player + div {
-				left: auto;
-				right: 0;
 			}
 		}
 	}
