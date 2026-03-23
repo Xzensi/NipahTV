@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.95
+// @version 1.5.96
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-be7202ac.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-d5040e91.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12284,6 +12284,20 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.96",
+    date: "2026-03-23",
+    description: `
+                  Fix: Kick website update broke chat position settings
+            `
+  },
+  {
+    version: "1.5.95",
+    date: "2026-03-21",
+    description: `
+                  Hotfix: Accidentally clipped the input causing emote completion list to be invisible
+            `
+  },
   {
     version: "1.5.93",
     date: "2026-03-21",
@@ -27076,7 +27090,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.95";
+  VERSION = "1.5.96";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
