@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.96
+// @version 1.5.97
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12285,6 +12285,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.97",
+    date: "2026-03-26",
+    description: `
+                  Fix: Kick website update broke message replies
+            `
+  },
+  {
     version: "1.5.96",
     date: "2026-03-23",
     description: `
@@ -24305,6 +24312,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         return;
       }
       const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
+      ntvMessageAttachmentEl.lastElementChild?.remove();
       ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
       ntvMessageInnerEl.append(ntvMessageAttachmentEl);
       replyMessageAttachmentEl.style.setProperty("display", "none", "important");
@@ -24312,7 +24320,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
       messageNode.append(ntvReplyMessageAttachmentEl);
     }
-    const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl;
+    const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild?.querySelector("& > div:first-of-type") : betterHoverEl;
     if (!messageBodyWrapper) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error29("KICK", "UI", "Chat message body wrapper node not found", messageNode);
@@ -27090,7 +27098,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.96";
+  VERSION = "1.5.97";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
