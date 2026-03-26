@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.97
+// @version 1.5.98
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12285,6 +12285,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.98",
+    date: "2026-03-26",
+    description: `
+                  Fix: Kick website update broke message username detection
+            `
+  },
+  {
     version: "1.5.97",
     date: "2026-03-26",
     description: `
@@ -24394,14 +24401,13 @@ var KickUserInterface = class extends AbstractUserInterface {
           })
         );
     }
-    let usernameEl = identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild;
+    let usernameEl = identityEl.firstElementChild;
     while (usernameEl && usernameEl.tagName !== "BUTTON") usernameEl = usernameEl.nextElementSibling;
     if (!usernameEl) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error29("KICK", "UI", "Chat message username node not found", messageNode);
-      return;
     }
-    const username = usernameEl.title;
+    const username = usernameEl.textContent?.trim() || "";
     messageObject.username = username;
     messageObject.style.color = usernameEl.style.color;
     const ntvUsernameEl = document.createElement("span");
@@ -27098,7 +27104,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.97";
+  VERSION = "1.5.98";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

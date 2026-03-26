@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.98',
+		date: '2026-03-26',
+		description: `
+                  Fix: Kick website update broke message username detection
+            `
+	},
+	{
 		version: '1.5.97',
 		date: '2026-03-26',
 		description: `
