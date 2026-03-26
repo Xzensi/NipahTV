@@ -1955,6 +1955,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
+			ntvMessageAttachmentEl.lastElementChild?.remove() // Remove the original message content from the attachment clone
 			ntvMessageAttachmentEl.className = 'ntv__chat-message__attachment'
 			ntvMessageInnerEl.append(ntvMessageAttachmentEl)
 			;(replyMessageAttachmentEl as HTMLElement).style.setProperty('display', 'none', 'important')
@@ -1964,7 +1965,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			messageNode.append(ntvReplyMessageAttachmentEl)
 		}
 
-		const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl
+		const messageBodyWrapper = isReply
+			? betterHoverEl.lastElementChild?.querySelector('& > div:first-of-type')
+			: betterHoverEl
 		if (!messageBodyWrapper) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')
 			error('KICK', 'UI', 'Chat message body wrapper node not found', messageNode)
