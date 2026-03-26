@@ -2056,17 +2056,14 @@ export class KickUserInterface extends AbstractUserInterface {
 				)
 		}
 
-		let usernameEl = (
-			identityEl.childNodes.length > 1 ? identityEl.children[1] : identityEl.firstElementChild
-		) as HTMLElement
+		let usernameEl = identityEl.firstElementChild as HTMLElement
 		while (usernameEl && usernameEl.tagName !== 'BUTTON') usernameEl = usernameEl.nextElementSibling as HTMLElement
 		if (!usernameEl) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')
 			error('KICK', 'UI', 'Chat message username node not found', messageNode)
-			return
 		}
 
-		const username = usernameEl.title
+		const username = usernameEl.textContent?.trim() || ''
 		messageObject.username = username
 		messageObject.style.color = usernameEl.style.color
 
