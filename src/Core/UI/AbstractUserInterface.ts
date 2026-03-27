@@ -261,32 +261,28 @@ export default abstract class AbstractUserInterface {
 				inputChanged = true
 			}
 
+			if (!inputChanged && chatroomData.followersMode?.enabled && (!channelMeData.isFollowing || isPrivileged)) {
+				log('CORE', 'UI', 'Followers only mode enabled')
+
+				const isEnabled = isPrivileged || channelMeData.isFollowing
+				this.changeInputStatus(isEnabled ? 'enabled' : 'disabled', isEnabled ? null : 'Followers only')
+				inputChanged = true
+			}
+
 			if (
 				!inputChanged &&
 				chatroomData.subscribersMode?.enabled &&
 				(!channelMeData.isSubscribed || isPrivileged)
 			) {
 				log('CORE', 'UI', 'Subscribers only mode enabled')
-				this.changeInputStatus(
-					isPrivileged || channelMeData.isSubscribed ? 'enabled' : 'disabled',
-					'Subscribers only'
-				)
-				inputChanged = true
-			}
-
-			if (!inputChanged && chatroomData.followersMode?.enabled && (!channelMeData.isFollowing || isPrivileged)) {
-				log('CORE', 'UI', 'Followers only mode enabled')
-
-				this.changeInputStatus(
-					isPrivileged || channelMeData.isFollowing ? 'enabled' : 'disabled',
-					'Followers only'
-				)
+				const isEnabled = isPrivileged || channelMeData.isSubscribed
+				this.changeInputStatus(isEnabled ? 'enabled' : 'disabled', isEnabled ? null : 'Subscribers only')
 				inputChanged = true
 			}
 
 			if (!inputChanged && chatroomData.followersMode?.enabled && channelMeData.isFollowing) {
 				const followingSince = new Date(channelMeData.followingSince!)
-				const minDuration = (chatroomData.followersMode.min_duration || 0) * 60
+				const minDuration = chatroomData.followersMode.min_duration || 0
 				const now = new Date()
 				const timeElapsed = ((now.getTime() - followingSince.getTime()) / 1000) << 0
 				let remainingTime = minDuration - timeElapsed
@@ -303,8 +299,8 @@ export default abstract class AbstractUserInterface {
 					const formattedRemainingTime = hoursString
 						? `${hoursString} and ${minutesString || '0 minutes'}`.trim()
 						: minutesString
-						? `${minutesString} and ${secondsString || '0 seconds'}`.trim()
-						: `${secondsString}`
+							? `${minutesString} and ${secondsString || '0 seconds'}`.trim()
+							: `${secondsString}`
 
 					this.changeInputStatus(
 						isPrivileged ? 'enabled' : 'disabled',

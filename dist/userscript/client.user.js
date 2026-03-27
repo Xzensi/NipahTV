@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.99
+// @version 1.5.100
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11240,14 +11240,17 @@ var KICK_COMMANDS = [
       "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"',
       "[seconds]": (arg) => !arg || isStringNumber(arg) && parseInt(arg, 10) > 0 ? null : "Seconds must be a number greater than 0"
     },
-    api: {
-      protocol: "http",
-      method: "put",
-      uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-      data: (args) => ({ slow_mode: args[0] === "on", message_interval: args[1] || 6 }),
-      errorMessage: "Failed to set slow mode.",
-      successMessage: "Succesfully toggled slow mode."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("slow", args.slice(0, 2).join(" "));
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'put',
+    // 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+    // 	data: args => ({ slow_mode: args[0] === 'on', message_interval: args[1] || 6 }),
+    // 	errorMessage: 'Failed to set slow mode.',
+    // 	successMessage: 'Succesfully toggled slow mode.'
+    // }
   },
   {
     name: "emoteonly",
@@ -11257,14 +11260,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
     },
-    api: {
-      protocol: "http",
-      method: "put",
-      uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-      data: (args) => ({ emotes_mode: args[0] === "on" }),
-      errorMessage: "Failed to set emote only mode.",
-      successMessage: "Successfully toggled emote only mode."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("emoteonly", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'put',
+    // 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+    // 	data: args => ({ emotes_mode: args[0] === 'on' }),
+    // 	errorMessage: 'Failed to set emote only mode.',
+    // 	successMessage: 'Successfully toggled emote only mode.'
+    // }
   },
   {
     name: "followonly",
@@ -11275,23 +11281,26 @@ var KICK_COMMANDS = [
       "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"',
       "[minutes]": (arg) => !arg || isStringNumber(arg) && parseInt(arg, 10) > 0 ? null : "Minutes must be a number greater than 0"
     },
-    api: {
-      protocol: "http",
-      method: "put",
-      uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-      data: (args) => {
-        if (args[1]) {
-          return {
-            followers_mode: args[0] === "on",
-            following_min_duration: parseInt(args[1], 10)
-          };
-        } else {
-          return { followers_mode: args[0] === "on" };
-        }
-      },
-      errorMessage: "Failed to set followers only mode.",
-      successMessage: "Succesfully toggled followers only mode."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("followonly", args.slice(0, 2).join(" "));
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'put',
+    // 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+    // 	data: args => {
+    // 		if (args[1]) {
+    // 			return {
+    // 				followers_mode: args[0] === 'on',
+    // 				following_min_duration: parseInt(args[1] as string, 10)
+    // 			} as Record<string, boolean | number>
+    // 		} else {
+    // 			return { followers_mode: args[0] === 'on' }
+    // 		}
+    // 	},
+    // 	errorMessage: 'Failed to set followers only mode.',
+    // 	successMessage: 'Succesfully toggled followers only mode.'
+    // }
   },
   {
     name: "raid",
@@ -11340,14 +11349,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
     },
-    api: {
-      protocol: "http",
-      method: "put",
-      uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
-      data: (args) => ({ subscribers_mode: args[0] === "on" }),
-      errorMessage: "Failed to set subscribers only mode.",
-      successMessage: "Successfully toggled subscribers only mode."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("subonly", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'put',
+    // 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chatroom`,
+    // 	data: args => ({ subscribers_mode: args[0] === 'on' }),
+    // 	errorMessage: 'Failed to set subscribers only mode.',
+    // 	successMessage: 'Successfully toggled subscribers only mode.'
+    // }
   },
   {
     name: "unban",
@@ -11357,13 +11369,16 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "delete",
-      uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
-      errorMessage: "Failed to unban user.",
-      successMessage: "User has been unbanned."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("unban", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'delete',
+    // 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
+    // 	errorMessage: 'Failed to unban user.',
+    // 	successMessage: 'User has been unbanned.'
+    // }
   },
   {
     name: "vip",
@@ -11373,14 +11388,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "post",
-      uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/vips`,
-      data: (args) => ({ username: args[0] }),
-      errorMessage: "Failed to add user as VIP.",
-      successMessage: "User has been added as VIP."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("vip", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'post',
+    // 	uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/vips`,
+    // 	data: args => ({ username: args[0] }),
+    // 	errorMessage: 'Failed to add user as VIP.',
+    // 	successMessage: 'User has been added as VIP.'
+    // }
   },
   {
     name: "unvip",
@@ -11390,13 +11408,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "delete",
-      uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/vips/${args[0]}`,
-      errorMessage: "Failed to remove user from VIPs.",
-      successMessage: "User has been removed from VIPs."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("unvip", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'delete',
+    // 	uri: (channelName, args) =>
+    // 		`https://kick.com/api/internal/v1/channels/${channelName}/community/vips/${args[0]}`,
+    // 	errorMessage: 'Failed to remove user from VIPs.',
+    // 	successMessage: 'User has been removed from VIPs.'
+    // }
   },
   {
     name: "mod",
@@ -11406,14 +11428,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "post",
-      uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`,
-      data: (args) => ({ username: args[0] }),
-      errorMessage: "Failed to add user as moderator.",
-      successMessage: "User has been added as moderator."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("mod", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'post',
+    // 	uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/moderators`,
+    // 	data: args => ({ username: args[0] }),
+    // 	errorMessage: 'Failed to add user as moderator.',
+    // 	successMessage: 'User has been added as moderator.'
+    // }
   },
   {
     name: "unmod",
@@ -11423,13 +11448,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "delete",
-      uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/moderators/${args[0]}`,
-      errorMessage: "Failed to remove user from moderators.",
-      successMessage: "User has been removed from moderators."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("unmod", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'delete',
+    // 	uri: (channelName, args) =>
+    // 		`https://kick.com/api/internal/v1/channels/${channelName}/community/moderators/${args[0]}`,
+    // 	errorMessage: 'Failed to remove user from moderators.',
+    // 	successMessage: 'User has been removed from moderators.'
+    // }
   },
   {
     name: "og",
@@ -11439,14 +11468,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "post",
-      uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`,
-      data: (args) => ({ username: args[0] }),
-      errorMessage: "Failed to add user as OG.",
-      successMessage: "User has been added as OG."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("og", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'post',
+    // 	uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/ogs`,
+    // 	data: args => ({ username: args[0] }),
+    // 	errorMessage: 'Failed to add user as OG.',
+    // 	successMessage: 'User has been added as OG.'
+    // }
   },
   {
     name: "unog",
@@ -11456,13 +11488,17 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "delete",
-      uri: (channelName, args) => `https://kick.com/api/internal/v1/channels/${channelName}/community/ogs/${args[0]}`,
-      errorMessage: "Failed to remove user from OG.",
-      successMessage: "User has been removed from OG."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("unog", "" + args[0]);
     }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'delete',
+    // 	uri: (channelName, args) =>
+    // 		`https://kick.com/api/internal/v1/channels/${channelName}/community/ogs/${args[0]}`,
+    // 	errorMessage: 'Failed to remove user from OG.',
+    // 	successMessage: 'User has been removed from OG.'
+    // }
   },
   {
     name: "follow",
@@ -11540,13 +11576,40 @@ var KICK_COMMANDS = [
     argValidators: {
       "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    api: {
-      protocol: "http",
-      method: "post",
-      uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chat-commands`,
-      data: (args) => ({ command: "host", parameter: args[0] }),
-      errorMessage: "Failed to host channel.",
-      successMessage: "Channel has been hosted."
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("host", "" + args[0]);
+    }
+    // api: {
+    // 	protocol: 'http',
+    // 	method: 'post',
+    // 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/chat-commands`,
+    // 	data: args => ({ command: 'host', parameter: args[0] }),
+    // 	errorMessage: 'Failed to host channel.',
+    // 	successMessage: 'Channel has been hosted.'
+    // }
+  },
+  {
+    name: "multi",
+    params: "<on_off>",
+    minAllowedRole: "broadcaster",
+    description: "Toggle multistream",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    },
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("multi", "" + args[0]);
+    }
+  },
+  {
+    name: "kpp",
+    params: "<on_off>",
+    minAllowedRole: "broadcaster",
+    description: "Toggle partner income",
+    argValidators: {
+      "<on_off>": (arg) => arg === "on" || arg === "off" ? null : '<on_off> must be either "on" or "off"'
+    },
+    execute: async (deps, args) => {
+      return LexicalCommandFromMain.executeCommand("kpp", "" + args[0]);
     }
   }
   // {
@@ -12284,6 +12347,18 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.100",
+    date: "2026-03-27",
+    description: `
+                  Hundredth patch version! More fixes of Kick website changes breaking random stuff. They've been breaking a lot past few days. Please bear with me as I keep fixing the things they break.
+
+                  Fix: Sub/follow only chat modes causing input controller to not find input element handle
+                  Fix: Inconsistent broken Kick API causing subonly/followonly mode conflicts
+                  Fix: Incorrect minimum follow duration calculation causing longer wait time after follow before being able to chat
+                  Refactor: Reworked commands execution in attempt to prevent Kick from inevitably breaking it 
+            `
+  },
   {
     version: "1.5.99",
     date: "2026-03-27",
@@ -20520,25 +20595,21 @@ var AbstractUserInterface = class {
         }
         inputChanged = true;
       }
-      if (!inputChanged && chatroomData2.subscribersMode?.enabled && (!channelMeData2.isSubscribed || isPrivileged2)) {
-        log22("CORE", "UI", "Subscribers only mode enabled");
-        this.changeInputStatus(
-          isPrivileged2 || channelMeData2.isSubscribed ? "enabled" : "disabled",
-          "Subscribers only"
-        );
-        inputChanged = true;
-      }
       if (!inputChanged && chatroomData2.followersMode?.enabled && (!channelMeData2.isFollowing || isPrivileged2)) {
         log22("CORE", "UI", "Followers only mode enabled");
-        this.changeInputStatus(
-          isPrivileged2 || channelMeData2.isFollowing ? "enabled" : "disabled",
-          "Followers only"
-        );
+        const isEnabled = isPrivileged2 || channelMeData2.isFollowing;
+        this.changeInputStatus(isEnabled ? "enabled" : "disabled", isEnabled ? null : "Followers only");
+        inputChanged = true;
+      }
+      if (!inputChanged && chatroomData2.subscribersMode?.enabled && (!channelMeData2.isSubscribed || isPrivileged2)) {
+        log22("CORE", "UI", "Subscribers only mode enabled");
+        const isEnabled = isPrivileged2 || channelMeData2.isSubscribed;
+        this.changeInputStatus(isEnabled ? "enabled" : "disabled", isEnabled ? null : "Subscribers only");
         inputChanged = true;
       }
       if (!inputChanged && chatroomData2.followersMode?.enabled && channelMeData2.isFollowing) {
         const followingSince = new Date(channelMeData2.followingSince);
-        const minDuration = (chatroomData2.followersMode.min_duration || 0) * 60;
+        const minDuration = chatroomData2.followersMode.min_duration || 0;
         const now = /* @__PURE__ */ new Date();
         const timeElapsed = (now.getTime() - followingSince.getTime()) / 1e3 << 0;
         let remainingTime = minDuration - timeElapsed;
@@ -23381,7 +23452,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { abortController } = this;
     const abortSignal = abortController.signal;
     const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
-    const editorInputSelector = '#channel-chatroom .editor-input[contenteditable="true"]';
+    const editorInputSelector = "#channel-chatroom .editor-input[contenteditable]";
     const foundInputElements = await waitForElements([editorInputSelector], 15e3, abortSignal).catch(
       () => void 0
     );
@@ -25149,6 +25220,11 @@ var KickNetworkInterface = class {
       if (!responseChannelData.chatroom?.id) {
         throw new Error('Invalid channel data, missing property "chatroom.id"');
       }
+      const responseChannelChatSettingsData = await fetch(
+        `https://web.kick.com/api/v1/channels/${responseChannelData.id}/chat/settings`
+      ).then((res) => res.json()).then((res) => res?.data).catch(() => {
+      });
+      log29("KICK", "NET", "FETCHED CHANNEL CHAT SETTINGS DATA", responseChannelChatSettingsData);
       Object.assign(channelData, {
         userId: "" + responseChannelData.user_id,
         channelId: "" + responseChannelData.id,
@@ -25159,18 +25235,18 @@ var KickNetworkInterface = class {
         chatroom: {
           id: "" + responseChannelData.chatroom.id,
           emotesMode: {
-            enabled: !!responseChannelData.chatroom.emotes_mode
+            enabled: responseChannelChatSettingsData ? !!responseChannelChatSettingsData?.emotes_only_mode?.enabled : !!responseChannelData.chatroom.emotes_mode
           },
           subscribersMode: {
-            enabled: !!responseChannelData.chatroom.subscribers_mode
+            enabled: responseChannelChatSettingsData ? !!responseChannelChatSettingsData?.subscribers_only_mode?.enabled : !!responseChannelData.chatroom.subscribers_mode
           },
           followersMode: {
-            enabled: !!responseChannelData.chatroom.followers_mode,
-            min_duration: responseChannelData.chatroom.following_min_duration || 0
+            enabled: responseChannelChatSettingsData ? !!responseChannelChatSettingsData?.followers_only_mode?.enabled : !!responseChannelData.chatroom.followers_mode,
+            min_duration: responseChannelChatSettingsData ? responseChannelChatSettingsData?.followers_only_mode?.duration_seconds || 0 : responseChannelData.chatroom.following_min_duration || 0
           },
           slowMode: {
-            enabled: !!responseChannelData.chatroom.slow_mode,
-            messageInterval: responseChannelData.chatroom.message_interval || 6
+            enabled: responseChannelChatSettingsData ? responseChannelChatSettingsData?.slow_mode?.enabled : !!responseChannelData.chatroom.slow_mode,
+            messageInterval: responseChannelChatSettingsData ? responseChannelChatSettingsData?.slow_mode?.duration_seconds || 6 : responseChannelData.chatroom.message_interval || 6
           }
         },
         me: { isLoggedIn: false }
@@ -27123,7 +27199,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.99";
+  VERSION = "1.5.100";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -4,6 +4,18 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.100',
+		date: '2026-03-27',
+		description: `
+                  Hundredth patch version! More fixes of Kick website changes breaking random stuff. They've been breaking a lot past few days. Please bear with me as I keep fixing the things they break.
+
+                  Fix: Sub/follow only chat modes causing input controller to not find input element handle
+                  Fix: Inconsistent broken Kick API causing subonly/followonly mode conflicts
+                  Fix: Incorrect minimum follow duration calculation causing longer wait time after follow before being able to chat
+                  Refactor: Reworked commands execution in attempt to prevent Kick from inevitably breaking it 
+            `
+	},
+	{
 		version: '1.5.99',
 		date: '2026-03-27',
 		description: `
