@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.99',
+		date: '2026-03-27',
+		description: `
+                  More fixes of Kick website changes.
+
+                  Fix: Reply green border not showing
+                  Fix: Reply tooltips not showing
+                  Fix: Hopefully fixed some badges randomly disappearing
+            `
+	},
+	{
 		version: '1.5.98',
 		date: '2026-03-26',
 		description: `
