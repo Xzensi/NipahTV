@@ -51,10 +51,10 @@ div:has(> #chat-input-wrapper) {
 	position: relative;
 
 	// Hide the original Kick input
-	& ~ div[dir],
-	& ~ svg {
-		display: none;
-	}
+	// & ~ div[dir],
+	// & ~ svg {
+	// 	display: none;
+	// }
 
 	// When rate limit is active, add extra padding to prevent the progress bar from overlapping the input
 	// &--rate-limit-active {
@@ -110,6 +110,14 @@ div:has(> #chat-input-wrapper) {
 
 	> div {
 		position: relative;
+	}
+
+	// Hide the original Kick input
+	#chat-input-wrapper {
+		& > div[dir],
+		& > svg {
+			display: none;
+		}
 	}
 }
 

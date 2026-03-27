@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.98
+// @version 1.5.99
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-d5040e91.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-6d8488cc.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12285,6 +12285,17 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.99",
+    date: "2026-03-27",
+    description: `
+                  More fixes of Kick website changes.
+
+                  Fix: Reply green border not showing
+                  Fix: Reply tooltips not showing
+                  Fix: Hopefully fixed some badges randomly disappearing
+            `
+  },
+  {
     version: "1.5.98",
     date: "2026-03-26",
     description: `
@@ -23395,7 +23406,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       true
     );
     textFieldWrapperEl.append(textFieldEl);
-    kickTextFieldEl.parentElement.before(textFieldWrapperEl);
+    kickTextFieldEl.parentElement.after(textFieldWrapperEl);
     if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
     const sendMessageRateLimitProgressBar = new RateLimitProgressBarComponent().init();
     kickTextFieldEl.parentElement.parentElement.parentElement.append(sendMessageRateLimitProgressBar.element);
@@ -24292,7 +24303,15 @@ var KickUserInterface = class extends AbstractUserInterface {
       error29("KICK", "UI", "Chat message content wrapper node not found", messageNode);
       return;
     }
-    const betterHoverEl = groupElementNode.firstElementChild;
+    let betterHoverEl = groupElementNode.firstElementChild;
+    if (!betterHoverEl) {
+      messageNode.classList.remove("ntv__chat-message--unrendered");
+      error29("KICK", "UI", "Better hover element not found");
+      return;
+    }
+    if (betterHoverEl.tagName === "BUTTON" || betterHoverEl.getAttribute("type") === "button") {
+      betterHoverEl = betterHoverEl.firstElementChild;
+    }
     if (!betterHoverEl) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error29("KICK", "UI", "Better hover element not found");
@@ -24319,15 +24338,15 @@ var KickUserInterface = class extends AbstractUserInterface {
         return;
       }
       const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
-      ntvMessageAttachmentEl.lastElementChild?.remove();
       ntvMessageAttachmentEl.className = "ntv__chat-message__attachment";
+      ntvMessageAttachmentEl.setAttribute("title", ntvMessageAttachmentEl.textContent || "");
       ntvMessageInnerEl.append(ntvMessageAttachmentEl);
       replyMessageAttachmentEl.style.setProperty("display", "none", "important");
       const ntvReplyMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true);
       ntvReplyMessageAttachmentEl.classList.add("ntv__chat-message__reply-attachment");
       messageNode.append(ntvReplyMessageAttachmentEl);
     }
-    const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild?.querySelector("& > div:first-of-type") : betterHoverEl;
+    const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl;
     if (!messageBodyWrapper) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error29("KICK", "UI", "Chat message body wrapper node not found", messageNode);
@@ -24389,7 +24408,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const ntvBadgesEl = document.createElement("span");
     ntvBadgesEl.className = "ntv__chat-message__badges";
     const badgesEl = identityEl.firstElementChild;
-    if (badgesEl && badgesEl.tagName !== "BUTTON") {
+    if (badgesEl && badgesEl.tagName === "DIV") {
       if (badgesEl.firstElementChild)
         ntvBadgesEl.append(
           ...Array.from(badgesEl.children).map((badgeWrapperEl) => {
@@ -27104,7 +27123,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.98";
+  VERSION = "1.5.99";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

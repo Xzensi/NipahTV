@@ -655,7 +655,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		textFieldWrapperEl.append(textFieldEl)
 
-		kickTextFieldEl.parentElement!.before(textFieldWrapperEl)
+		kickTextFieldEl.parentElement!.after(textFieldWrapperEl)
 		if (document.activeElement === kickTextFieldEl) textFieldEl.focus()
 
 		const sendMessageRateLimitProgressBar = new RateLimitProgressBarComponent().init()
@@ -1922,7 +1922,15 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
-		const betterHoverEl = groupElementNode.firstElementChild
+		let betterHoverEl = groupElementNode.firstElementChild
+		if (!betterHoverEl) {
+			messageNode.classList.remove('ntv__chat-message--unrendered')
+			error('KICK', 'UI', 'Better hover element not found')
+			return
+		}
+		if (betterHoverEl.tagName === 'BUTTON' || betterHoverEl.getAttribute('type') === 'button') {
+			betterHoverEl = betterHoverEl.firstElementChild
+		}
 		if (!betterHoverEl) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')
 			error('KICK', 'UI', 'Better hover element not found')
@@ -1955,8 +1963,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 
 			const ntvMessageAttachmentEl = replyMessageAttachmentEl.cloneNode(true) as HTMLElement
-			ntvMessageAttachmentEl.lastElementChild?.remove() // Remove the original message content from the attachment clone
 			ntvMessageAttachmentEl.className = 'ntv__chat-message__attachment'
+			ntvMessageAttachmentEl.setAttribute('title', ntvMessageAttachmentEl.textContent || '')
 			ntvMessageInnerEl.append(ntvMessageAttachmentEl)
 			;(replyMessageAttachmentEl as HTMLElement).style.setProperty('display', 'none', 'important')
 
@@ -1965,9 +1973,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			messageNode.append(ntvReplyMessageAttachmentEl)
 		}
 
-		const messageBodyWrapper = isReply
-			? betterHoverEl.lastElementChild?.querySelector('& > div:first-of-type')
-			: betterHoverEl
+		const messageBodyWrapper = isReply ? betterHoverEl.lastElementChild : betterHoverEl
 		if (!messageBodyWrapper) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')
 			error('KICK', 'UI', 'Chat message body wrapper node not found', messageNode)
@@ -2042,7 +2048,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		ntvBadgesEl.className = 'ntv__chat-message__badges'
 
 		const badgesEl = identityEl.firstElementChild // Only exists if user has badges
-		if (badgesEl && badgesEl.tagName !== 'BUTTON') {
+		if (badgesEl && badgesEl.tagName === 'DIV') {
 			if (badgesEl.firstElementChild)
 				ntvBadgesEl.append(
 					...Array.from(badgesEl.children).map(badgeWrapperEl => {
