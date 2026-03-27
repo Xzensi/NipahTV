@@ -620,7 +620,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// Wait for text input & submit button to load
 		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
-		const editorInputSelector = '#channel-chatroom .editor-input[contenteditable="true"]'
+		const editorInputSelector = '#channel-chatroom .editor-input[contenteditable]'
 
 		const foundInputElements = await waitForElements([editorInputSelector], 15_000, abortSignal).catch(
 			() => undefined

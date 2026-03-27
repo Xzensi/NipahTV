@@ -299,6 +299,15 @@ export default class KickNetworkInterface implements NetworkInterface {
 				throw new Error('Invalid channel data, missing property "chatroom.id"')
 			}
 
+			const responseChannelChatSettingsData = await fetch(
+				`https://web.kick.com/api/v1/channels/${responseChannelData.id}/chat/settings`
+			)
+				.then(res => res.json())
+				.then(res => res?.data)
+				.catch(() => {})
+
+			log('KICK', 'NET', 'FETCHED CHANNEL CHAT SETTINGS DATA', responseChannelChatSettingsData)
+
 			Object.assign(channelData, {
 				userId: '' + responseChannelData.user_id,
 				channelId: '' + responseChannelData.id,
@@ -309,18 +318,30 @@ export default class KickNetworkInterface implements NetworkInterface {
 				chatroom: <ChatroomData>{
 					id: '' + responseChannelData.chatroom.id,
 					emotesMode: {
-						enabled: !!responseChannelData.chatroom.emotes_mode
+						enabled: responseChannelChatSettingsData
+							? !!responseChannelChatSettingsData?.emotes_only_mode?.enabled
+							: !!responseChannelData.chatroom.emotes_mode
 					},
 					subscribersMode: {
-						enabled: !!responseChannelData.chatroom.subscribers_mode
+						enabled: responseChannelChatSettingsData
+							? !!responseChannelChatSettingsData?.subscribers_only_mode?.enabled
+							: !!responseChannelData.chatroom.subscribers_mode
 					},
 					followersMode: {
-						enabled: !!responseChannelData.chatroom.followers_mode,
-						min_duration: responseChannelData.chatroom.following_min_duration || 0
+						enabled: responseChannelChatSettingsData
+							? !!responseChannelChatSettingsData?.followers_only_mode?.enabled
+							: !!responseChannelData.chatroom.followers_mode,
+						min_duration: responseChannelChatSettingsData
+							? responseChannelChatSettingsData?.followers_only_mode?.duration_seconds || 0
+							: responseChannelData.chatroom.following_min_duration || 0
 					},
 					slowMode: {
-						enabled: !!responseChannelData.chatroom.slow_mode,
-						messageInterval: responseChannelData.chatroom.message_interval || 6
+						enabled: responseChannelChatSettingsData
+							? responseChannelChatSettingsData?.slow_mode?.enabled
+							: !!responseChannelData.chatroom.slow_mode,
+						messageInterval: responseChannelChatSettingsData
+							? responseChannelChatSettingsData?.slow_mode?.duration_seconds || 6
+							: responseChannelData.chatroom.message_interval || 6
 					}
 				},
 				me: { isLoggedIn: false }
