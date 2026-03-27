@@ -282,7 +282,7 @@ export default abstract class AbstractUserInterface {
 
 			if (!inputChanged && chatroomData.followersMode?.enabled && channelMeData.isFollowing) {
 				const followingSince = new Date(channelMeData.followingSince!)
-				const minDuration = (chatroomData.followersMode.min_duration || 0) * 60
+				const minDuration = chatroomData.followersMode.min_duration || 0
 				const now = new Date()
 				const timeElapsed = ((now.getTime() - followingSince.getTime()) / 1000) << 0
 				let remainingTime = minDuration - timeElapsed
