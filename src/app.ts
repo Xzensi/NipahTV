@@ -65,6 +65,7 @@ class NipahClient {
 
 	private database: DatabaseProxy<Database> | null = null
 	private sessions: Session[] = []
+	private isCreatingSession = false
 
 	async initialize() {
 		const { ENV_VARS } = this
@@ -346,6 +347,8 @@ class NipahClient {
 			return
 		}
 
+		this.isCreatingSession = true
+
 		log('CORE', 'MAIN', `Creating new session for ${window.location.href}...`)
 
 		const rootContext = this.rootContext
@@ -360,6 +363,8 @@ class NipahClient {
 			inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
 			inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
 		} as Session
+
+		this.sessions.push(session)
 
 		session.usersManager = new UsersManager(rootContext, session)
 
@@ -383,15 +388,22 @@ class NipahClient {
 			})
 		])
 
+		// If a newer navigation occurred while we were waiting, bail out
+		if (session.isDestroyed) {
+			this.isCreatingSession = false
+			return log('CORE', 'MAIN', 'Session was destroyed during creation, aborting..')
+		}
+
 		// Check if any of these promises failed and bubble up the error
 		for (const res of promiseRes) {
-			if (res.status === 'rejected') return error('CORE', 'MAIN', 'Failed to create session because:', res.reason)
+			if (res.status === 'rejected') {
+				this.isCreatingSession = false
+				return error('CORE', 'MAIN', 'Failed to create session because:', res.reason)
+			}
 		}
 
 		if (!session.meData) throw new Error('Failed to load me user data.')
 		if (!session.channelData) throw new Error('Failed to load channel data.')
-
-		this.sessions.push(session)
 
 		const channelData = session.channelData
 		eventBus.publish('ntv.channel.loaded.channel_data', channelData)
@@ -402,6 +414,7 @@ class NipahClient {
 		)
 		if (disableModCreatorView && (channelData.isModView || channelData.isCreatorView)) {
 			info('CORE', 'MAIN', 'NipahTV is disabled for this channel in mod/creator view.')
+			this.isCreatingSession = false
 			return
 		}
 
@@ -441,6 +454,7 @@ class NipahClient {
 		if (!this.stylesLoaded) {
 			this.loadStyles()
 				.then(() => {
+					if (session.isDestroyed) return
 					this.stylesLoaded = true
 					userInterface.loadInterface()
 				})
@@ -461,6 +475,8 @@ class NipahClient {
 				this.createChannelSession()
 			}, 1000)
 		)
+
+		this.isCreatingSession = false
 	}
 
 	shouldLoadPage() {
@@ -616,8 +632,9 @@ class NipahClient {
 	attachPageNavigationListener() {
 		info('CORE', 'MAIN', 'Current URL:', window.location.href)
 		let locationURL = window.location.href
+		let navigationGeneration = 0
 
-		const navigateFn = () => {
+		const navigateFn = async () => {
 			if (locationURL === window.location.href) return
 
 			// Kick sometimes navigates to weird KPSDK URLs that we don't want to handle
@@ -632,7 +649,7 @@ class NipahClient {
 			// It's ugly, but prev session is guaranteed to exist at this point
 			const prevSession = this.sessions[0]
 
-			if (prevSession) {
+			if (prevSession && prevSession.channelData) {
 				const prevChannelName = prevSession.channelData.channelName
 				const newLocationChannelName = prevSession.networkInterface.getChannelName()
 				const newLocationIsVod = prevSession.networkInterface.isVOD()
@@ -649,10 +666,18 @@ class NipahClient {
 
 			info('CORE', 'MAIN', 'Navigated to:', locationURL)
 
+			// Increment generation to invalidate any in-flight createChannelSession.
+			// cleanupSessions marks existing sessions (including in-progress ones) as destroyed,
+			//  causing their createChannelSession to bail out at the next await boundary.
+			const currentGeneration = ++navigationGeneration
 			this.cleanupSessions()
 			log('CORE', 'MAIN', 'Cleaned up old session for', prevLocation)
 
-			this.createChannelSession()
+			await this.createChannelSession()
+
+			// If another navigation fired while we were awaiting, don't run post-init tasks
+			if (navigationGeneration !== currentGeneration) return
+
 			this.doExtensionCompatibilityChecks()
 		}
 

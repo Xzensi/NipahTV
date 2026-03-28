@@ -23,6 +23,7 @@ export default abstract class AbstractUserInterface {
 	protected toaster = new Toaster()
 	protected messageHistory = new MessagesHistory()
 	protected submitButtonPriorityEventTarget = new PriorityEventTarget()
+	protected baseAbortController = new AbortController()
 
 	protected celebrationData?: {
 		id: string
@@ -70,30 +71,34 @@ export default abstract class AbstractUserInterface {
 		})
 
 		// Render ntv-tooltip tooltips
-		document.addEventListener('mouseover', evt => {
-			const target = evt.target as HTMLElement
-			const tooltip = target?.getAttribute('ntv-tooltip')
-			if (!tooltip) return
+		document.addEventListener(
+			'mouseover',
+			evt => {
+				const target = evt.target as HTMLElement
+				const tooltip = target?.getAttribute('ntv-tooltip')
+				if (!tooltip) return
 
-			const rect = target.getBoundingClientRect()
-			const left = rect.left + rect.width / 2
-			const top = rect.top
+				const rect = target.getBoundingClientRect()
+				const left = rect.left + rect.width / 2
+				const top = rect.top
 
-			const tooltipEl = parseHTML(
-				`<div class="ntv__tooltip" style="top: ${top}px; left: ${left}px;">${tooltip}</div>`,
-				true
-			) as HTMLElement
+				const tooltipEl = parseHTML(
+					`<div class="ntv__tooltip" style="top: ${top}px; left: ${left}px;">${tooltip}</div>`,
+					true
+				) as HTMLElement
 
-			document.body.appendChild(tooltipEl)
+				document.body.appendChild(tooltipEl)
 
-			target.addEventListener(
-				'mouseleave',
-				() => {
-					tooltipEl.remove()
-				},
-				{ once: true, passive: true }
-			)
-		})
+				target.addEventListener(
+					'mouseleave',
+					() => {
+						tooltipEl.remove()
+					},
+					{ once: true, passive: true }
+				)
+			},
+			{ signal: this.baseAbortController.signal }
+		)
 
 		eventBus.subscribe('ntv.ui.timers.add', this.addTimer.bind(this))
 	}

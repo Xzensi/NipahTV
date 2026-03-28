@@ -31,6 +31,7 @@ const { log, info, error } = logger.destruct()
 export class KickUserInterface extends AbstractUserInterface {
 	private abortController = new AbortController()
 	private domEventManager = new DOMEventManager()
+	private rootEventBusSubscriptions: Array<{ event: string; callback: Function }> = []
 
 	private chatObserver: MutationObserver | null = null
 	private footerObserver: MutationObserver | null = null
@@ -39,6 +40,7 @@ export class KickUserInterface extends AbstractUserInterface {
 	private submitButtonObserver: MutationObserver | null = null
 	private replyObserver: MutationObserver | null = null
 	private pinnedMessageObserver: MutationObserver | null = null
+	private vodChatroomObserver: MutationObserver | null = null
 	private emoteMenu: EmoteMenuComponent | null = null
 	private emoteMenuButton: EmoteMenuButtonComponent | null = null
 	private emoteMenuButtonObserver: MutationObserver | null = null
@@ -82,6 +84,19 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	constructor(rootContext: RootContext, session: Session) {
 		super(rootContext, session)
+	}
+
+	private subscribeRootEvent(event: string, callback: Function, triggerOnExistingEvent = false, once = false) {
+		this.rootContext.eventBus.subscribe(event, callback, triggerOnExistingEvent, once)
+		this.rootEventBusSubscriptions.push({ event, callback })
+	}
+
+	private unsubscribeAllRootEvents() {
+		const rootEventBus = this.rootContext.eventBus
+		for (const { event, callback } of this.rootEventBusSubscriptions) {
+			rootEventBus.unsubscribe(event, callback)
+		}
+		this.rootEventBusSubscriptions = []
 	}
 
 	async loadInterface() {
@@ -167,6 +182,10 @@ export class KickUserInterface extends AbstractUserInterface {
 				//  so we can reload the session to reinitialize the UI.
 				// This is primarily needed when switching from desktop to mobile view and back.
 				this.reloadUIhackInterval = setInterval(() => {
+					if (this.session.isDestroyed) {
+						clearInterval(this.reloadUIhackInterval!)
+						return
+					}
 					if (!chatMessagesContainerEl.isConnected) {
 						info('KICK', 'UI', 'Chat messages container got removed. Reloading session to reinitialize UI.')
 						this.destroy()
@@ -203,7 +222,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		eventBus.subscribe('ntv.input_controller.submit', (data: any) => this.submitInput(false, data?.dontClearInput))
 
 		// Show moderator quick actions on chat messages
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.moderators.chat.show_quick_actions',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
@@ -213,7 +232,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Set chat show message timestamps
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.messages.show_timestamps',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				document
@@ -223,7 +242,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Set chat smooth scrolling mode
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.behavior.smooth_scrolling',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				document
@@ -232,7 +251,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.moderators.chat.show_quick_actions',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				//* Not respecting chatroomContainerSelector on purpose here because vods reverse the order of chat messages resulting in alternating background not working as expected
@@ -243,7 +262,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Add alternating background color to chat messages
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.messages.alternating_background',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				//* Not respecting chatroomContainerSelector on purpose here because vods reverse the order of chat messages resulting in alternating background not working as expected
@@ -254,7 +273,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Add seperator lines to chat messages
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.messages.seperators',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
@@ -265,7 +284,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Chat messages spacing settings change
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.messages.spacing',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
@@ -276,7 +295,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		)
 
 		// Chat messages style settings change
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.messages.style',
 			({ value, prevValue }: { value?: string; prevValue?: string }) => {
 				Array.from(document.getElementsByClassName('ntv__chat-message')).forEach((el: Element) => {
@@ -369,7 +388,9 @@ export class KickUserInterface extends AbstractUserInterface {
 							clearTimeout(this.emoteMenuButtonPanicResetTimeout)
 							this.emoteMenuButtonPanicResetTimeout = null
 						}
-						setTimeout(() => this.loadEmoteMenuButton(), 4000)
+						setTimeout(() => {
+							if (!this.session.isDestroyed) this.loadEmoteMenuButton()
+						}, 4000)
 						return
 					}
 
@@ -481,7 +502,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		wrapperFunction()
 
-		rootEventBus.subscribe('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
+		this.subscribeRootEvent('ntv.settings.change.quick_emote_holder.enabled', ({ value, prevValue }: any) => {
+			if (this.session.isDestroyed) return
+
 			this.quickEmotesHolder?.destroy()
 
 			if (value) {
@@ -526,7 +549,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		}
 
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.loaded',
 			() => {
 				document.addEventListener('DOMContentLoaded', showAnnouncements)
@@ -572,7 +595,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const messageFontSize = settingsManager.getSetting(channelId, 'chat.messages.font_size') || '13px'
 		document.documentElement.style.setProperty('--ntv-chat-message-font-size', messageFontSize)
 
-		rootEventBus.subscribe('ntv.settings.change.chat.messages.font_size', ({ value }: { value?: string }) => {
+		this.subscribeRootEvent('ntv.settings.change.chat.messages.font_size', ({ value }: { value?: string }) => {
 			if (!value) return
 			document.documentElement.style.setProperty('--ntv-chat-message-font-size', value)
 		})
@@ -581,7 +604,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const messageSpacing = settingsManager.getSetting(channelId, 'chat.messages.spacing') || '0'
 		document.documentElement.style.setProperty('--ntv-chat-message-spacing', messageSpacing)
 
-		rootEventBus.subscribe('ntv.settings.change.chat.messages.spacing', ({ value }: { value?: string }) => {
+		this.subscribeRootEvent('ntv.settings.change.chat.messages.spacing', ({ value }: { value?: string }) => {
 			if (!value) return
 			document.documentElement.style.setProperty('--ntv-chat-message-spacing', value)
 		})
@@ -590,7 +613,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const emoteSize = settingsManager.getSetting(channelId, 'chat.messages.emotes.size') || '28px'
 		document.documentElement.style.setProperty('--ntv-chat-message-emote-size', emoteSize)
 
-		rootEventBus.subscribe('ntv.settings.change.chat.messages.emotes.size', ({ value }: { value?: string }) => {
+		this.subscribeRootEvent('ntv.settings.change.chat.messages.emotes.size', ({ value }: { value?: string }) => {
 			if (!value) return
 			document.documentElement.style.setProperty('--ntv-chat-message-emote-size', value)
 		})
@@ -605,7 +628,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const emoteOverlap = settingsManager.getSetting(channelId, 'chat.messages.emotes.overlap') || 3
 		setEmoteOverlap(emoteOverlap)
-		rootEventBus.subscribe('ntv.settings.change.chat.messages.emotes.overlap', ({ value }: { value?: number }) => {
+		this.subscribeRootEvent('ntv.settings.change.chat.messages.emotes.overlap', ({ value }: { value?: number }) => {
 			if (value === undefined) return
 			setEmoteOverlap(value)
 		})
@@ -957,8 +980,9 @@ export class KickUserInterface extends AbstractUserInterface {
 	loadDocumentPatches() {
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		const channelId = this.session.channelData.channelId
+		const abortSignal = this.abortController.signal
 
-		waitForElements(['body > div[data-theatre]'], 10_000)
+		waitForElements(['body > div[data-theatre]'], 10_000, abortSignal)
 			.then(([containerEl]) => {
 				const chatPositionModeSetting = settingsManager.getSetting(channelId, 'chat.position')
 				if (chatPositionModeSetting && chatPositionModeSetting !== 'none') {
@@ -967,7 +991,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.position',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
@@ -984,8 +1008,9 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const { settingsManager, eventBus: rootEventBus } = this.rootContext
 		const channelId = this.session.channelData.channelId
+		const abortSignal = this.abortController.signal
 
-		waitForElements(['body > div[data-theatre]'], 10_000)
+		waitForElements(['body > div[data-theatre]'], 10_000, abortSignal)
 			.then(([containerEl]) => {
 				const chatPositionModeSetting = settingsManager.getSetting(channelId, 'chat.position')
 				if (chatPositionModeSetting && chatPositionModeSetting !== 'none') {
@@ -1022,7 +1047,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 			.catch(() => {})
 
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.appearance.layout.overlay_chat',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
@@ -1041,7 +1066,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.appearance.layout.overlay_chat.video_alignment',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
@@ -1059,7 +1084,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			}
 		)
 
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.appearance.layout.overlay_chat.position',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				const containerEl = document.querySelector('body > div[data-theatre]')
@@ -1278,7 +1303,10 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}
 
-			setTimeout(() => requestAnimationFrame(renderChatMessagesLoop), 1000 / tps)
+			setTimeout(() => {
+				if (this.session.isDestroyed) return
+				requestAnimationFrame(renderChatMessagesLoop)
+			}, 1000 / tps)
 		}
 
 		renderChatMessagesLoop()
@@ -1339,7 +1367,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			this.session.eventBus.subscribe('ntv.channel.moderation.emote_removed', emoteRemovedCb)
 		}
 
-		rootEventBus.subscribe(
+		this.subscribeRootEvent(
 			'ntv.settings.change.chat.messages.emote_updates.enabled',
 			({ value, prevValue }: { value: string; prevValue?: string }) => {
 				if (value && value !== 'none') {
@@ -1380,17 +1408,16 @@ export class KickUserInterface extends AbstractUserInterface {
 			this.session.eventBus.subscribe('ntv.providers.loaded', () => loadObserver(), true)
 		}
 
-		this.rootContext.eventBus.subscribe(
-			'ntv.settings.change.chat.behavior.enable_chat_rendering',
-			({ value }: any) => {
-				if (this.chatObserver) {
-					this.chatObserver.disconnect()
-					this.chatObserver = null
-				}
+		this.subscribeRootEvent('ntv.settings.change.chat.behavior.enable_chat_rendering', ({ value }: any) => {
+			if (this.session.isDestroyed) return
 
-				if (value) loadObserver()
+			if (this.chatObserver) {
+				this.chatObserver.disconnect()
+				this.chatObserver = null
 			}
-		)
+
+			if (value) loadObserver()
+		})
 
 		// Show emote tooltip with emote name. Use pointer events and a single shared tooltip
 		const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, 'chat.tooltips.images')
@@ -1576,7 +1603,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		// The chatroom messages wrapper gets deleted when scrubbing the video player
 		//  so we observe it and reload the chat UI when it gets re-added.
-		const observer = new MutationObserver(mutations => {
+		this.vodChatroomObserver = new MutationObserver(mutations => {
 			mutations.forEach(mutation => {
 				if (mutation.addedNodes.length) {
 					for (const node of mutation.addedNodes) {
@@ -1595,7 +1622,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			})
 		})
 
-		observer.observe(chatroomParentContainerEl, { childList: true })
+		this.vodChatroomObserver.observe(chatroomParentContainerEl, { childList: true })
 	}
 
 	async handleUserInfoModalClick(username: string, screenPosition?: { x: number; y: number }) {
@@ -2600,12 +2627,14 @@ export class KickUserInterface extends AbstractUserInterface {
 	}
 
 	destroy() {
+		this.baseAbortController.abort()
 		if (this.abortController) this.abortController.abort()
 		if (this.chatObserver) this.chatObserver.disconnect()
 		if (this.footerObserver) this.footerObserver.disconnect()
 		if (this.deletedChatEntryObserver) this.deletedChatEntryObserver.disconnect()
 		if (this.replyObserver) this.replyObserver.disconnect()
 		if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect()
+		if (this.vodChatroomObserver) this.vodChatroomObserver.disconnect()
 		if (this.inputController) this.inputController.destroy()
 		if (this.inputComponentObserver) this.inputComponentObserver.disconnect()
 		if (this.submitButtonObserver) this.submitButtonObserver.disconnect()
@@ -2620,6 +2649,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout)
 		if (this.quickEmotesHolderPanicResetTimeout) clearTimeout(this.quickEmotesHolderPanicResetTimeout)
 		if (this.inputComponentPanicResetTimeout) clearTimeout(this.inputComponentPanicResetTimeout)
+		if (this.submitButtonPanicResetTimeout) clearTimeout(this.submitButtonPanicResetTimeout)
 
 		if (this.currentEmoteTooltip) {
 			this.currentEmoteTooltip.remove()
@@ -2635,11 +2665,17 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		this.domEventManager.removeAllEventListeners()
+		this.unsubscribeAllRootEvents()
 
 		this.restoreOriginalUi()
 	}
 
 	restoreOriginalUi() {
+		// Remove NTV-injected input/button elements that may remain from incomplete init
+		document
+			.querySelectorAll('.ntv__message-input__wrapper, .ntv__message-input, .ntv__submit-button')
+			.forEach(el => el.remove())
+
 		// Remove inserted elements
 		Array.from(document.querySelectorAll('.ntv__chat-message, .ntv__chat-message--unrendered')).forEach(node => {
 			const el = node as HTMLElement

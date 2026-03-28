@@ -95,6 +95,12 @@ export default class Publisher {
 		listeners.splice(index, 1)
 	}
 
+	unsubscribeMany(subscriptions: Array<{ event: string; callback: Function }>) {
+		for (const { event, callback } of subscriptions) {
+			this.unsubscribe(event, callback)
+		}
+	}
+
 	publish(topic: string, data?: any, suppressLog?: boolean) {
 		if (!topic) return error('EVENTS', this.type, 'Invalid event topic, discarding event..')
 		const dto = new DTO(topic, data)
