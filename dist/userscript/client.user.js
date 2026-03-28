@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.100
+// @version 1.5.101
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12348,6 +12348,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.101",
+    date: "2026-03-28",
+    description: `
+                  Fix: Rapid channel navigation causing duplicate components and messages
+            `
+  },
+  {
     version: "1.5.100",
     date: "2026-03-27",
     description: `
@@ -17343,6 +17350,11 @@ var Publisher = class {
     }
     listeners.splice(index, 1);
   }
+  unsubscribeMany(subscriptions) {
+    for (const { event, callback } of subscriptions) {
+      this.unsubscribe(event, callback);
+    }
+  }
   publish(topic, data, suppressLog) {
     if (!topic) return error14("EVENTS", this.type, "Invalid event topic, discarding event..");
     const dto = new DTO(topic, data);
@@ -20426,6 +20438,7 @@ var AbstractUserInterface = class {
   toaster = new Toaster();
   messageHistory = new MessagesHistory();
   submitButtonPriorityEventTarget = new PriorityEventTarget();
+  baseAbortController = new AbortController();
   celebrationData;
   replyMessageData;
   replyMessageComponent;
@@ -20450,26 +20463,30 @@ var AbstractUserInterface = class {
     eventBus.subscribe("ntv.ui.show_modal.poll", () => {
       new PollModal(this.rootContext, this.session, { toaster: this.toaster }).init();
     });
-    document.addEventListener("mouseover", (evt) => {
-      const target = evt.target;
-      const tooltip = target?.getAttribute("ntv-tooltip");
-      if (!tooltip) return;
-      const rect = target.getBoundingClientRect();
-      const left = rect.left + rect.width / 2;
-      const top = rect.top;
-      const tooltipEl = parseHTML(
-        `<div class="ntv__tooltip" style="top: ${top}px; left: ${left}px;">${tooltip}</div>`,
-        true
-      );
-      document.body.appendChild(tooltipEl);
-      target.addEventListener(
-        "mouseleave",
-        () => {
-          tooltipEl.remove();
-        },
-        { once: true, passive: true }
-      );
-    });
+    document.addEventListener(
+      "mouseover",
+      (evt) => {
+        const target = evt.target;
+        const tooltip = target?.getAttribute("ntv-tooltip");
+        if (!tooltip) return;
+        const rect = target.getBoundingClientRect();
+        const left = rect.left + rect.width / 2;
+        const top = rect.top;
+        const tooltipEl = parseHTML(
+          `<div class="ntv__tooltip" style="top: ${top}px; left: ${left}px;">${tooltip}</div>`,
+          true
+        );
+        document.body.appendChild(tooltipEl);
+        target.addEventListener(
+          "mouseleave",
+          () => {
+            tooltipEl.remove();
+          },
+          { once: true, passive: true }
+        );
+      },
+      { signal: this.baseAbortController.signal }
+    );
     eventBus.subscribe("ntv.ui.timers.add", this.addTimer.bind(this));
   }
   toastSuccess(message) {
@@ -23025,6 +23042,7 @@ var { log: log28, info: info26, error: error29 } = logger29.destruct();
 var KickUserInterface = class extends AbstractUserInterface {
   abortController = new AbortController();
   domEventManager = new DOMEventManager();
+  rootEventBusSubscriptions = [];
   chatObserver = null;
   footerObserver = null;
   deletedChatEntryObserver = null;
@@ -23032,6 +23050,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   submitButtonObserver = null;
   replyObserver = null;
   pinnedMessageObserver = null;
+  vodChatroomObserver = null;
   emoteMenu = null;
   emoteMenuButton = null;
   emoteMenuButtonObserver = null;
@@ -23063,6 +23082,17 @@ var KickUserInterface = class extends AbstractUserInterface {
   queuedChatMessages = [];
   constructor(rootContext, session) {
     super(rootContext, session);
+  }
+  subscribeRootEvent(event, callback, triggerOnExistingEvent = false, once = false) {
+    this.rootContext.eventBus.subscribe(event, callback, triggerOnExistingEvent, once);
+    this.rootEventBusSubscriptions.push({ event, callback });
+  }
+  unsubscribeAllRootEvents() {
+    const rootEventBus = this.rootContext.eventBus;
+    for (const { event, callback } of this.rootEventBusSubscriptions) {
+      rootEventBus.unsubscribe(event, callback);
+    }
+    this.rootEventBusSubscriptions = [];
   }
   async loadInterface() {
     info26("KICK", "UI", "Creating user interface..");
@@ -23117,6 +23147,10 @@ var KickUserInterface = class extends AbstractUserInterface {
         this.observeChatEntriesForDeletionEvents();
       }
       this.reloadUIhackInterval = setInterval(() => {
+        if (this.session.isDestroyed) {
+          clearInterval(this.reloadUIhackInterval);
+          return;
+        }
         if (!chatMessagesContainerEl.isConnected) {
           info26("KICK", "UI", "Chat messages container got removed. Reloading session to reinitialize UI.");
           this.destroy();
@@ -23142,7 +23176,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     );
     eventBus.subscribe("ntv.input_controller.submit", (data) => this.submitInput(false, data?.dontClearInput));
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.moderators.chat.show_quick_actions",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
@@ -23150,31 +23184,31 @@ var KickUserInterface = class extends AbstractUserInterface {
         });
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.messages.show_timestamps",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__show-message-timestamps", !!value);
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.behavior.smooth_scrolling",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__smooth-scrolling", !!value);
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.moderators.chat.show_quick_actions",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__alternating-background", !!value);
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.messages.alternating_background",
       ({ value, prevValue }) => {
         document.querySelector(".ntv__chat-messages-container")?.classList.toggle("ntv__alternating-background", !!value);
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.messages.seperators",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
@@ -23183,7 +23217,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         });
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.messages.spacing",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
@@ -23192,7 +23226,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         });
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.messages.style",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
@@ -23261,7 +23295,9 @@ var KickUserInterface = class extends AbstractUserInterface {
             clearTimeout(this.emoteMenuButtonPanicResetTimeout);
             this.emoteMenuButtonPanicResetTimeout = null;
           }
-          setTimeout(() => this.loadEmoteMenuButton(), 4e3);
+          setTimeout(() => {
+            if (!this.session.isDestroyed) this.loadEmoteMenuButton();
+          }, 4e3);
           return;
         }
         log28("KICK", "UI", "Emote menu button got removed");
@@ -23346,7 +23382,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
     };
     wrapperFunction();
-    rootEventBus.subscribe("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
+    this.subscribeRootEvent("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
+      if (this.session.isDestroyed) return;
       this.quickEmotesHolder?.destroy();
       if (value) {
         wrapperFunction();
@@ -23379,7 +23416,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     };
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.loaded",
       () => {
         document.addEventListener("DOMContentLoaded", showAnnouncements);
@@ -23418,19 +23455,19 @@ var KickUserInterface = class extends AbstractUserInterface {
     const channelId = channelData.channelId;
     const messageFontSize = settingsManager.getSetting(channelId, "chat.messages.font_size") || "13px";
     document.documentElement.style.setProperty("--ntv-chat-message-font-size", messageFontSize);
-    rootEventBus.subscribe("ntv.settings.change.chat.messages.font_size", ({ value }) => {
+    this.subscribeRootEvent("ntv.settings.change.chat.messages.font_size", ({ value }) => {
       if (!value) return;
       document.documentElement.style.setProperty("--ntv-chat-message-font-size", value);
     });
     const messageSpacing = settingsManager.getSetting(channelId, "chat.messages.spacing") || "0";
     document.documentElement.style.setProperty("--ntv-chat-message-spacing", messageSpacing);
-    rootEventBus.subscribe("ntv.settings.change.chat.messages.spacing", ({ value }) => {
+    this.subscribeRootEvent("ntv.settings.change.chat.messages.spacing", ({ value }) => {
       if (!value) return;
       document.documentElement.style.setProperty("--ntv-chat-message-spacing", value);
     });
     const emoteSize = settingsManager.getSetting(channelId, "chat.messages.emotes.size") || "28px";
     document.documentElement.style.setProperty("--ntv-chat-message-emote-size", emoteSize);
-    rootEventBus.subscribe("ntv.settings.change.chat.messages.emotes.size", ({ value }) => {
+    this.subscribeRootEvent("ntv.settings.change.chat.messages.emotes.size", ({ value }) => {
       if (!value) return;
       document.documentElement.style.setProperty("--ntv-chat-message-emote-size", value);
     });
@@ -23441,7 +23478,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     };
     const emoteOverlap = settingsManager.getSetting(channelId, "chat.messages.emotes.overlap") || 3;
     setEmoteOverlap(emoteOverlap);
-    rootEventBus.subscribe("ntv.settings.change.chat.messages.emotes.overlap", ({ value }) => {
+    this.subscribeRootEvent("ntv.settings.change.chat.messages.emotes.overlap", ({ value }) => {
       if (value === void 0) return;
       setEmoteOverlap(value);
     });
@@ -23709,14 +23746,15 @@ var KickUserInterface = class extends AbstractUserInterface {
   loadDocumentPatches() {
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const channelId = this.session.channelData.channelId;
-    waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+    const abortSignal = this.abortController.signal;
+    waitForElements(["body > div[data-theatre]"], 1e4, abortSignal).then(([containerEl]) => {
       const chatPositionModeSetting = settingsManager.getSetting(channelId, "chat.position");
       if (chatPositionModeSetting && chatPositionModeSetting !== "none") {
         containerEl.classList.add("ntv__chat-position--" + chatPositionModeSetting);
       }
     }).catch(() => {
     });
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.position",
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
@@ -23730,7 +23768,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.session.isDestroyed) return;
     const { settingsManager, eventBus: rootEventBus } = this.rootContext;
     const channelId = this.session.channelData.channelId;
-    waitForElements(["body > div[data-theatre]"], 1e4).then(([containerEl]) => {
+    const abortSignal = this.abortController.signal;
+    waitForElements(["body > div[data-theatre]"], 1e4, abortSignal).then(([containerEl]) => {
       const chatPositionModeSetting = settingsManager.getSetting(channelId, "chat.position");
       if (chatPositionModeSetting && chatPositionModeSetting !== "none") {
         containerEl.classList.add("ntv__chat-position--" + chatPositionModeSetting);
@@ -23762,7 +23801,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       }
     }).catch(() => {
     });
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.appearance.layout.overlay_chat",
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
@@ -23778,7 +23817,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.appearance.layout.overlay_chat.video_alignment",
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
@@ -23793,7 +23832,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     );
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.appearance.layout.overlay_chat.position",
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
@@ -23949,7 +23988,10 @@ var KickUserInterface = class extends AbstractUserInterface {
           this.renderChatMessage(msgEl);
         }
       }
-      setTimeout(() => requestAnimationFrame(renderChatMessagesLoop), 1e3 / tps);
+      setTimeout(() => {
+        if (this.session.isDestroyed) return;
+        requestAnimationFrame(renderChatMessagesLoop);
+      }, 1e3 / tps);
     };
     renderChatMessagesLoop();
     this.clearQueuedChatMessagesInterval = setInterval(() => {
@@ -23992,7 +24034,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.session.eventBus.subscribe("ntv.channel.moderation.emote_added", emoteAddedCb);
       this.session.eventBus.subscribe("ntv.channel.moderation.emote_removed", emoteRemovedCb);
     }
-    rootEventBus.subscribe(
+    this.subscribeRootEvent(
       "ntv.settings.change.chat.messages.emote_updates.enabled",
       ({ value, prevValue }) => {
         if (value && value !== "none") {
@@ -24024,16 +24066,14 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (enableChatRendering) {
       this.session.eventBus.subscribe("ntv.providers.loaded", () => loadObserver(), true);
     }
-    this.rootContext.eventBus.subscribe(
-      "ntv.settings.change.chat.behavior.enable_chat_rendering",
-      ({ value }) => {
-        if (this.chatObserver) {
-          this.chatObserver.disconnect();
-          this.chatObserver = null;
-        }
-        if (value) loadObserver();
+    this.subscribeRootEvent("ntv.settings.change.chat.behavior.enable_chat_rendering", ({ value }) => {
+      if (this.session.isDestroyed) return;
+      if (this.chatObserver) {
+        this.chatObserver.disconnect();
+        this.chatObserver = null;
       }
-    );
+      if (value) loadObserver();
+    });
     const showTooltipImage = this.rootContext.settingsManager.getSetting(channelId, "chat.tooltips.images");
     const removeEmoteTooltip = () => {
       if (this.currentEmoteTooltip) {
@@ -24165,7 +24205,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatroomParentContainerEl = document.getElementById("channel-chatroom")?.querySelector("& > .bg-surface-lower");
     if (!chatroomParentContainerEl) return error29("KICK", "UI", "Chatroom container not found");
     this.addExistingMessagesToQueue();
-    const observer = new MutationObserver((mutations) => {
+    this.vodChatroomObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.addedNodes.length) {
           for (const node of mutation.addedNodes) {
@@ -24181,7 +24221,7 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       });
     });
-    observer.observe(chatroomParentContainerEl, { childList: true });
+    this.vodChatroomObserver.observe(chatroomParentContainerEl, { childList: true });
   }
   async handleUserInfoModalClick(username, screenPosition) {
     const userInfoModal = this.showUserInfoModal(username, screenPosition);
@@ -24884,12 +24924,14 @@ var KickUserInterface = class extends AbstractUserInterface {
     textFieldEl.focus();
   }
   destroy() {
+    this.baseAbortController.abort();
     if (this.abortController) this.abortController.abort();
     if (this.chatObserver) this.chatObserver.disconnect();
     if (this.footerObserver) this.footerObserver.disconnect();
     if (this.deletedChatEntryObserver) this.deletedChatEntryObserver.disconnect();
     if (this.replyObserver) this.replyObserver.disconnect();
     if (this.pinnedMessageObserver) this.pinnedMessageObserver.disconnect();
+    if (this.vodChatroomObserver) this.vodChatroomObserver.disconnect();
     if (this.inputController) this.inputController.destroy();
     if (this.inputComponentObserver) this.inputComponentObserver.disconnect();
     if (this.submitButtonObserver) this.submitButtonObserver.disconnect();
@@ -24904,6 +24946,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.emoteMenuButtonPanicResetTimeout) clearTimeout(this.emoteMenuButtonPanicResetTimeout);
     if (this.quickEmotesHolderPanicResetTimeout) clearTimeout(this.quickEmotesHolderPanicResetTimeout);
     if (this.inputComponentPanicResetTimeout) clearTimeout(this.inputComponentPanicResetTimeout);
+    if (this.submitButtonPanicResetTimeout) clearTimeout(this.submitButtonPanicResetTimeout);
     if (this.currentEmoteTooltip) {
       this.currentEmoteTooltip.remove();
       this.currentEmoteTooltip = null;
@@ -24917,9 +24960,11 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.emoteTooltipTimeout = null;
     }
     this.domEventManager.removeAllEventListeners();
+    this.unsubscribeAllRootEvents();
     this.restoreOriginalUi();
   }
   restoreOriginalUi() {
+    document.querySelectorAll(".ntv__message-input__wrapper, .ntv__message-input, .ntv__submit-button").forEach((el) => el.remove());
     Array.from(document.querySelectorAll(".ntv__chat-message, .ntv__chat-message--unrendered")).forEach((node) => {
       const el = node;
       el.querySelectorAll(".ntv__chat-message__inner").forEach((innerNode) => innerNode.remove());
@@ -27199,7 +27244,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.100";
+  VERSION = "1.5.101";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -27214,6 +27259,7 @@ var NipahClient = class {
   loadSettingsManagerPromise = null;
   database = null;
   sessions = [];
+  isCreatingSession = false;
   async initialize() {
     const { ENV_VARS } = this;
     info36("CORE", "INIT", `Initializing Nipah client [${this.VERSION}]..`);
@@ -27417,6 +27463,7 @@ var NipahClient = class {
       log38("CORE", "MAIN", "Not a stream page, nothing to do here.");
       return;
     }
+    this.isCreatingSession = true;
     log38("CORE", "MAIN", `Creating new session for ${window.location.href}...`);
     const rootContext = this.rootContext;
     if (!rootContext) throw new Error("Root context is not initialized.");
@@ -27427,6 +27474,7 @@ var NipahClient = class {
       inputCompletionStrategyRegister: new InputCompletionStrategyRegister(),
       inputExecutionStrategyRegister: new InputExecutionStrategyRegister()
     };
+    this.sessions.push(session);
     session.usersManager = new UsersManager(rootContext, session);
     if (NTV_PLATFORM === "kick" /* KICK */) {
       session.networkInterface = new KickNetworkInterface(session);
@@ -27445,12 +27493,18 @@ var NipahClient = class {
         throw `Couldn't load channel data because: ${err.message}`;
       })
     ]);
+    if (session.isDestroyed) {
+      this.isCreatingSession = false;
+      return log38("CORE", "MAIN", "Session was destroyed during creation, aborting..");
+    }
     for (const res of promiseRes) {
-      if (res.status === "rejected") return error39("CORE", "MAIN", "Failed to create session because:", res.reason);
+      if (res.status === "rejected") {
+        this.isCreatingSession = false;
+        return error39("CORE", "MAIN", "Failed to create session because:", res.reason);
+      }
     }
     if (!session.meData) throw new Error("Failed to load me user data.");
     if (!session.channelData) throw new Error("Failed to load channel data.");
-    this.sessions.push(session);
     const channelData = session.channelData;
     eventBus.publish("ntv.channel.loaded.channel_data", channelData);
     const disableModCreatorView = settingsManager.getSetting(
@@ -27459,6 +27513,7 @@ var NipahClient = class {
     );
     if (disableModCreatorView && (channelData.isModView || channelData.isCreatorView)) {
       info36("CORE", "MAIN", "NipahTV is disabled for this channel in mod/creator view.");
+      this.isCreatingSession = false;
       return;
     }
     this.attachEventServiceListeners(rootContext, session);
@@ -27486,6 +27541,7 @@ var NipahClient = class {
     rootEventBus.publish("ntv.session.create", session);
     if (!this.stylesLoaded) {
       this.loadStyles().then(() => {
+        if (session.isDestroyed) return;
         this.stylesLoaded = true;
         userInterface.loadInterface();
       }).catch((response) => error39("CORE", "INIT", "Failed to load styles.", response));
@@ -27501,6 +27557,7 @@ var NipahClient = class {
         this.createChannelSession();
       }, 1e3)
     );
+    this.isCreatingSession = false;
   }
   shouldLoadPage() {
     const pathnames = window.location.pathname.split("/");
@@ -27608,7 +27665,8 @@ var NipahClient = class {
   attachPageNavigationListener() {
     info36("CORE", "MAIN", "Current URL:", window.location.href);
     let locationURL = window.location.href;
-    const navigateFn = () => {
+    let navigationGeneration = 0;
+    const navigateFn = async () => {
       if (locationURL === window.location.href) return;
       if (window.location.pathname.match("^/[a-zA-Z0-9]{8}(?:-[a-zA-Z0-9]{4,12}){4}/.+")) return;
       const prevLocation = locationURL;
@@ -27616,7 +27674,7 @@ var NipahClient = class {
       locationURL = newLocation;
       log38("CORE", "MAIN", "Navigated to:", newLocation);
       const prevSession = this.sessions[0];
-      if (prevSession) {
+      if (prevSession && prevSession.channelData) {
         const prevChannelName = prevSession.channelData.channelName;
         const newLocationChannelName = prevSession.networkInterface.getChannelName();
         const newLocationIsVod = prevSession.networkInterface.isVOD();
@@ -27624,9 +27682,11 @@ var NipahClient = class {
           return log38("CORE", "MAIN", "Session UI is not destroyed, only part of page has changed..");
       }
       info36("CORE", "MAIN", "Navigated to:", locationURL);
+      const currentGeneration = ++navigationGeneration;
       this.cleanupSessions();
       log38("CORE", "MAIN", "Cleaned up old session for", prevLocation);
-      this.createChannelSession();
+      await this.createChannelSession();
+      if (navigationGeneration !== currentGeneration) return;
       this.doExtensionCompatibilityChecks();
     };
     if (window.navigation) {
