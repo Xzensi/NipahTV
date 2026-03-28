@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.101',
+		date: '2026-03-28',
+		description: `
+                  Fix: Rapid channel navigation causing duplicate components and messages
+            `
+	},
+	{
 		version: '1.5.100',
 		date: '2026-03-27',
 		description: `
