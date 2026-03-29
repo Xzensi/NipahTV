@@ -1,5 +1,5 @@
-body > [data-theatre].ntv {
-	&__chat-position {
+body > [data-theatre='false'] {
+	&.ntv__chat-position {
 		&--left {
 			:has(> [data-theatre-mode-container]) {
 				flex-direction: row-reverse;

@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.102',
+		date: '2026-03-29',
+		description: `
+                  Fix: Regression of chat position in theatre mode not positioning correctly
+            `
+	},
+	{
 		version: '1.5.101',
 		date: '2026-03-28',
 		description: `
