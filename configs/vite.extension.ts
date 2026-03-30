@@ -2,6 +2,7 @@ import { version as pkgVersion } from '../package.json'
 import type { ConfigEnv, UserConfig } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import solidPlugin from 'vite-plugin-solid'
+import { attachDevtoolsOverlay } from '@solid-devtools/overlay'
 import devtools from 'solid-devtools/vite'
 import zipPack from 'vite-plugin-zip-pack'
 import { crx } from '@crxjs/vite-plugin'
@@ -21,7 +22,25 @@ export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConf
 	manifest.version = pkgVersion
 	manifest.name = isDev ? `${manifest.name} Dev` : manifest.name
 
-	const plugins = [devtools(), solidPlugin(), crx({ manifest, browser: buildTarget }), tsconfigPaths()]
+	// attachDevtoolsOverlay({
+	// 	defaultOpen: true, // or alwaysOpen
+	// 	noPadding: true
+	// })
+
+	const plugins = [
+		devtools({
+			/** Add automatic name when creating signals, memos, stores, or mutables */
+			autoname: true
+			// locator: {
+			// 	targetIDE: 'vscode',
+			// 	componentLocation: true,
+			// 	jsxLocation: true
+			// }
+		}),
+		solidPlugin(),
+		crx({ manifest, browser: buildTarget }),
+		tsconfigPaths()
+	]
 	if (!isDev) {
 		plugins.push(
 			zipPack({

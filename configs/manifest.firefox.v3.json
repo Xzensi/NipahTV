@@ -4,13 +4,6 @@
 		"scripts": ["src/background/index.ts"],
 		"type": "module"
 	},
-	"content_scripts": [
-		{
-			"js": ["src/content_script/index.tsx"],
-			"css": [],
-			"matches": ["http://localhost:8080/*", "https://kick.com/*"]
-		}
-	],
 	"browser_specific_settings": {
 		"gecko": {
 			"id": "@NipahTV.com",

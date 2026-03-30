@@ -20,7 +20,15 @@ export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConf
 			__FIREFOX_MV3__: false
 		},
 		plugins: [
-			devtools(),
+			devtools({
+				/** Add automatic name when creating signals, memos, stores, or mutables */
+				autoname: true,
+				locator: {
+					targetIDE: 'vscode',
+					componentLocation: true,
+					jsxLocation: true
+				}
+			}),
 			tsconfigPaths(),
 			solidPlugin(),
 			monkey({
@@ -34,7 +42,7 @@ export default async ({ command, mode, isPreview }: ConfigEnv): Promise<UserConf
 					supportURL: 'https://github.com/Xzensi/NipahTV/issues',
 					icon: 'https://nipahtv.com/img/NTV_icon_128.png',
 					namespace: `com.${pkgName}.userscript`,
-					match: ['https://www.google.com/'],
+					match: ['https://www.youtube.com', 'https://www.twitch.tv', 'https://kick.com'],
 					$extra: [['tag', ['emotes', 'chatting']]]
 				},
 				server: {

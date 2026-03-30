@@ -1,15 +1,17 @@
 /// <reference types="vite-plugin-monkey/client" />
 /* @refresh reload */
 
-import { FeedMessageEntryContentPartKind } from './ui/components/FeedMessage'
-import FeedProcessorPipeline from './ui/feed/FeedProcessorPipeline'
-import ChatFeedController from './ui/chat/ChatFeedController'
-import { FeedEntryKind } from './@types/feedTypes'
-import FeedView from './ui/components/FeedView'
-import styles from './styles.module.css'
 import { render } from 'solid-js/web'
+import { FeedEntryKind } from './@types/feedTypes'
+import styles from './styles.module.css'
+import ChatFeedController from './ui/chat/ChatFeedController'
+import { FeedMessageEntryContentPartKind } from './ui/components/FeedMessage'
+import FeedView from './ui/components/FeedView'
+import FeedProcessorPipeline from './ui/feed/FeedProcessorPipeline'
 
 const { log, error } = console
+
+log('AAAAAAA2')
 
 const feedController = new ChatFeedController()
 const feedProcessor = new FeedProcessorPipeline({ view: 'chat_feed' })
@@ -35,22 +37,20 @@ feedProcessor.use((executionContext, context, data) => {
 		// E.g. "That was INSANE! PogU" -> [{text: 'That was INSANE!', kind: FeedMessageEntryContentPartKind.Text}, {id: 'abcc123', name: 'PogU', kind: FeedMessageEntryContentPartKind.Emote}]
 
 		const parts = context.content.split(' ')
-		data.contentParts = parts
-			.map(part => {
-				const emote = emotes.find(emote => part.includes(emote))
-				if (emote) {
-					const index = part.indexOf(emote)
-					const before = part.slice(0, index)
-					const after = part.slice(index + emote.length)
-					const result = []
-					if (before) result.push({ text: before, kind: FeedMessageEntryContentPartKind.Text })
-					result.push({ id: 'abcd123', name: emote, kind: FeedMessageEntryContentPartKind.Emote })
-					if (after) result.push({ text: after, kind: FeedMessageEntryContentPartKind.Text })
-					return result
-				}
-				return { text: part, kind: FeedMessageEntryContentPartKind.Text }
-			})
-			.flat()
+		data.contentParts = parts.flatMap(part => {
+			const emote = emotes.find(emote => part.includes(emote))
+			if (emote) {
+				const index = part.indexOf(emote)
+				const before = part.slice(0, index)
+				const after = part.slice(index + emote.length)
+				const result = []
+				if (before) result.push({ text: before, kind: FeedMessageEntryContentPartKind.Text })
+				result.push({ id: 'abcd123', name: emote, kind: FeedMessageEntryContentPartKind.Emote })
+				if (after) result.push({ text: after, kind: FeedMessageEntryContentPartKind.Text })
+				return result
+			}
+			return { text: part, kind: FeedMessageEntryContentPartKind.Text }
+		})
 	}
 })
 

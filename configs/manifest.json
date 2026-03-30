@@ -1,5 +1,5 @@
 {
-	"name": "NipahTV",
+	"name": "NipahTV V2",
 	"description": "Extension description",
 	"host_permissions": [
 		"https://kick.com/*",
@@ -17,6 +17,13 @@
 		{
 			"resources": ["assets/img/*.png", "assets/img/*.svg", "assets/img/btn/*.png"],
 			"matches": ["https://kick.com/*"]
+		}
+	],
+	"content_scripts": [
+		{
+			"js": ["src/content_script/index.tsx"],
+			"css": [],
+			"matches": ["http://localhost:8080/*", "https://kick.com/*"]
 		}
 	]
 }
