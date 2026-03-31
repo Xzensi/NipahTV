@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.103',
+		date: '2026-03-31',
+		description: `
+                  Fix: Unban button not working in user info modal
+            `
+	},
+	{
 		version: '1.5.102',
 		date: '2026-03-29',
 		description: `

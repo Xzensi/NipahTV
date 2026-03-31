@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.102
+// @version 1.5.103
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11097,7 +11097,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "moderator",
     description: "Temporarily ban an user from chat.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
       "<minutes>": (arg) => {
         if (!isStringNumber(arg)) return "Minutes must be a number";
         const m = parseInt(arg, 10);
@@ -11125,7 +11125,7 @@ var KICK_COMMANDS = [
     description: "Permanently ban an user from chat.",
     argValidators: {
       // Not doing a length check > 2 here because Kick doesn't do it..
-      "<username>": (arg) => !!arg ? null : "Username is required"
+      "<username>": (arg) => arg ? null : "Username is required"
     },
     api: {
       protocol: "http",
@@ -11163,7 +11163,7 @@ var KICK_COMMANDS = [
     // minAllowedRole: 'moderator',
     description: "Display user information.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       log3("KICK", "COMMANDS", "User command executed with args:", args);
@@ -11177,7 +11177,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "moderator",
     description: "Set the stream title.",
     argValidators: {
-      "<title>": (arg) => !!arg ? null : "Title is required"
+      "<title>": (arg) => arg ? null : "Title is required"
     },
     api: {
       protocol: "http",
@@ -11367,18 +11367,18 @@ var KICK_COMMANDS = [
     minAllowedRole: "moderator",
     description: "Unban an user from chat.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
-    execute: async (deps, args) => {
-      return LexicalCommandFromMain.executeCommand("unban", "" + args[0]);
-    }
-    // api: {
-    // 	protocol: 'http',
-    // 	method: 'delete',
-    // 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
-    // 	errorMessage: 'Failed to unban user.',
-    // 	successMessage: 'User has been unbanned.'
+    // execute: async (deps: RootContext & Session, args) => {
+    // 	return LexicalCommandFromMain.executeCommand('unban', '' + args[0])
     // }
+    api: {
+      protocol: "http",
+      method: "delete",
+      uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
+      errorMessage: "Failed to unban user.",
+      successMessage: "User has been unbanned."
+    }
   },
   {
     name: "vip",
@@ -11386,7 +11386,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "broadcaster",
     description: "Add an user to your VIP list.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       return LexicalCommandFromMain.executeCommand("vip", "" + args[0]);
@@ -11406,7 +11406,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "broadcaster",
     description: "Remove an user from your VIP list.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       return LexicalCommandFromMain.executeCommand("unvip", "" + args[0]);
@@ -11426,7 +11426,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "broadcaster",
     description: "Add an user to your moderator list.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       return LexicalCommandFromMain.executeCommand("mod", "" + args[0]);
@@ -11446,7 +11446,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "broadcaster",
     description: "Remove an user from your moderator list.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       return LexicalCommandFromMain.executeCommand("unmod", "" + args[0]);
@@ -11466,7 +11466,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "broadcaster",
     description: "Add an user to your OG list.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       return LexicalCommandFromMain.executeCommand("og", "" + args[0]);
@@ -11486,7 +11486,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "broadcaster",
     description: "Remove an user from your OG list",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       return LexicalCommandFromMain.executeCommand("unog", "" + args[0]);
@@ -11505,7 +11505,7 @@ var KICK_COMMANDS = [
     params: "<username>",
     description: "Follow an user.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       const { networkInterface, channelData } = deps;
@@ -11523,7 +11523,7 @@ var KICK_COMMANDS = [
     params: "<username>",
     description: "Unfollow an user.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       const { networkInterface, channelData } = deps;
@@ -11541,7 +11541,7 @@ var KICK_COMMANDS = [
     params: "<username>",
     description: "Mute an user.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       const { usersManager } = deps;
@@ -11557,7 +11557,7 @@ var KICK_COMMANDS = [
     params: "<username>",
     description: "Unmute an user.",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       const { usersManager } = deps;
@@ -11574,7 +11574,7 @@ var KICK_COMMANDS = [
     minAllowedRole: "broadcaster",
     description: "Host someone's channel",
     argValidators: {
-      "<username>": (arg) => !!arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
+      "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required"
     },
     execute: async (deps, args) => {
       return LexicalCommandFromMain.executeCommand("host", "" + args[0]);
@@ -12347,6 +12347,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.103",
+    date: "2026-03-31",
+    description: `
+                  Fix: Unban button not working in user info modal
+            `
+  },
   {
     version: "1.5.102",
     date: "2026-03-29",
@@ -27251,7 +27258,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.102";
+  VERSION = "1.5.103";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
