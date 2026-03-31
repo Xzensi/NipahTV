@@ -1,6 +1,6 @@
 import type { CommandEntry } from '@core/Common/Commands'
-import { isStringNumber } from '@core/Common/utils'
 import { Logger } from '@core/Common/Logger'
+import { isStringNumber } from '@core/Common/utils'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -12,7 +12,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Temporarily ban an user from chat.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'),
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required',
 			'<minutes>': arg => {
 				if (!isStringNumber(arg)) return 'Minutes must be a number'
 
@@ -43,7 +44,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		description: 'Permanently ban an user from chat.',
 		argValidators: {
 			// Not doing a length check > 2 here because Kick doesn't do it..
-			'<username>': arg => (!!arg ? null : 'Username is required')
+			'<username>': arg => (arg ? null : 'Username is required')
 		},
 		api: {
 			protocol: 'http',
@@ -83,7 +84,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		// minAllowedRole: 'moderator',
 		description: 'Display user information.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			log('KICK', 'COMMANDS', 'User command executed with args:', args)
@@ -97,7 +99,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Set the stream title.',
 		argValidators: {
-			'<title>': arg => (!!arg ? null : 'Title is required')
+			'<title>': arg => (arg ? null : 'Title is required')
 		},
 		api: {
 			protocol: 'http',
@@ -236,7 +238,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 	{
 		name: 'timer',
 		params: '<seconds/minutes/hours> [description]',
-		description: 'Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.',
+		description:
+			'Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.',
 		argValidators: {
 			'<seconds/minutes/hours>': arg => {
 				const time = arg.match(/^(\d+)(s|m|h)$/i)
@@ -293,18 +296,19 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'moderator',
 		description: 'Unban an user from chat.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
-		execute: async (deps: RootContext & Session, args) => {
-			return LexicalCommandFromMain.executeCommand('unban', '' + args[0])
-		}
-		// api: {
-		// 	protocol: 'http',
-		// 	method: 'delete',
-		// 	uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
-		// 	errorMessage: 'Failed to unban user.',
-		// 	successMessage: 'User has been unbanned.'
+		// execute: async (deps: RootContext & Session, args) => {
+		// 	return LexicalCommandFromMain.executeCommand('unban', '' + args[0])
 		// }
+		api: {
+			protocol: 'http',
+			method: 'delete',
+			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans/${args[0]}`,
+			errorMessage: 'Failed to unban user.',
+			successMessage: 'User has been unbanned.'
+		}
 	},
 	{
 		name: 'vip',
@@ -312,7 +316,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Add an user to your VIP list.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			return LexicalCommandFromMain.executeCommand('vip', '' + args[0])
@@ -332,7 +337,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Remove an user from your VIP list.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			return LexicalCommandFromMain.executeCommand('unvip', '' + args[0])
@@ -352,7 +358,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Add an user to your moderator list.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			return LexicalCommandFromMain.executeCommand('mod', '' + args[0])
@@ -372,7 +379,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Remove an user from your moderator list.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			return LexicalCommandFromMain.executeCommand('unmod', '' + args[0])
@@ -392,7 +400,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Add an user to your OG list.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			return LexicalCommandFromMain.executeCommand('og', '' + args[0])
@@ -412,7 +421,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: 'Remove an user from your OG list',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			return LexicalCommandFromMain.executeCommand('unog', '' + args[0])
@@ -431,7 +441,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Follow an user.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			const { networkInterface, channelData } = deps
@@ -454,7 +465,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Unfollow an user.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			const { networkInterface, channelData } = deps
@@ -477,7 +489,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Mute an user.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			const { usersManager } = deps
@@ -493,7 +506,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		params: '<username>',
 		description: 'Unmute an user.',
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			const { usersManager } = deps
@@ -510,7 +524,8 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 		minAllowedRole: 'broadcaster',
 		description: "Host someone's channel",
 		argValidators: {
-			'<username>': arg => (!!arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required')
+			'<username>': arg =>
+				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required'
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			return LexicalCommandFromMain.executeCommand('host', '' + args[0])
