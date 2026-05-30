@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.104
+// @version 1.5.105
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10516,30 +10516,30 @@ function getPlatformId() {
   }
   return "null" /* NULL */;
 }
-var REST = class {
+var REST = class _REST {
   static get(url) {
-    return this.fetch(url);
+    return _REST.fetch(url);
   }
   static post(url, data) {
     if (data) {
-      return this.fetch(url, {
+      return _REST.fetch(url, {
         method: "POST",
         body: JSON.stringify(data)
       });
     } else {
-      return this.fetch(url, {
+      return _REST.fetch(url, {
         method: "POST"
       });
     }
   }
   static put(url, data) {
-    return this.fetch(url, {
+    return _REST.fetch(url, {
       method: "PUT",
       body: JSON.stringify(data)
     });
   }
   static delete(url) {
-    return this.fetch(url, {
+    return _REST.fetch(url, {
       method: "DELETE"
     });
   }
@@ -10571,7 +10571,7 @@ var REST = class {
           });
         }
       }
-      xhr.onload = function() {
+      xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           if (xhr.responseText) {
             try {
@@ -10592,17 +10592,17 @@ var REST = class {
           } else reject("Request failed with status code " + xhr.status);
         }
       };
-      xhr.onerror = function() {
+      xhr.onerror = () => {
         if (xhr.responseText) reject(JSON.parse(xhr.responseText));
         else reject("Request failed");
       };
-      xhr.onabort = function() {
+      xhr.onabort = () => {
         reject("Request aborted");
       };
-      xhr.ontimeout = function() {
+      xhr.ontimeout = () => {
         reject("Request timed out");
       };
-      xhr.timeout = 25e3;
+      xhr.timeout = 16e3;
       if (options.body) xhr.send(options.body);
       else xhr.send();
     });
@@ -10699,7 +10699,9 @@ var ReactivePropsFromMain2 = class {
         const rID = ++this.requestID;
         this.promiseMap.set(rID, { resolve, reject });
         document.dispatchEvent(
-          new CustomEvent("ntv_downstream_reactive_props", { detail: JSON.stringify({ rID, className }) })
+          new CustomEvent("ntv_downstream_reactive_props", {
+            detail: JSON.stringify({ rID, className })
+          })
         );
       } else {
         const els = document.getElementsByClassName(className);
@@ -10773,16 +10775,16 @@ function eventKeyIsLetterDigitPuncSpaceChar(event) {
 }
 function debounce(fn, delay) {
   let timeout;
-  return function(...args) {
+  return (...args) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => fn(...args), delay);
   };
 }
 function hex2rgb(hex) {
   if (hex.length === 4) {
-    let r2 = hex.slice(1, 2);
-    let g2 = hex.slice(2, 3);
-    let b2 = hex.slice(3, 4);
+    const r2 = hex.slice(1, 2);
+    const g2 = hex.slice(2, 3);
+    const b2 = hex.slice(3, 4);
     return [parseInt(r2 + r2, 16), parseInt(g2 + g2, 16), parseInt(b2 + b2, 16)];
   }
   const r = parseInt(hex.slice(1, 3), 16);
@@ -10799,8 +10801,8 @@ function isElementInDOM(node) {
 function waitForElements(selectors, timeout = 1e4, signal = null) {
   return new Promise((resolve, reject) => {
     let interval;
-    let timeoutTimestamp = Date.now() + timeout;
-    const checkElements = function() {
+    const timeoutTimestamp = Date.now() + timeout;
+    const checkElements = () => {
       if (selectors.every((selector) => document.querySelector(selector))) {
         clearInterval(interval);
         resolve(selectors.map((selector) => document.querySelector(selector)));
@@ -10822,8 +10824,8 @@ function waitForElements(selectors, timeout = 1e4, signal = null) {
 function waitForTargetedElements(target, selectors, timeout = 1e4, signal = null) {
   return new Promise((resolve, reject) => {
     let interval;
-    let timeoutTimestamp = Date.now() + timeout;
-    const checkElements = function() {
+    const timeoutTimestamp = Date.now() + timeout;
+    const checkElements = () => {
       if (selectors.every((selector) => target.querySelector(selector))) {
         clearInterval(interval);
         resolve(selectors.map((selector) => target.querySelector(selector)));
@@ -10872,7 +10874,7 @@ function countStringOccurrences(str, substr) {
   return count;
 }
 async function getBrowser() {
-  return async function(agent) {
+  return (async (agent) => {
     if (navigator.brave && await navigator.brave.isBrave() || false) return BROWSER_ENUM.BRAVE;
     switch (true) {
       case agent.indexOf("edge") > -1:
@@ -10890,14 +10892,14 @@ async function getBrowser() {
       default:
         return 0 /* NULL */;
     }
-  }(window.navigator.userAgent.toLowerCase());
+  })(window.navigator.userAgent.toLowerCase());
 }
 function getDevice() {
   if (typeof screen.orientation !== "undefined") return 2 /* MOBILE_OR_TABLET */;
   const navString = navigator.userAgent || navigator.vendor || window.opera;
   const check = /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(
     navString
-  ) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(
+  ) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw-(n|u)|c55\/|capi|ccwa|cdm-|cell|chtm|cldc|cmd-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc-s|devi|dica|dmob|do(c|p)o|ds(12|-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(-|_)|g1 u|g560|gene|gf-5|g-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd-(m|p|t)|hei-|hi(pt|ta)|hp( i|ip)|hs-c|ht(c(-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i-(20|go|ma)|i230|iac( |-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|-[a-w])|libw|lynx|m1-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|-([1-8]|c))|phil|pire|pl(ay|uc)|pn-2|po(ck|rt|se)|prox|psio|pt-g|qa-a|qc(07|12|21|32|60|-[2-7]|i-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h-|oo|p-)|sdk\/|se(c(-|0|1)|47|mc|nd|ri)|sgh-|shar|sie(-|m)|sk-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h-|v-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl-|tdg-|tel(i|m)|tim-|t-mo|to(pl|sh)|ts(70|m-|m3|m5)|tx-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas-|your|zeto|zte-/i.test(
     navString.substr(0, 4)
   );
   if (check) return 2 /* MOBILE_OR_TABLET */;
@@ -11079,7 +11081,10 @@ function formatRelativeTime(date) {
   for (let i = 0; i < RELATIVE_TIME_DIVISIONS.length; i++) {
     const division = RELATIVE_TIME_DIVISIONS[i];
     if (Math.abs(duration) < division.amount) {
-      return relativeTimeFormatter.format(Math.round(duration), division.name);
+      return relativeTimeFormatter.format(
+        Math.round(duration),
+        division.name
+      );
     }
     duration /= division.amount;
   }
@@ -12347,6 +12352,15 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.105",
+    date: "2026-05-31",
+    description: `
+                  Fix: Italian, Thai and Chinese language reply behaviour issues
+                  Chore: Reduced REST request timeout
+                  Chore: Minor warning string label adjustments
+            `
+  },
   {
     version: "1.5.104",
     date: "2026-05-30",
@@ -15154,6 +15168,9 @@ var KickEventService = class {
   }
 };
 
+// src/Core/Emotes/EmotesManager.ts
+var import_parser = __toESM(require_dist());
+
 // src/Core/Emotes/AbstractEmoteProvider.ts
 var AbstractEmoteProvider = class {
   constructor(settingsManager) {
@@ -15163,9 +15180,6 @@ var AbstractEmoteProvider = class {
   name = "NULL";
   status = "unloaded" /* UNLOADED */;
 };
-
-// src/Core/Emotes/EmotesManager.ts
-var import_parser = __toESM(require_dist());
 
 // node_modules/fuse.js/dist/fuse.mjs
 function isArray(value) {
@@ -16876,7 +16890,7 @@ var EmoteDatastore = class {
 // src/Core/Emotes/EmotesManager.ts
 var logger11 = new Logger();
 var { log: log10, info: info9, error: error11 } = logger11.destruct();
-var emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g;
+var emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^[\]\s]+)/g;
 var EmotesManager = class {
   providers = /* @__PURE__ */ new Map();
   loaded = false;
@@ -16912,7 +16926,9 @@ var EmotesManager = class {
         if (!emoteSets) return;
         for (const emoteSet of emoteSets) datastore.registerEmoteSet(emoteSet);
       }).catch((err) => {
-        this.session.userInterface?.toastError(`Failed to fetch emotes from provider ${provider.name}`);
+        this.session.userInterface?.toastError(
+          `Failed to fetch emotes from provider ${provider.name}. The servers are probably having issues.`
+        );
         error11("CORE", "EMOT:MGR", "Failed to fetch emotes from provider", provider.id, err.message);
       });
     });
@@ -16922,7 +16938,7 @@ var EmotesManager = class {
         if (provider.status !== "loaded" /* LOADED */ && provider.status !== "no_emotes" /* NO_EMOTES */) {
           allProvidersLoadedSuccessfully = false;
           this.session.userInterface?.toastError(
-            `Failed to fetch emotes from ${provider.name} emote provider`
+            `Failed to fetch emotes from ${provider.name} emote provider. The servers are probably having issues.`
           );
         }
       }
@@ -17120,7 +17136,10 @@ var EmotesManager = class {
       channelId,
       "chat.behavior.search_bias_subscribed_channels"
     );
-    const biasCurrentChannel = settingsManager.getSetting(channelId, "chat.behavior.search_bias_current_channels");
+    const biasCurrentChannel = settingsManager.getSetting(
+      channelId,
+      "chat.behavior.search_bias_current_channels"
+    );
     const results = this.datastore.searchEmotes(search2, biasCurrentChannel, biasSubscribedChannels);
     if (limit) return results.slice(0, limit);
     return results;
@@ -24781,6 +24800,9 @@ var KickUserInterface = class extends AbstractUserInterface {
             case "id":
               ariaLabel = "Jawab";
               break;
+            case "it":
+              ariaLabel = "Rispondi";
+              break;
             case "ja":
               ariaLabel = "\u8FD4\u4FE1";
               break;
@@ -24799,11 +24821,17 @@ var KickUserInterface = class extends AbstractUserInterface {
             case "tr":
               ariaLabel = "Yan\u0131tla";
               break;
+            case "th":
+              ariaLabel = "\u0E15\u0E2D\u0E1A";
+              break;
             case "vi":
               ariaLabel = "H\u1ED3i \u0111\xE1p";
               break;
             case "zh":
               ariaLabel = "\u56DE\u590D";
+              break;
+            case "zh-Hant":
+              ariaLabel = "\u56DE\u8986";
               break;
             default:
               ariaLabel = "Reply";
@@ -27348,7 +27376,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.104";
+  VERSION = "1.5.105";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
