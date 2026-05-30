@@ -1,15 +1,15 @@
-import type SettingsManager from '../Settings/SettingsManager'
-import { AbstractEmoteProvider, EmoteProviderStatus } from './AbstractEmoteProvider'
+import { Logger } from '@core/Common/Logger'
 import { parse as twemojiParse } from '@twemoji/parser'
 import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../Common/constants'
-import { EmoteDatastore } from './EmoteDatastore'
 import { splitEmoteName } from '../Common/utils'
-import { Logger } from '@core/Common/Logger'
+import type SettingsManager from '../Settings/SettingsManager'
+import { type AbstractEmoteProvider, EmoteProviderStatus } from './AbstractEmoteProvider'
+import { EmoteDatastore } from './EmoteDatastore'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
-const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^\[\]\s]+)/g
+const emoteMatcherRegex = /\[emote:([0-9]+):(?:[^\]]+)?\]|([^[\]\s]+)/g
 
 export default class EmotesManager {
 	private providers: Map<number, AbstractEmoteProvider> = new Map()
@@ -82,7 +82,9 @@ export default class EmotesManager {
 					for (const emoteSet of emoteSets) datastore.registerEmoteSet(emoteSet)
 				})
 				.catch(err => {
-					this.session.userInterface?.toastError(`Failed to fetch emotes from provider ${provider.name}`)
+					this.session.userInterface?.toastError(
+						`Failed to fetch emotes from provider ${provider.name}. The servers are probably having issues.`
+					)
 					error('CORE', 'EMOT:MGR', 'Failed to fetch emotes from provider', provider.id, err.message)
 				})
 		})
@@ -97,7 +99,7 @@ export default class EmotesManager {
 				) {
 					allProvidersLoadedSuccessfully = false
 					this.session.userInterface?.toastError(
-						`Failed to fetch emotes from ${provider.name} emote provider`
+						`Failed to fetch emotes from ${provider.name} emote provider. The servers are probably having issues.`
 					)
 				}
 			}
@@ -367,7 +369,10 @@ export default class EmotesManager {
 			channelId,
 			'chat.behavior.search_bias_subscribed_channels'
 		)
-		const biasCurrentChannel = settingsManager.getSetting(channelId, 'chat.behavior.search_bias_current_channels')
+		const biasCurrentChannel = settingsManager.getSetting(
+			channelId,
+			'chat.behavior.search_bias_current_channels'
+		)
 
 		const results = this.datastore.searchEmotes(search, biasCurrentChannel, biasSubscribedChannels)
 		if (limit) return results.slice(0, limit)

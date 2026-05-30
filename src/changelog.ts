@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.105',
+		date: '2026-05-31',
+		description: `
+                  Fix: Italian, Thai and Chinese language reply behaviour issues
+                  Chore: Reduced REST request timeout
+                  Chore: Minor warning string label adjustments
+            `
+	},
+	{
 		version: '1.5.104',
 		date: '2026-05-30',
 		description: `
