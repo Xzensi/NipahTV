@@ -2385,6 +2385,9 @@ export class KickUserInterface extends AbstractUserInterface {
 						case 'id': // Indonesian
 							ariaLabel = 'Jawab'
 							break
+						case 'it': // Italian
+							ariaLabel = 'Rispondi'
+							break
 						case 'ja': // Japanese
 							ariaLabel = '返信'
 							break
@@ -2403,11 +2406,17 @@ export class KickUserInterface extends AbstractUserInterface {
 						case 'tr': // Turkish
 							ariaLabel = 'Yanıtla'
 							break
+						case 'th': // Thai
+							ariaLabel = 'ตอบ'
+							break
 						case 'vi': // Vietnamese
 							ariaLabel = 'Hồi đáp'
 							break
 						case 'zh': // Chinese
 							ariaLabel = '回复'
+							break
+						case 'zh-Hant': // Chinese (Traditional)
+							ariaLabel = '回覆'
 							break
 						default:
 							ariaLabel = 'Reply'
