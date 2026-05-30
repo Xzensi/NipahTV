@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.103
+// @version 1.5.104
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12348,6 +12348,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.104",
+    date: "2026-05-30",
+    description: `
+                  Fix: compatibility issue with third party extension Mo'Kick
+            `
+  },
+  {
     version: "1.5.103",
     date: "2026-03-31",
     description: `
@@ -17637,458 +17644,9 @@ var Database = class extends DatabaseAbstract {
   }
 };
 
-// src/Core/UI/Components/RateLimitProgressBarComponent.ts
-var RateLimitProgressBarComponent = class extends AbstractComponent {
-  element;
-  fillElement = null;
-  activeCooldownKey = null;
-  hideTimeout = null;
-  constructor() {
-    super();
-    this.element = parseHTML(
-      cleanupHTML(`
-				<div class="ntv__rate-limit-progress" role="progressbar" aria-label="Chat rate limit cooldown">
-					<div class="ntv__rate-limit-progress__track">
-						<div class="ntv__rate-limit-progress__fill"></div>
-					</div>
-				</div>
-			`),
-      true
-    );
-  }
-  render() {
-    this.fillElement = this.element.querySelector(".ntv__rate-limit-progress__fill");
-  }
-  attachEventHandlers() {
-  }
-  update(state) {
-    if (!state.isCoolingDown || !state.cooldownEndsAt || state.remainingMs <= 0) {
-      this.hide();
-      return;
-    }
-    const cooldownKey = `${state.cooldownStartedAt ?? "unknown"}:${state.cooldownEndsAt}`;
-    const cooldownDurationMs = Math.max(state.cooldownDurationMs, state.remainingMs, 1);
-    const elapsedMs = Math.max(cooldownDurationMs - state.remainingMs, 0);
-    this.element.classList.add("ntv__rate-limit-progress--active");
-    this.element.setAttribute(
-      "ntv-tooltip",
-      state.queueSize > 0 ? `Chat rate limit active. ${state.queueSize} message${state.queueSize === 1 ? "" : "s"} queued.` : "Chat rate limit active."
-    );
-    this.element.setAttribute("aria-valuemin", "0");
-    this.element.setAttribute("aria-valuemax", `${cooldownDurationMs}`);
-    this.element.setAttribute("aria-valuenow", `${Math.max(state.remainingMs, 0)}`);
-    if (this.fillElement && this.activeCooldownKey !== cooldownKey) {
-      this.activeCooldownKey = cooldownKey;
-      this.fillElement.style.setProperty("--ntv-rate-limit-progress-duration", `${cooldownDurationMs}ms`);
-      this.fillElement.style.setProperty("--ntv-rate-limit-progress-delay", `${-elapsedMs}ms`);
-      this.restartAnimation();
-    }
-    this.scheduleHide(state.remainingMs);
-  }
-  destroy() {
-    this.clearHideTimeout();
-    this.element.remove();
-  }
-  hide() {
-    this.activeCooldownKey = null;
-    this.clearHideTimeout();
-    this.element.classList.remove("ntv__rate-limit-progress--active");
-    this.element.removeAttribute("ntv-tooltip");
-    this.element.removeAttribute("aria-valuemin");
-    this.element.removeAttribute("aria-valuemax");
-    this.element.removeAttribute("aria-valuenow");
-    if (this.fillElement) {
-      this.fillElement.classList.remove("ntv__rate-limit-progress__fill--animating");
-      this.fillElement.style.removeProperty("--ntv-rate-limit-progress-duration");
-      this.fillElement.style.removeProperty("--ntv-rate-limit-progress-delay");
-    }
-  }
-  restartAnimation() {
-    if (!this.fillElement) return;
-    this.fillElement.classList.remove("ntv__rate-limit-progress__fill--animating");
-    void this.fillElement.offsetWidth;
-    this.fillElement.classList.add("ntv__rate-limit-progress__fill--animating");
-  }
-  scheduleHide(remainingMs) {
-    this.clearHideTimeout();
-    this.hideTimeout = setTimeout(
-      () => {
-        this.hide();
-      },
-      Math.max(remainingMs, 0) + 50
-    );
-  }
-  clearHideTimeout() {
-    if (!this.hideTimeout) return;
-    clearTimeout(this.hideTimeout);
-    this.hideTimeout = null;
-  }
-};
-
-// src/Core/Chat/Components/QuickEmotesHolderComponent.ts
+// src/Core/Chat/Components/EmoteMenuButtonComponent.ts
 var logger15 = new Logger();
 var { log: log14, info: info12, error: error15 } = logger15.destruct();
-var QuickEmotesHolderComponent = class extends AbstractComponent {
-  constructor(rootContext, session, placeholder) {
-    super();
-    this.rootContext = rootContext;
-    this.session = session;
-    this.placeholder = placeholder;
-  }
-  element;
-  favoritesEl;
-  commonlyUsedEl;
-  isDraggingEmote = false;
-  dragHandleEmoteEl = null;
-  dragEmoteNewIndex = null;
-  lastDraggedEmoteEl = null;
-  favoriteEmoteElHIDMap = /* @__PURE__ */ new Map();
-  render() {
-    const channelId = this.session.channelData.channelId;
-    const oldEls = document.getElementsByClassName("ntv__quick-emotes-holder");
-    for (const el of oldEls) el.remove();
-    const showUnavailableEmotes = this.rootContext.settingsManager.getSetting(
-      channelId,
-      "quick_emote_holder.show_non_cross_channel_favorites"
-    );
-    const rows = this.rootContext.settingsManager.getSetting(channelId, "quick_emote_holder.rows") || 2;
-    this.element = parseHTML(
-      `<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites ${showUnavailableEmotes && "ntv__quick-emotes-holder__favorites--show-unavailable" || ""}"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
-      true
-    );
-    this.favoritesEl = this.element.querySelector(".ntv__quick-emotes-holder__favorites");
-    this.commonlyUsedEl = this.element.querySelector(".ntv__quick-emotes-holder__commonly-used");
-    this.placeholder.replaceWith(this.element);
-  }
-  attachEventHandlers() {
-    const { eventBus } = this.session;
-    const { eventBus: rootEventBus } = this.rootContext;
-    let mouseDownTimeout = null;
-    let skipClickEvent = false;
-    this.element?.addEventListener("click", (evt) => {
-      if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-      if (skipClickEvent) {
-        skipClickEvent = false;
-        return;
-      }
-      const targetEl = evt.target;
-      const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
-      if (!emoteBoxEl) {
-        return error15("CORE", "UI", "Invalid emote box element");
-      }
-      if (emoteBoxEl.classList.contains("ntv__emote-box--unavailable") || emoteBoxEl.classList.contains("ntv__emote-box--locked"))
-        return;
-      const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
-      if (!emoteHid) return error15("CORE", "UI", "Invalid emote hid");
-      this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
-    });
-    this.favoritesEl?.addEventListener(
-      "mousedown",
-      (evt) => {
-        const targetEl = evt.target;
-        const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
-        if (emoteBoxEl) {
-          if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-          const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
-          if (!emoteHid) return error15("CORE", "UI", "Unable to start dragging emote, invalid emote hid");
-          mouseDownTimeout = setTimeout(() => {
-            if (!emoteBoxEl.isConnected) return;
-            this.startDragFavoriteEmote(evt, emoteBoxEl);
-          }, 500);
-          emoteBoxEl.addEventListener(
-            "mouseleave",
-            () => {
-              if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-            },
-            { once: true, passive: true }
-          );
-          window.addEventListener(
-            "mouseup",
-            () => {
-              if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
-              if (this.isDraggingEmote) {
-                this.stopDragFavoriteEmote(emoteBoxEl, emoteHid);
-                skipClickEvent = true;
-              }
-            },
-            { once: true, passive: true }
-          );
-        }
-      },
-      { passive: true }
-    );
-    eventBus.subscribeAllOnce(
-      ["ntv.datastore.emotes.favorites.loaded", "ntv.datastore.emotes.usage.loaded"],
-      () => {
-        eventBus.subscribe(
-          "ntv.datastore.emoteset.added",
-          (emoteSet) => {
-            this.renderFavoriteEmotes(emoteSet);
-            this.renderCommonlyUsedEmotes();
-          },
-          true
-        );
-      }
-    );
-    eventBus.subscribe(
-      "ntv.datastore.emotes.favorites.changed",
-      (data) => {
-        if (data.reordered) this.reorderFavoriteEmote(data.reordered);
-        else {
-          this.renderFavoriteEmotes();
-          this.renderCommonlyUsedEmotes();
-        }
-      }
-    );
-    eventBus.subscribe("ntv.datastore.emotes.usage.changed", ({ emoteHid }) => {
-      this.reorderCommonlyUsedEmote(emoteHid);
-    });
-    rootEventBus.subscribe(
-      "ntv.settings.change.quick_emote_holder.rows",
-      ({ value, prevValue }) => {
-        this.element?.setAttribute("data-rows", value || "0");
-      }
-    );
-    rootEventBus.subscribe(
-      "ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites",
-      () => this.renderFavoriteEmotes()
-    );
-    rootEventBus.subscribe(
-      "ntv.settings.change.quick_emote_holder.show_favorites",
-      () => this.renderFavoriteEmotes()
-    );
-    rootEventBus.subscribe(
-      "ntv.settings.change.quick_emote_holder.show_recently_used",
-      this.renderCommonlyUsedEmotes.bind(this)
-    );
-    rootEventBus.subscribe(
-      // TODO rename to show_unavailable_emotes, do same for setting under > emote menu
-      "ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites",
-      ({ value }) => {
-        this.favoritesEl.classList.toggle("ntv__quick-emotes-holder__favorites--show-unavailable", value);
-      }
-    );
-  }
-  handleEmoteClick(emoteHid, sendImmediately = false) {
-    assertArgDefined(emoteHid);
-    const { eventBus, emotesManager, channelData } = this.session;
-    const emote = emotesManager.getEmote(emoteHid);
-    if (!emote) return error15("CORE", "UI", "Invalid emote");
-    const channelId = channelData.channelId;
-    if (this.rootContext.settingsManager.getSetting(channelId, "chat.quick_emote_holder.send_immediately")) {
-      sendImmediately = true;
-    }
-    eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
-  }
-  startDragFavoriteEmote(event, emoteBoxEl) {
-    log14("CORE", "UI", "Starting emote drag mode..");
-    this.isDraggingEmote = true;
-    this.element.classList.add("ntv__quick-emotes-holder--dragging-emote");
-    const dragHandleEmoteEl = this.dragHandleEmoteEl = emoteBoxEl.cloneNode(true);
-    dragHandleEmoteEl.classList.add("ntv__emote-box--dragging");
-    document.body.appendChild(dragHandleEmoteEl);
-    dragHandleEmoteEl.style.left = `${event.clientX}px`;
-    dragHandleEmoteEl.style.top = `${event.clientY}px`;
-    const mouseMoveCb = (evt) => {
-      if (!this.isDraggingEmote) return window.removeEventListener("mousemove", mouseMoveCb);
-      dragHandleEmoteEl.style.left = `${evt.clientX}px`;
-      dragHandleEmoteEl.style.top = `${evt.clientY}px`;
-      const favoriteEmoteEls = Array.from(this.favoritesEl.children);
-      const hoveredEmoteEl = favoriteEmoteEls.find((el) => {
-        const rect = el.getBoundingClientRect();
-        return evt.clientX > rect.left && evt.clientX < rect.right && evt.clientY > rect.top && evt.clientY < rect.bottom;
-      });
-      if (hoveredEmoteEl && hoveredEmoteEl !== emoteBoxEl) {
-        const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl);
-        const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl);
-        const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl);
-        if (!hoveredEmoteHid) return error15("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
-        const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid);
-        if (void 0 === hoveredEmoteOrderIndex)
-          return error15("CORE", "UI", "Invalid favorite emote order index..");
-        if (hoveredEmoteIndex > emoteIndex) {
-          hoveredEmoteEl.after(emoteBoxEl);
-          this.dragEmoteNewIndex = hoveredEmoteOrderIndex + 1;
-        } else {
-          hoveredEmoteEl.before(emoteBoxEl);
-          this.dragEmoteNewIndex = hoveredEmoteOrderIndex;
-        }
-      }
-    };
-    window.addEventListener("mousemove", mouseMoveCb);
-  }
-  stopDragFavoriteEmote(emoteBoxEl, emoteHid) {
-    log14("CORE", "UI", "Stopped emote drag mode");
-    this.element.classList.remove("ntv__quick-emotes-holder--dragging-emote");
-    emoteBoxEl?.classList.remove("ntv__emote-box--dragging");
-    this.isDraggingEmote = false;
-    this.dragHandleEmoteEl?.remove();
-    this.dragHandleEmoteEl = null;
-    this.lastDraggedEmoteEl = emoteHid;
-    if (this.dragEmoteNewIndex !== null) {
-      this.session.emotesManager.updateFavoriteEmoteOrderIndex(emoteHid, this.dragEmoteNewIndex);
-      this.dragEmoteNewIndex = null;
-    }
-  }
-  renderFavoriteEmotes(emoteSet) {
-    const { settingsManager } = this.rootContext;
-    const { emotesManager, channelData } = this.session;
-    const channelId = channelData.channelId;
-    const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
-    if (emoteSet && !unsortedFavoriteEmoteDocuments.some((doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid))) {
-      return;
-    }
-    while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove();
-    this.favoriteEmoteElHIDMap = /* @__PURE__ */ new Map();
-    if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
-    const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => a.orderIndex - b.orderIndex);
-    for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
-      const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
-      const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
-      const emoteSet2 = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
-      let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
-      if (!emoteSet2?.isSubscribed && maybeFavoriteEmote?.isSubscribersOnly)
-        emoteBoxClasses += " ntv__emote-box--locked";
-      const emoteBoxEl = parseHTML(
-        `<div class="ntv__emote-box ntv__emote-box--favorite${emoteBoxClasses}" size="${maybeFavoriteEmote.size}">${emotesManager.getRenderableEmote(
-          maybeFavoriteEmote,
-          maybeFavoriteEmote.isZeroWidth && "ntv__emote--zero-width" || ""
-        )}</div>`,
-        true
-      );
-      this.favoriteEmoteElHIDMap.set(emoteBoxEl, maybeFavoriteEmote.hid);
-      this.favoritesEl.append(emoteBoxEl);
-    }
-  }
-  reorderFavoriteEmote(emoteHid) {
-    const { settingsManager } = this.rootContext;
-    const { emotesManager, channelData } = this.session;
-    const channelId = channelData.channelId;
-    if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
-    if (this.lastDraggedEmoteEl === emoteHid) {
-      this.lastDraggedEmoteEl = null;
-      log14("CORE", "UI", "Prevented reordering of dragged emote");
-      return;
-    }
-    const favoriteEmotes = [...emotesManager.getFavoriteEmoteDocuments()].sort(
-      (a, b) => a.orderIndex - b.orderIndex
-    );
-    const emoteIndex = favoriteEmotes.findIndex(({ emoteHid: hid }) => hid === emoteHid);
-    if (emoteIndex === -1) {
-      log14("CORE", "UI", "Unable to reorder favorited emote because it does not exist:", emoteHid);
-      return;
-    }
-    const emoteEl = this.favoritesEl.querySelector(`[data-emote-hid="${emoteHid}"]`);
-    if (!emoteEl) {
-      error15("CORE", "UI", "Unable to reorder favorited emote, emote does not exist..");
-      return;
-    }
-    const emoteBoxEl = emoteEl.parentElement;
-    if (!emoteBoxEl?.classList.contains("ntv__emote-box")) {
-      return error15("CORE", "UI", "Invalid emote box element");
-    }
-    emoteBoxEl.remove();
-    const insertBeforeEl = this.favoritesEl.children[emoteIndex];
-    if (insertBeforeEl) {
-      insertBeforeEl.before(emoteBoxEl);
-    } else {
-      this.favoritesEl.appendChild(emoteBoxEl);
-    }
-  }
-  renderCommonlyUsedEmotes() {
-    const { settingsManager } = this.rootContext;
-    const { emotesManager, channelData } = this.session;
-    const emoteUsageCounts = [...emotesManager.getEmoteUsageCounts()].sort((a, b) => b[1] - a[1]);
-    while (this.commonlyUsedEl.firstChild) this.commonlyUsedEl.firstChild.remove();
-    if (!settingsManager.getSetting(channelData.channelId, "quick_emote_holder.show_recently_used")) return;
-    const favoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
-    for (const { emoteHid } of favoriteEmoteDocuments) {
-      const index = emoteUsageCounts.findIndex(([hid]) => hid === emoteHid);
-      if (index !== -1) {
-        emoteUsageCounts.splice(index, 1);
-      }
-    }
-    for (const [emoteHid] of emoteUsageCounts) {
-      const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
-      const emote = emotesManager.getEmote(emoteHid);
-      if (!emoteSet || !emote) {
-        if (emotesManager.hasLoadedProviders()) {
-          error15("CORE", "UI", "Unable to render commonly used emote, unkown emote hid:", emoteHid);
-        }
-        continue;
-      }
-      const isSubscribed = emoteSet.isSubscribed;
-      const isMenuEnabled = emoteSet.enabledInMenu;
-      if (!isMenuEnabled || !isSubscribed && emote.isSubscribersOnly) return;
-      const emoteRender = emotesManager.getRenderableEmote(
-        emote,
-        emote.isZeroWidth && "ntv__emote--zero-width" || ""
-      );
-      if (!emoteRender) continue;
-      const emoteBoxEl = document.createElement("div");
-      emoteBoxEl.className = "ntv__emote-box";
-      emoteBoxEl.setAttribute("size", "" + emote.size);
-      emoteBoxEl.setAttribute("data-emote-hid", emoteHid);
-      emoteBoxEl.appendChild(parseHTML(emoteRender));
-      this.commonlyUsedEl.appendChild(emoteBoxEl);
-    }
-  }
-  /**
-   * Move the emote to the correct position in the emote holder, append if new emote.
-   * @param emoteHid
-   * @returns
-   */
-  reorderCommonlyUsedEmote(emoteHid) {
-    const { emotesManager } = this.session;
-    const emoteEl = this.commonlyUsedEl.querySelector(`[data-emote-hid="${emoteHid}"]`);
-    if (emoteEl) emoteEl.remove();
-    const isFavoritedEmote = emotesManager.getFavoriteEmoteDocument(emoteHid);
-    if (isFavoritedEmote) return;
-    const emoteUsageCounts = [...emotesManager.getEmoteUsageCounts()].sort((a, b) => b[1] - a[1]);
-    const emoteIndex = emoteUsageCounts.findIndex(([hid]) => hid === emoteHid);
-    if (emoteIndex === -1) {
-      log14(
-        "CORE",
-        "UI",
-        "Skipped emote not found in the emote usage counts, probably stale emote that has been cleaned up from database."
-      );
-      return;
-    }
-    if (!emoteEl) {
-      const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
-      const emote = emotesManager.getEmote(emoteHid);
-      if (!emoteSet || !emote) return error15("CORE", "UI", "Unable to render commonly used emote:", emoteHid);
-      const isSubscribed = emoteSet.isSubscribed;
-      const isMenuEnabled = emoteSet.enabledInMenu;
-      if (!isMenuEnabled || !isSubscribed && emote.isSubscribersOnly) return;
-      const emoteHTML = emotesManager.getRenderableEmote(
-        emote,
-        emote.isZeroWidth && "ntv__emote--zero-width" || ""
-      );
-      if (!emoteHTML) return error15("CORE", "UI", "Unable to render commonly used emote:", emoteHid);
-      const emoteBoxEl = document.createElement("div");
-      emoteBoxEl.className = "ntv__emote-box";
-      emoteBoxEl.setAttribute("size", "" + emote.size);
-      emoteBoxEl.setAttribute("data-emote-hid", emoteHid);
-      emoteBoxEl.appendChild(parseHTML(emoteHTML));
-      this.commonlyUsedEl.appendChild(emoteBoxEl);
-      return;
-    }
-    const insertBeforeEl = this.commonlyUsedEl.children[emoteIndex];
-    if (insertBeforeEl) {
-      insertBeforeEl.before(emoteEl);
-    } else {
-      this.commonlyUsedEl.appendChild(emoteEl);
-    }
-  }
-  destroy() {
-    this.element?.remove();
-  }
-};
-
-// src/Core/Chat/Components/EmoteMenuButtonComponent.ts
-var logger16 = new Logger();
-var { log: log15, info: info13, error: error16 } = logger16.destruct();
 var EmoteMenuButtonComponent = class extends AbstractComponent {
   constructor(rootContext, session, placeholder) {
     super();
@@ -18121,7 +17679,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     const { eventBus } = this.session;
     rootEventBus.subscribe("ntv.settings.change.chat.emote_menu.appearance.button_style", () => {
       if (!this.footerLogoBtnEl)
-        return error16("CORE", "UI", "Footer logo button not found, unable to set logo src");
+        return error15("CORE", "UI", "Footer logo button not found, unable to set logo src");
       const file = this.getFile();
       this.footerLogoBtnEl.setAttribute("src", NTV_RESOURCE_ROOT + file.path);
       this.footerLogoBtnEl.className = file.className;
@@ -18129,7 +17687,7 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
     this.footerLogoBtnEl?.addEventListener("click", () => {
       if (!this.session.channelData.me.isLoggedIn) {
         this.session.userInterface?.toastError(`Please log in first to use NipahTV.`);
-        error16("CORE", "UI", "User is not logged in, cannot open emote menu");
+        error15("CORE", "UI", "User is not logged in, cannot open emote menu");
       }
       eventBus.publish("ntv.ui.footer.click");
     });
@@ -18190,59 +17748,9 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
   }
 };
 
-// src/Core/UI/Components/VerticalMenuComponent.ts
-var logger17 = new Logger();
-var { log: log16, info: info14, error: error17 } = logger17.destruct();
-var VerticalMenuComponent = class extends AbstractComponent {
-  constructor(anchorElement, options) {
-    super();
-    this.anchorElement = anchorElement;
-    this.options = options;
-    this.element = document.createElement("div");
-    this.element.classList.add("ntv__vertical-menu");
-    for (const option of options) {
-      const button = document.createElement("button");
-      button.textContent = option.label;
-      button.dataset.value = option.value;
-      this.element.appendChild(button);
-    }
-  }
-  event = new EventTarget();
-  element;
-  render() {
-    const boundRect = this.anchorElement.getBoundingClientRect();
-    this.element.style.left = boundRect.right + "px";
-    this.element.style.top = boundRect.top + "px";
-    document.body.appendChild(this.element);
-  }
-  attachEventHandlers() {
-    const closeMenu = (event) => {
-      if (event.target === this.element || this.element.contains(event.target)) return;
-      this.element.remove();
-      document.removeEventListener("click", closeMenu);
-      this.event.dispatchEvent(new Event("close"));
-    };
-    const buttonEls = this.element.querySelectorAll("button");
-    buttonEls.forEach((buttonEl) => {
-      buttonEl.addEventListener("click", (event) => {
-        this.element.remove();
-        document.removeEventListener("click", closeMenu);
-        this.event.dispatchEvent(new CustomEvent("action", { detail: buttonEl.dataset.value }));
-        this.event.dispatchEvent(new Event("close"));
-      });
-    });
-    setTimeout(() => {
-      document.addEventListener("click", closeMenu);
-    }, 0);
-  }
-  addEventListener(event, callback) {
-    this.event.addEventListener(event, callback);
-  }
-};
-
 // src/Core/Chat/Components/EmoteMenuComponent.ts
-var logger18 = new Logger();
-var { log: log17, info: info15, error: error18 } = logger18.destruct();
+var logger16 = new Logger();
+var { log: log15, info: info13, error: error16 } = logger16.destruct();
 var EmoteMenuComponent = class extends AbstractComponent {
   toggleStates = {};
   isShowing = false;
@@ -18345,7 +17853,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         entries.forEach((entry) => {
           const emoteSetId = entry.target.getAttribute("data-id");
           const sidebarIcon = this.emoteSetSidebarEls.get(emoteSetId);
-          if (!sidebarIcon) return error18("CORE", "UI", "Invalid emote set sidebar element");
+          if (!sidebarIcon) return error16("CORE", "UI", "Invalid emote set sidebar element");
           sidebarIcon.style.backgroundColor = `rgba(255, 255, 255, ${entry.intersectionRect.height / this.scrollableHeight / 7})`;
         });
       },
@@ -18381,7 +17889,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
       if (!emoteBoxEl) return;
       const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
-      if (!emoteHid) return error18("CORE", "UI", "Invalid emote hid");
+      if (!emoteHid) return error16("CORE", "UI", "Invalid emote hid");
       if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
       if (skipClickEvent) {
         skipClickEvent = false;
@@ -18397,7 +17905,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
         if (emoteBoxEl) {
           if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
           const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
-          if (!emoteHid) return error18("CORE", "UI", "Unable to start dragging emote, invalid emote hid");
+          if (!emoteHid) return error16("CORE", "UI", "Unable to start dragging emote, invalid emote hid");
           mouseDownTimeout = setTimeout(() => {
             if (!emoteBoxEl.isConnected) return;
             this.startDragFavoriteEmote(evt, emoteBoxEl);
@@ -18511,7 +18019,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
       const emoteSetEl = this.containerEl?.querySelector(
         `.ntv__emote-set[data-id="${emoteSetId}"]`
       );
-      if (!emoteSetEl) return error18("CORE", "UI", "Invalid emote set element");
+      if (!emoteSetEl) return error16("CORE", "UI", "Invalid emote set element");
       const headerHeight = emoteSetEl.querySelector(".ntv__emote-set__header")?.clientHeight || 0;
       scrollableEl.scrollTo({
         top: emoteSetEl.offsetTop - headerHeight,
@@ -18548,9 +18056,9 @@ var EmoteMenuComponent = class extends AbstractComponent {
           return;
         }
         const emoteHid = data.added || data.reordered || data.removed;
-        if (!emoteHid) return error18("CORE", "UI", "Invalid emote hid in favorites changed event", data);
+        if (!emoteHid) return error16("CORE", "UI", "Invalid emote hid in favorites changed event", data);
         const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
-        if (!emoteSet) return error18("CORE", "UI", "Invalid emote set in favorites changed event", data);
+        if (!emoteSet) return error16("CORE", "UI", "Invalid emote set in favorites changed event", data);
         this.updateEmoteSet(emoteSet);
       }
     );
@@ -18594,17 +18102,17 @@ var EmoteMenuComponent = class extends AbstractComponent {
       this.switchPanel("emotes");
     }
     const emotesResult = emotesManager.searchEmotes(searchVal.substring(0, 20), 75);
-    log17("CORE", "UI", `Searching for emotes, found ${emotesResult.length} matches"`);
+    log15("CORE", "UI", `Searching for emotes, found ${emotesResult.length} matches"`);
     while (this.panels.search?.firstChild) {
       this.panels.search.removeChild(this.panels.search.firstChild);
     }
     const hideSubscribersEmotes = settingsManager.getSetting(channelId, "chat.emotes.hide_subscriber_emotes");
-    if (!this.panels.search) return error18("CORE", "UI", "Search panel element does not exist");
+    if (!this.panels.search) return error16("CORE", "UI", "Search panel element does not exist");
     for (const emoteResult of emotesResult) {
       const emote = emoteResult.item;
       const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid);
       if (!emoteSet) {
-        error18("CORE", "UI", "Emote set not found for emote", emote.name);
+        error16("CORE", "UI", "Emote set not found for emote", emote.name);
         continue;
       }
       let emoteBoxClasses = emote.isZeroWidth && "ntv__emote-box--zero-width" || "";
@@ -18640,7 +18148,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { sidebarSetsEl, scrollableEl } = this;
     const channelId = this.session.channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
-    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error18("CORE", "UI", "Invalid emote menu elements");
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error16("CORE", "UI", "Invalid emote menu elements");
     const { settingsManager } = this.rootContext;
     if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
     const sidebarFavoritesBtn = parseHTML(
@@ -18671,13 +18179,13 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { settingsManager } = this.rootContext;
     const channelId = this.session.channelData.channelId;
     if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
-    if (!this.favoritesEmoteSetEl) return error18("CORE", "UI", "Invalid favorites emote set element");
+    if (!this.favoritesEmoteSetEl) return error16("CORE", "UI", "Invalid favorites emote set element");
     const { emotesManager } = this.session;
     const favoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
     if (emoteSet && !favoriteEmoteDocuments.some((doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid))) {
       return;
     }
-    log17("CORE", "UI", "Rendering favorite emote set in emote menu..");
+    log15("CORE", "UI", "Rendering favorite emote set in emote menu..");
     const emotesEl = this.favoritesEmoteSetEl.getElementsByClassName("ntv__emote-set__emotes")[0];
     while (emotesEl.firstChild) emotesEl.removeChild(emotesEl.firstChild);
     this.favoriteEmoteElHIDMap = /* @__PURE__ */ new Map();
@@ -18699,14 +18207,14 @@ var EmoteMenuComponent = class extends AbstractComponent {
     }
   }
   addEmoteSet(emoteSet) {
-    log17("CORE", "UI", `Adding emote set "${emoteSet.name}" to emote menu..`);
+    log15("CORE", "UI", `Adding emote set "${emoteSet.name}" to emote menu..`);
     const { sidebarSetsEl, scrollableEl, rootContext } = this;
     const { emotesManager, channelData } = this.session;
     const channelId = channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
-    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error18("CORE", "UI", "Invalid emote menu elements");
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error16("CORE", "UI", "Invalid emote menu elements");
     if (this.emoteSetEls.has(emoteSet.id)) {
-      error18("CORE", "UI", `Emote set "${emoteSet.name}" already exists, removing it before re-adding..`);
+      error16("CORE", "UI", `Emote set "${emoteSet.name}" already exists, removing it before re-adding..`);
       this.emoteSetEls.get(emoteSet.id)?.remove();
       this.emoteSetEls.delete(emoteSet.id);
       this.emoteSetSidebarEls.get(emoteSet.id)?.remove();
@@ -18714,7 +18222,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     }
     const emoteSets = emotesManager.getMenuEnabledEmoteSets();
     if (!emoteSets.find((set) => set.id === emoteSet.id)) {
-      log17("CORE", "UI", `Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`);
+      log15("CORE", "UI", `Emote set "${emoteSet.name}" is not enabled in the emote menu, skipping..`);
       return;
     }
     const hideSubscribersEmotes = rootContext.settingsManager.getSetting(
@@ -18769,7 +18277,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     this.scrollableObserver.observe(emoteSetEl);
   }
   updateEmoteSet(emoteSet) {
-    log17("CORE", "UI", `Updating emote set "${emoteSet.name}" in emote menu..`);
+    log15("CORE", "UI", `Updating emote set "${emoteSet.name}" in emote menu..`);
     if (this.emoteSetEls.has(emoteSet.id)) {
       this.emoteSetEls.get(emoteSet.id)?.remove();
       this.emoteSetEls.delete(emoteSet.id);
@@ -18794,7 +18302,7 @@ var EmoteMenuComponent = class extends AbstractComponent {
     } else {
       if (isUnavailable || isLocked) return;
       const emote = emotesManager.getEmote(emoteHid);
-      if (!emote) return error18("CORE", "UI", "Emote not found");
+      if (!emote) return error16("CORE", "UI", "Emote not found");
       eventBus.publish("ntv.ui.emote.click", { emoteHid });
       const closeOnClick = settingsManager.getSetting(channelId, "chat.emote_menu.close_on_click");
       if (closeOnClick) this.toggleShow(false);
@@ -18808,8 +18316,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   startDragFavoriteEmote(event, emoteBoxEl) {
     if (!this.favoritesEmoteSetEl)
-      return error18("CORE", "UI", "Unable to drag emote, favorites emote set does not exist..");
-    log17("CORE", "UI", "Starting emote drag mode..");
+      return error16("CORE", "UI", "Unable to drag emote, favorites emote set does not exist..");
+    log15("CORE", "UI", "Starting emote drag mode..");
     this.isDraggingEmote = true;
     this.favoritesEmoteSetEl.classList.add("ntv__emote-set--dragging-emote");
     const favoriteEmotesSetBodyEl = this.favoritesEmoteSetEl.querySelector(".ntv__emote-set__emotes");
@@ -18831,10 +18339,10 @@ var EmoteMenuComponent = class extends AbstractComponent {
         const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl);
         const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl);
         const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl);
-        if (!hoveredEmoteHid) return error18("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
+        if (!hoveredEmoteHid) return error16("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
         const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid);
         if (void 0 === hoveredEmoteOrderIndex)
-          return error18("CORE", "UI", "Invalid favorite emote order index..");
+          return error16("CORE", "UI", "Invalid favorite emote order index..");
         if (hoveredEmoteIndex > emoteIndex) {
           hoveredEmoteEl.after(emoteBoxEl);
           this.dragEmoteNewIndex = hoveredEmoteOrderIndex + 1;
@@ -18848,8 +18356,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
   stopDragFavoriteEmote(emoteBoxEl, emoteHid) {
     if (!this.favoritesEmoteSetEl)
-      return error18("CORE", "UI", "Unable to stop dragging emote, favorites emote set does not exist..");
-    log17("CORE", "UI", "Stopped emote drag mode");
+      return error16("CORE", "UI", "Unable to stop dragging emote, favorites emote set does not exist..");
+    log15("CORE", "UI", "Stopped emote drag mode");
     this.favoritesEmoteSetEl.classList.remove("ntv__emote-set--dragging-emote");
     emoteBoxEl?.classList.remove("ntv__emote-box--dragging");
     this.isDraggingEmote = false;
@@ -18901,1196 +18409,421 @@ var EmoteMenuComponent = class extends AbstractComponent {
   }
 };
 
-// src/Sites/Kick/KickEvents.ts
-var KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE = "ntv.kick.send_message.rate_limit.updated";
-
-// src/Core/Chat/Components/ReplyMessageComponent.ts
-var logger19 = new Logger();
-var { log: log18, info: info16, error: error19 } = logger19.destruct();
-var ReplyMessageComponent = class extends AbstractComponent {
-  element;
-  containerEl;
-  eventTarget = new EventTarget();
-  constructor(containerEl, messageNodes) {
+// src/Core/Chat/Components/QuickEmotesHolderComponent.ts
+var logger17 = new Logger();
+var { log: log16, info: info14, error: error17 } = logger17.destruct();
+var QuickEmotesHolderComponent = class extends AbstractComponent {
+  constructor(rootContext, session, placeholder) {
     super();
-    this.containerEl = containerEl;
+    this.rootContext = rootContext;
+    this.session = session;
+    this.placeholder = placeholder;
+  }
+  element;
+  favoritesEl;
+  commonlyUsedEl;
+  isDraggingEmote = false;
+  dragHandleEmoteEl = null;
+  dragEmoteNewIndex = null;
+  lastDraggedEmoteEl = null;
+  favoriteEmoteElHIDMap = /* @__PURE__ */ new Map();
+  render() {
+    const channelId = this.session.channelData.channelId;
+    const oldEls = document.getElementsByClassName("ntv__quick-emotes-holder");
+    for (const el of oldEls) el.remove();
+    const showUnavailableEmotes = this.rootContext.settingsManager.getSetting(
+      channelId,
+      "quick_emote_holder.show_non_cross_channel_favorites"
+    );
+    const rows = this.rootContext.settingsManager.getSetting(channelId, "quick_emote_holder.rows") || 2;
     this.element = parseHTML(
-      cleanupHTML(`
-			<div class="ntv__reply-message">
-				<div class="ntv__reply-message__header">
-					<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
-						<path fill="currentColor" d="m12.281 5.281l-8 8l-.687.719l.687.719l8 8l1.438-1.438L7.438 15H21c2.773 0 5 2.227 5 5s-2.227 5-5 5v2c3.855 0 7-3.145 7-7s-3.145-7-7-7H7.437l6.282-6.281z" />
-					</svg>
-					<span>Replying to:</span>
-					<svg class="ntv__reply-message__close-btn ntv__icon-button" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
-						<path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
-						<path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
-					</svg>
-				</div>
-				<div class="ntv__reply-message__content">
-				</div>
-			</div>
-		`),
+      `<div class="ntv__quick-emotes-holder" data-rows="${rows}"><div class="ntv__quick-emotes-holder__favorites ${showUnavailableEmotes && "ntv__quick-emotes-holder__favorites--show-unavailable" || ""}"></div><div class="ntv__quick-emotes-holder__spacer">|</div><div class="ntv__quick-emotes-holder__commonly-used"></div></div>`,
       true
     );
-    const contentEl = this.element.querySelector(".ntv__reply-message__content");
-    for (const messageNode of messageNodes) {
-      contentEl.append(messageNode.cloneNode(true));
+    this.favoritesEl = this.element.querySelector(".ntv__quick-emotes-holder__favorites");
+    this.commonlyUsedEl = this.element.querySelector(".ntv__quick-emotes-holder__commonly-used");
+    this.placeholder.replaceWith(this.element);
+  }
+  attachEventHandlers() {
+    const { eventBus } = this.session;
+    const { eventBus: rootEventBus } = this.rootContext;
+    let mouseDownTimeout = null;
+    let skipClickEvent = false;
+    this.element?.addEventListener("click", (evt) => {
+      if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
+      if (skipClickEvent) {
+        skipClickEvent = false;
+        return;
+      }
+      const targetEl = evt.target;
+      const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
+      if (!emoteBoxEl) {
+        return error17("CORE", "UI", "Invalid emote box element");
+      }
+      if (emoteBoxEl.classList.contains("ntv__emote-box--unavailable") || emoteBoxEl.classList.contains("ntv__emote-box--locked"))
+        return;
+      const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
+      if (!emoteHid) return error17("CORE", "UI", "Invalid emote hid");
+      this.handleEmoteClick(emoteHid, !!evt.ctrlKey);
+    });
+    this.favoritesEl?.addEventListener(
+      "mousedown",
+      (evt) => {
+        const targetEl = evt.target;
+        const emoteBoxEl = targetEl.classList.contains("ntv__emote-box") && targetEl || targetEl.parentElement.classList.contains("ntv__emote-box") && targetEl.parentElement || null;
+        if (emoteBoxEl) {
+          if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
+          const emoteHid = emoteBoxEl.firstElementChild?.getAttribute("data-emote-hid");
+          if (!emoteHid) return error17("CORE", "UI", "Unable to start dragging emote, invalid emote hid");
+          mouseDownTimeout = setTimeout(() => {
+            if (!emoteBoxEl.isConnected) return;
+            this.startDragFavoriteEmote(evt, emoteBoxEl);
+          }, 500);
+          emoteBoxEl.addEventListener(
+            "mouseleave",
+            () => {
+              if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
+            },
+            { once: true, passive: true }
+          );
+          window.addEventListener(
+            "mouseup",
+            () => {
+              if (mouseDownTimeout) clearTimeout(mouseDownTimeout);
+              if (this.isDraggingEmote) {
+                this.stopDragFavoriteEmote(emoteBoxEl, emoteHid);
+                skipClickEvent = true;
+              }
+            },
+            { once: true, passive: true }
+          );
+        }
+      },
+      { passive: true }
+    );
+    eventBus.subscribeAllOnce(
+      ["ntv.datastore.emotes.favorites.loaded", "ntv.datastore.emotes.usage.loaded"],
+      () => {
+        eventBus.subscribe(
+          "ntv.datastore.emoteset.added",
+          (emoteSet) => {
+            this.renderFavoriteEmotes(emoteSet);
+            this.renderCommonlyUsedEmotes();
+          },
+          true
+        );
+      }
+    );
+    eventBus.subscribe(
+      "ntv.datastore.emotes.favorites.changed",
+      (data) => {
+        if (data.reordered) this.reorderFavoriteEmote(data.reordered);
+        else {
+          this.renderFavoriteEmotes();
+          this.renderCommonlyUsedEmotes();
+        }
+      }
+    );
+    eventBus.subscribe("ntv.datastore.emotes.usage.changed", ({ emoteHid }) => {
+      this.reorderCommonlyUsedEmote(emoteHid);
+    });
+    rootEventBus.subscribe(
+      "ntv.settings.change.quick_emote_holder.rows",
+      ({ value, prevValue }) => {
+        this.element?.setAttribute("data-rows", value || "0");
+      }
+    );
+    rootEventBus.subscribe(
+      "ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites",
+      () => this.renderFavoriteEmotes()
+    );
+    rootEventBus.subscribe(
+      "ntv.settings.change.quick_emote_holder.show_favorites",
+      () => this.renderFavoriteEmotes()
+    );
+    rootEventBus.subscribe(
+      "ntv.settings.change.quick_emote_holder.show_recently_used",
+      this.renderCommonlyUsedEmotes.bind(this)
+    );
+    rootEventBus.subscribe(
+      // TODO rename to show_unavailable_emotes, do same for setting under > emote menu
+      "ntv.settings.change.quick_emote_holder.show_non_cross_channel_favorites",
+      ({ value }) => {
+        this.favoritesEl.classList.toggle("ntv__quick-emotes-holder__favorites--show-unavailable", value);
+      }
+    );
+  }
+  handleEmoteClick(emoteHid, sendImmediately = false) {
+    assertArgDefined(emoteHid);
+    const { eventBus, emotesManager, channelData } = this.session;
+    const emote = emotesManager.getEmote(emoteHid);
+    if (!emote) return error17("CORE", "UI", "Invalid emote");
+    const channelId = channelData.channelId;
+    if (this.rootContext.settingsManager.getSetting(channelId, "chat.quick_emote_holder.send_immediately")) {
+      sendImmediately = true;
+    }
+    eventBus.publish("ntv.ui.emote.click", { emoteHid, sendImmediately });
+  }
+  startDragFavoriteEmote(event, emoteBoxEl) {
+    log16("CORE", "UI", "Starting emote drag mode..");
+    this.isDraggingEmote = true;
+    this.element.classList.add("ntv__quick-emotes-holder--dragging-emote");
+    const dragHandleEmoteEl = this.dragHandleEmoteEl = emoteBoxEl.cloneNode(true);
+    dragHandleEmoteEl.classList.add("ntv__emote-box--dragging");
+    document.body.appendChild(dragHandleEmoteEl);
+    dragHandleEmoteEl.style.left = `${event.clientX}px`;
+    dragHandleEmoteEl.style.top = `${event.clientY}px`;
+    const mouseMoveCb = (evt) => {
+      if (!this.isDraggingEmote) return window.removeEventListener("mousemove", mouseMoveCb);
+      dragHandleEmoteEl.style.left = `${evt.clientX}px`;
+      dragHandleEmoteEl.style.top = `${evt.clientY}px`;
+      const favoriteEmoteEls = Array.from(this.favoritesEl.children);
+      const hoveredEmoteEl = favoriteEmoteEls.find((el) => {
+        const rect = el.getBoundingClientRect();
+        return evt.clientX > rect.left && evt.clientX < rect.right && evt.clientY > rect.top && evt.clientY < rect.bottom;
+      });
+      if (hoveredEmoteEl && hoveredEmoteEl !== emoteBoxEl) {
+        const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl);
+        const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl);
+        const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl);
+        if (!hoveredEmoteHid) return error17("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
+        const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid);
+        if (void 0 === hoveredEmoteOrderIndex)
+          return error17("CORE", "UI", "Invalid favorite emote order index..");
+        if (hoveredEmoteIndex > emoteIndex) {
+          hoveredEmoteEl.after(emoteBoxEl);
+          this.dragEmoteNewIndex = hoveredEmoteOrderIndex + 1;
+        } else {
+          hoveredEmoteEl.before(emoteBoxEl);
+          this.dragEmoteNewIndex = hoveredEmoteOrderIndex;
+        }
+      }
+    };
+    window.addEventListener("mousemove", mouseMoveCb);
+  }
+  stopDragFavoriteEmote(emoteBoxEl, emoteHid) {
+    log16("CORE", "UI", "Stopped emote drag mode");
+    this.element.classList.remove("ntv__quick-emotes-holder--dragging-emote");
+    emoteBoxEl?.classList.remove("ntv__emote-box--dragging");
+    this.isDraggingEmote = false;
+    this.dragHandleEmoteEl?.remove();
+    this.dragHandleEmoteEl = null;
+    this.lastDraggedEmoteEl = emoteHid;
+    if (this.dragEmoteNewIndex !== null) {
+      this.session.emotesManager.updateFavoriteEmoteOrderIndex(emoteHid, this.dragEmoteNewIndex);
+      this.dragEmoteNewIndex = null;
     }
   }
-  render() {
-    this.containerEl.append(this.element);
+  renderFavoriteEmotes(emoteSet) {
+    const { settingsManager } = this.rootContext;
+    const { emotesManager, channelData } = this.session;
+    const channelId = channelData.channelId;
+    const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
+    if (emoteSet && !unsortedFavoriteEmoteDocuments.some((doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid))) {
+      return;
+    }
+    while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove();
+    this.favoriteEmoteElHIDMap = /* @__PURE__ */ new Map();
+    if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
+    const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => a.orderIndex - b.orderIndex);
+    for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
+      const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
+      const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
+      const emoteSet2 = emotesManager.getEmoteSetByEmoteHid(maybeFavoriteEmote.hid);
+      let emoteBoxClasses = emote ? "" : " ntv__emote-box--unavailable";
+      if (!emoteSet2?.isSubscribed && maybeFavoriteEmote?.isSubscribersOnly)
+        emoteBoxClasses += " ntv__emote-box--locked";
+      const emoteBoxEl = parseHTML(
+        `<div class="ntv__emote-box ntv__emote-box--favorite${emoteBoxClasses}" size="${maybeFavoriteEmote.size}">${emotesManager.getRenderableEmote(
+          maybeFavoriteEmote,
+          maybeFavoriteEmote.isZeroWidth && "ntv__emote--zero-width" || ""
+        )}</div>`,
+        true
+      );
+      this.favoriteEmoteElHIDMap.set(emoteBoxEl, maybeFavoriteEmote.hid);
+      this.favoritesEl.append(emoteBoxEl);
+    }
   }
-  // Method to attach event handlers
-  attachEventHandlers() {
-    const closeBtn = this.element.querySelector(".ntv__reply-message__close-btn");
-    closeBtn.addEventListener("click", () => {
-      this.element.remove();
-      this.eventTarget.dispatchEvent(new Event("close"));
-    });
+  reorderFavoriteEmote(emoteHid) {
+    const { settingsManager } = this.rootContext;
+    const { emotesManager, channelData } = this.session;
+    const channelId = channelData.channelId;
+    if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
+    if (this.lastDraggedEmoteEl === emoteHid) {
+      this.lastDraggedEmoteEl = null;
+      log16("CORE", "UI", "Prevented reordering of dragged emote");
+      return;
+    }
+    const favoriteEmotes = [...emotesManager.getFavoriteEmoteDocuments()].sort(
+      (a, b) => a.orderIndex - b.orderIndex
+    );
+    const emoteIndex = favoriteEmotes.findIndex(({ emoteHid: hid }) => hid === emoteHid);
+    if (emoteIndex === -1) {
+      log16("CORE", "UI", "Unable to reorder favorited emote because it does not exist:", emoteHid);
+      return;
+    }
+    const emoteEl = this.favoritesEl.querySelector(`[data-emote-hid="${emoteHid}"]`);
+    if (!emoteEl) {
+      error17("CORE", "UI", "Unable to reorder favorited emote, emote does not exist..");
+      return;
+    }
+    const emoteBoxEl = emoteEl.parentElement;
+    if (!emoteBoxEl?.classList.contains("ntv__emote-box")) {
+      return error17("CORE", "UI", "Invalid emote box element");
+    }
+    emoteBoxEl.remove();
+    const insertBeforeEl = this.favoritesEl.children[emoteIndex];
+    if (insertBeforeEl) {
+      insertBeforeEl.before(emoteBoxEl);
+    } else {
+      this.favoritesEl.appendChild(emoteBoxEl);
+    }
   }
-  addEventListener(event, callback) {
-    this.eventTarget.addEventListener(event, callback);
+  renderCommonlyUsedEmotes() {
+    const { settingsManager } = this.rootContext;
+    const { emotesManager, channelData } = this.session;
+    const emoteUsageCounts = [...emotesManager.getEmoteUsageCounts()].sort((a, b) => b[1] - a[1]);
+    while (this.commonlyUsedEl.firstChild) this.commonlyUsedEl.firstChild.remove();
+    if (!settingsManager.getSetting(channelData.channelId, "quick_emote_holder.show_recently_used")) return;
+    const favoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
+    for (const { emoteHid } of favoriteEmoteDocuments) {
+      const index = emoteUsageCounts.findIndex(([hid]) => hid === emoteHid);
+      if (index !== -1) {
+        emoteUsageCounts.splice(index, 1);
+      }
+    }
+    for (const [emoteHid] of emoteUsageCounts) {
+      const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
+      const emote = emotesManager.getEmote(emoteHid);
+      if (!emoteSet || !emote) {
+        if (emotesManager.hasLoadedProviders()) {
+          error17("CORE", "UI", "Unable to render commonly used emote, unkown emote hid:", emoteHid);
+        }
+        continue;
+      }
+      const isSubscribed = emoteSet.isSubscribed;
+      const isMenuEnabled = emoteSet.enabledInMenu;
+      if (!isMenuEnabled || !isSubscribed && emote.isSubscribersOnly) return;
+      const emoteRender = emotesManager.getRenderableEmote(
+        emote,
+        emote.isZeroWidth && "ntv__emote--zero-width" || ""
+      );
+      if (!emoteRender) continue;
+      const emoteBoxEl = document.createElement("div");
+      emoteBoxEl.className = "ntv__emote-box";
+      emoteBoxEl.setAttribute("size", "" + emote.size);
+      emoteBoxEl.setAttribute("data-emote-hid", emoteHid);
+      emoteBoxEl.appendChild(parseHTML(emoteRender));
+      this.commonlyUsedEl.appendChild(emoteBoxEl);
+    }
+  }
+  /**
+   * Move the emote to the correct position in the emote holder, append if new emote.
+   * @param emoteHid
+   * @returns
+   */
+  reorderCommonlyUsedEmote(emoteHid) {
+    const { emotesManager } = this.session;
+    const emoteEl = this.commonlyUsedEl.querySelector(`[data-emote-hid="${emoteHid}"]`);
+    if (emoteEl) emoteEl.remove();
+    const isFavoritedEmote = emotesManager.getFavoriteEmoteDocument(emoteHid);
+    if (isFavoritedEmote) return;
+    const emoteUsageCounts = [...emotesManager.getEmoteUsageCounts()].sort((a, b) => b[1] - a[1]);
+    const emoteIndex = emoteUsageCounts.findIndex(([hid]) => hid === emoteHid);
+    if (emoteIndex === -1) {
+      log16(
+        "CORE",
+        "UI",
+        "Skipped emote not found in the emote usage counts, probably stale emote that has been cleaned up from database."
+      );
+      return;
+    }
+    if (!emoteEl) {
+      const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
+      const emote = emotesManager.getEmote(emoteHid);
+      if (!emoteSet || !emote) return error17("CORE", "UI", "Unable to render commonly used emote:", emoteHid);
+      const isSubscribed = emoteSet.isSubscribed;
+      const isMenuEnabled = emoteSet.enabledInMenu;
+      if (!isMenuEnabled || !isSubscribed && emote.isSubscribersOnly) return;
+      const emoteHTML = emotesManager.getRenderableEmote(
+        emote,
+        emote.isZeroWidth && "ntv__emote--zero-width" || ""
+      );
+      if (!emoteHTML) return error17("CORE", "UI", "Unable to render commonly used emote:", emoteHid);
+      const emoteBoxEl = document.createElement("div");
+      emoteBoxEl.className = "ntv__emote-box";
+      emoteBoxEl.setAttribute("size", "" + emote.size);
+      emoteBoxEl.setAttribute("data-emote-hid", emoteHid);
+      emoteBoxEl.appendChild(parseHTML(emoteHTML));
+      this.commonlyUsedEl.appendChild(emoteBoxEl);
+      return;
+    }
+    const insertBeforeEl = this.commonlyUsedEl.children[emoteIndex];
+    if (insertBeforeEl) {
+      insertBeforeEl.before(emoteEl);
+    } else {
+      this.commonlyUsedEl.appendChild(emoteEl);
+    }
   }
   destroy() {
-    log18("CORE", "UI", "Destroying reply message component..", this.element);
-    this.element.remove();
+    this.element?.remove();
   }
 };
 
-// src/Core/Common/PriorityEventTarget.ts
-var notAllowed = function() {
-  throw new Error("PreventDefault cannot be called because the event was set as passive.");
-};
-var stopPropagation = function() {
-  this._stopPropagation();
-  this.stoppedPropagation = true;
-};
-var stopImmediatePropagation = function() {
-  this._stopImmediatePropagation();
-  this.stoppedImmediatePropagation = true;
-};
-var PriorityEventTarget = class {
-  events = /* @__PURE__ */ new Map();
-  /**
-   * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.
-   * @param type
-   * @param priority
-   * @param listener
-   * @param options
-   */
-  addEventListener(type, priority, listener, options) {
-    if (!this.events.has(type)) {
-      this.events.set(type, []);
-    }
-    const priorities = this.events.get(type);
-    if (!priorities[priority]) priorities[priority] = [];
-    const listeners = priorities[priority];
-    if (options) listeners.push([listener, options]);
-    else listeners.push([listener]);
-    if (options && options.signal) {
-      options.signal.addEventListener("abort", () => {
-        this.removeEventListener(type, priority, listener, options);
-      });
-    }
+// src/Core/Common/DOMEventManager.ts
+var DOMEventManager = class {
+  listeners = [];
+  addEventListener(element, type, listener, options) {
+    element.addEventListener(type, listener, options);
+    this.listeners.push({ element, type, listener, options });
   }
-  removeEventListener(type, priority, listener, options) {
-    if (this.events.has(type)) {
-      const priorities = this.events.get(type);
-      const listeners = priorities[priority];
-      if (!listeners) return;
-      for (let i = 0; i < listeners.length; i++) {
-        let listenerItem = listeners[i][0];
-        let optionsItem = listeners[i][1];
-        if (listenerItem === listener && optionsItem === options) {
-          listeners.splice(i, 1);
-          i--;
-        }
-      }
+  removeAllEventListeners() {
+    for (const { element, type, listener, options } of this.listeners) {
+      element.removeEventListener(type, listener, options);
     }
-  }
-  dispatchEvent(event) {
-    ;
-    event._stopPropagation = event.stopPropagation;
-    event.stopPropagation = stopPropagation;
-    event._stopImmediatePropagation = event.stopImmediatePropagation;
-    event.stopImmediatePropagation = stopImmediatePropagation;
-    const type = event.type;
-    if (this.events.has(type)) {
-      const priorities = this.events.get(type);
-      for (const key in priorities) {
-        const listeners = priorities[key];
-        for (let i = 0; i < listeners.length; i++) {
-          const listener = listeners[i][0];
-          const options = listeners[i][1];
-          if (options) {
-            if (options.once) {
-              listeners.splice(i, 1);
-              i--;
-            }
-            if (options.passive) {
-              event.preventDefault = notAllowed;
-            }
-          }
-          listener(event);
-          if (event.stoppedImmediatePropagation) {
-            return;
-          }
-        }
-        if (event.stoppedPropagation) {
-          return;
-        }
-      }
-    }
+    this.listeners = [];
   }
 };
 
-// src/Core/UI/Components/TimerComponent.ts
-var TimerComponent = class extends AbstractComponent {
-  remainingTime;
-  paused = false;
-  interval;
-  event = new EventTarget();
-  element;
-  constructor(duration, description) {
-    super();
-    this.remainingTime = parseInt(duration) * (duration.includes("s") ? 1 : duration.includes("m") ? 60 : 3600);
-    this.element = parseHTML(
-      cleanupHTML(`
-                <div class="ntv__timer">
-                    <div class="ntv__timer__body">
-                        <div class="ntv__timer__duration">${this.formatTime(this.remainingTime)}</div>
-                        <div class="ntv__timer__description">${description || ""}</div>
-                    </div>
-                    <div class="ntv__timer__buttons">
-                        <button class="ntv__timer__pause ntv__icon-button">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 20 20">
-                                <path fill="currentColor" d="M5 4h3v12H5zm7 0h3v12h-3z" />
-                            </svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
-                                <path fill="currentColor" d="M10.804 8L5 4.633v6.734zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696z" />
-                            </svg>
-                        </button>
-                        <button class="ntv__timer__remove ntv__icon-button">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
-                                <path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
-                                <path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-        `),
-      true
-    );
-  }
-  render() {
-  }
-  attachEventHandlers() {
-    const pauseButton = this.element.querySelector(".ntv__timer__pause");
-    const removeButton = this.element.querySelector(".ntv__timer__remove");
-    pauseButton.addEventListener("click", () => {
-      if (this.paused) {
-        this.paused = false;
-        pauseButton.classList.remove("ntv__timer__pause--paused");
-        this.startTimer();
-        this.event.dispatchEvent(new CustomEvent("unpaused"));
-      } else {
-        this.paused = true;
-        pauseButton.classList.add("ntv__timer__pause--paused");
-        if (this.interval) {
-          clearInterval(this.interval);
-          delete this.interval;
-        }
-        this.event.dispatchEvent(new CustomEvent("paused"));
-      }
-    });
-    removeButton.addEventListener("click", () => {
-      this.event.dispatchEvent(new CustomEvent("destroy"));
-      this.element.remove();
-    });
-    this.startTimer();
-  }
-  startTimer() {
-    const durationEl = this.element.querySelector(".ntv__timer__duration");
-    this.interval = setInterval(() => {
-      this.remainingTime--;
-      durationEl.textContent = this.formatTime(this.remainingTime);
-      if (this.remainingTime <= 0) {
-        durationEl?.classList.add("ntv__timer__duration--expired");
-      }
-    }, 1e3);
-  }
-  formatTime(time) {
-    const sign = time < 0 ? "-" : "";
-    time = Math.abs(time);
-    const hours = Math.floor(time / 3600);
-    const minutes = Math.floor(time % 3600 / 60);
-    const seconds = time % 60;
-    return `${sign}${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-  }
-};
-
-// src/Core/Input/MessagesHistory.ts
-var MessagesHistory = class {
-  messages;
-  cursorIndex;
-  maxMessages;
-  constructor() {
-    this.messages = [];
-    this.cursorIndex = -1;
-    this.maxMessages = 50;
-  }
-  addMessage(message) {
-    if (message === "") return;
-    if (this.messages[0] === message) return;
-    this.messages.unshift(message);
-    if (this.messages.length > this.maxMessages) {
-      this.messages.pop();
-    }
-  }
-  canMoveCursor(direction) {
-    if (direction === 1) {
-      return this.cursorIndex < this.messages.length - 1;
-    } else if (direction === -1) {
-      return this.cursorIndex > 0;
-    }
-  }
-  moveCursor(direction) {
-    this.cursorIndex += direction;
-    if (this.cursorIndex < 0) {
-      this.cursorIndex = 0;
-    } else if (this.cursorIndex >= this.messages.length) {
-      this.cursorIndex = this.messages.length - 1;
-    }
-  }
-  moveCursorUp() {
-    if (this.cursorIndex < this.messages.length - 1) {
-      this.cursorIndex++;
-    }
-  }
-  moveCursorDown() {
-    if (this.cursorIndex > 0) {
-      this.cursorIndex--;
-    }
-  }
-  isCursorAtStart() {
-    return this.cursorIndex === -1;
-  }
-  getMessage() {
-    return this.messages[this.cursorIndex];
-  }
-  resetCursor() {
-    this.cursorIndex = -1;
-  }
-};
-
-// src/Core/UI/Components/SteppedInputSliderComponent.ts
-var SteppedInputSliderComponent = class extends AbstractComponent {
-  value;
-  labels;
-  steps;
-  event = new EventTarget();
-  element;
-  constructor(labels, steps, value) {
-    super();
-    this.labels = labels;
-    this.steps = steps;
-    const defaultIndex = typeof value !== "undefined" && steps.indexOf(value) || 0;
-    this.element = parseHTML(
-      cleanupHTML(`
-            <div class="ntv__stepped-input-slider">
-                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="${defaultIndex}">
-                <div>${this.labels[defaultIndex]}</div>
-            </div>
-        `),
-      true
-    );
-    this.value = value || steps[0];
-  }
-  render() {
-  }
-  attachEventHandlers() {
-    if (!this.element) return;
-    const input = this.element.querySelector("input");
-    const label = this.element.querySelector("div");
-    input.addEventListener("input", () => {
-      label.textContent = this.labels[parseInt(input.value)];
-      this.value = this.steps[parseInt(input.value)] || this.steps[0];
-      this.event.dispatchEvent(new Event("change"));
-    });
-  }
-  addEventListener(event, callback) {
-    this.event.addEventListener(event, callback);
-  }
-  getValue() {
-    return this.value;
-  }
-};
-
-// src/Core/Users/UserInfoModal.ts
-var logger20 = new Logger();
-var { log: log19, info: info17, error: error20 } = logger20.destruct();
-var UserInfoModal = class extends AbstractModal {
-  rootContext;
-  session;
-  toaster;
-  username;
-  userInfo;
-  userChannelInfo;
-  badgesEl;
-  messagesHistoryEl;
-  actionGiftEl;
-  actionFollowEl;
-  actionMuteEl;
-  actionReportEl;
-  timeoutPageEl;
-  statusPageEl;
-  modActionButtonBanEl;
-  modActionButtonTimeoutEl;
-  modActionButtonVIPEl;
-  modActionButtonModEl;
-  modLogsMessagesEl;
-  modLogsPageEl;
-  timeoutSliderComponent;
-  messagesHistoryCursor = 0;
-  isLoadingMessages = false;
-  giftSubButtonEnabled = false;
-  constructor(rootContext, session, {
-    toaster
-  }, username, coordinates) {
-    const modalWidth = 340;
-    const modalHeight = modalWidth * 1.618;
-    if (coordinates) {
-      const screenWidth = window.innerWidth;
-      if (screenWidth < modalWidth) coordinates.x = 0;
-      else if (screenWidth - coordinates.x < modalWidth) coordinates.x = screenWidth - modalWidth;
-      else if (coordinates.x < 0) coordinates.x = 0;
-      const screenHeight = window.innerHeight;
-      if (screenHeight < modalHeight) coordinates.y = 0;
-      else if (coordinates.y < 0) coordinates.y = 0;
-      else if (coordinates.y > screenHeight - modalHeight) coordinates.y = screenHeight - modalHeight;
-    }
-    const geometry = {
-      width: modalWidth + "px",
-      position: coordinates ? "coordinates" : "chat-top",
-      coords: coordinates
-    };
-    super("user-info", geometry);
+// src/Core/Input/Completion/Strategies/AbstractInputCompletionStrategy.ts
+var AbstractInputCompletionStrategy = class {
+  constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
     this.rootContext = rootContext;
     this.session = session;
-    this.toaster = toaster;
-    this.username = username;
+    this.contentEditableEditor = contentEditableEditor;
+    this.navListWindowManager = navListWindowManager;
   }
-  init() {
-    super.init();
-    return this;
+  navWindow;
+  allowInlineStrategyDelegation = false;
+  clearNavWindow() {
+    if (!this.navWindow) return;
+    this.navWindow.clearEntries();
   }
-  async render() {
-    super.render();
-    const { channelData, usersManager, badgeProvider } = this.session;
-    const isModerator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster;
-    await this.updateUserInfo();
-    const userInfo = this.userInfo || {
-      id: "",
-      slug: "error",
-      username: "Error",
-      createdAt: null,
-      isFollowing: false,
-      profilePic: "",
-      bannerImg: ""
-    };
-    const userChannelInfo = this.userChannelInfo || {
-      id: "",
-      username: "Error",
-      slug: "error",
-      channel: "Error",
-      badges: [],
-      followingSince: null,
-      isChannelOwner: false,
-      isModerator: false,
-      isStaff: false
-    };
-    const today = +new Date((/* @__PURE__ */ new Date()).toLocaleDateString());
-    let formattedAccountDate;
-    if (userInfo.createdAt) {
-      const createdDate = userInfo.createdAt.toLocaleDateString();
-      const createdDateUnix = +new Date(createdDate);
-      if (+createdDateUnix === today) formattedAccountDate = "Today";
-      else if (+createdDateUnix === today - 24 * 60 * 60 * 1e3) formattedAccountDate = "Yesterday";
-      else formattedAccountDate = formatRelativeTime(userInfo.createdAt);
-    }
-    let formattedJoinDate;
-    if (userChannelInfo.followingSince) {
-      const joinedDate = userChannelInfo.followingSince.toLocaleDateString();
-      const joinedDateUnix = +new Date(joinedDate);
-      if (+joinedDateUnix === today) formattedJoinDate = "Today";
-      else if (+joinedDateUnix === today - 24 * 60 * 60 * 1e3) formattedJoinDate = "Yesterday";
-      else formattedJoinDate = formatRelativeTime(userChannelInfo.followingSince);
-    }
-    const element = parseHTML(
-      cleanupHTML(`
-				<div class="ntv__user-info-modal__header" ${userInfo.bannerImg ? `style="--background: url('${userInfo.bannerImg}')"` : ""}>
-					<div class="ntv__user-info-modal__header__actions">
-					
-					</div>
-					<div class="ntv__user-info-modal__header__banner">
-						<div class="ntv__user-info-modal__header__banner__img"><img src="${userInfo.profilePic}"></div>
-						<h4><a href="/${userChannelInfo.slug}" target="_blank">${userInfo.username}</a></h4>
-						<div class="ntv__user-info-modal__header__banner__dates">
-							${formattedAccountDate ? `<span>
-								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0.5 0 24 21">
-									<g fill="none" stroke="currentColor" stroke-width="1.5">
-										<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
-										<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
-										<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
-										<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
-									</g>
-									<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
-								</svg> Account created: ${formattedAccountDate}</span>` : ""}
-
-							${`<span>
-								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
-									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
-								</svg> Following since: ${formattedJoinDate ? formattedJoinDate : "-"}</span>`}
-						</div>
-					</div>
-				</div>
-				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join("")}</div>
-				<div class="ntv__user-info-modal__actions">
-					<button class="ntv__button ntv__user-info-modal__follow">${userInfo.isFollowing ? "Unfollow" : "Follow"}</button>
-					<button class="ntv__button ntv__user-info-modal__mute">${// TODO change to user ID after replacing chat system
-      usersManager.hasMutedUser(userInfo.username) ? "Unmute" : "Mute"}</button>
-					<!--<button class="ntv__button ntv__user-info-modal__Report">Report</button>-->
-				</div>
-				<div class="ntv__user-info-modal__mod-actions"></div>
-				<div class="ntv__user-info-modal__timeout-page"></div>
-				<div class="ntv__user-info-modal__status-page"></div>
-				<div class="ntv__user-info-modal__mod-logs"></div>
-				<div class="ntv__user-info-modal__mod-logs-page"></div>
-			`)
-    );
-    this.badgesEl = element.querySelector(".ntv__user-info-modal__badges");
-    this.actionFollowEl = element.querySelector(
-      ".ntv__user-info-modal__actions .ntv__user-info-modal__follow"
-    );
-    this.actionMuteEl = element.querySelector(
-      ".ntv__user-info-modal__actions .ntv__user-info-modal__mute"
-    );
-    if (isModerator) {
-      this.actionReportEl = element.querySelector(
-        ".ntv__user-info-modal__actions .ntv__button:nth-child(3)"
-      );
-      this.timeoutPageEl = element.querySelector(".ntv__user-info-modal__timeout-page");
-      this.statusPageEl = element.querySelector(".ntv__user-info-modal__status-page");
-      this.modActionButtonBanEl = parseHTML(
-        cleanupHTML(`
-			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userChannelInfo.banned ? "active" : ""}>
-				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-					<path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-1.9 0-3.6.6-4.9 1.7l11.2 11.2c1-1.4 1.7-3.1 1.7-4.9c0-4.4-3.6-8-8-8m4.9 14.3L5.7 7.1C4.6 8.4 4 10.1 4 12c0 4.4 3.6 8 8 8c1.9 0 3.6-.6 4.9-1.7" />
-				</svg>
-			</button>
-		`),
-        true
-      );
-      this.modActionButtonTimeoutEl = parseHTML(
-        cleanupHTML(`
-			<button class="ntv__icon-button" alt="Timeout ${userInfo.username}">
-				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-					<g fill="none">
-						<path d="M24 0v24H0V0zM12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093c.012.004.023 0 .029-.008l.004-.014l-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014l-.034.614c0 .012.007.02.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z" />
-						<path fill="currentColor" d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16m0 2a1 1 0 0 1 .993.883L13 7v4.586l2.707 2.707a1 1 0 0 1-1.32 1.497l-.094-.083l-3-3a1 1 0 0 1-.284-.576L11 12V7a1 1 0 0 1 1-1" />
-					</g>
-				</svg>
-			</button>
-		`),
-        true
-      );
-      this.modActionButtonVIPEl = parseHTML(
-        cleanupHTML(`
-			<button class="ntv__icon-button" alt="VIP ${userInfo.username}" ${this.isUserVIP() ? "active" : ""}>
-				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-					<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h18M3 19h18M4 9l2 6h1l2-6m3 0v6m4 0V9h2a2 2 0 1 1 0 4h-2" />
-				</svg>
-			</button>
-		`),
-        true
-      );
-      this.modActionButtonModEl = parseHTML(
-        cleanupHTML(`
-			<button class="ntv__icon-button" alt="Mod ${userInfo.username}" ${this.isUserPrivileged() ? "active" : ""}>
-				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
-				</svg>
-			</button>
-		`),
-        true
-      );
-      this.updateModStatusPage();
-      const modActionsEl = element.querySelector(".ntv__user-info-modal__mod-actions");
-      modActionsEl.append(
-        this.modActionButtonBanEl,
-        this.modActionButtonTimeoutEl,
-        this.modActionButtonVIPEl,
-        this.modActionButtonModEl
-      );
-      this.modLogsPageEl = element.querySelector(".ntv__user-info-modal__mod-logs-page");
-      this.modLogsMessagesEl = parseHTML(`<button>Messages</button>`, true);
-      const modLogsEl = element.querySelector(".ntv__user-info-modal__mod-logs");
-      modLogsEl.appendChild(this.modLogsMessagesEl);
-    }
-    this.modalBodyEl.appendChild(element);
-    this.updateGiftSubButton();
+  isClickInsideNavWindow(node) {
+    return this.navWindow?.containsNode(node) || false;
   }
-  attachEventHandlers() {
-    super.attachEventHandlers();
-    this.actionFollowEl?.addEventListener("click", this.clickFollowHandler.bind(this));
-    this.actionMuteEl?.addEventListener("click", this.clickMuteHandler.bind(this));
-    this.actionReportEl?.addEventListener("click", () => {
-      log19("CORE", "UI", "Report button clicked");
-    });
-    this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
-    this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
-    this.modActionButtonVIPEl?.addEventListener("click", this.clickVIPHandler.bind(this));
-    this.modActionButtonModEl?.addEventListener("click", this.clickModHandler.bind(this));
-    this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHistoryHandler.bind(this));
+  isShowingNavWindow() {
+    return !!this.navWindow;
   }
-  async clickGiftHandler() {
-    this.eventTarget.dispatchEvent(new Event("gift_sub_click"));
-  }
-  async clickFollowHandler() {
-    const { networkInterface } = this.session;
-    const { userInfo } = this;
-    if (!userInfo) return;
-    this.actionFollowEl.classList.add("ntv__button--disabled");
-    if (userInfo.isFollowing) {
-      try {
-        await networkInterface.unfollowUser(userInfo.slug);
-        userInfo.isFollowing = false;
-        this.actionFollowEl.textContent = "Follow";
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to follow user: " + err.errors.join(" "), 6e3, "error");
-        } else if (err.message) {
-          this.toaster.addToast("Failed to follow user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to follow user, reason unknown", 6e3, "error");
-        }
-      }
-    } else {
-      try {
-        await networkInterface.followUser(userInfo.slug);
-        userInfo.isFollowing = true;
-        this.actionFollowEl.textContent = "Unfollow";
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to unfollow user: " + err.errors.join(" "), 6e3, "error");
-        } else if (err.message) {
-          this.toaster.addToast("Failed to unfollow user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to unfollow user, reason unknown", 6e3, "error");
-        }
-      }
-    }
-    this.actionFollowEl.classList.remove("ntv__button--disabled");
-  }
-  async clickMuteHandler() {
-    const { userInfo } = this;
-    if (!userInfo) return;
-    const { id, username } = userInfo;
-    const { usersManager, channelData } = this.session;
-    const channelId = channelData.channelId;
-    const user = usersManager.getUserById(username);
-    if (!user) return;
-    if (user.muted) {
-      log19("CORE", "UI", "Unmuting user:", username);
-      usersManager.unmuteUserById(user.id);
-      this.actionMuteEl.textContent = "Mute";
-    } else {
-      log19("CORE", "UI", "Muting user:", username);
-      usersManager.muteUserById(user.id, channelId);
-      this.actionMuteEl.textContent = "Unmute";
+  reset() {
+    if (this.navWindow) {
+      this.navWindow = void 0;
+      this.navListWindowManager.destroyNavWindow(this.id);
     }
   }
-  async clickTimeoutHandler() {
-    const { timeoutPageEl } = this;
-    if (!timeoutPageEl) return;
-    while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove();
-    if (this.timeoutSliderComponent) {
-      delete this.timeoutSliderComponent;
-      return;
-    }
-    const timeoutWrapperEl = parseHTML(
-      cleanupHTML(`
-			<div class="ntv__user-info-modal__timeout-page__wrapper">
-				<div></div>
-				<button class="ntv__button">></button>
-				<textarea placeholder="Reason" rows="1" capture-focus></textarea>
-			</div>`),
-      true
-    );
-    timeoutPageEl.appendChild(timeoutWrapperEl);
-    const rangeWrapperEl = timeoutWrapperEl.querySelector(
-      ".ntv__user-info-modal__timeout-page__wrapper div"
-    );
-    this.timeoutSliderComponent = new SteppedInputSliderComponent(
-      ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week"],
-      [5, 15, 60, 60 * 24, 60 * 24 * 7]
-    ).init();
-    rangeWrapperEl.appendChild(this.timeoutSliderComponent.element);
-    const buttonEl = timeoutWrapperEl.querySelector("button");
-    buttonEl.addEventListener("click", async () => {
-      if (!this.timeoutSliderComponent) return;
-      const duration = this.timeoutSliderComponent.getValue();
-      const reason = timeoutWrapperEl.querySelector("textarea").value;
-      timeoutPageEl.setAttribute("disabled", "");
-      try {
-        await this.session.networkInterface.executeCommand("timeout", this.session.channelData.channelName, [
-          this.username,
-          duration,
-          reason
-        ]);
-        await this.updateUserInfo();
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to timeout user: " + err.errors.join(" "), 6e3, "error");
-        } else if (err.message) {
-          this.toaster.addToast("Failed to timeout user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to timeout user, reason unknown", 6e3, "error");
-        }
-        timeoutPageEl.removeAttribute("disabled");
-        return;
-      }
-      this.modActionButtonBanEl.setAttribute("active", "");
-      while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove();
-      timeoutPageEl.removeAttribute("disabled");
-      delete this.timeoutSliderComponent;
-      this.updateModStatusPage();
-      log19("CORE", "UI", `Successfully timed out user: ${this.username} for ${duration} minutes`);
-    });
+  handleBlockingKeyDownEvent(event) {
   }
-  async clickVIPHandler() {
-    const { networkInterface } = this.session;
-    const { userInfo, userChannelInfo } = this;
-    if (!userInfo || !userChannelInfo) return;
-    const { channelData } = this.session;
-    if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
-      this.toaster.addToast("You do not have permission to perform this action.", 6e3, "error");
-      return;
-    }
-    this.modActionButtonVIPEl.classList.add("ntv__icon-button--disabled");
-    if (this.isUserVIP()) {
-      log19("CORE", "UI", `Attempting to remove VIP status from user: ${userInfo.username}..`);
-      try {
-        await this.session.networkInterface.executeCommand("unvip", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log19("CORE", "UI", "Successfully removed VIP status from user:", userInfo.username);
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast(
-            "Failed to remove VIP status from user: " + err.errors.join(" "),
-            6e3,
-            "error"
-          );
-        } else if (err.message) {
-          this.toaster.addToast("Failed to remove VIP status from user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to remove VIP status from user, reason unknown", 6e3, "error");
-        }
-        this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
-        return;
-      }
-      this.removeUserVIPStatus();
-      this.modActionButtonVIPEl?.removeAttribute("active");
-    } else {
-      log19("CORE", "UI", `Attempting to give VIP status to user: ${userInfo.username}..`);
-      try {
-        await this.session.networkInterface.executeCommand("vip", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log19("CORE", "UI", "Successfully gave VIP status to user:", userInfo.username);
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to give VIP status to user: " + err.errors.join(" "), 6e3, "error");
-        } else if (err.message) {
-          this.toaster.addToast("Failed to give VIP status to user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to give VIP status to user, reason unknown", 6e3, "error");
-        }
-        this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
-        return;
-      }
-      this.modActionButtonVIPEl?.setAttribute("active", "");
-      await this.updateUserInfo();
-    }
-    this.updateUserBadges();
-    this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
+  handleKeyDownEvent(event) {
   }
-  async clickModHandler() {
-    const { networkInterface } = this.session;
-    const { userInfo, userChannelInfo } = this;
-    if (!userInfo || !userChannelInfo) return;
-    const { channelData } = this.session;
-    if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
-      this.toaster.addToast("You do not have permission to perform this action.", 6e3, "error");
-      return;
-    }
-    this.modActionButtonModEl.classList.add("ntv__icon-button--disabled");
-    if (this.isUserPrivileged()) {
-      log19("CORE", "UI", `Attempting to remove mod status from user: ${userInfo.username}..`);
-      try {
-        await this.session.networkInterface.executeCommand("unmod", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log19("CORE", "UI", "Successfully removed mod status from user:", userInfo.username);
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast(
-            "Failed to remove mod status from user: " + err.errors.join(" "),
-            6e3,
-            "error"
-          );
-        } else if (err.message) {
-          this.toaster.addToast("Failed to remove mod status from user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to remove mod status from user, reason unknown", 6e3, "error");
-        }
-        this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
-        return;
-      }
-      this.removeUserModStatus();
-      this.modActionButtonModEl?.removeAttribute("active");
-    } else {
-      log19("CORE", "UI", `Attempting to give mod status to user: ${userInfo.username}..`);
-      try {
-        await this.session.networkInterface.executeCommand("mod", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log19("CORE", "UI", "Successfully gave mod status to user:", userInfo.username);
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to give mod status to user: " + err.errors.join(" "), 6e3, "error");
-        } else if (err.message) {
-          this.toaster.addToast("Failed to give mod status to user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to give mod status to user, reason unknown", 6e3, "error");
-        }
-        this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
-        return;
-      }
-      this.modActionButtonModEl?.setAttribute("active", "");
-      await this.updateUserInfo();
-    }
-    this.updateUserBadges();
-    this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
+  handleKeyUpEvent(event) {
   }
-  async clickBanHandler() {
-    if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled")) return;
-    this.modActionButtonBanEl.classList.add("ntv__icon-button--disabled");
-    const { networkInterface } = this.session;
-    const { userInfo, userChannelInfo } = this;
-    if (!userInfo || !userChannelInfo) return;
-    if (userChannelInfo.banned) {
-      log19("CORE", "UI", `Attempting to unban user: ${userInfo.username}..`);
-      try {
-        await this.session.networkInterface.executeCommand("unban", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log19("CORE", "UI", "Successfully unbanned user:", userInfo.username);
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to unban user: " + err.errors.join(" "), 6e3, "error");
-        } else if (err.message) {
-          this.toaster.addToast("Failed to unban user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to unban user, reason unknown", 6e3, "error");
-        }
-        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
-        return;
-      }
-      delete userChannelInfo.banned;
-      this.modActionButtonBanEl.removeAttribute("active");
-    } else {
-      log19("CORE", "UI", `Attempting to ban user: ${userInfo.username}..`);
-      try {
-        await this.session.networkInterface.executeCommand("ban", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log19("CORE", "UI", "Successfully banned user:", userInfo.username);
-      } catch (err) {
-        if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to ban user: " + err.errors.join(" "), 6e3, "error");
-        } else if (err.message) {
-          this.toaster.addToast("Failed to ban user: " + err.message, 6e3, "error");
-        } else {
-          this.toaster.addToast("Failed to ban user, reason unknown", 6e3, "error");
-        }
-        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
-        return;
-      }
-      this.modActionButtonBanEl.setAttribute("active", "");
-      await this.updateUserInfo();
-    }
-    this.updateModStatusPage();
-    this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
-  }
-  async clickMessagesHistoryHandler() {
-    const { userInfo, modLogsPageEl } = this;
-    if (!userInfo || !modLogsPageEl) return;
-    if (modLogsPageEl.querySelector(".ntv__user-info-modal__mod-logs-page__messages[loading]")) return;
-    while (modLogsPageEl.firstChild) modLogsPageEl.firstChild.remove();
-    this.messagesHistoryCursor = 0;
-    const messagesHistoryEl = this.messagesHistoryEl = parseHTML(
-      `<div class="ntv__user-info-modal__mod-logs-page__messages" loading></div>`,
-      true
-    );
-    modLogsPageEl.appendChild(messagesHistoryEl);
-    log19("CORE", "UI", `Fetching user messages of ${userInfo.username}..`);
-    await this.loadMoreMessagesHistory();
-    let autoLoadCount = 0;
-    const MAX_AUTO_LOADS = 5;
-    while (this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight && !this.isLoadingMessages && autoLoadCount < MAX_AUTO_LOADS) {
-      log19(
-        "CORE",
-        "UI",
-        `Content too short (scrollHeight: ${messagesHistoryEl.scrollHeight}, clientHeight: ${messagesHistoryEl.clientHeight}), auto-loading more messages for ${userInfo.username}...`
-      );
-      const previousScrollHeight = messagesHistoryEl.scrollHeight;
-      await this.loadMoreMessagesHistory();
-      autoLoadCount++;
-      if (this.messagesHistoryCursor === null || messagesHistoryEl.scrollHeight === previousScrollHeight) {
-        log19(
-          "CORE",
-          "UI",
-          `Auto-load break: cursor is ${this.messagesHistoryCursor}, scrollHeight changed from ${previousScrollHeight} to ${messagesHistoryEl.scrollHeight}`
-        );
-        break;
-      }
-    }
-    if (autoLoadCount >= MAX_AUTO_LOADS && this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight) {
-      log19(
-        "CORE",
-        "UI",
-        `Max auto-loads (${MAX_AUTO_LOADS}) reached for ${userInfo.username}, but content may still be too short.`
-      );
-    }
-    if (messagesHistoryEl.scrollHeight > messagesHistoryEl.clientHeight) {
-      messagesHistoryEl.scrollTop = messagesHistoryEl.scrollHeight - messagesHistoryEl.clientHeight;
-    } else {
-      messagesHistoryEl.scrollTop = 0;
-    }
-    messagesHistoryEl.removeAttribute("loading");
-    messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
-  }
-  async loadMoreMessagesHistory() {
-    const { networkInterface, emotesManager, userInterface, channelData } = this.session;
-    const { userInfo, modLogsPageEl, messagesHistoryEl } = this;
-    if (!userInfo || !modLogsPageEl || !messagesHistoryEl) return;
-    const cursor = this.messagesHistoryCursor;
-    if (typeof cursor !== "number") return;
-    if (this.isLoadingMessages) return;
-    this.isLoadingMessages = true;
-    let res;
-    try {
-      res = await networkInterface.getUserMessages(channelData.channelId, userInfo.id, cursor);
-    } catch (err) {
-      if (err.errors && err.errors.length > 0) {
-        this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
-      } else if (err.message) {
-        this.toaster.addToast("Failed to load user message history: " + err.message, 6e3, "error");
-      } else {
-        this.toaster.addToast("Failed to load user message history, reason unknown", 6e3, "error");
-      }
-      messagesHistoryEl.removeAttribute("loading");
-      return;
-    }
-    this.messagesHistoryCursor = res.cursor ? +res.cursor : null;
-    let entriesHTML = "", lastDate, dateCursor;
-    for (const message of res.messages) {
-      const d = new Date(message.createdAt);
-      const time = ("" + d.getHours()).padStart(2, "0") + ":" + ("" + d.getMinutes()).padStart(2, "0");
-      const dateString = d.getUTCFullYear() + "" + d.getUTCMonth() + d.getUTCDay();
-      if (lastDate && dateString !== dateCursor) {
-        const formattedDate = lastDate.toLocaleDateString("en-US", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric"
-        });
-        dateCursor = dateString;
-        lastDate = d;
-        entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>`;
-      } else if (!lastDate) {
-        lastDate = d;
-        dateCursor = dateString;
-      }
-      entriesHTML += `<div class="ntv__chat-message" unrendered>
-				<span class="ntv__chat-message__identity">
-					<span class="ntv__chat-message__timestamp">${time}</span>
-					<span class="ntv__chat-message__badges"></span>
-					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
-					<span class="ntv__chat-message__separator">: </span>
-				</span>
-				<span class="ntv__chat-message__part">${message.content}</span>
-			</div>`;
-    }
-    if (!this.messagesHistoryCursor && lastDate) {
-      const formattedDate = lastDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-      });
-      entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`;
-    }
-    messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
-    messagesHistoryEl.querySelectorAll(".ntv__chat-message[unrendered]").forEach((messageEl) => {
-      messageEl.querySelectorAll(".ntv__chat-message__part").forEach((messagePartEl) => {
-        const parsedMessageParts = emotesManager.parseEmoteText(messagePartEl.textContent || "");
-        const nodes = userInterface.renderMessageParts(parsedMessageParts);
-        messagePartEl.after(...nodes);
-        messagePartEl.remove();
-      });
-      messageEl.removeAttribute("unrendered");
-    });
-    this.isLoadingMessages = false;
-    messagesHistoryEl.removeAttribute("loading");
-  }
-  async messagesScrollHandler(event) {
-    const target = event.currentTarget;
-    if (target.scrollTop < 30 && this.messagesHistoryCursor !== null && !this.isLoadingMessages) {
-      await this.loadMoreMessagesHistory();
-      await this.loadMoreMessagesHistory();
-    }
-  }
-  enableGiftSubButton() {
-    this.giftSubButtonEnabled = true;
-    this.updateGiftSubButton();
-  }
-  updateGiftSubButton() {
-    if (!this.giftSubButtonEnabled) return;
-    if (this.isUserSubscribed()) {
-      if (!this.actionGiftEl) return;
-      this.actionGiftEl.remove();
-      delete this.actionGiftEl;
-    } else {
-      if (this.actionGiftEl) return;
-      const actionsEl = this.modalBodyEl.querySelector(".ntv__user-info-modal__actions");
-      if (!actionsEl) return;
-      this.actionGiftEl = parseHTML(
-        `<button class="ntv__button ntv__user-info-modal__gift">Gift a sub</button>`,
-        true
-      );
-      actionsEl.prepend(this.actionGiftEl);
-      this.actionGiftEl.addEventListener("click", this.clickGiftHandler.bind(this));
-    }
-  }
-  isUserSubscribed() {
-    return !!this.userChannelInfo?.badges.find((badge) => badge.type === "subscriber");
-  }
-  // TODO move this to dedicated class with methods
-  isUserVIP() {
-    return !!this.userChannelInfo?.badges.find((badge) => badge.type === "vip");
-  }
-  // TODO move this to dedicated class with methods
-  isUserPrivileged() {
-    return this.userChannelInfo?.isChannelOwner || this.userChannelInfo?.isModerator || this.userChannelInfo?.isStaff;
-  }
-  // TODO move this to dedicated class with methods
-  removeUserVIPStatus() {
-    if (!this.userChannelInfo) return;
-    this.userChannelInfo.badges = this.userChannelInfo.badges.filter((badge) => badge.type !== "vip");
-  }
-  // TODO move this to dedicated class with methods
-  removeUserModStatus() {
-    if (!this.userChannelInfo) return;
-    this.userChannelInfo.isModerator = false;
-    this.userChannelInfo.badges = this.userChannelInfo.badges.filter((badge) => badge.type !== "moderator");
-  }
-  async updateUserInfo() {
-    const { networkInterface } = this.session;
-    const { channelData } = this.session;
-    try {
-      delete this.userInfo;
-      delete this.userChannelInfo;
-      this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username);
-      this.userInfo = await networkInterface.getUserInfo(this.userChannelInfo.slug);
-      this.updateGiftSubButton();
-    } catch (err) {
-      if (err.errors && err.errors.length > 0) {
-        this.toaster.addToast("Failed to get user info: " + err.errors.join(" "), 6e3, "error");
-      } else if (err.message) {
-        this.toaster.addToast("Failed to get user info: " + err.message, 6e3, "error");
-      } else {
-        this.toaster.addToast("Failed to get user info, reason unknown", 6e3, "error");
-      }
-    }
-  }
-  updateUserBadges() {
-    const { badgeProvider } = this.session;
-    const { badgesEl, userChannelInfo } = this;
-    if (!badgesEl || !userChannelInfo) return;
-    badgesEl.innerHTML = userChannelInfo.badges.length ? "Badges: " + userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join("") : "";
-  }
-  updateModStatusPage() {
-    const { userChannelInfo, statusPageEl } = this;
-    if (!userChannelInfo || !statusPageEl) return;
-    if (userChannelInfo.banned) {
-      statusPageEl.innerHTML = cleanupHTML(`
-				<div class="ntv__user-info-modal__status-page__banned">
-					<span><b>Banned</b></span>
-					<span>Reason: ${userChannelInfo.banned.reason}</span>
-					<span>Expires: ${userChannelInfo.banned.expiresAt ? formatRelativeTime(userChannelInfo.banned.expiresAt) : "Not set"}</span>
-				</div>
-			`);
-    } else {
-      while (statusPageEl.firstChild) statusPageEl.firstChild.remove();
-    }
-  }
-};
-
-// src/Core/UI/Modals/PollModal.ts
-var PollModal = class extends AbstractModal {
-  rootContext;
-  session;
-  toaster;
-  pollQuestionEl;
-  pollOptionsEls;
-  durationSliderComponent;
-  displayDurationSliderComponent;
-  createButtonEl;
-  cancelButtonEl;
-  constructor(rootContext, session, {
-    toaster
-  }) {
-    const geometry = {
-      width: "340px",
-      position: "center"
-    };
-    super("poll", geometry);
-    this.rootContext = rootContext;
-    this.session = session;
-    this.toaster = toaster;
-  }
-  init() {
-    super.init();
-    return this;
-  }
-  async render() {
-    super.render();
-    const element = parseHTML(
-      cleanupHTML(`
-            <h3 class="ntv__poll-modal__title">Create a new Poll</h3>
-            <span class="ntv__poll-modal__subtitle">Question:</span>
-            <textarea rows="1" class="ntv__input ntv__poll-modal__q-input" placeholder="Poll question" capture-focus></textarea>
-            <span class="ntv__poll-modal__subtitle">Options (minimum 2):</span>
-            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 1" capture-focus>
-            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 2" capture-focus>
-            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 3" capture-focus disabled>
-            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 4" capture-focus disabled>
-            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 5" capture-focus disabled>
-            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 6" capture-focus disabled>
-            <span class="ntv__poll-modal__subtitle">Duration</span>
-            <div class="ntv__poll-modal__duration"></div>
-            <span class="ntv__poll-modal__subtitle">Result displayed for</span>
-            <div class="ntv__poll-modal__display-duration"></div>
-            <div class="ntv__poll-modal__footer">
-                <button class="ntv__button ntv__button--regular ntv__poll-modal__close-btn">Cancel</button>
-                <button class="ntv__button ntv__poll-modal__create-btn">Create</button>
-            </div>`)
-    );
-    this.pollQuestionEl = element.querySelector(".ntv__poll-modal__q-input");
-    this.pollOptionsEls = element.querySelectorAll(".ntv__poll-modal__o-input");
-    const durationWrapper = element.querySelector(".ntv__poll-modal__duration");
-    this.durationSliderComponent = new SteppedInputSliderComponent(
-      ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
-      [30, 60, 120, 180, 240, 300]
-    ).init();
-    durationWrapper.appendChild(this.durationSliderComponent.element);
-    const displayDurationWrapper = element.querySelector(".ntv__poll-modal__display-duration");
-    this.displayDurationSliderComponent = new SteppedInputSliderComponent(
-      ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
-      [30, 60, 120, 180, 240, 300]
-    ).init();
-    displayDurationWrapper.appendChild(this.displayDurationSliderComponent.element);
-    this.createButtonEl = element.querySelector(".ntv__poll-modal__create-btn");
-    this.cancelButtonEl = element.querySelector(".ntv__poll-modal__close-btn");
-    this.modalBodyEl.appendChild(element);
-  }
-  attachEventHandlers() {
-    super.attachEventHandlers();
-    for (let i = 1; i < this.pollOptionsEls.length; i++) {
-      this.pollOptionsEls[i].addEventListener("input", () => {
-        const currentOptionEl = this.pollOptionsEls[i];
-        const nextOptionEl = this.pollOptionsEls[i + 1];
-        if (nextOptionEl) {
-          nextOptionEl.disabled = !currentOptionEl.value.trim();
-        }
-      });
-    }
-    this.createButtonEl.addEventListener("click", async () => {
-      const question = this.pollQuestionEl.value.trim();
-      const options = Array.from(this.pollOptionsEls).map((el) => el.value.trim()).filter((option) => !!option);
-      const duration = this.durationSliderComponent.getValue();
-      const displayDuration = this.displayDurationSliderComponent.getValue();
-      if (!question) {
-        this.toaster.addToast("Please enter a question", 6e3, "error");
-        return;
-      }
-      if (options.length < 2) {
-        this.toaster.addToast("Please enter at least 2 options", 6e3, "error");
-        return;
-      }
-      if (options.some((option) => !option)) {
-        this.toaster.addToast("Please fill in all options", 6e3, "error");
-        return;
-      }
-      const channelName = this.session.channelData.channelName;
-      this.session.networkInterface.createPoll(channelName, question, options, duration, displayDuration);
-      this.destroy();
-    });
-    this.cancelButtonEl.addEventListener("click", async () => {
-      this.destroy();
-    });
-  }
-};
-
-// src/Core/Common/Toaster.ts
-var Toaster = class {
-  toasts = [];
-  addToast(message, duration, type = "info") {
-    const toastEl = parseHTML(
-      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
-      true
-    );
-    const timeout = Date.now() + duration;
-    const toast = { message, type, timeout, element: toastEl };
-    this.toasts.push(toast);
-    document.body.appendChild(toastEl);
-    setTimeout(() => {
-      const index = this.toasts.indexOf(toast);
-      if (index !== -1) {
-        this.toasts[index].element.remove();
-        this.toasts.splice(index, 1);
-      }
-    }, duration);
-    this.moveToasts();
-  }
-  moveToasts() {
-    const spacing = 20;
-    let y = 20;
-    const toasts = this.toasts.toReversed();
-    for (const toast of toasts) {
-      toast.element.style.top = `${y}px`;
-      y += toast.element.clientHeight + spacing;
-    }
+  handleClickEvent(event, clickIsInInput) {
   }
 };
 
 // src/Core/UI/Caret.ts
-var logger21 = new Logger();
-var { log: log20, info: info18, error: error21 } = logger21.destruct();
+var logger18 = new Logger();
+var { log: log17, info: info15, error: error18 } = logger18.destruct();
 var Caret = class {
   static moveCaretTo(container, offset) {
     const selection = window.getSelection();
@@ -20102,7 +18835,7 @@ var Caret = class {
   }
   static collapseToEndOfNode(node) {
     const selection = window.getSelection();
-    if (!selection) return error21("CORE", "UI", "Unable to get selection, cannot collapse to end of node", node);
+    if (!selection) return error18("CORE", "UI", "Unable to get selection, cannot collapse to end of node", node);
     const range = document.createRange();
     if (node instanceof Text) {
       const offset = node.textContent ? node.textContent.length : 0;
@@ -20258,7 +18991,7 @@ var Caret = class {
   }
   static insertNodeAtCaret(range, node) {
     if (!node.nodeType || node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) {
-      return error21("CORE", "UI", "Invalid node type", node);
+      return error18("CORE", "UI", "Invalid node type", node);
     }
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
       range.insertNode(node);
@@ -20282,7 +19015,7 @@ var Caret = class {
   // Replacement can be a string or an element node.
   static replaceTextInRange(container, start, end, replacement) {
     if (container.nodeType !== Node.TEXT_NODE) {
-      error21("CORE", "UI", "Invalid container node type", container);
+      error18("CORE", "UI", "Invalid container node type", container);
       return 0;
     }
     const text = container.textContent || "";
@@ -20299,628 +19032,9 @@ var Caret = class {
   }
 };
 
-// src/Core/Common/Clipboard.ts
-var logger22 = new Logger();
-var { log: log21, info: info19, error: error22 } = logger22.destruct();
-function flattenNestedElement(node) {
-  const result = [];
-  function traverse(node2) {
-    if (node2.nodeType === Node.TEXT_NODE) {
-      result.push(node2);
-    } else if (node2.nodeType === Node.ELEMENT_NODE && node2.nodeName === "IMG") {
-      result.push(node2);
-    } else {
-      for (var i = 0; i < node2.childNodes.length; i++) {
-        traverse(node2.childNodes[i]);
-      }
-    }
-  }
-  traverse(node);
-  return result;
-}
-var Clipboard2 = class {
-  domParser = new DOMParser();
-  handleCopyEvent(event) {
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return error22("CORE", "UI", "Selection is null");
-    event.preventDefault();
-    const fragment = document.createDocumentFragment();
-    const nodeList = [];
-    for (let i = 0; i < selection.rangeCount; i++) {
-      fragment.append(selection.getRangeAt(i).cloneContents());
-    }
-    const walker = document.createTreeWalker(
-      fragment,
-      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() || node?.tagName === "IMG" ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
-    );
-    let currentNode = walker.currentNode;
-    while (currentNode) {
-      nodeList.push(currentNode);
-      currentNode = walker.nextNode();
-    }
-    const copyString = nodeList.map((node) => {
-      if (node instanceof Text) {
-        return node.textContent?.trim();
-      } else if (node instanceof HTMLElement && node.dataset.emoteName) {
-        return node.dataset.emoteName || "UNSET_EMOTE_NAME";
-      } else if (node instanceof HTMLElement && node.tagName === "IMG" && node.hasAttribute("alt")) {
-        return node.getAttribute("alt");
-      }
-    }).filter((text) => typeof text === "string" && text.length > 0).join(" ").replaceAll(CHAR_ZWSP, "");
-    event.clipboardData?.setData("text/plain", copyString);
-    log21("CORE", "UI", `Copied: "${copyString}"`);
-  }
-  handleCutEvent(event) {
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    if (!range) return;
-    const commonAncestorContainer = range.commonAncestorContainer;
-    if (!(commonAncestorContainer instanceof HTMLElement) && !commonAncestorContainer.isContentEditable && !commonAncestorContainer.parentElement.isContentEditable) {
-      return;
-    }
-    event.preventDefault();
-    this.handleCopyEvent(event);
-    selection.deleteFromDocument();
-  }
-  paste(text) {
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    selection.deleteFromDocument();
-    selection.getRangeAt(0).insertNode(document.createTextNode(text));
-    selection.collapseToEnd();
-  }
-  pasteHTML(html) {
-    const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    selection.deleteFromDocument();
-    const range = selection.getRangeAt(0);
-    for (const node of nodes) {
-      Caret.insertNodeAtCaret(range, node);
-    }
-    const lastNode = nodes[nodes.length - 1];
-    if (lastNode) {
-      if (lastNode.nodeType === Node.TEXT_NODE) {
-        selection.collapse(lastNode, lastNode.length);
-        selection.collapseToEnd();
-      } else if (lastNode.nodeType === Node.ELEMENT_NODE) {
-        selection.collapse(lastNode, lastNode.childNodes.length);
-      }
-    }
-  }
-  parsePastedMessage(evt) {
-    const clipboardData = evt.clipboardData || window.clipboardData;
-    if (!clipboardData) return [];
-    const html = clipboardData.getData("text/html");
-    if (html) {
-      const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
-      const childNodes = doc.body.childNodes;
-      if (childNodes.length === 0) {
-        return [];
-      }
-      let startFragmentComment = null, endFragmentComment = null;
-      for (let i = 0; i < childNodes.length; i++) {
-        const node = childNodes[i];
-        if (node.nodeType === Node.COMMENT_NODE) {
-          if (node.textContent === "StartFragment") {
-            startFragmentComment = i;
-          } else if (node.textContent === "EndFragment") {
-            endFragmentComment = i;
-          }
-          if (startFragmentComment && endFragmentComment) {
-            break;
-          }
-        }
-      }
-      if (startFragmentComment === null || endFragmentComment === null) {
-        error22("CORE", "UI", "Failed to find fragment markers, clipboard data seems to be corrupted.");
-        return [];
-      }
-      const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
-      const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
-      const parsedNodes = [];
-      for (const node of flattenedNodes) {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent) {
-          parsedNodes.push(node.textContent);
-        } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
-          const emoteName = node.dataset.emoteName;
-          if (emoteName) {
-            parsedNodes.push(emoteName);
-          }
-        }
-      }
-      if (parsedNodes.length) return parsedNodes;
-      return [];
-    } else {
-      const text = clipboardData.getData("text/plain");
-      if (!text) return [];
-      return [text.replaceAll(CHAR_ZWSP, "")];
-    }
-  }
-};
-
-// src/Core/UI/AbstractUserInterface.ts
-var logger23 = new Logger();
-var { log: log22, info: info20, error: error23 } = logger23.destruct();
-var AbstractUserInterface = class {
-  rootContext;
-  session;
-  inputController = null;
-  clipboard = new Clipboard2();
-  toaster = new Toaster();
-  messageHistory = new MessagesHistory();
-  submitButtonPriorityEventTarget = new PriorityEventTarget();
-  baseAbortController = new AbortController();
-  celebrationData;
-  replyMessageData;
-  replyMessageComponent;
-  maxMessageLength = 500;
-  /**
-   * @param {EventBus} eventBus
-   * @param {object} deps
-   */
-  constructor(rootContext, session) {
-    this.rootContext = rootContext;
-    this.session = session;
-  }
-  getInputController() {
-    return this.inputController;
-  }
-  loadInterface() {
-    const { eventBus } = this.session;
-    eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
-      assertArgDefined(data.username);
-      this.showUserInfoModal(data.username);
-    });
-    eventBus.subscribe("ntv.ui.show_modal.poll", () => {
-      new PollModal(this.rootContext, this.session, { toaster: this.toaster }).init();
-    });
-    document.addEventListener(
-      "mouseover",
-      (evt) => {
-        const target = evt.target;
-        const tooltip = target?.getAttribute("ntv-tooltip");
-        if (!tooltip) return;
-        const rect = target.getBoundingClientRect();
-        const left = rect.left + rect.width / 2;
-        const top = rect.top;
-        const tooltipEl = parseHTML(
-          `<div class="ntv__tooltip" style="top: ${top}px; left: ${left}px;">${tooltip}</div>`,
-          true
-        );
-        document.body.appendChild(tooltipEl);
-        target.addEventListener(
-          "mouseleave",
-          () => {
-            tooltipEl.remove();
-          },
-          { once: true, passive: true }
-        );
-      },
-      { signal: this.baseAbortController.signal }
-    );
-    eventBus.subscribe("ntv.ui.timers.add", this.addTimer.bind(this));
-  }
-  toastSuccess(message) {
-    this.toaster.addToast(message.replaceAll("<", "&lt;"), 6e3, "success");
-  }
-  toastError(message) {
-    this.toaster.addToast(message.replaceAll("<", "&lt;"), 6e3, "error");
-  }
-  renderMessageParts(parsedMessageParts) {
-    const result = [];
-    let prevPart = null;
-    for (let index = 0; index < parsedMessageParts.length; index++) {
-      const part = parsedMessageParts[index];
-      if (typeof part === "string") {
-        result.push(this.createPlainTextMessagePartNode(part));
-      } else if (part instanceof Node) {
-        const newContentNode = document.createElement("span");
-        newContentNode.classList.add("ntv__chat-message__part");
-        newContentNode.appendChild(part);
-        result.push(newContentNode);
-      } else if (part.type === "emote") {
-        const prevPartWasEmote = prevPart && typeof prevPart !== "string" && !(prevPart instanceof Node) && prevPart.type === "emote";
-        if (prevPartWasEmote && part.emote.isZeroWidth) {
-          const prevElement = result[result.length - 1];
-          this.insertZeroWidthEmotePart(part.emote, prevElement);
-        } else {
-          result.push(this.createEmoteMessagePartElement(part.emote));
-        }
-      } else if (part.type === "emoji") {
-        const spanEl = document.createElement("span");
-        spanEl.className = "ntv__chat-message__part";
-        const emojiNode = document.createElement("img");
-        emojiNode.className = "ntv__inline-emoji";
-        emojiNode.src = part.url;
-        emojiNode.alt = part.alt;
-        spanEl.appendChild(emojiNode);
-        result.push(spanEl);
-      } else {
-        error23("CORE", "UI", "Unknown message part type", part);
-      }
-      prevPart = part;
-    }
-    return result;
-  }
-  createEmoteMessagePartElement(emote) {
-    const spanEl = document.createElement("span");
-    spanEl.className = "ntv__chat-message__part";
-    spanEl.setAttribute("contenteditable", "false");
-    const emoteBoxEl = document.createElement("div");
-    emoteBoxEl.className = "ntv__inline-emote-box";
-    spanEl.appendChild(emoteBoxEl);
-    const emoteRender = this.session.emotesManager.getRenderableEmote(emote);
-    if (!emoteRender) {
-      error23(
-        "CORE",
-        "UI",
-        "Failed to create emote message part element, emote render not found.",
-        emote,
-        emote.isZeroWidth && "ntv__emote--zero-width" || ""
-      );
-      return spanEl;
-    }
-    emoteBoxEl.appendChild(parseHTML(emoteRender));
-    return spanEl;
-  }
-  insertZeroWidthEmotePart(emote, messagePartEl) {
-    const emoteRender = this.session.emotesManager.getRenderableEmote(emote, "ntv__emote--zero-width");
-    if (!emoteRender) {
-      error23("CORE", "UI", "Failed to insert zero width emote part, emote render not found.", emote);
-      return;
-    }
-    const emoteBoxEl = messagePartEl.firstElementChild;
-    if (!emoteBoxEl)
-      return error23("CORE", "UI", "Failed to insert zero width emote part, target does not have child element.");
-    emoteBoxEl.appendChild(parseHTML(emoteRender));
-  }
-  createPlainTextMessagePartNode(textContent) {
-    if (textContent === " ") {
-      error23("CORE", "UI", "Attempted to create a text node with a single space character.");
-      return document.createTextNode(" ");
-    }
-    const newNode = document.createElement("span");
-    newNode.append(document.createTextNode(textContent));
-    newNode.className = "ntv__chat-message__part";
-    return newNode;
-  }
-  changeInputStatus(status, reason) {
-    if (!this.inputController) return error23("CORE", "UI", "Input controller not loaded yet.");
-    const contentEditableEditor = this.inputController.contentEditableEditor;
-    if (status === "enabled") {
-      contentEditableEditor.enableInput();
-      contentEditableEditor.setPlaceholder(reason || "Send message..");
-    } else if (status === "disabled") {
-      contentEditableEditor.clearInput();
-      contentEditableEditor.setPlaceholder(reason || "Chat is disabled");
-      contentEditableEditor.disableInput();
-    }
-  }
-  loadInputStatusBehaviour() {
-    if (!this.inputController)
-      return error23("CORE", "UI", "Input controller not loaded yet. Cannot load input status behaviour.");
-    const chatroomData = this.session.channelData.chatroom;
-    const channelMeData = this.session.channelData.me;
-    if (!chatroomData) return error23("CORE", "UI", "Chatroom data is missing from channelData");
-    if (!channelMeData) return error23("CORE", "UI", "Channel me data is missing from channelData");
-    const updateInputStatus = () => {
-      const chatroomData2 = this.session.channelData.chatroom;
-      const channelMeData2 = this.session.channelData.me;
-      const isPrivileged2 = channelMeData2.isSuperAdmin || channelMeData2.isBroadcaster || channelMeData2.isModerator;
-      let inputChanged = false;
-      if (!chatroomData2) return error23("CORE", "UI", "Chatroom data is missing from channelData");
-      if (!isPrivileged2 && channelMeData2.isBanned) {
-        log22("CORE", "UI", "You got banned from chat");
-        if (channelMeData2.isBanned.permanent) {
-          this.changeInputStatus("disabled", `You are banned from chat.`);
-        } else {
-          const expiresAt = new Date(channelMeData2.isBanned.expiresAt).getTime();
-          const duration = Math.ceil((expiresAt - Date.now()) / 1e3 / 60);
-          this.changeInputStatus(
-            "disabled",
-            `You are banned from chat for ${duration || "unknown"} minute(s).`
-          );
-        }
-        inputChanged = true;
-      }
-      if (!inputChanged && chatroomData2.followersMode?.enabled && (!channelMeData2.isFollowing || isPrivileged2)) {
-        log22("CORE", "UI", "Followers only mode enabled");
-        const isEnabled = isPrivileged2 || channelMeData2.isFollowing;
-        this.changeInputStatus(isEnabled ? "enabled" : "disabled", isEnabled ? null : "Followers only");
-        inputChanged = true;
-      }
-      if (!inputChanged && chatroomData2.subscribersMode?.enabled && (!channelMeData2.isSubscribed || isPrivileged2)) {
-        log22("CORE", "UI", "Subscribers only mode enabled");
-        const isEnabled = isPrivileged2 || channelMeData2.isSubscribed;
-        this.changeInputStatus(isEnabled ? "enabled" : "disabled", isEnabled ? null : "Subscribers only");
-        inputChanged = true;
-      }
-      if (!inputChanged && chatroomData2.followersMode?.enabled && channelMeData2.isFollowing) {
-        const followingSince = new Date(channelMeData2.followingSince);
-        const minDuration = chatroomData2.followersMode.min_duration || 0;
-        const now = /* @__PURE__ */ new Date();
-        const timeElapsed = (now.getTime() - followingSince.getTime()) / 1e3 << 0;
-        let remainingTime = minDuration - timeElapsed;
-        if (remainingTime > 0) {
-          const hours = remainingTime / 3600 << 0;
-          remainingTime -= hours * 3600;
-          const minutes = remainingTime / 60 << 0;
-          const hoursString = hours > 0 ? `${hours} hour${hours > 1 ? "s" : ""}` : "";
-          const minutesString = minutes > 0 ? `${minutes} minute${minutes > 1 ? "s" : ""}` : "";
-          const secondsString = remainingTime % 60 > 0 ? `${remainingTime % 60} second${remainingTime % 60 > 1 ? "s" : ""}` : "";
-          const formattedRemainingTime = hoursString ? `${hoursString} and ${minutesString || "0 minutes"}`.trim() : minutesString ? `${minutesString} and ${secondsString || "0 seconds"}`.trim() : `${secondsString}`;
-          this.changeInputStatus(
-            isPrivileged2 ? "enabled" : "disabled",
-            `Followers only, please wait for ${formattedRemainingTime} before you can chat.`
-          );
-          inputChanged = true;
-        }
-      }
-      if (!inputChanged && chatroomData2.emotesMode?.enabled) {
-        log22("CORE", "UI", "Emotes only mode enabled");
-        this.changeInputStatus("enabled", "Emotes only");
-      }
-      if (!inputChanged) {
-        log22("CORE", "UI", "Normal chat input restored");
-        this.changeInputStatus("enabled", "Send message..");
-      }
-    };
-    const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator;
-    if (chatroomData.followersMode?.enabled && chatroomData.followersMode?.min_duration && !isPrivileged) {
-      const followingSince = new Date(channelMeData.followingSince);
-      const minDuration = (chatroomData.followersMode?.min_duration || 0) * 60;
-      const now = /* @__PURE__ */ new Date();
-      const timeElapsed = (now.getTime() - followingSince.getTime()) / 1e3 << 0;
-      const remainingTime = minDuration - timeElapsed;
-      if (remainingTime > 0) {
-        let intervalHandle = setInterval(updateInputStatus, 1e3);
-        setTimeout(() => {
-          clearInterval(intervalHandle);
-          updateInputStatus();
-        }, remainingTime * 1e3);
-      }
-    }
-    this.session.eventBus.subscribe("ntv.channel.chatroom.me.banned", (data) => {
-      const channelMeData2 = this.session.channelData.me;
-      const isPrivileged2 = channelMeData2.isSuperAdmin || channelMeData2.isBroadcaster || channelMeData2.isModerator;
-      if (data.permanent) {
-        this.changeInputStatus(isPrivileged2 ? "enabled" : "disabled", `You are banned from chat.`);
-      } else {
-        const expiresAt = new Date(data.expiresAt).getTime();
-        const now = Date.now();
-        const duration = Math.ceil((expiresAt - now) / 1e3 / 60);
-        this.changeInputStatus(
-          isPrivileged2 ? "enabled" : "disabled",
-          `You are banned from chat for ${duration || "unknown"} minute(s).`
-        );
-      }
-    });
-    this.session.eventBus.subscribe("ntv.channel.chatroom.me.unbanned", (data) => {
-      updateInputStatus();
-    });
-    updateInputStatus();
-    this.session.eventBus.subscribe("ntv.channel.chatroom.updated", updateInputStatus);
-    this.session.eventBus.subscribe("ntv.channel.chatroom.me.unbanned", updateInputStatus);
-  }
-  showUserInfoModal(username, position) {
-    log22("CORE", "UI", "Loading user info modal..");
-    return new UserInfoModal(
-      this.rootContext,
-      this.session,
-      {
-        toaster: this.toaster
-      },
-      username,
-      position
-    ).init();
-  }
-  addTimer({ duration, description }) {
-    log22("CORE", "UI", "Adding timer..", duration, description);
-    const timersContainer = this.elm.timersContainer;
-    if (!timersContainer) return error23("CORE", "UI", "Unable to add timet, UI container does not exist yet.");
-    const timer = new TimerComponent(duration, description).init();
-    timersContainer.appendChild(timer.element);
-  }
-  // Submits input to chat
-  submitInput(suppressEngagementEvent, dontClearInput) {
-    const { eventBus, inputExecutionStrategyRegister } = this.session;
-    const contentEditableEditor = this.inputController?.contentEditableEditor;
-    if (!contentEditableEditor)
-      return error23("CORE", "UI", "Unable to submit input, the input controller is not loaded yet.");
-    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
-      error23("CORE", "UI", "Message is too long to send.");
-      return this.toastError("Message is too long to send.");
-    }
-    const messageContent = contentEditableEditor.getMessageContent();
-    if (!messageContent.length) return log22("CORE", "UI", "No message content to send.");
-    eventBus.publish("ntv.ui.submit_input", { suppressEngagementEvent });
-    if (this.celebrationData) {
-      const celebrationId = this.celebrationData.id;
-    }
-    if (this.replyMessageData && !this.celebrationData) {
-      const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData;
-      inputExecutionStrategyRegister.routeInput(
-        contentEditableEditor,
-        {
-          input: messageContent,
-          isReply: true,
-          replyRefs: {
-            messageId: chatEntryId,
-            messageContent: chatEntryContentString,
-            senderId: chatEntryUserId,
-            senderUsername: chatEntryUsername
-          }
-        },
-        dontClearInput
-      ).then((successMessage) => {
-        if (successMessage) {
-          if (typeof successMessage !== "string")
-            throw new Error("Success message returned by input execution strategy is not a string.");
-          this.toastSuccess(successMessage);
-        }
-        eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
-      }).catch((err) => {
-        if (err && err.message) {
-          error23("CORE", "UI", err.message);
-          this.toastError(err.message);
-        } else {
-          error23("CORE", "UI", "Failed to reply to message. Reason unknown.");
-          this.toastError("Failed to reply to message. Reason unknown.");
-        }
-      });
-      this.destroyReplyMessageContext();
-    } else {
-      inputExecutionStrategyRegister.routeInput(
-        contentEditableEditor,
-        {
-          input: messageContent,
-          isReply: false,
-          celebrationRefs: this.celebrationData
-        },
-        dontClearInput
-      ).then((successMessage) => {
-        const celebrationData = this.celebrationData;
-        if (celebrationData) {
-          const celebrations = this.session.channelData.me.celebrations;
-          if (celebrations) {
-            this.session.channelData.me.celebrations = celebrations.filter(
-              (c) => c.id !== celebrationData.id
-            );
-          }
-          delete this.celebrationData;
-        }
-        if (successMessage) {
-          if (typeof successMessage !== "string")
-            throw new Error("Success message returned by input execution strategy is not a string.");
-          this.toastSuccess(successMessage);
-        }
-        eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
-      }).catch((err) => {
-        if (err && err.message) {
-          error23("CORE", "UI", err.message);
-          this.toastError(err.message);
-        } else {
-          error23("CORE", "UI", "Failed to send message. Reason unknown.");
-          this.toastError("Failed to send message. Reason unknown.");
-        }
-      });
-    }
-  }
-  sendEmoteToChat(emoteHid) {
-    const { emotesManager, inputExecutionStrategyRegister } = this.session;
-    const contentEditableEditor = this.inputController?.contentEditableEditor;
-    if (!contentEditableEditor)
-      return error23("CORE", "UI", "Unable to send emote to chat, input controller is not loaded yet.");
-    const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
-    if (!emoteEmbedding) return error23("CORE", "UI", "Failed to send emote to chat, emote embedding not found.");
-    inputExecutionStrategyRegister.routeInput(contentEditableEditor, {
-      input: emoteEmbedding,
-      isReply: false
-    }).catch((err) => {
-      if (err) {
-        error23("CORE", "UI", "Failed to send emote because:", err);
-        this.toastError("Failed to send emote because: " + err);
-      } else {
-        error23("CORE", "UI", "Failed to send emote to chat. Reason unknown.");
-        this.toastError("Failed to send emote to chat. Reason unknown.");
-      }
-    });
-  }
-  replyMessage(messageNodes, chatEntryId, chatEntryContent, chatEntrySenderId, chatEntrySenderUsername) {
-    log22(
-      "CORE",
-      "UI",
-      `Replying to message ${chatEntryId} of user ${chatEntrySenderUsername} with ID ${chatEntrySenderId}..`
-    );
-    if (!this.inputController) return error23("CORE", "UI", "Input controller not loaded for reply behaviour");
-    if (!this.elm.replyMessageWrapper)
-      return error23("CORE", "UI", "Unable to load reply message, reply message wrapper not found");
-    if (this.replyMessageData) this.destroyReplyMessageContext();
-    this.replyMessageData = {
-      chatEntryId,
-      chatEntryContentString: chatEntryContent,
-      chatEntryUsername: chatEntrySenderUsername,
-      chatEntryUserId: chatEntrySenderId
-    };
-    this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init();
-    this.replyMessageComponent.addEventListener("close", () => {
-      this.destroyReplyMessageContext();
-    });
-    if (this.inputController) this.inputController.contentEditableEditor.focusInput();
-  }
-  isReplyingToMessage() {
-    return !!this.replyMessageComponent;
-  }
-  destroyReplyMessageContext() {
-    this.replyMessageComponent?.destroy();
-    this.elm.replyMessageWrapper?.remove();
-    delete this.replyMessageComponent;
-    delete this.replyMessageData;
-  }
-  isContentEditableEditorDestroyed() {
-    const contentEditableEditor = this.inputController?.contentEditableEditor;
-    if (!contentEditableEditor) return false;
-    return !isElementInDOM(contentEditableEditor.getInputNode());
-  }
-};
-
-// src/Core/Common/DOMEventManager.ts
-var DOMEventManager = class {
-  listeners = [];
-  addEventListener(element, type, listener, options) {
-    element.addEventListener(type, listener, options);
-    this.listeners.push({ element, type, listener, options });
-  }
-  removeAllEventListeners() {
-    for (const { element, type, listener, options } of this.listeners) {
-      element.removeEventListener(type, listener, options);
-    }
-    this.listeners = [];
-  }
-};
-
-// src/Core/Input/Completion/Strategies/AbstractInputCompletionStrategy.ts
-var AbstractInputCompletionStrategy = class {
-  constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
-    this.rootContext = rootContext;
-    this.session = session;
-    this.contentEditableEditor = contentEditableEditor;
-    this.navListWindowManager = navListWindowManager;
-  }
-  navWindow;
-  allowInlineStrategyDelegation = false;
-  clearNavWindow() {
-    if (!this.navWindow) return;
-    this.navWindow.clearEntries();
-  }
-  isClickInsideNavWindow(node) {
-    return this.navWindow?.containsNode(node) || false;
-  }
-  isShowingNavWindow() {
-    return !!this.navWindow;
-  }
-  reset() {
-    if (this.navWindow) {
-      this.navWindow = void 0;
-      this.navListWindowManager.destroyNavWindow(this.id);
-    }
-  }
-  handleBlockingKeyDownEvent(event) {
-  }
-  handleKeyDownEvent(event) {
-  }
-  handleKeyUpEvent(event) {
-  }
-  handleClickEvent(event, clickIsInInput) {
-  }
-};
-
 // src/Core/Input/Completion/Strategies/ColonEmoteCompletionStrategy.ts
-var logger24 = new Logger();
-var { log: log23, info: info21, error: error24 } = logger24.destruct();
+var logger19 = new Logger();
+var { log: log18, info: info16, error: error19 } = logger19.destruct();
 var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
     super(rootContext, session, contentEditableEditor, navListWindowManager);
@@ -21026,29 +19140,29 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
     navWindow.setSelectedIndex(0);
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error24("CORE", "EMCOMPS", "No tab completion window to move selector up");
+    if (!this.navWindow) return error19("CORE", "EMCOMPS", "No tab completion window to move selector up");
     if (this.hasNavigated) this.navWindow.moveSelectorUp();
     else this.navWindow.setSelectedIndex(0);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error24("CORE", "EMCOMPS", "No tab completion window to move selector down");
+    if (!this.navWindow) return error19("CORE", "EMCOMPS", "No tab completion window to move selector down");
     if (this.hasNavigated) this.navWindow.moveSelectorDown();
     else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error24("CORE", "EMCOMPS", "No tab completion window to render inline completion");
+    if (!this.navWindow) return error19("CORE", "EMCOMPS", "No tab completion window to render inline completion");
     const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error24("CORE", "EMCOMPS", "No selected entry to render completion");
+    if (!selectedEntry) return error19("CORE", "EMCOMPS", "No selected entry to render completion");
     const { emoteHid } = selectedEntry;
-    if (!emoteHid) return error24("CORE", "EMCOMPS", "No emote hid to render inline emote");
+    if (!emoteHid) return error19("CORE", "EMCOMPS", "No emote hid to render inline emote");
     if (this.emoteComponent) {
       this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
     } else {
-      if (!this.node) return error24("CORE", "EMCOMPS", "Invalid node to restore original text");
+      if (!this.node) return error19("CORE", "EMCOMPS", "Invalid node to restore original text");
       const range = document.createRange();
       range.setStart(this.node, this.start);
       range.setEnd(this.node, this.end);
@@ -21064,7 +19178,7 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
   }
   restoreOriginalText() {
     if (this.word) {
-      if (!this.emoteComponent) return error24("CORE", "EMCOMPS", "Invalid embed node to restore original text");
+      if (!this.emoteComponent) return error19("CORE", "EMCOMPS", "Invalid embed node to restore original text");
       this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
     }
   }
@@ -21157,8 +19271,8 @@ var ColonEmoteCompletionStrategy = class extends AbstractInputCompletionStrategy
 };
 
 // src/Core/Input/Completion/Strategies/CommandCompletionStrategy.ts
-var logger25 = new Logger();
-var { log: log24, info: info22, error: error25 } = logger25.destruct();
+var logger20 = new Logger();
+var { log: log19, info: info17, error: error20 } = logger20.destruct();
 var CommandCompletionStrategy = class extends AbstractInputCompletionStrategy {
   // private handleEventInKeyUp = false
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
@@ -21281,24 +19395,24 @@ var CommandCompletionStrategy = class extends AbstractInputCompletionStrategy {
     }
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error25("CORE", "COMCOMS", "Tab completion window does not exist yet");
+    if (!this.navWindow) return error20("CORE", "COMCOMS", "Tab completion window does not exist yet");
     const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error25("CORE", "COMCOMS", "No selected entry to render completion");
+    if (!selectedEntry) return error20("CORE", "COMCOMS", "No selected entry to render completion");
     const { name } = selectedEntry;
     this.contentEditableEditor.setInputContent("/" + name);
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error25("CORE", "COMCOMS", "No tab completion window to move selector up");
+    if (!this.navWindow) return error20("CORE", "COMCOMS", "No tab completion window to move selector up");
     this.navWindow.moveSelectorUp();
     this.renderInlineCompletion();
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error25("CORE", "COMCOMS", "No tab completion window to move selector down");
+    if (!this.navWindow) return error20("CORE", "COMCOMS", "No tab completion window to move selector down");
     this.navWindow.moveSelectorDown();
     this.renderInlineCompletion();
   }
   handleBlockingKeyDownEvent(event) {
-    log24("CORE", "COMCOMS", "CommandCompletionStrategy.handleBlockingKeyDownEvent", event.key);
+    log19("CORE", "COMCOMS", "CommandCompletionStrategy.handleBlockingKeyDownEvent", event.key);
   }
   handleKeyDownEvent(event) {
     const { contentEditableEditor } = this;
@@ -21361,8 +19475,8 @@ var CommandCompletionStrategy = class extends AbstractInputCompletionStrategy {
 };
 
 // src/Core/Input/Completion/Strategies/MentionCompletionStrategy.ts
-var logger26 = new Logger();
-var { log: log25, info: info23, error: error26 } = logger26.destruct();
+var logger21 = new Logger();
+var { log: log20, info: info18, error: error21 } = logger21.destruct();
 var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
     super(rootContext, session, contentEditableEditor, navListWindowManager);
@@ -21445,24 +19559,24 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
     navWindow.setSelectedIndex(0);
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error26("CORE", "MENCOMST", "No tab completion window to move selector up");
+    if (!this.navWindow) return error21("CORE", "MENCOMST", "No tab completion window to move selector up");
     if (this.hasNavigated) this.navWindow.moveSelectorUp();
     else this.navWindow.setSelectedIndex(0);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error26("CORE", "MENCOMST", "No tab completion window to move selector down");
+    if (!this.navWindow) return error21("CORE", "MENCOMST", "No tab completion window to move selector down");
     if (this.hasNavigated) this.navWindow.moveSelectorDown();
     else this.navWindow.setSelectedIndex(this.navWindow.getEntriesCount() - 1);
     this.renderInlineCompletion();
     this.hasNavigated = true;
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error26("CORE", "MENCOMST", "Tab completion window does not exist yet");
-    if (!this.node) return error26("CORE", "MENCOMST", "Invalid node to render inline user mention");
+    if (!this.navWindow) return error21("CORE", "MENCOMST", "Tab completion window does not exist yet");
+    if (!this.node) return error21("CORE", "MENCOMST", "Invalid node to render inline user mention");
     const entry = this.navWindow.getSelectedEntry();
-    if (!entry) return error26("CORE", "MENCOMST", "No selected entry to render inline user mention");
+    if (!entry) return error21("CORE", "MENCOMST", "No selected entry to render inline user mention");
     const { userId, userName } = entry;
     const userMention = `@${userName}`;
     this.end = Caret.replaceTextInRange(this.node, this.start, this.end, userMention);
@@ -21475,7 +19589,7 @@ var MentionCompletionStrategy = class extends AbstractInputCompletionStrategy {
       switch (event.key) {
         case "Tab":
           event.preventDefault();
-          log25(
+          log20(
             "CORE",
             "MENCOMST",
             "Tab key pressed in mention completion strategy",
@@ -21892,8 +20006,8 @@ var InputCompletionStrategyManager = class {
 };
 
 // src/Core/Input/Completion/Strategies/EmoteCompletionStrategy.ts
-var logger27 = new Logger();
-var { log: log26, info: info24, error: error27 } = logger27.destruct();
+var logger22 = new Logger();
+var { log: log21, info: info19, error: error22 } = logger22.destruct();
 var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
   constructor(rootContext, session, contentEditableEditor, navListWindowManager) {
     super(rootContext, session, contentEditableEditor, navListWindowManager);
@@ -21962,25 +20076,25 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
     this.renderInlineCompletion();
   }
   moveSelectorUp() {
-    if (!this.navWindow) return error27("CORE", "EMCOMST", "No tab completion window to move selector up");
+    if (!this.navWindow) return error22("CORE", "EMCOMST", "No tab completion window to move selector up");
     this.navWindow.moveSelectorUp();
     this.renderInlineCompletion();
   }
   moveSelectorDown() {
-    if (!this.navWindow) return error27("CORE", "EMCOMST", "No tab completion window to move selector down");
+    if (!this.navWindow) return error22("CORE", "EMCOMST", "No tab completion window to move selector down");
     this.navWindow.moveSelectorDown();
     this.renderInlineCompletion();
   }
   renderInlineCompletion() {
-    if (!this.navWindow) return error27("CORE", "EMCOMST", "Tab completion window does not exist yet");
+    if (!this.navWindow) return error22("CORE", "EMCOMST", "Tab completion window does not exist yet");
     const selectedEntry = this.navWindow.getSelectedEntry();
-    if (!selectedEntry) return error27("CORE", "EMCOMST", "No selected entry to render completion");
+    if (!selectedEntry) return error22("CORE", "EMCOMST", "No selected entry to render completion");
     const { emoteHid } = selectedEntry;
-    if (!emoteHid) return error27("CORE", "EMCOMST", "No emote hid to render inline emote");
+    if (!emoteHid) return error22("CORE", "EMCOMST", "No emote hid to render inline emote");
     if (this.emoteComponent) {
       this.contentEditableEditor.replaceEmote(this.emoteComponent, emoteHid);
     } else {
-      if (!this.node) return error27("CORE", "EMCOMST", "Invalid node to restore original text");
+      if (!this.node) return error22("CORE", "EMCOMST", "Invalid node to restore original text");
       const range = document.createRange();
       range.setStart(this.node, this.start);
       range.setEnd(this.node, this.end);
@@ -21996,7 +20110,7 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
   }
   restoreOriginalText() {
     if (this.word) {
-      if (!this.emoteComponent) return error27("CORE", "EMCOMST", "Invalid embed node to restore original text");
+      if (!this.emoteComponent) return error22("CORE", "EMCOMST", "Invalid embed node to restore original text");
       this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word);
     }
   }
@@ -22058,9 +20172,96 @@ var EmoteCompletionStrategy = class extends AbstractInputCompletionStrategy {
   }
 };
 
+// src/Core/Common/PriorityEventTarget.ts
+var notAllowed = function() {
+  throw new Error("PreventDefault cannot be called because the event was set as passive.");
+};
+var stopPropagation = function() {
+  this._stopPropagation();
+  this.stoppedPropagation = true;
+};
+var stopImmediatePropagation = function() {
+  this._stopImmediatePropagation();
+  this.stoppedImmediatePropagation = true;
+};
+var PriorityEventTarget = class {
+  events = /* @__PURE__ */ new Map();
+  /**
+   * Adds a priority event listener for the specified event type at the specified priority. It will be called in the order of priority.
+   * @param type
+   * @param priority
+   * @param listener
+   * @param options
+   */
+  addEventListener(type, priority, listener, options) {
+    if (!this.events.has(type)) {
+      this.events.set(type, []);
+    }
+    const priorities = this.events.get(type);
+    if (!priorities[priority]) priorities[priority] = [];
+    const listeners = priorities[priority];
+    if (options) listeners.push([listener, options]);
+    else listeners.push([listener]);
+    if (options && options.signal) {
+      options.signal.addEventListener("abort", () => {
+        this.removeEventListener(type, priority, listener, options);
+      });
+    }
+  }
+  removeEventListener(type, priority, listener, options) {
+    if (this.events.has(type)) {
+      const priorities = this.events.get(type);
+      const listeners = priorities[priority];
+      if (!listeners) return;
+      for (let i = 0; i < listeners.length; i++) {
+        let listenerItem = listeners[i][0];
+        let optionsItem = listeners[i][1];
+        if (listenerItem === listener && optionsItem === options) {
+          listeners.splice(i, 1);
+          i--;
+        }
+      }
+    }
+  }
+  dispatchEvent(event) {
+    ;
+    event._stopPropagation = event.stopPropagation;
+    event.stopPropagation = stopPropagation;
+    event._stopImmediatePropagation = event.stopImmediatePropagation;
+    event.stopImmediatePropagation = stopImmediatePropagation;
+    const type = event.type;
+    if (this.events.has(type)) {
+      const priorities = this.events.get(type);
+      for (const key in priorities) {
+        const listeners = priorities[key];
+        for (let i = 0; i < listeners.length; i++) {
+          const listener = listeners[i][0];
+          const options = listeners[i][1];
+          if (options) {
+            if (options.once) {
+              listeners.splice(i, 1);
+              i--;
+            }
+            if (options.passive) {
+              event.preventDefault = notAllowed;
+            }
+          }
+          listener(event);
+          if (event.stoppedImmediatePropagation) {
+            return;
+          }
+        }
+        if (event.stoppedPropagation) {
+          return;
+        }
+      }
+    }
+  }
+};
+
 // src/Core/Input/ContentEditableEditor.ts
-var logger28 = new Logger();
-var { log: log27, info: info25, error: error28 } = logger28.destruct();
+var logger23 = new Logger();
+var { log: log22, info: info20, error: error23 } = logger23.destruct();
 var ContentEditableEditor = class {
   rootContext;
   session;
@@ -22172,7 +20373,7 @@ var ContentEditableEditor = class {
           if (emoteHid) {
             const emoteEmbed = this.createEmoteComponent(emoteHid);
             if (!emoteEmbed) {
-              error28("CORE", "EDITOR", "Failed to create emote component for", token);
+              error23("CORE", "EDITOR", "Failed to create emote component for", token);
               continue;
             }
             newNodes.push(emoteEmbed);
@@ -22398,7 +20599,7 @@ var ContentEditableEditor = class {
     for (let i = 0; i < components.length; i++) {
       const component = components[i];
       if (!component.childNodes[1] || component.childNodes[1].className !== "ntv__input-component__body") {
-        log27("CORE", "EDITOR", "!! Cleaning up empty component", component);
+        log22("CORE", "EDITOR", "!! Cleaning up empty component", component);
         component.remove();
       }
     }
@@ -22406,9 +20607,9 @@ var ContentEditableEditor = class {
   createEmoteComponent(emoteHID) {
     const emotesManager = this.session.emotesManager;
     const emote = emotesManager.getEmote(emoteHID);
-    if (!emote) return error28("CORE", "EDITOR", "Emote not found for HID", emoteHID);
+    if (!emote) return error23("CORE", "EDITOR", "Emote not found for HID", emoteHID);
     const emoteHTML = emotesManager.getRenderableEmote(emote, emote.isZeroWidth && "ntv__emote--zero-width" || "");
-    if (!emoteHTML) return error28("CORE", "EDITOR", "Failed to get renderable emote for HID", emoteHID);
+    if (!emoteHTML) return error23("CORE", "EDITOR", "Failed to get renderable emote for HID", emoteHID);
     const component = document.createElement("span");
     component.className = "ntv__input-component";
     component.appendChild(document.createTextNode(CHAR_ZWSP));
@@ -22455,7 +20656,7 @@ var ContentEditableEditor = class {
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         const componentBody = node.childNodes[1];
         if (!componentBody) {
-          error28("CORE", "EDITOR", "Invalid component node", node);
+          error23("CORE", "EDITOR", "Invalid component node", node);
           continue;
         }
         const emoteBox = componentBody.childNodes[0];
@@ -22467,10 +20668,10 @@ var ContentEditableEditor = class {
             emotesInMessage.add(emoteHid);
             buffer.push(emotesManager.getEmoteEmbeddable(emoteHid));
           } else {
-            error28("CORE", "EDITOR", "Invalid emote node, missing HID", emoteBox);
+            error23("CORE", "EDITOR", "Invalid emote node, missing HID", emoteBox);
           }
         } else {
-          error28("CORE", "EDITOR", "Invalid component node", componentBody.childNodes);
+          error23("CORE", "EDITOR", "Invalid component node", componentBody.childNodes);
         }
       }
     }
@@ -22484,7 +20685,7 @@ var ContentEditableEditor = class {
   deleteBackwards(event) {
     const { inputNode } = this;
     const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return error28("CORE", "EDITOR", "No ranges found in selection");
+    if (!selection || !selection.rangeCount) return error23("CORE", "EDITOR", "No ranges found in selection");
     const { focusNode, focusOffset } = selection;
     if (focusNode === inputNode && focusOffset === 0) {
       event.preventDefault();
@@ -22528,7 +20729,7 @@ var ContentEditableEditor = class {
   deleteForwards(event) {
     const { inputNode } = this;
     const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return error28("CORE", "EDITOR", "No ranges found in selection");
+    if (!selection || !selection.rangeCount) return error23("CORE", "EDITOR", "No ranges found in selection");
     let range = selection.getRangeAt(0);
     this.adjustSelectionForceOutOfComponent(selection);
     range = selection.getRangeAt(0);
@@ -22668,7 +20869,7 @@ var ContentEditableEditor = class {
         }
       }
     } else {
-      error28(
+      error23(
         "CORE",
         "EDITOR",
         "Unadjusted selection focus somehow reached inside component. This should never happen."
@@ -22775,7 +20976,7 @@ var ContentEditableEditor = class {
     if (!selection) {
       inputNode.appendChild(component);
       this.hasUnprocessedContentChanges = true;
-      return error28(
+      return error23(
         "CORE",
         "EDITOR",
         "Selection API is not available, please use a modern browser supports the Selection API."
@@ -22830,7 +21031,7 @@ var ContentEditableEditor = class {
     } else if (startContainer instanceof Text) {
       range.insertNode(component);
     } else {
-      return error28(
+      return error23(
         "CORE",
         "EDITOR",
         "Encountered unexpected unprocessable node",
@@ -22854,7 +21055,7 @@ var ContentEditableEditor = class {
     messageHistory.resetCursor();
     const emoteComponent = this.createEmoteComponent(emoteHid);
     if (!emoteComponent) {
-      error28("CORE", "EDITOR", "Invalid emote embed");
+      error23("CORE", "EDITOR", "Invalid emote embed");
       return null;
     }
     this.insertComponent(emoteComponent);
@@ -22866,12 +21067,12 @@ var ContentEditableEditor = class {
     const { emotesManager } = this.session;
     const emoteHTML = emotesManager.getRenderableEmoteByHid(emoteHid);
     if (!emoteHTML) {
-      error28("CORE", "EDITOR", "Invalid emote embed");
+      error23("CORE", "EDITOR", "Invalid emote embed");
       return null;
     }
     const emoteBox = component.querySelector(".ntv__inline-emote-box");
     if (!emoteBox) {
-      error28("CORE", "EDITOR", "Component does not contain emote box");
+      error23("CORE", "EDITOR", "Component does not contain emote box");
       return null;
     }
     emoteBox.innerHTML = emoteHTML;
@@ -22896,6 +21097,60 @@ var ContentEditableEditor = class {
     this.updateEmptyInputContent();
     this.processInputContentDebounce();
     return textNode;
+  }
+};
+
+// src/Core/Input/MessagesHistory.ts
+var MessagesHistory = class {
+  messages;
+  cursorIndex;
+  maxMessages;
+  constructor() {
+    this.messages = [];
+    this.cursorIndex = -1;
+    this.maxMessages = 50;
+  }
+  addMessage(message) {
+    if (message === "") return;
+    if (this.messages[0] === message) return;
+    this.messages.unshift(message);
+    if (this.messages.length > this.maxMessages) {
+      this.messages.pop();
+    }
+  }
+  canMoveCursor(direction) {
+    if (direction === 1) {
+      return this.cursorIndex < this.messages.length - 1;
+    } else if (direction === -1) {
+      return this.cursorIndex > 0;
+    }
+  }
+  moveCursor(direction) {
+    this.cursorIndex += direction;
+    if (this.cursorIndex < 0) {
+      this.cursorIndex = 0;
+    } else if (this.cursorIndex >= this.messages.length) {
+      this.cursorIndex = this.messages.length - 1;
+    }
+  }
+  moveCursorUp() {
+    if (this.cursorIndex < this.messages.length - 1) {
+      this.cursorIndex++;
+    }
+  }
+  moveCursorDown() {
+    if (this.cursorIndex > 0) {
+      this.cursorIndex--;
+    }
+  }
+  isCursorAtStart() {
+    return this.cursorIndex === -1;
+  }
+  getMessage() {
+    return this.messages[this.cursorIndex];
+  }
+  resetCursor() {
+    this.cursorIndex = -1;
   }
 };
 
@@ -23050,6 +21305,1758 @@ var InputController = class {
   }
 };
 
+// src/Core/Chat/Components/ReplyMessageComponent.ts
+var logger24 = new Logger();
+var { log: log23, info: info21, error: error24 } = logger24.destruct();
+var ReplyMessageComponent = class extends AbstractComponent {
+  element;
+  containerEl;
+  eventTarget = new EventTarget();
+  constructor(containerEl, messageNodes) {
+    super();
+    this.containerEl = containerEl;
+    this.element = parseHTML(
+      cleanupHTML(`
+			<div class="ntv__reply-message">
+				<div class="ntv__reply-message__header">
+					<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+						<path fill="currentColor" d="m12.281 5.281l-8 8l-.687.719l.687.719l8 8l1.438-1.438L7.438 15H21c2.773 0 5 2.227 5 5s-2.227 5-5 5v2c3.855 0 7-3.145 7-7s-3.145-7-7-7H7.437l6.282-6.281z" />
+					</svg>
+					<span>Replying to:</span>
+					<svg class="ntv__reply-message__close-btn ntv__icon-button" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
+						<path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
+						<path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
+					</svg>
+				</div>
+				<div class="ntv__reply-message__content">
+				</div>
+			</div>
+		`),
+      true
+    );
+    const contentEl = this.element.querySelector(".ntv__reply-message__content");
+    for (const messageNode of messageNodes) {
+      contentEl.append(messageNode.cloneNode(true));
+    }
+  }
+  render() {
+    this.containerEl.append(this.element);
+  }
+  // Method to attach event handlers
+  attachEventHandlers() {
+    const closeBtn = this.element.querySelector(".ntv__reply-message__close-btn");
+    closeBtn.addEventListener("click", () => {
+      this.element.remove();
+      this.eventTarget.dispatchEvent(new Event("close"));
+    });
+  }
+  addEventListener(event, callback) {
+    this.eventTarget.addEventListener(event, callback);
+  }
+  destroy() {
+    log23("CORE", "UI", "Destroying reply message component..", this.element);
+    this.element.remove();
+  }
+};
+
+// src/Core/UI/Components/TimerComponent.ts
+var TimerComponent = class extends AbstractComponent {
+  remainingTime;
+  paused = false;
+  interval;
+  event = new EventTarget();
+  element;
+  constructor(duration, description) {
+    super();
+    this.remainingTime = parseInt(duration) * (duration.includes("s") ? 1 : duration.includes("m") ? 60 : 3600);
+    this.element = parseHTML(
+      cleanupHTML(`
+                <div class="ntv__timer">
+                    <div class="ntv__timer__body">
+                        <div class="ntv__timer__duration">${this.formatTime(this.remainingTime)}</div>
+                        <div class="ntv__timer__description">${description || ""}</div>
+                    </div>
+                    <div class="ntv__timer__buttons">
+                        <button class="ntv__timer__pause ntv__icon-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 20 20">
+                                <path fill="currentColor" d="M5 4h3v12H5zm7 0h3v12h-3z" />
+                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M10.804 8L5 4.633v6.734zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696z" />
+                            </svg>
+                        </button>
+                        <button class="ntv__timer__remove ntv__icon-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
+                                <path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
+                                <path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+        `),
+      true
+    );
+  }
+  render() {
+  }
+  attachEventHandlers() {
+    const pauseButton = this.element.querySelector(".ntv__timer__pause");
+    const removeButton = this.element.querySelector(".ntv__timer__remove");
+    pauseButton.addEventListener("click", () => {
+      if (this.paused) {
+        this.paused = false;
+        pauseButton.classList.remove("ntv__timer__pause--paused");
+        this.startTimer();
+        this.event.dispatchEvent(new CustomEvent("unpaused"));
+      } else {
+        this.paused = true;
+        pauseButton.classList.add("ntv__timer__pause--paused");
+        if (this.interval) {
+          clearInterval(this.interval);
+          delete this.interval;
+        }
+        this.event.dispatchEvent(new CustomEvent("paused"));
+      }
+    });
+    removeButton.addEventListener("click", () => {
+      this.event.dispatchEvent(new CustomEvent("destroy"));
+      this.element.remove();
+    });
+    this.startTimer();
+  }
+  startTimer() {
+    const durationEl = this.element.querySelector(".ntv__timer__duration");
+    this.interval = setInterval(() => {
+      this.remainingTime--;
+      durationEl.textContent = this.formatTime(this.remainingTime);
+      if (this.remainingTime <= 0) {
+        durationEl?.classList.add("ntv__timer__duration--expired");
+      }
+    }, 1e3);
+  }
+  formatTime(time) {
+    const sign = time < 0 ? "-" : "";
+    time = Math.abs(time);
+    const hours = Math.floor(time / 3600);
+    const minutes = Math.floor(time % 3600 / 60);
+    const seconds = time % 60;
+    return `${sign}${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }
+};
+
+// src/Core/UI/Components/SteppedInputSliderComponent.ts
+var SteppedInputSliderComponent = class extends AbstractComponent {
+  value;
+  labels;
+  steps;
+  event = new EventTarget();
+  element;
+  constructor(labels, steps, value) {
+    super();
+    this.labels = labels;
+    this.steps = steps;
+    const defaultIndex = typeof value !== "undefined" && steps.indexOf(value) || 0;
+    this.element = parseHTML(
+      cleanupHTML(`
+            <div class="ntv__stepped-input-slider">
+                <input type="range" min="0" max="${this.steps.length - 1}" step="1" value="${defaultIndex}">
+                <div>${this.labels[defaultIndex]}</div>
+            </div>
+        `),
+      true
+    );
+    this.value = value || steps[0];
+  }
+  render() {
+  }
+  attachEventHandlers() {
+    if (!this.element) return;
+    const input = this.element.querySelector("input");
+    const label = this.element.querySelector("div");
+    input.addEventListener("input", () => {
+      label.textContent = this.labels[parseInt(input.value)];
+      this.value = this.steps[parseInt(input.value)] || this.steps[0];
+      this.event.dispatchEvent(new Event("change"));
+    });
+  }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
+  }
+  getValue() {
+    return this.value;
+  }
+};
+
+// src/Core/Users/UserInfoModal.ts
+var logger25 = new Logger();
+var { log: log24, info: info22, error: error25 } = logger25.destruct();
+var UserInfoModal = class extends AbstractModal {
+  rootContext;
+  session;
+  toaster;
+  username;
+  userInfo;
+  userChannelInfo;
+  badgesEl;
+  messagesHistoryEl;
+  actionGiftEl;
+  actionFollowEl;
+  actionMuteEl;
+  actionReportEl;
+  timeoutPageEl;
+  statusPageEl;
+  modActionButtonBanEl;
+  modActionButtonTimeoutEl;
+  modActionButtonVIPEl;
+  modActionButtonModEl;
+  modLogsMessagesEl;
+  modLogsPageEl;
+  timeoutSliderComponent;
+  messagesHistoryCursor = 0;
+  isLoadingMessages = false;
+  giftSubButtonEnabled = false;
+  constructor(rootContext, session, {
+    toaster
+  }, username, coordinates) {
+    const modalWidth = 340;
+    const modalHeight = modalWidth * 1.618;
+    if (coordinates) {
+      const screenWidth = window.innerWidth;
+      if (screenWidth < modalWidth) coordinates.x = 0;
+      else if (screenWidth - coordinates.x < modalWidth) coordinates.x = screenWidth - modalWidth;
+      else if (coordinates.x < 0) coordinates.x = 0;
+      const screenHeight = window.innerHeight;
+      if (screenHeight < modalHeight) coordinates.y = 0;
+      else if (coordinates.y < 0) coordinates.y = 0;
+      else if (coordinates.y > screenHeight - modalHeight) coordinates.y = screenHeight - modalHeight;
+    }
+    const geometry = {
+      width: modalWidth + "px",
+      position: coordinates ? "coordinates" : "chat-top",
+      coords: coordinates
+    };
+    super("user-info", geometry);
+    this.rootContext = rootContext;
+    this.session = session;
+    this.toaster = toaster;
+    this.username = username;
+  }
+  init() {
+    super.init();
+    return this;
+  }
+  async render() {
+    super.render();
+    const { channelData, usersManager, badgeProvider } = this.session;
+    const isModerator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster;
+    await this.updateUserInfo();
+    const userInfo = this.userInfo || {
+      id: "",
+      slug: "error",
+      username: "Error",
+      createdAt: null,
+      isFollowing: false,
+      profilePic: "",
+      bannerImg: ""
+    };
+    const userChannelInfo = this.userChannelInfo || {
+      id: "",
+      username: "Error",
+      slug: "error",
+      channel: "Error",
+      badges: [],
+      followingSince: null,
+      isChannelOwner: false,
+      isModerator: false,
+      isStaff: false
+    };
+    const today = +new Date((/* @__PURE__ */ new Date()).toLocaleDateString());
+    let formattedAccountDate;
+    if (userInfo.createdAt) {
+      const createdDate = userInfo.createdAt.toLocaleDateString();
+      const createdDateUnix = +new Date(createdDate);
+      if (+createdDateUnix === today) formattedAccountDate = "Today";
+      else if (+createdDateUnix === today - 24 * 60 * 60 * 1e3) formattedAccountDate = "Yesterday";
+      else formattedAccountDate = formatRelativeTime(userInfo.createdAt);
+    }
+    let formattedJoinDate;
+    if (userChannelInfo.followingSince) {
+      const joinedDate = userChannelInfo.followingSince.toLocaleDateString();
+      const joinedDateUnix = +new Date(joinedDate);
+      if (+joinedDateUnix === today) formattedJoinDate = "Today";
+      else if (+joinedDateUnix === today - 24 * 60 * 60 * 1e3) formattedJoinDate = "Yesterday";
+      else formattedJoinDate = formatRelativeTime(userChannelInfo.followingSince);
+    }
+    const element = parseHTML(
+      cleanupHTML(`
+				<div class="ntv__user-info-modal__header" ${userInfo.bannerImg ? `style="--background: url('${userInfo.bannerImg}')"` : ""}>
+					<div class="ntv__user-info-modal__header__actions">
+					
+					</div>
+					<div class="ntv__user-info-modal__header__banner">
+						<div class="ntv__user-info-modal__header__banner__img"><img src="${userInfo.profilePic}"></div>
+						<h4><a href="/${userChannelInfo.slug}" target="_blank">${userInfo.username}</a></h4>
+						<div class="ntv__user-info-modal__header__banner__dates">
+							${formattedAccountDate ? `<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0.5 0 24 21">
+									<g fill="none" stroke="currentColor" stroke-width="1.5">
+										<path d="M12 10H18C19.1046 10 20 10.8954 20 12V21H12" />
+										<path d="M12 21H4V12C4 10.8954 4.89543 10 6 10H12" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M12 10V8" />
+										<path d="M4 16H5C7 16 8.5 14 8.5 14C8.5 14 10 16 12 16C14 16 15.5 14 15.5 14C15.5 14 17 16 19 16H20" />
+									</g>
+									<path fill="currentColor" d="M14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 12 0 12 0C12 0 14 2.89543 14 4Z" />
+								</svg> Account created: ${formattedAccountDate}</span>` : ""}
+
+							${`<span>
+								<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32">
+									<path fill="currentColor" d="M32 14h-4v-4h-2v4h-4v2h4v4h2v-4h4zM12 4a5 5 0 1 1-5 5a5 5 0 0 1 5-5m0-2a7 7 0 1 0 7 7a7 7 0 0 0-7-7m10 28h-2v-5a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v5H2v-5a7 7 0 0 1 7-7h6a7 7 0 0 1 7 7z" />
+								</svg> Following since: ${formattedJoinDate ? formattedJoinDate : "-"}</span>`}
+						</div>
+					</div>
+				</div>
+				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? "Badges: " : ""}${userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join("")}</div>
+				<div class="ntv__user-info-modal__actions">
+					<button class="ntv__button ntv__user-info-modal__follow">${userInfo.isFollowing ? "Unfollow" : "Follow"}</button>
+					<button class="ntv__button ntv__user-info-modal__mute">${// TODO change to user ID after replacing chat system
+      usersManager.hasMutedUser(userInfo.username) ? "Unmute" : "Mute"}</button>
+					<!--<button class="ntv__button ntv__user-info-modal__Report">Report</button>-->
+				</div>
+				<div class="ntv__user-info-modal__mod-actions"></div>
+				<div class="ntv__user-info-modal__timeout-page"></div>
+				<div class="ntv__user-info-modal__status-page"></div>
+				<div class="ntv__user-info-modal__mod-logs"></div>
+				<div class="ntv__user-info-modal__mod-logs-page"></div>
+			`)
+    );
+    this.badgesEl = element.querySelector(".ntv__user-info-modal__badges");
+    this.actionFollowEl = element.querySelector(
+      ".ntv__user-info-modal__actions .ntv__user-info-modal__follow"
+    );
+    this.actionMuteEl = element.querySelector(
+      ".ntv__user-info-modal__actions .ntv__user-info-modal__mute"
+    );
+    if (isModerator) {
+      this.actionReportEl = element.querySelector(
+        ".ntv__user-info-modal__actions .ntv__button:nth-child(3)"
+      );
+      this.timeoutPageEl = element.querySelector(".ntv__user-info-modal__timeout-page");
+      this.statusPageEl = element.querySelector(".ntv__user-info-modal__status-page");
+      this.modActionButtonBanEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Ban ${userInfo.username}" ${userChannelInfo.banned ? "active" : ""}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-1.9 0-3.6.6-4.9 1.7l11.2 11.2c1-1.4 1.7-3.1 1.7-4.9c0-4.4-3.6-8-8-8m4.9 14.3L5.7 7.1C4.6 8.4 4 10.1 4 12c0 4.4 3.6 8 8 8c1.9 0 3.6-.6 4.9-1.7" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonTimeoutEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Timeout ${userInfo.username}">
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<g fill="none">
+						<path d="M24 0v24H0V0zM12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093c.012.004.023 0 .029-.008l.004-.014l-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014l-.034.614c0 .012.007.02.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z" />
+						<path fill="currentColor" d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16m0 2a1 1 0 0 1 .993.883L13 7v4.586l2.707 2.707a1 1 0 0 1-1.32 1.497l-.094-.083l-3-3a1 1 0 0 1-.284-.576L11 12V7a1 1 0 0 1 1-1" />
+					</g>
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonVIPEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="VIP ${userInfo.username}" ${this.isUserVIP() ? "active" : ""}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h18M3 19h18M4 9l2 6h1l2-6m3 0v6m4 0V9h2a2 2 0 1 1 0 4h-2" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.modActionButtonModEl = parseHTML(
+        cleanupHTML(`
+			<button class="ntv__icon-button" alt="Mod ${userInfo.username}" ${this.isUserPrivileged() ? "active" : ""}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+					<path fill="currentColor" d="M12 22q-3.475-.875-5.738-3.988T4 11.1V5l8-3l8 3v5.675q-.475-.2-.975-.363T18 10.076V6.4l-6-2.25L6 6.4v4.7q0 1.175.313 2.35t.875 2.238T8.55 17.65t1.775 1.5q.275.8.725 1.525t1.025 1.3q-.025 0-.037.013T12 22m5 0q-2.075 0-3.537-1.463T12 17t1.463-3.537T17 12t3.538 1.463T22 17t-1.463 3.538T17 22m-.5-2h1v-2.5H20v-1h-2.5V14h-1v2.5H14v1h2.5z" />
+				</svg>
+			</button>
+		`),
+        true
+      );
+      this.updateModStatusPage();
+      const modActionsEl = element.querySelector(".ntv__user-info-modal__mod-actions");
+      modActionsEl.append(
+        this.modActionButtonBanEl,
+        this.modActionButtonTimeoutEl,
+        this.modActionButtonVIPEl,
+        this.modActionButtonModEl
+      );
+      this.modLogsPageEl = element.querySelector(".ntv__user-info-modal__mod-logs-page");
+      this.modLogsMessagesEl = parseHTML(`<button>Messages</button>`, true);
+      const modLogsEl = element.querySelector(".ntv__user-info-modal__mod-logs");
+      modLogsEl.appendChild(this.modLogsMessagesEl);
+    }
+    this.modalBodyEl.appendChild(element);
+    this.updateGiftSubButton();
+  }
+  attachEventHandlers() {
+    super.attachEventHandlers();
+    this.actionFollowEl?.addEventListener("click", this.clickFollowHandler.bind(this));
+    this.actionMuteEl?.addEventListener("click", this.clickMuteHandler.bind(this));
+    this.actionReportEl?.addEventListener("click", () => {
+      log24("CORE", "UI", "Report button clicked");
+    });
+    this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
+    this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
+    this.modActionButtonVIPEl?.addEventListener("click", this.clickVIPHandler.bind(this));
+    this.modActionButtonModEl?.addEventListener("click", this.clickModHandler.bind(this));
+    this.modLogsMessagesEl?.addEventListener("click", this.clickMessagesHistoryHandler.bind(this));
+  }
+  async clickGiftHandler() {
+    this.eventTarget.dispatchEvent(new Event("gift_sub_click"));
+  }
+  async clickFollowHandler() {
+    const { networkInterface } = this.session;
+    const { userInfo } = this;
+    if (!userInfo) return;
+    this.actionFollowEl.classList.add("ntv__button--disabled");
+    if (userInfo.isFollowing) {
+      try {
+        await networkInterface.unfollowUser(userInfo.slug);
+        userInfo.isFollowing = false;
+        this.actionFollowEl.textContent = "Follow";
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to follow user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to follow user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to follow user, reason unknown", 6e3, "error");
+        }
+      }
+    } else {
+      try {
+        await networkInterface.followUser(userInfo.slug);
+        userInfo.isFollowing = true;
+        this.actionFollowEl.textContent = "Unfollow";
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to unfollow user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to unfollow user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to unfollow user, reason unknown", 6e3, "error");
+        }
+      }
+    }
+    this.actionFollowEl.classList.remove("ntv__button--disabled");
+  }
+  async clickMuteHandler() {
+    const { userInfo } = this;
+    if (!userInfo) return;
+    const { id, username } = userInfo;
+    const { usersManager, channelData } = this.session;
+    const channelId = channelData.channelId;
+    const user = usersManager.getUserById(username);
+    if (!user) return;
+    if (user.muted) {
+      log24("CORE", "UI", "Unmuting user:", username);
+      usersManager.unmuteUserById(user.id);
+      this.actionMuteEl.textContent = "Mute";
+    } else {
+      log24("CORE", "UI", "Muting user:", username);
+      usersManager.muteUserById(user.id, channelId);
+      this.actionMuteEl.textContent = "Unmute";
+    }
+  }
+  async clickTimeoutHandler() {
+    const { timeoutPageEl } = this;
+    if (!timeoutPageEl) return;
+    while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove();
+    if (this.timeoutSliderComponent) {
+      delete this.timeoutSliderComponent;
+      return;
+    }
+    const timeoutWrapperEl = parseHTML(
+      cleanupHTML(`
+			<div class="ntv__user-info-modal__timeout-page__wrapper">
+				<div></div>
+				<button class="ntv__button">></button>
+				<textarea placeholder="Reason" rows="1" capture-focus></textarea>
+			</div>`),
+      true
+    );
+    timeoutPageEl.appendChild(timeoutWrapperEl);
+    const rangeWrapperEl = timeoutWrapperEl.querySelector(
+      ".ntv__user-info-modal__timeout-page__wrapper div"
+    );
+    this.timeoutSliderComponent = new SteppedInputSliderComponent(
+      ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week"],
+      [5, 15, 60, 60 * 24, 60 * 24 * 7]
+    ).init();
+    rangeWrapperEl.appendChild(this.timeoutSliderComponent.element);
+    const buttonEl = timeoutWrapperEl.querySelector("button");
+    buttonEl.addEventListener("click", async () => {
+      if (!this.timeoutSliderComponent) return;
+      const duration = this.timeoutSliderComponent.getValue();
+      const reason = timeoutWrapperEl.querySelector("textarea").value;
+      timeoutPageEl.setAttribute("disabled", "");
+      try {
+        await this.session.networkInterface.executeCommand("timeout", this.session.channelData.channelName, [
+          this.username,
+          duration,
+          reason
+        ]);
+        await this.updateUserInfo();
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to timeout user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to timeout user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to timeout user, reason unknown", 6e3, "error");
+        }
+        timeoutPageEl.removeAttribute("disabled");
+        return;
+      }
+      this.modActionButtonBanEl.setAttribute("active", "");
+      while (timeoutPageEl.firstChild) timeoutPageEl.firstChild.remove();
+      timeoutPageEl.removeAttribute("disabled");
+      delete this.timeoutSliderComponent;
+      this.updateModStatusPage();
+      log24("CORE", "UI", `Successfully timed out user: ${this.username} for ${duration} minutes`);
+    });
+  }
+  async clickVIPHandler() {
+    const { networkInterface } = this.session;
+    const { userInfo, userChannelInfo } = this;
+    if (!userInfo || !userChannelInfo) return;
+    const { channelData } = this.session;
+    if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
+      this.toaster.addToast("You do not have permission to perform this action.", 6e3, "error");
+      return;
+    }
+    this.modActionButtonVIPEl.classList.add("ntv__icon-button--disabled");
+    if (this.isUserVIP()) {
+      log24("CORE", "UI", `Attempting to remove VIP status from user: ${userInfo.username}..`);
+      try {
+        await this.session.networkInterface.executeCommand("unvip", this.session.channelData.channelName, [
+          userInfo.username
+        ]);
+        log24("CORE", "UI", "Successfully removed VIP status from user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast(
+            "Failed to remove VIP status from user: " + err.errors.join(" "),
+            6e3,
+            "error"
+          );
+        } else if (err.message) {
+          this.toaster.addToast("Failed to remove VIP status from user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to remove VIP status from user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.removeUserVIPStatus();
+      this.modActionButtonVIPEl?.removeAttribute("active");
+    } else {
+      log24("CORE", "UI", `Attempting to give VIP status to user: ${userInfo.username}..`);
+      try {
+        await this.session.networkInterface.executeCommand("vip", this.session.channelData.channelName, [
+          userInfo.username
+        ]);
+        log24("CORE", "UI", "Successfully gave VIP status to user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to give VIP status to user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to give VIP status to user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to give VIP status to user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.modActionButtonVIPEl?.setAttribute("active", "");
+      await this.updateUserInfo();
+    }
+    this.updateUserBadges();
+    this.modActionButtonVIPEl.classList.remove("ntv__icon-button--disabled");
+  }
+  async clickModHandler() {
+    const { networkInterface } = this.session;
+    const { userInfo, userChannelInfo } = this;
+    if (!userInfo || !userChannelInfo) return;
+    const { channelData } = this.session;
+    if (!channelData.me.isBroadcaster && !channelData.me.isSuperAdmin) {
+      this.toaster.addToast("You do not have permission to perform this action.", 6e3, "error");
+      return;
+    }
+    this.modActionButtonModEl.classList.add("ntv__icon-button--disabled");
+    if (this.isUserPrivileged()) {
+      log24("CORE", "UI", `Attempting to remove mod status from user: ${userInfo.username}..`);
+      try {
+        await this.session.networkInterface.executeCommand("unmod", this.session.channelData.channelName, [
+          userInfo.username
+        ]);
+        log24("CORE", "UI", "Successfully removed mod status from user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast(
+            "Failed to remove mod status from user: " + err.errors.join(" "),
+            6e3,
+            "error"
+          );
+        } else if (err.message) {
+          this.toaster.addToast("Failed to remove mod status from user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to remove mod status from user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.removeUserModStatus();
+      this.modActionButtonModEl?.removeAttribute("active");
+    } else {
+      log24("CORE", "UI", `Attempting to give mod status to user: ${userInfo.username}..`);
+      try {
+        await this.session.networkInterface.executeCommand("mod", this.session.channelData.channelName, [
+          userInfo.username
+        ]);
+        log24("CORE", "UI", "Successfully gave mod status to user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to give mod status to user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to give mod status to user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to give mod status to user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.modActionButtonModEl?.setAttribute("active", "");
+      await this.updateUserInfo();
+    }
+    this.updateUserBadges();
+    this.modActionButtonModEl.classList.remove("ntv__icon-button--disabled");
+  }
+  async clickBanHandler() {
+    if (this.modActionButtonBanEl.classList.contains("ntv__icon-button--disabled")) return;
+    this.modActionButtonBanEl.classList.add("ntv__icon-button--disabled");
+    const { networkInterface } = this.session;
+    const { userInfo, userChannelInfo } = this;
+    if (!userInfo || !userChannelInfo) return;
+    if (userChannelInfo.banned) {
+      log24("CORE", "UI", `Attempting to unban user: ${userInfo.username}..`);
+      try {
+        await this.session.networkInterface.executeCommand("unban", this.session.channelData.channelName, [
+          userInfo.username
+        ]);
+        log24("CORE", "UI", "Successfully unbanned user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to unban user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to unban user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to unban user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      delete userChannelInfo.banned;
+      this.modActionButtonBanEl.removeAttribute("active");
+    } else {
+      log24("CORE", "UI", `Attempting to ban user: ${userInfo.username}..`);
+      try {
+        await this.session.networkInterface.executeCommand("ban", this.session.channelData.channelName, [
+          userInfo.username
+        ]);
+        log24("CORE", "UI", "Successfully banned user:", userInfo.username);
+      } catch (err) {
+        if (err.errors && err.errors.length > 0) {
+          this.toaster.addToast("Failed to ban user: " + err.errors.join(" "), 6e3, "error");
+        } else if (err.message) {
+          this.toaster.addToast("Failed to ban user: " + err.message, 6e3, "error");
+        } else {
+          this.toaster.addToast("Failed to ban user, reason unknown", 6e3, "error");
+        }
+        this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+        return;
+      }
+      this.modActionButtonBanEl.setAttribute("active", "");
+      await this.updateUserInfo();
+    }
+    this.updateModStatusPage();
+    this.modActionButtonBanEl.classList.remove("ntv__icon-button--disabled");
+  }
+  async clickMessagesHistoryHandler() {
+    const { userInfo, modLogsPageEl } = this;
+    if (!userInfo || !modLogsPageEl) return;
+    if (modLogsPageEl.querySelector(".ntv__user-info-modal__mod-logs-page__messages[loading]")) return;
+    while (modLogsPageEl.firstChild) modLogsPageEl.firstChild.remove();
+    this.messagesHistoryCursor = 0;
+    const messagesHistoryEl = this.messagesHistoryEl = parseHTML(
+      `<div class="ntv__user-info-modal__mod-logs-page__messages" loading></div>`,
+      true
+    );
+    modLogsPageEl.appendChild(messagesHistoryEl);
+    log24("CORE", "UI", `Fetching user messages of ${userInfo.username}..`);
+    await this.loadMoreMessagesHistory();
+    let autoLoadCount = 0;
+    const MAX_AUTO_LOADS = 5;
+    while (this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight && !this.isLoadingMessages && autoLoadCount < MAX_AUTO_LOADS) {
+      log24(
+        "CORE",
+        "UI",
+        `Content too short (scrollHeight: ${messagesHistoryEl.scrollHeight}, clientHeight: ${messagesHistoryEl.clientHeight}), auto-loading more messages for ${userInfo.username}...`
+      );
+      const previousScrollHeight = messagesHistoryEl.scrollHeight;
+      await this.loadMoreMessagesHistory();
+      autoLoadCount++;
+      if (this.messagesHistoryCursor === null || messagesHistoryEl.scrollHeight === previousScrollHeight) {
+        log24(
+          "CORE",
+          "UI",
+          `Auto-load break: cursor is ${this.messagesHistoryCursor}, scrollHeight changed from ${previousScrollHeight} to ${messagesHistoryEl.scrollHeight}`
+        );
+        break;
+      }
+    }
+    if (autoLoadCount >= MAX_AUTO_LOADS && this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight) {
+      log24(
+        "CORE",
+        "UI",
+        `Max auto-loads (${MAX_AUTO_LOADS}) reached for ${userInfo.username}, but content may still be too short.`
+      );
+    }
+    if (messagesHistoryEl.scrollHeight > messagesHistoryEl.clientHeight) {
+      messagesHistoryEl.scrollTop = messagesHistoryEl.scrollHeight - messagesHistoryEl.clientHeight;
+    } else {
+      messagesHistoryEl.scrollTop = 0;
+    }
+    messagesHistoryEl.removeAttribute("loading");
+    messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
+  }
+  async loadMoreMessagesHistory() {
+    const { networkInterface, emotesManager, userInterface, channelData } = this.session;
+    const { userInfo, modLogsPageEl, messagesHistoryEl } = this;
+    if (!userInfo || !modLogsPageEl || !messagesHistoryEl) return;
+    const cursor = this.messagesHistoryCursor;
+    if (typeof cursor !== "number") return;
+    if (this.isLoadingMessages) return;
+    this.isLoadingMessages = true;
+    let res;
+    try {
+      res = await networkInterface.getUserMessages(channelData.channelId, userInfo.id, cursor);
+    } catch (err) {
+      if (err.errors && err.errors.length > 0) {
+        this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
+      } else if (err.message) {
+        this.toaster.addToast("Failed to load user message history: " + err.message, 6e3, "error");
+      } else {
+        this.toaster.addToast("Failed to load user message history, reason unknown", 6e3, "error");
+      }
+      messagesHistoryEl.removeAttribute("loading");
+      return;
+    }
+    this.messagesHistoryCursor = res.cursor ? +res.cursor : null;
+    let entriesHTML = "", lastDate, dateCursor;
+    for (const message of res.messages) {
+      const d = new Date(message.createdAt);
+      const time = ("" + d.getHours()).padStart(2, "0") + ":" + ("" + d.getMinutes()).padStart(2, "0");
+      const dateString = d.getUTCFullYear() + "" + d.getUTCMonth() + d.getUTCDay();
+      if (lastDate && dateString !== dateCursor) {
+        const formattedDate = lastDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        });
+        dateCursor = dateString;
+        lastDate = d;
+        entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>`;
+      } else if (!lastDate) {
+        lastDate = d;
+        dateCursor = dateString;
+      }
+      entriesHTML += `<div class="ntv__chat-message" unrendered>
+				<span class="ntv__chat-message__identity">
+					<span class="ntv__chat-message__timestamp">${time}</span>
+					<span class="ntv__chat-message__badges"></span>
+					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
+					<span class="ntv__chat-message__separator">: </span>
+				</span>
+				<span class="ntv__chat-message__part">${message.content}</span>
+			</div>`;
+    }
+    if (!this.messagesHistoryCursor && lastDate) {
+      const formattedDate = lastDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+      entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`;
+    }
+    messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
+    messagesHistoryEl.querySelectorAll(".ntv__chat-message[unrendered]").forEach((messageEl) => {
+      messageEl.querySelectorAll(".ntv__chat-message__part").forEach((messagePartEl) => {
+        const parsedMessageParts = emotesManager.parseEmoteText(messagePartEl.textContent || "");
+        const nodes = userInterface.renderMessageParts(parsedMessageParts);
+        messagePartEl.after(...nodes);
+        messagePartEl.remove();
+      });
+      messageEl.removeAttribute("unrendered");
+    });
+    this.isLoadingMessages = false;
+    messagesHistoryEl.removeAttribute("loading");
+  }
+  async messagesScrollHandler(event) {
+    const target = event.currentTarget;
+    if (target.scrollTop < 30 && this.messagesHistoryCursor !== null && !this.isLoadingMessages) {
+      await this.loadMoreMessagesHistory();
+      await this.loadMoreMessagesHistory();
+    }
+  }
+  enableGiftSubButton() {
+    this.giftSubButtonEnabled = true;
+    this.updateGiftSubButton();
+  }
+  updateGiftSubButton() {
+    if (!this.giftSubButtonEnabled) return;
+    if (this.isUserSubscribed()) {
+      if (!this.actionGiftEl) return;
+      this.actionGiftEl.remove();
+      delete this.actionGiftEl;
+    } else {
+      if (this.actionGiftEl) return;
+      const actionsEl = this.modalBodyEl.querySelector(".ntv__user-info-modal__actions");
+      if (!actionsEl) return;
+      this.actionGiftEl = parseHTML(
+        `<button class="ntv__button ntv__user-info-modal__gift">Gift a sub</button>`,
+        true
+      );
+      actionsEl.prepend(this.actionGiftEl);
+      this.actionGiftEl.addEventListener("click", this.clickGiftHandler.bind(this));
+    }
+  }
+  isUserSubscribed() {
+    return !!this.userChannelInfo?.badges.find((badge) => badge.type === "subscriber");
+  }
+  // TODO move this to dedicated class with methods
+  isUserVIP() {
+    return !!this.userChannelInfo?.badges.find((badge) => badge.type === "vip");
+  }
+  // TODO move this to dedicated class with methods
+  isUserPrivileged() {
+    return this.userChannelInfo?.isChannelOwner || this.userChannelInfo?.isModerator || this.userChannelInfo?.isStaff;
+  }
+  // TODO move this to dedicated class with methods
+  removeUserVIPStatus() {
+    if (!this.userChannelInfo) return;
+    this.userChannelInfo.badges = this.userChannelInfo.badges.filter((badge) => badge.type !== "vip");
+  }
+  // TODO move this to dedicated class with methods
+  removeUserModStatus() {
+    if (!this.userChannelInfo) return;
+    this.userChannelInfo.isModerator = false;
+    this.userChannelInfo.badges = this.userChannelInfo.badges.filter((badge) => badge.type !== "moderator");
+  }
+  async updateUserInfo() {
+    const { networkInterface } = this.session;
+    const { channelData } = this.session;
+    try {
+      delete this.userInfo;
+      delete this.userChannelInfo;
+      this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username);
+      this.userInfo = await networkInterface.getUserInfo(this.userChannelInfo.slug);
+      this.updateGiftSubButton();
+    } catch (err) {
+      if (err.errors && err.errors.length > 0) {
+        this.toaster.addToast("Failed to get user info: " + err.errors.join(" "), 6e3, "error");
+      } else if (err.message) {
+        this.toaster.addToast("Failed to get user info: " + err.message, 6e3, "error");
+      } else {
+        this.toaster.addToast("Failed to get user info, reason unknown", 6e3, "error");
+      }
+    }
+  }
+  updateUserBadges() {
+    const { badgeProvider } = this.session;
+    const { badgesEl, userChannelInfo } = this;
+    if (!badgesEl || !userChannelInfo) return;
+    badgesEl.innerHTML = userChannelInfo.badges.length ? "Badges: " + userChannelInfo.badges.map(badgeProvider.getBadge.bind(badgeProvider)).join("") : "";
+  }
+  updateModStatusPage() {
+    const { userChannelInfo, statusPageEl } = this;
+    if (!userChannelInfo || !statusPageEl) return;
+    if (userChannelInfo.banned) {
+      statusPageEl.innerHTML = cleanupHTML(`
+				<div class="ntv__user-info-modal__status-page__banned">
+					<span><b>Banned</b></span>
+					<span>Reason: ${userChannelInfo.banned.reason}</span>
+					<span>Expires: ${userChannelInfo.banned.expiresAt ? formatRelativeTime(userChannelInfo.banned.expiresAt) : "Not set"}</span>
+				</div>
+			`);
+    } else {
+      while (statusPageEl.firstChild) statusPageEl.firstChild.remove();
+    }
+  }
+};
+
+// src/Core/UI/Modals/PollModal.ts
+var PollModal = class extends AbstractModal {
+  rootContext;
+  session;
+  toaster;
+  pollQuestionEl;
+  pollOptionsEls;
+  durationSliderComponent;
+  displayDurationSliderComponent;
+  createButtonEl;
+  cancelButtonEl;
+  constructor(rootContext, session, {
+    toaster
+  }) {
+    const geometry = {
+      width: "340px",
+      position: "center"
+    };
+    super("poll", geometry);
+    this.rootContext = rootContext;
+    this.session = session;
+    this.toaster = toaster;
+  }
+  init() {
+    super.init();
+    return this;
+  }
+  async render() {
+    super.render();
+    const element = parseHTML(
+      cleanupHTML(`
+            <h3 class="ntv__poll-modal__title">Create a new Poll</h3>
+            <span class="ntv__poll-modal__subtitle">Question:</span>
+            <textarea rows="1" class="ntv__input ntv__poll-modal__q-input" placeholder="Poll question" capture-focus></textarea>
+            <span class="ntv__poll-modal__subtitle">Options (minimum 2):</span>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 1" capture-focus>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 2" capture-focus>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 3" capture-focus disabled>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 4" capture-focus disabled>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 5" capture-focus disabled>
+            <input type="text" class="ntv__input ntv__poll-modal__o-input" placeholder="Option 6" capture-focus disabled>
+            <span class="ntv__poll-modal__subtitle">Duration</span>
+            <div class="ntv__poll-modal__duration"></div>
+            <span class="ntv__poll-modal__subtitle">Result displayed for</span>
+            <div class="ntv__poll-modal__display-duration"></div>
+            <div class="ntv__poll-modal__footer">
+                <button class="ntv__button ntv__button--regular ntv__poll-modal__close-btn">Cancel</button>
+                <button class="ntv__button ntv__poll-modal__create-btn">Create</button>
+            </div>`)
+    );
+    this.pollQuestionEl = element.querySelector(".ntv__poll-modal__q-input");
+    this.pollOptionsEls = element.querySelectorAll(".ntv__poll-modal__o-input");
+    const durationWrapper = element.querySelector(".ntv__poll-modal__duration");
+    this.durationSliderComponent = new SteppedInputSliderComponent(
+      ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
+      [30, 60, 120, 180, 240, 300]
+    ).init();
+    durationWrapper.appendChild(this.durationSliderComponent.element);
+    const displayDurationWrapper = element.querySelector(".ntv__poll-modal__display-duration");
+    this.displayDurationSliderComponent = new SteppedInputSliderComponent(
+      ["30 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes", "5 minutes"],
+      [30, 60, 120, 180, 240, 300]
+    ).init();
+    displayDurationWrapper.appendChild(this.displayDurationSliderComponent.element);
+    this.createButtonEl = element.querySelector(".ntv__poll-modal__create-btn");
+    this.cancelButtonEl = element.querySelector(".ntv__poll-modal__close-btn");
+    this.modalBodyEl.appendChild(element);
+  }
+  attachEventHandlers() {
+    super.attachEventHandlers();
+    for (let i = 1; i < this.pollOptionsEls.length; i++) {
+      this.pollOptionsEls[i].addEventListener("input", () => {
+        const currentOptionEl = this.pollOptionsEls[i];
+        const nextOptionEl = this.pollOptionsEls[i + 1];
+        if (nextOptionEl) {
+          nextOptionEl.disabled = !currentOptionEl.value.trim();
+        }
+      });
+    }
+    this.createButtonEl.addEventListener("click", async () => {
+      const question = this.pollQuestionEl.value.trim();
+      const options = Array.from(this.pollOptionsEls).map((el) => el.value.trim()).filter((option) => !!option);
+      const duration = this.durationSliderComponent.getValue();
+      const displayDuration = this.displayDurationSliderComponent.getValue();
+      if (!question) {
+        this.toaster.addToast("Please enter a question", 6e3, "error");
+        return;
+      }
+      if (options.length < 2) {
+        this.toaster.addToast("Please enter at least 2 options", 6e3, "error");
+        return;
+      }
+      if (options.some((option) => !option)) {
+        this.toaster.addToast("Please fill in all options", 6e3, "error");
+        return;
+      }
+      const channelName = this.session.channelData.channelName;
+      this.session.networkInterface.createPoll(channelName, question, options, duration, displayDuration);
+      this.destroy();
+    });
+    this.cancelButtonEl.addEventListener("click", async () => {
+      this.destroy();
+    });
+  }
+};
+
+// src/Core/Common/Toaster.ts
+var Toaster = class {
+  toasts = [];
+  addToast(message, duration, type = "info") {
+    const toastEl = parseHTML(
+      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
+      true
+    );
+    const timeout = Date.now() + duration;
+    const toast = { message, type, timeout, element: toastEl };
+    this.toasts.push(toast);
+    document.body.appendChild(toastEl);
+    setTimeout(() => {
+      const index = this.toasts.indexOf(toast);
+      if (index !== -1) {
+        this.toasts[index].element.remove();
+        this.toasts.splice(index, 1);
+      }
+    }, duration);
+    this.moveToasts();
+  }
+  moveToasts() {
+    const spacing = 20;
+    let y = 20;
+    const toasts = this.toasts.toReversed();
+    for (const toast of toasts) {
+      toast.element.style.top = `${y}px`;
+      y += toast.element.clientHeight + spacing;
+    }
+  }
+};
+
+// src/Core/Common/Clipboard.ts
+var logger26 = new Logger();
+var { log: log25, info: info23, error: error26 } = logger26.destruct();
+function flattenNestedElement(node) {
+  const result = [];
+  function traverse(node2) {
+    if (node2.nodeType === Node.TEXT_NODE) {
+      result.push(node2);
+    } else if (node2.nodeType === Node.ELEMENT_NODE && node2.nodeName === "IMG") {
+      result.push(node2);
+    } else {
+      for (var i = 0; i < node2.childNodes.length; i++) {
+        traverse(node2.childNodes[i]);
+      }
+    }
+  }
+  traverse(node);
+  return result;
+}
+var Clipboard2 = class {
+  domParser = new DOMParser();
+  handleCopyEvent(event) {
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount) return error26("CORE", "UI", "Selection is null");
+    event.preventDefault();
+    const fragment = document.createDocumentFragment();
+    const nodeList = [];
+    for (let i = 0; i < selection.rangeCount; i++) {
+      fragment.append(selection.getRangeAt(i).cloneContents());
+    }
+    const walker = document.createTreeWalker(
+      fragment,
+      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() || node?.tagName === "IMG" ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+    );
+    let currentNode = walker.currentNode;
+    while (currentNode) {
+      nodeList.push(currentNode);
+      currentNode = walker.nextNode();
+    }
+    const copyString = nodeList.map((node) => {
+      if (node instanceof Text) {
+        return node.textContent?.trim();
+      } else if (node instanceof HTMLElement && node.dataset.emoteName) {
+        return node.dataset.emoteName || "UNSET_EMOTE_NAME";
+      } else if (node instanceof HTMLElement && node.tagName === "IMG" && node.hasAttribute("alt")) {
+        return node.getAttribute("alt");
+      }
+    }).filter((text) => typeof text === "string" && text.length > 0).join(" ").replaceAll(CHAR_ZWSP, "");
+    event.clipboardData?.setData("text/plain", copyString);
+    log25("CORE", "UI", `Copied: "${copyString}"`);
+  }
+  handleCutEvent(event) {
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!range) return;
+    const commonAncestorContainer = range.commonAncestorContainer;
+    if (!(commonAncestorContainer instanceof HTMLElement) && !commonAncestorContainer.isContentEditable && !commonAncestorContainer.parentElement.isContentEditable) {
+      return;
+    }
+    event.preventDefault();
+    this.handleCopyEvent(event);
+    selection.deleteFromDocument();
+  }
+  paste(text) {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    selection.deleteFromDocument();
+    selection.getRangeAt(0).insertNode(document.createTextNode(text));
+    selection.collapseToEnd();
+  }
+  pasteHTML(html) {
+    const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    selection.deleteFromDocument();
+    const range = selection.getRangeAt(0);
+    for (const node of nodes) {
+      Caret.insertNodeAtCaret(range, node);
+    }
+    const lastNode = nodes[nodes.length - 1];
+    if (lastNode) {
+      if (lastNode.nodeType === Node.TEXT_NODE) {
+        selection.collapse(lastNode, lastNode.length);
+        selection.collapseToEnd();
+      } else if (lastNode.nodeType === Node.ELEMENT_NODE) {
+        selection.collapse(lastNode, lastNode.childNodes.length);
+      }
+    }
+  }
+  parsePastedMessage(evt) {
+    const clipboardData = evt.clipboardData || window.clipboardData;
+    if (!clipboardData) return [];
+    const html = clipboardData.getData("text/html");
+    if (html) {
+      const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
+      const childNodes = doc.body.childNodes;
+      if (childNodes.length === 0) {
+        return [];
+      }
+      let startFragmentComment = null, endFragmentComment = null;
+      for (let i = 0; i < childNodes.length; i++) {
+        const node = childNodes[i];
+        if (node.nodeType === Node.COMMENT_NODE) {
+          if (node.textContent === "StartFragment") {
+            startFragmentComment = i;
+          } else if (node.textContent === "EndFragment") {
+            endFragmentComment = i;
+          }
+          if (startFragmentComment && endFragmentComment) {
+            break;
+          }
+        }
+      }
+      if (startFragmentComment === null || endFragmentComment === null) {
+        error26("CORE", "UI", "Failed to find fragment markers, clipboard data seems to be corrupted.");
+        return [];
+      }
+      const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
+      const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
+      const parsedNodes = [];
+      for (const node of flattenedNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent) {
+          parsedNodes.push(node.textContent);
+        } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
+          const emoteName = node.dataset.emoteName;
+          if (emoteName) {
+            parsedNodes.push(emoteName);
+          }
+        }
+      }
+      if (parsedNodes.length) return parsedNodes;
+      return [];
+    } else {
+      const text = clipboardData.getData("text/plain");
+      if (!text) return [];
+      return [text.replaceAll(CHAR_ZWSP, "")];
+    }
+  }
+};
+
+// src/Core/UI/AbstractUserInterface.ts
+var logger27 = new Logger();
+var { log: log26, info: info24, error: error27 } = logger27.destruct();
+var AbstractUserInterface = class {
+  rootContext;
+  session;
+  inputController = null;
+  clipboard = new Clipboard2();
+  toaster = new Toaster();
+  messageHistory = new MessagesHistory();
+  submitButtonPriorityEventTarget = new PriorityEventTarget();
+  baseAbortController = new AbortController();
+  celebrationData;
+  replyMessageData;
+  replyMessageComponent;
+  maxMessageLength = 500;
+  /**
+   * @param {EventBus} eventBus
+   * @param {object} deps
+   */
+  constructor(rootContext, session) {
+    this.rootContext = rootContext;
+    this.session = session;
+  }
+  getInputController() {
+    return this.inputController;
+  }
+  loadInterface() {
+    const { eventBus } = this.session;
+    eventBus.subscribe("ntv.ui.show_modal.user_info", (data) => {
+      assertArgDefined(data.username);
+      this.showUserInfoModal(data.username);
+    });
+    eventBus.subscribe("ntv.ui.show_modal.poll", () => {
+      new PollModal(this.rootContext, this.session, { toaster: this.toaster }).init();
+    });
+    document.addEventListener(
+      "mouseover",
+      (evt) => {
+        const target = evt.target;
+        const tooltip = target?.getAttribute("ntv-tooltip");
+        if (!tooltip) return;
+        const rect = target.getBoundingClientRect();
+        const left = rect.left + rect.width / 2;
+        const top = rect.top;
+        const tooltipEl = parseHTML(
+          `<div class="ntv__tooltip" style="top: ${top}px; left: ${left}px;">${tooltip}</div>`,
+          true
+        );
+        document.body.appendChild(tooltipEl);
+        target.addEventListener(
+          "mouseleave",
+          () => {
+            tooltipEl.remove();
+          },
+          { once: true, passive: true }
+        );
+      },
+      { signal: this.baseAbortController.signal }
+    );
+    eventBus.subscribe("ntv.ui.timers.add", this.addTimer.bind(this));
+  }
+  toastSuccess(message) {
+    this.toaster.addToast(message.replaceAll("<", "&lt;"), 6e3, "success");
+  }
+  toastError(message) {
+    this.toaster.addToast(message.replaceAll("<", "&lt;"), 6e3, "error");
+  }
+  renderMessageParts(parsedMessageParts) {
+    const result = [];
+    let prevPart = null;
+    for (let index = 0; index < parsedMessageParts.length; index++) {
+      const part = parsedMessageParts[index];
+      if (typeof part === "string") {
+        result.push(this.createPlainTextMessagePartNode(part));
+      } else if (part instanceof Node) {
+        const newContentNode = document.createElement("span");
+        newContentNode.classList.add("ntv__chat-message__part");
+        newContentNode.appendChild(part);
+        result.push(newContentNode);
+      } else if (part.type === "emote") {
+        const prevPartWasEmote = prevPart && typeof prevPart !== "string" && !(prevPart instanceof Node) && prevPart.type === "emote";
+        if (prevPartWasEmote && part.emote.isZeroWidth) {
+          const prevElement = result[result.length - 1];
+          this.insertZeroWidthEmotePart(part.emote, prevElement);
+        } else {
+          result.push(this.createEmoteMessagePartElement(part.emote));
+        }
+      } else if (part.type === "emoji") {
+        const spanEl = document.createElement("span");
+        spanEl.className = "ntv__chat-message__part";
+        const emojiNode = document.createElement("img");
+        emojiNode.className = "ntv__inline-emoji";
+        emojiNode.src = part.url;
+        emojiNode.alt = part.alt;
+        spanEl.appendChild(emojiNode);
+        result.push(spanEl);
+      } else {
+        error27("CORE", "UI", "Unknown message part type", part);
+      }
+      prevPart = part;
+    }
+    return result;
+  }
+  createEmoteMessagePartElement(emote) {
+    const spanEl = document.createElement("span");
+    spanEl.className = "ntv__chat-message__part";
+    spanEl.setAttribute("contenteditable", "false");
+    const emoteBoxEl = document.createElement("div");
+    emoteBoxEl.className = "ntv__inline-emote-box";
+    spanEl.appendChild(emoteBoxEl);
+    const emoteRender = this.session.emotesManager.getRenderableEmote(emote);
+    if (!emoteRender) {
+      error27(
+        "CORE",
+        "UI",
+        "Failed to create emote message part element, emote render not found.",
+        emote,
+        emote.isZeroWidth && "ntv__emote--zero-width" || ""
+      );
+      return spanEl;
+    }
+    emoteBoxEl.appendChild(parseHTML(emoteRender));
+    return spanEl;
+  }
+  insertZeroWidthEmotePart(emote, messagePartEl) {
+    const emoteRender = this.session.emotesManager.getRenderableEmote(emote, "ntv__emote--zero-width");
+    if (!emoteRender) {
+      error27("CORE", "UI", "Failed to insert zero width emote part, emote render not found.", emote);
+      return;
+    }
+    const emoteBoxEl = messagePartEl.firstElementChild;
+    if (!emoteBoxEl)
+      return error27("CORE", "UI", "Failed to insert zero width emote part, target does not have child element.");
+    emoteBoxEl.appendChild(parseHTML(emoteRender));
+  }
+  createPlainTextMessagePartNode(textContent) {
+    if (textContent === " ") {
+      error27("CORE", "UI", "Attempted to create a text node with a single space character.");
+      return document.createTextNode(" ");
+    }
+    const newNode = document.createElement("span");
+    newNode.append(document.createTextNode(textContent));
+    newNode.className = "ntv__chat-message__part";
+    return newNode;
+  }
+  changeInputStatus(status, reason) {
+    if (!this.inputController) return error27("CORE", "UI", "Input controller not loaded yet.");
+    const contentEditableEditor = this.inputController.contentEditableEditor;
+    if (status === "enabled") {
+      contentEditableEditor.enableInput();
+      contentEditableEditor.setPlaceholder(reason || "Send message..");
+    } else if (status === "disabled") {
+      contentEditableEditor.clearInput();
+      contentEditableEditor.setPlaceholder(reason || "Chat is disabled");
+      contentEditableEditor.disableInput();
+    }
+  }
+  loadInputStatusBehaviour() {
+    if (!this.inputController)
+      return error27("CORE", "UI", "Input controller not loaded yet. Cannot load input status behaviour.");
+    const chatroomData = this.session.channelData.chatroom;
+    const channelMeData = this.session.channelData.me;
+    if (!chatroomData) return error27("CORE", "UI", "Chatroom data is missing from channelData");
+    if (!channelMeData) return error27("CORE", "UI", "Channel me data is missing from channelData");
+    const updateInputStatus = () => {
+      const chatroomData2 = this.session.channelData.chatroom;
+      const channelMeData2 = this.session.channelData.me;
+      const isPrivileged2 = channelMeData2.isSuperAdmin || channelMeData2.isBroadcaster || channelMeData2.isModerator;
+      let inputChanged = false;
+      if (!chatroomData2) return error27("CORE", "UI", "Chatroom data is missing from channelData");
+      if (!isPrivileged2 && channelMeData2.isBanned) {
+        log26("CORE", "UI", "You got banned from chat");
+        if (channelMeData2.isBanned.permanent) {
+          this.changeInputStatus("disabled", `You are banned from chat.`);
+        } else {
+          const expiresAt = new Date(channelMeData2.isBanned.expiresAt).getTime();
+          const duration = Math.ceil((expiresAt - Date.now()) / 1e3 / 60);
+          this.changeInputStatus(
+            "disabled",
+            `You are banned from chat for ${duration || "unknown"} minute(s).`
+          );
+        }
+        inputChanged = true;
+      }
+      if (!inputChanged && chatroomData2.followersMode?.enabled && (!channelMeData2.isFollowing || isPrivileged2)) {
+        log26("CORE", "UI", "Followers only mode enabled");
+        const isEnabled = isPrivileged2 || channelMeData2.isFollowing;
+        this.changeInputStatus(isEnabled ? "enabled" : "disabled", isEnabled ? null : "Followers only");
+        inputChanged = true;
+      }
+      if (!inputChanged && chatroomData2.subscribersMode?.enabled && (!channelMeData2.isSubscribed || isPrivileged2)) {
+        log26("CORE", "UI", "Subscribers only mode enabled");
+        const isEnabled = isPrivileged2 || channelMeData2.isSubscribed;
+        this.changeInputStatus(isEnabled ? "enabled" : "disabled", isEnabled ? null : "Subscribers only");
+        inputChanged = true;
+      }
+      if (!inputChanged && chatroomData2.followersMode?.enabled && channelMeData2.isFollowing) {
+        const followingSince = new Date(channelMeData2.followingSince);
+        const minDuration = chatroomData2.followersMode.min_duration || 0;
+        const now = /* @__PURE__ */ new Date();
+        const timeElapsed = (now.getTime() - followingSince.getTime()) / 1e3 << 0;
+        let remainingTime = minDuration - timeElapsed;
+        if (remainingTime > 0) {
+          const hours = remainingTime / 3600 << 0;
+          remainingTime -= hours * 3600;
+          const minutes = remainingTime / 60 << 0;
+          const hoursString = hours > 0 ? `${hours} hour${hours > 1 ? "s" : ""}` : "";
+          const minutesString = minutes > 0 ? `${minutes} minute${minutes > 1 ? "s" : ""}` : "";
+          const secondsString = remainingTime % 60 > 0 ? `${remainingTime % 60} second${remainingTime % 60 > 1 ? "s" : ""}` : "";
+          const formattedRemainingTime = hoursString ? `${hoursString} and ${minutesString || "0 minutes"}`.trim() : minutesString ? `${minutesString} and ${secondsString || "0 seconds"}`.trim() : `${secondsString}`;
+          this.changeInputStatus(
+            isPrivileged2 ? "enabled" : "disabled",
+            `Followers only, please wait for ${formattedRemainingTime} before you can chat.`
+          );
+          inputChanged = true;
+        }
+      }
+      if (!inputChanged && chatroomData2.emotesMode?.enabled) {
+        log26("CORE", "UI", "Emotes only mode enabled");
+        this.changeInputStatus("enabled", "Emotes only");
+      }
+      if (!inputChanged) {
+        log26("CORE", "UI", "Normal chat input restored");
+        this.changeInputStatus("enabled", "Send message..");
+      }
+    };
+    const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator;
+    if (chatroomData.followersMode?.enabled && chatroomData.followersMode?.min_duration && !isPrivileged) {
+      const followingSince = new Date(channelMeData.followingSince);
+      const minDuration = (chatroomData.followersMode?.min_duration || 0) * 60;
+      const now = /* @__PURE__ */ new Date();
+      const timeElapsed = (now.getTime() - followingSince.getTime()) / 1e3 << 0;
+      const remainingTime = minDuration - timeElapsed;
+      if (remainingTime > 0) {
+        let intervalHandle = setInterval(updateInputStatus, 1e3);
+        setTimeout(() => {
+          clearInterval(intervalHandle);
+          updateInputStatus();
+        }, remainingTime * 1e3);
+      }
+    }
+    this.session.eventBus.subscribe("ntv.channel.chatroom.me.banned", (data) => {
+      const channelMeData2 = this.session.channelData.me;
+      const isPrivileged2 = channelMeData2.isSuperAdmin || channelMeData2.isBroadcaster || channelMeData2.isModerator;
+      if (data.permanent) {
+        this.changeInputStatus(isPrivileged2 ? "enabled" : "disabled", `You are banned from chat.`);
+      } else {
+        const expiresAt = new Date(data.expiresAt).getTime();
+        const now = Date.now();
+        const duration = Math.ceil((expiresAt - now) / 1e3 / 60);
+        this.changeInputStatus(
+          isPrivileged2 ? "enabled" : "disabled",
+          `You are banned from chat for ${duration || "unknown"} minute(s).`
+        );
+      }
+    });
+    this.session.eventBus.subscribe("ntv.channel.chatroom.me.unbanned", (data) => {
+      updateInputStatus();
+    });
+    updateInputStatus();
+    this.session.eventBus.subscribe("ntv.channel.chatroom.updated", updateInputStatus);
+    this.session.eventBus.subscribe("ntv.channel.chatroom.me.unbanned", updateInputStatus);
+  }
+  showUserInfoModal(username, position) {
+    log26("CORE", "UI", "Loading user info modal..");
+    return new UserInfoModal(
+      this.rootContext,
+      this.session,
+      {
+        toaster: this.toaster
+      },
+      username,
+      position
+    ).init();
+  }
+  addTimer({ duration, description }) {
+    log26("CORE", "UI", "Adding timer..", duration, description);
+    const timersContainer = this.elm.timersContainer;
+    if (!timersContainer) return error27("CORE", "UI", "Unable to add timet, UI container does not exist yet.");
+    const timer = new TimerComponent(duration, description).init();
+    timersContainer.appendChild(timer.element);
+  }
+  // Submits input to chat
+  submitInput(suppressEngagementEvent, dontClearInput) {
+    const { eventBus, inputExecutionStrategyRegister } = this.session;
+    const contentEditableEditor = this.inputController?.contentEditableEditor;
+    if (!contentEditableEditor)
+      return error27("CORE", "UI", "Unable to submit input, the input controller is not loaded yet.");
+    if (contentEditableEditor.getCharacterCount() > this.maxMessageLength - 14) {
+      error27("CORE", "UI", "Message is too long to send.");
+      return this.toastError("Message is too long to send.");
+    }
+    const messageContent = contentEditableEditor.getMessageContent();
+    if (!messageContent.length) return log26("CORE", "UI", "No message content to send.");
+    eventBus.publish("ntv.ui.submit_input", { suppressEngagementEvent });
+    if (this.celebrationData) {
+      const celebrationId = this.celebrationData.id;
+    }
+    if (this.replyMessageData && !this.celebrationData) {
+      const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData;
+      inputExecutionStrategyRegister.routeInput(
+        contentEditableEditor,
+        {
+          input: messageContent,
+          isReply: true,
+          replyRefs: {
+            messageId: chatEntryId,
+            messageContent: chatEntryContentString,
+            senderId: chatEntryUserId,
+            senderUsername: chatEntryUsername
+          }
+        },
+        dontClearInput
+      ).then((successMessage) => {
+        if (successMessage) {
+          if (typeof successMessage !== "string")
+            throw new Error("Success message returned by input execution strategy is not a string.");
+          this.toastSuccess(successMessage);
+        }
+        eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
+      }).catch((err) => {
+        if (err && err.message) {
+          error27("CORE", "UI", err.message);
+          this.toastError(err.message);
+        } else {
+          error27("CORE", "UI", "Failed to reply to message. Reason unknown.");
+          this.toastError("Failed to reply to message. Reason unknown.");
+        }
+      });
+      this.destroyReplyMessageContext();
+    } else {
+      inputExecutionStrategyRegister.routeInput(
+        contentEditableEditor,
+        {
+          input: messageContent,
+          isReply: false,
+          celebrationRefs: this.celebrationData
+        },
+        dontClearInput
+      ).then((successMessage) => {
+        const celebrationData = this.celebrationData;
+        if (celebrationData) {
+          const celebrations = this.session.channelData.me.celebrations;
+          if (celebrations) {
+            this.session.channelData.me.celebrations = celebrations.filter(
+              (c) => c.id !== celebrationData.id
+            );
+          }
+          delete this.celebrationData;
+        }
+        if (successMessage) {
+          if (typeof successMessage !== "string")
+            throw new Error("Success message returned by input execution strategy is not a string.");
+          this.toastSuccess(successMessage);
+        }
+        eventBus.publish("ntv.ui.submitted_input", { suppressEngagementEvent });
+      }).catch((err) => {
+        if (err && err.message) {
+          error27("CORE", "UI", err.message);
+          this.toastError(err.message);
+        } else {
+          error27("CORE", "UI", "Failed to send message. Reason unknown.");
+          this.toastError("Failed to send message. Reason unknown.");
+        }
+      });
+    }
+  }
+  sendEmoteToChat(emoteHid) {
+    const { emotesManager, inputExecutionStrategyRegister } = this.session;
+    const contentEditableEditor = this.inputController?.contentEditableEditor;
+    if (!contentEditableEditor)
+      return error27("CORE", "UI", "Unable to send emote to chat, input controller is not loaded yet.");
+    const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
+    if (!emoteEmbedding) return error27("CORE", "UI", "Failed to send emote to chat, emote embedding not found.");
+    inputExecutionStrategyRegister.routeInput(contentEditableEditor, {
+      input: emoteEmbedding,
+      isReply: false
+    }).catch((err) => {
+      if (err) {
+        error27("CORE", "UI", "Failed to send emote because:", err);
+        this.toastError("Failed to send emote because: " + err);
+      } else {
+        error27("CORE", "UI", "Failed to send emote to chat. Reason unknown.");
+        this.toastError("Failed to send emote to chat. Reason unknown.");
+      }
+    });
+  }
+  replyMessage(messageNodes, chatEntryId, chatEntryContent, chatEntrySenderId, chatEntrySenderUsername) {
+    log26(
+      "CORE",
+      "UI",
+      `Replying to message ${chatEntryId} of user ${chatEntrySenderUsername} with ID ${chatEntrySenderId}..`
+    );
+    if (!this.inputController) return error27("CORE", "UI", "Input controller not loaded for reply behaviour");
+    if (!this.elm.replyMessageWrapper)
+      return error27("CORE", "UI", "Unable to load reply message, reply message wrapper not found");
+    if (this.replyMessageData) this.destroyReplyMessageContext();
+    this.replyMessageData = {
+      chatEntryId,
+      chatEntryContentString: chatEntryContent,
+      chatEntryUsername: chatEntrySenderUsername,
+      chatEntryUserId: chatEntrySenderId
+    };
+    this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init();
+    this.replyMessageComponent.addEventListener("close", () => {
+      this.destroyReplyMessageContext();
+    });
+    if (this.inputController) this.inputController.contentEditableEditor.focusInput();
+  }
+  isReplyingToMessage() {
+    return !!this.replyMessageComponent;
+  }
+  destroyReplyMessageContext() {
+    this.replyMessageComponent?.destroy();
+    this.elm.replyMessageWrapper?.remove();
+    delete this.replyMessageComponent;
+    delete this.replyMessageData;
+  }
+  isContentEditableEditorDestroyed() {
+    const contentEditableEditor = this.inputController?.contentEditableEditor;
+    if (!contentEditableEditor) return false;
+    return !isElementInDOM(contentEditableEditor.getInputNode());
+  }
+};
+
+// src/Core/UI/Components/RateLimitProgressBarComponent.ts
+var RateLimitProgressBarComponent = class extends AbstractComponent {
+  element;
+  fillElement = null;
+  activeCooldownKey = null;
+  hideTimeout = null;
+  constructor() {
+    super();
+    this.element = parseHTML(
+      cleanupHTML(`
+				<div class="ntv__rate-limit-progress" role="progressbar" aria-label="Chat rate limit cooldown">
+					<div class="ntv__rate-limit-progress__track">
+						<div class="ntv__rate-limit-progress__fill"></div>
+					</div>
+				</div>
+			`),
+      true
+    );
+  }
+  render() {
+    this.fillElement = this.element.querySelector(".ntv__rate-limit-progress__fill");
+  }
+  attachEventHandlers() {
+  }
+  update(state) {
+    if (!state.isCoolingDown || !state.cooldownEndsAt || state.remainingMs <= 0) {
+      this.hide();
+      return;
+    }
+    const cooldownKey = `${state.cooldownStartedAt ?? "unknown"}:${state.cooldownEndsAt}`;
+    const cooldownDurationMs = Math.max(state.cooldownDurationMs, state.remainingMs, 1);
+    const elapsedMs = Math.max(cooldownDurationMs - state.remainingMs, 0);
+    this.element.classList.add("ntv__rate-limit-progress--active");
+    this.element.setAttribute(
+      "ntv-tooltip",
+      state.queueSize > 0 ? `Chat rate limit active. ${state.queueSize} message${state.queueSize === 1 ? "" : "s"} queued.` : "Chat rate limit active."
+    );
+    this.element.setAttribute("aria-valuemin", "0");
+    this.element.setAttribute("aria-valuemax", `${cooldownDurationMs}`);
+    this.element.setAttribute("aria-valuenow", `${Math.max(state.remainingMs, 0)}`);
+    if (this.fillElement && this.activeCooldownKey !== cooldownKey) {
+      this.activeCooldownKey = cooldownKey;
+      this.fillElement.style.setProperty("--ntv-rate-limit-progress-duration", `${cooldownDurationMs}ms`);
+      this.fillElement.style.setProperty("--ntv-rate-limit-progress-delay", `${-elapsedMs}ms`);
+      this.restartAnimation();
+    }
+    this.scheduleHide(state.remainingMs);
+  }
+  destroy() {
+    this.clearHideTimeout();
+    this.element.remove();
+  }
+  hide() {
+    this.activeCooldownKey = null;
+    this.clearHideTimeout();
+    this.element.classList.remove("ntv__rate-limit-progress--active");
+    this.element.removeAttribute("ntv-tooltip");
+    this.element.removeAttribute("aria-valuemin");
+    this.element.removeAttribute("aria-valuemax");
+    this.element.removeAttribute("aria-valuenow");
+    if (this.fillElement) {
+      this.fillElement.classList.remove("ntv__rate-limit-progress__fill--animating");
+      this.fillElement.style.removeProperty("--ntv-rate-limit-progress-duration");
+      this.fillElement.style.removeProperty("--ntv-rate-limit-progress-delay");
+    }
+  }
+  restartAnimation() {
+    if (!this.fillElement) return;
+    this.fillElement.classList.remove("ntv__rate-limit-progress__fill--animating");
+    void this.fillElement.offsetWidth;
+    this.fillElement.classList.add("ntv__rate-limit-progress__fill--animating");
+  }
+  scheduleHide(remainingMs) {
+    this.clearHideTimeout();
+    this.hideTimeout = setTimeout(
+      () => {
+        this.hide();
+      },
+      Math.max(remainingMs, 0) + 50
+    );
+  }
+  clearHideTimeout() {
+    if (!this.hideTimeout) return;
+    clearTimeout(this.hideTimeout);
+    this.hideTimeout = null;
+  }
+};
+
+// src/Core/UI/Components/VerticalMenuComponent.ts
+var logger28 = new Logger();
+var { log: log27, info: info25, error: error28 } = logger28.destruct();
+var VerticalMenuComponent = class extends AbstractComponent {
+  constructor(anchorElement, options) {
+    super();
+    this.anchorElement = anchorElement;
+    this.options = options;
+    this.element = document.createElement("div");
+    this.element.classList.add("ntv__vertical-menu");
+    for (const option of options) {
+      const button = document.createElement("button");
+      button.textContent = option.label;
+      button.dataset.value = option.value;
+      this.element.appendChild(button);
+    }
+  }
+  event = new EventTarget();
+  element;
+  render() {
+    const boundRect = this.anchorElement.getBoundingClientRect();
+    this.element.style.left = boundRect.right + "px";
+    this.element.style.top = boundRect.top + "px";
+    document.body.appendChild(this.element);
+  }
+  attachEventHandlers() {
+    const closeMenu = (event) => {
+      if (event.target === this.element || this.element.contains(event.target)) return;
+      this.element.remove();
+      document.removeEventListener("click", closeMenu);
+      this.event.dispatchEvent(new Event("close"));
+    };
+    const buttonEls = this.element.querySelectorAll("button");
+    buttonEls.forEach((buttonEl) => {
+      buttonEl.addEventListener("click", (event) => {
+        this.element.remove();
+        document.removeEventListener("click", closeMenu);
+        this.event.dispatchEvent(new CustomEvent("action", { detail: buttonEl.dataset.value }));
+        this.event.dispatchEvent(new Event("close"));
+      });
+    });
+    setTimeout(() => {
+      document.addEventListener("click", closeMenu);
+    }, 0);
+  }
+  addEventListener(event, callback) {
+    this.event.addEventListener(event, callback);
+  }
+};
+
+// src/Sites/Kick/KickEvents.ts
+var KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE = "ntv.kick.send_message.rate_limit.updated";
+
 // src/Sites/Kick/KickUserInterface.ts
 var logger29 = new Logger();
 var { log: log28, info: info26, error: error29 } = logger29.destruct();
@@ -23124,7 +23131,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.loadQuickEmotesHolder();
     this.loadCelebrationsBehaviour();
     this.loadInputBehaviour();
-    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const footerSelector = "#chatroom-footer > .z-common:not(.absolute)";
     waitForElements([`${footerSelector}`], 15e3, abortSignal).then((foundElements) => {
       if (this.session.isDestroyed) return;
       const [footerEl] = foundElements;
@@ -23150,7 +23157,11 @@ var KickUserInterface = class extends AbstractUserInterface {
       this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
         this.clipboard.handleCopyEvent(evt);
       });
-      eventBus.subscribe("ntv.providers.loaded", this.loadChatMesssageRenderingBehaviour.bind(this), true);
+      eventBus.subscribe(
+        "ntv.providers.loaded",
+        this.loadChatMesssageRenderingBehaviour.bind(this),
+        true
+      );
       this.observeChatMessages(chatMessagesContainerEl);
       if (channelData.isVod) {
         this.loadVodBehaviour();
@@ -23166,7 +23177,11 @@ var KickUserInterface = class extends AbstractUserInterface {
           return;
         }
         if (!chatMessagesContainerEl.isConnected) {
-          info26("KICK", "UI", "Chat messages container got removed. Reloading session to reinitialize UI.");
+          info26(
+            "KICK",
+            "UI",
+            "Chat messages container got removed. Reloading session to reinitialize UI."
+          );
           this.destroy();
           this.session.eventBus.publish("ntv.session.reload");
         }
@@ -23189,7 +23204,10 @@ var KickUserInterface = class extends AbstractUserInterface {
         }
       }
     );
-    eventBus.subscribe("ntv.input_controller.submit", (data) => this.submitInput(false, data?.dontClearInput));
+    eventBus.subscribe(
+      "ntv.input_controller.submit",
+      (data) => this.submitInput(false, data?.dontClearInput)
+    );
     this.subscribeRootEvent(
       "ntv.settings.change.moderators.chat.show_quick_actions",
       ({ value, prevValue }) => {
@@ -23235,7 +23253,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       "ntv.settings.change.chat.messages.spacing",
       ({ value, prevValue }) => {
         Array.from(document.getElementsByClassName("ntv__chat-message")).forEach((el) => {
-          if (value === "none" && prevValue !== "none") el.classList.remove(`ntv__chat-message--${prevValue}`);
+          if (value === "none" && prevValue !== "none")
+            el.classList.remove(`ntv__chat-message--${prevValue}`);
           if (value !== "none" && prevValue === "none") el.classList.add(`ntv__chat-message--${value}`);
         });
       }
@@ -23256,7 +23275,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     const settingsManager = this.rootContext.settingsManager;
     const channelId = this.session.channelData.channelId;
     const chatMessagesContainerEl = this.elm.chatMessagesContainer;
-    if (!chatMessagesContainerEl) return error29("KICK", "UI", "Chat messages container not loaded for settings");
+    if (!chatMessagesContainerEl)
+      return error29("KICK", "UI", "Chat messages container not loaded for settings");
     chatMessagesContainerEl.classList.add("ntv__chat-messages-container");
     if (settingsManager.getSetting(channelId, "chat.messages.show_timestamps")) {
       chatMessagesContainerEl.classList.add("ntv__show-message-timestamps");
@@ -23279,7 +23299,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   async loadEmoteMenuButton() {
     const { abortController } = this;
     const abortSignal = abortController.signal;
-    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const footerSelector = "#chatroom-footer > .z-common:not(.absolute)";
     const footerBottomBarSelector = `${footerSelector} > div.flex > .flex.items-center > div.ml-auto`;
     waitForElements([footerBottomBarSelector], 15e3, abortSignal).then((foundElements) => {
       if (this.session.isDestroyed) return;
@@ -23288,7 +23308,11 @@ var KickUserInterface = class extends AbstractUserInterface {
         return error29("KICK", "UI", "Footer submit button wrapper not found for emote menu button");
       const placeholder = document.createElement("div");
       kickFooterBottomBarEl.prepend(placeholder);
-      this.emoteMenuButton = new EmoteMenuButtonComponent(this.rootContext, this.session, placeholder).init();
+      this.emoteMenuButton = new EmoteMenuButtonComponent(
+        this.rootContext,
+        this.session,
+        placeholder
+      ).init();
       let panicCounter = 0;
       const resetPanicCounter = () => {
         panicCounter = 0;
@@ -23322,7 +23346,10 @@ var KickUserInterface = class extends AbstractUserInterface {
         panicCounter++;
         schedulePanicReset();
       });
-      observer.observe(kickFooterBottomBarEl.parentElement, { childList: true, subtree: true });
+      observer.observe(kickFooterBottomBarEl.parentElement, {
+        childList: true,
+        subtree: true
+      });
     }).catch(() => {
     });
   }
@@ -23332,7 +23359,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { channelId } = channelData;
     const { abortController } = this;
     const abortSignal = abortController.signal;
-    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const footerSelector = "#chatroom-footer > .z-common:not(.absolute)";
     const quickEmotesHolderSelector = "#quick-emotes-holder";
     const wrapperFunction = () => {
       waitForElements([footerSelector], 15e3, abortSignal).then((foundElements) => {
@@ -23361,7 +23388,10 @@ var KickUserInterface = class extends AbstractUserInterface {
             const schedulePanicReset = () => {
               if (this.quickEmotesHolderPanicResetTimeout)
                 clearTimeout(this.quickEmotesHolderPanicResetTimeout);
-              this.quickEmotesHolderPanicResetTimeout = window.setTimeout(resetPanicCounter, 5e3);
+              this.quickEmotesHolderPanicResetTimeout = window.setTimeout(
+                resetPanicCounter,
+                5e3
+              );
             };
             const observer = this.quickEmotesHolderObserver = new MutationObserver((mutations) => {
               const quickEmotesHolderElement = this.quickEmotesHolder?.element;
@@ -23396,17 +23426,22 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
     };
     wrapperFunction();
-    this.subscribeRootEvent("ntv.settings.change.quick_emote_holder.enabled", ({ value, prevValue }) => {
-      if (this.session.isDestroyed) return;
-      this.quickEmotesHolder?.destroy();
-      if (value) {
-        wrapperFunction();
-      } else {
-        this.quickEmotesHolder = null;
-        const kickQuickEmotesHolderEl = document.querySelector(quickEmotesHolderSelector);
-        kickQuickEmotesHolderEl?.style.removeProperty("display");
+    this.subscribeRootEvent(
+      "ntv.settings.change.quick_emote_holder.enabled",
+      ({ value, prevValue }) => {
+        if (this.session.isDestroyed) return;
+        this.quickEmotesHolder?.destroy();
+        if (value) {
+          wrapperFunction();
+        } else {
+          this.quickEmotesHolder = null;
+          const kickQuickEmotesHolderEl = document.querySelector(
+            quickEmotesHolderSelector
+          );
+          kickQuickEmotesHolderEl?.style.removeProperty("display");
+        }
       }
-    });
+    );
   }
   loadAnnouncements() {
     const rootContext = this.rootContext;
@@ -23434,7 +23469,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       "ntv.settings.loaded",
       () => {
         document.addEventListener("DOMContentLoaded", showAnnouncements);
-        if (document.readyState === "complete" || document.readyState === "interactive") showAnnouncements();
+        if (document.readyState === "complete" || document.readyState === "interactive")
+          showAnnouncements();
       },
       true
     );
@@ -23443,7 +23479,10 @@ var KickUserInterface = class extends AbstractUserInterface {
     const { settingsManager } = this.rootContext;
     const { eventBus, channelData } = this.session;
     const channelId = channelData.channelId;
-    const firstMessageHighlightColor = settingsManager.getSetting(channelId, "chat.messages.highlight_color");
+    const firstMessageHighlightColor = settingsManager.getSetting(
+      channelId,
+      "chat.messages.highlight_color"
+    );
     if (firstMessageHighlightColor) {
       const rgb = hex2rgb(firstMessageHighlightColor);
       document.documentElement.style.setProperty(
@@ -23469,47 +23508,63 @@ var KickUserInterface = class extends AbstractUserInterface {
     const channelId = channelData.channelId;
     const messageFontSize = settingsManager.getSetting(channelId, "chat.messages.font_size") || "13px";
     document.documentElement.style.setProperty("--ntv-chat-message-font-size", messageFontSize);
-    this.subscribeRootEvent("ntv.settings.change.chat.messages.font_size", ({ value }) => {
-      if (!value) return;
-      document.documentElement.style.setProperty("--ntv-chat-message-font-size", value);
-    });
+    this.subscribeRootEvent(
+      "ntv.settings.change.chat.messages.font_size",
+      ({ value }) => {
+        if (!value) return;
+        document.documentElement.style.setProperty("--ntv-chat-message-font-size", value);
+      }
+    );
     const messageSpacing = settingsManager.getSetting(channelId, "chat.messages.spacing") || "0";
     document.documentElement.style.setProperty("--ntv-chat-message-spacing", messageSpacing);
-    this.subscribeRootEvent("ntv.settings.change.chat.messages.spacing", ({ value }) => {
-      if (!value) return;
-      document.documentElement.style.setProperty("--ntv-chat-message-spacing", value);
-    });
+    this.subscribeRootEvent(
+      "ntv.settings.change.chat.messages.spacing",
+      ({ value }) => {
+        if (!value) return;
+        document.documentElement.style.setProperty("--ntv-chat-message-spacing", value);
+      }
+    );
     const emoteSize = settingsManager.getSetting(channelId, "chat.messages.emotes.size") || "28px";
     document.documentElement.style.setProperty("--ntv-chat-message-emote-size", emoteSize);
-    this.subscribeRootEvent("ntv.settings.change.chat.messages.emotes.size", ({ value }) => {
-      if (!value) return;
-      document.documentElement.style.setProperty("--ntv-chat-message-emote-size", value);
-    });
+    this.subscribeRootEvent(
+      "ntv.settings.change.chat.messages.emotes.size",
+      ({ value }) => {
+        if (!value) return;
+        document.documentElement.style.setProperty("--ntv-chat-message-emote-size", value);
+      }
+    );
     const setEmoteOverlap = (settingValue) => {
       const overlapValue = ["0", "0.2em", "0.3em", "0.4em"][settingValue] || "0.4em";
       document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap", "-" + overlapValue);
-      document.documentElement.style.setProperty("--ntv-chat-message-emote-overlap-compensation", overlapValue);
+      document.documentElement.style.setProperty(
+        "--ntv-chat-message-emote-overlap-compensation",
+        overlapValue
+      );
     };
     const emoteOverlap = settingsManager.getSetting(channelId, "chat.messages.emotes.overlap") || 3;
     setEmoteOverlap(emoteOverlap);
-    this.subscribeRootEvent("ntv.settings.change.chat.messages.emotes.overlap", ({ value }) => {
-      if (value === void 0) return;
-      setEmoteOverlap(value);
-    });
+    this.subscribeRootEvent(
+      "ntv.settings.change.chat.messages.emotes.overlap",
+      ({ value }) => {
+        if (value === void 0) return;
+        setEmoteOverlap(value);
+      }
+    );
   }
   async loadInputBehaviour() {
     if (!this.session.channelData.me.isLoggedIn) return;
     if (this.session.channelData.isVod) return;
     const { abortController } = this;
     const abortSignal = abortController.signal;
-    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    const footerSelector = "#chatroom-footer > .z-common:not(.absolute)";
     const editorInputSelector = "#channel-chatroom .editor-input[contenteditable]";
     const foundInputElements = await waitForElements([editorInputSelector], 15e3, abortSignal).catch(
       () => void 0
     );
     if (this.session.isDestroyed)
       return error29("KICK", "UI", "Session destroyed before input element could be loaded");
-    if (!foundInputElements || !foundInputElements.length) return error29("KICK", "UI", "Input element not found");
+    if (!foundInputElements || !foundInputElements.length)
+      return error29("KICK", "UI", "Input element not found");
     const [kickTextFieldEl] = foundInputElements;
     Array.from(document.getElementsByClassName("ntv__message-input__wrapper")).forEach((el) => el.remove());
     Array.from(document.getElementsByClassName("ntv__message-input")).forEach((el) => el.remove());
@@ -23531,7 +23586,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     kickTextFieldEl.parentElement.after(textFieldWrapperEl);
     if (document.activeElement === kickTextFieldEl) textFieldEl.focus();
     const sendMessageRateLimitProgressBar = new RateLimitProgressBarComponent().init();
-    kickTextFieldEl.parentElement.parentElement.parentElement.append(sendMessageRateLimitProgressBar.element);
+    kickTextFieldEl.parentElement.parentElement.parentElement.append(
+      sendMessageRateLimitProgressBar.element
+    );
     this.sendMessageRateLimitProgressBar = sendMessageRateLimitProgressBar;
     const inputController = this.inputController = new InputController(
       this.rootContext,
@@ -23569,7 +23626,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE,
       (state) => {
         const isCoolingDown = state.isCoolingDown && state.remainingMs > 0;
-        textFieldWrapperEl.classList.toggle("ntv__message-input__wrapper--rate-limit-active", isCoolingDown);
+        textFieldWrapperEl.classList.toggle(
+          "ntv__message-input__wrapper--rate-limit-active",
+          isCoolingDown
+        );
         sendMessageRateLimitProgressBar.update(state);
       },
       true
@@ -23662,8 +23722,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (this.session.channelData.isVod) return;
     const { abortController, inputController } = this;
     const abortSignal = abortController.signal;
-    if (!inputController) return log28("KICK", "UI", "Input controller not initialized for submit button behaviour");
-    const footerSelector = "#channel-chatroom > div > div > .z-common:not(.absolute)";
+    if (!inputController)
+      return log28("KICK", "UI", "Input controller not initialized for submit button behaviour");
+    const footerSelector = "#chatroom-footer > .z-common:not(.absolute)";
     const submitButtonSelector = "#send-message-button";
     const foundInputElements = await waitForElements([submitButtonSelector], 15e3, abortSignal).catch(
       () => void 0
@@ -23681,7 +23742,10 @@ var KickUserInterface = class extends AbstractUserInterface {
     submitButtonEl.textContent = "Chat";
     this.elm.originalSubmitButton = kickSubmitButtonEl;
     kickSubmitButtonEl.before(submitButtonEl);
-    submitButtonEl.addEventListener("click", (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event));
+    submitButtonEl.addEventListener(
+      "click",
+      (event) => this.submitButtonPriorityEventTarget.dispatchEvent(event)
+    );
     this.submitButtonPriorityEventTarget.addEventListener("click", 10, () => this.submitInput(false));
     inputController.addEventListener("is_empty", 10, (event) => {
       if (event.detail.isEmpty) {
@@ -23773,7 +23837,8 @@ var KickUserInterface = class extends AbstractUserInterface {
       ({ value, prevValue }) => {
         const containerEl = document.querySelector("body > div[data-theatre]");
         if (!containerEl) return error29("KICK", "UI", "Theatre container not found");
-        if (prevValue && prevValue !== "none") containerEl.classList.remove("ntv__chat-position--" + prevValue);
+        if (prevValue && prevValue !== "none")
+          containerEl.classList.remove("ntv__chat-position--" + prevValue);
         if (value && value !== "none") containerEl.classList.add("ntv__chat-position--" + value);
       }
     );
@@ -23788,7 +23853,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       if (chatPositionModeSetting && chatPositionModeSetting !== "none") {
         containerEl.classList.add("ntv__chat-position--" + chatPositionModeSetting);
       }
-      const chatOverlayModeSetting = settingsManager.getSetting(channelId, "appearance.layout.overlay_chat");
+      const chatOverlayModeSetting = settingsManager.getSetting(
+        channelId,
+        "appearance.layout.overlay_chat"
+      );
       if (chatOverlayModeSetting && chatOverlayModeSetting !== "none") {
         containerEl.classList.add("ntv__theatre-overlay__mode");
         containerEl.classList.add(
@@ -23842,7 +23910,9 @@ var KickUserInterface = class extends AbstractUserInterface {
           );
         }
         if (value && value !== "none") {
-          containerEl.classList.add("ntv__theatre-overlay__video-alignment--" + value.replaceAll("_", "-"));
+          containerEl.classList.add(
+            "ntv__theatre-overlay__video-alignment--" + value.replaceAll("_", "-")
+          );
         }
       }
     );
@@ -23852,7 +23922,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         const containerEl = document.querySelector("body > div[data-theatre]");
         if (!containerEl) return error29("KICK", "UI", "Theatre container not found");
         if (prevValue && prevValue !== "none") {
-          containerEl.classList.remove("ntv__theatre-overlay__position--" + prevValue.replaceAll("_", "-"));
+          containerEl.classList.remove(
+            "ntv__theatre-overlay__position--" + prevValue.replaceAll("_", "-")
+          );
         }
         if (value && value !== "none") {
           containerEl.classList.add("ntv__theatre-overlay__position--" + value.replaceAll("_", "-"));
@@ -23964,7 +24036,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     const messageNodes = Array.from(
       chatMessageEl.querySelectorAll(".chat-entry .chat-message-identity + span ~ span")
     );
-    let messageContent = [];
+    const messageContent = [];
     for (const messageNode of messageNodes) {
       if (messageNode.textContent) messageContent.push(messageNode.textContent);
       else if (messageNode.querySelector("img")) {
@@ -24239,7 +24311,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   async handleUserInfoModalClick(username, screenPosition) {
     const userInfoModal = this.showUserInfoModal(username, screenPosition);
-    const processKickUserProfileModal = async function(userInfoModal2, kickUserInfoModalContainerEl2) {
+    const processKickUserProfileModal = async (userInfoModal2, kickUserInfoModalContainerEl2) => {
       if (userInfoModal2.isDestroyed()) {
         log28("KICK", "UI", "User info modal is already destroyed, cleaning up Kick modal..");
         destroyKickModal(kickUserInfoModalContainerEl2);
@@ -24260,7 +24332,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       if (!giftSubButton) return;
       connectGiftSubButtonInModal(userInfoModal2, giftSubButton);
     };
-    const connectGiftSubButtonInModal = function(userInfoModal2, giftSubButton) {
+    const connectGiftSubButtonInModal = (userInfoModal2, giftSubButton) => {
       userInfoModal2.addEventListener("gift_sub_click", () => {
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });
         Object.defineProperty(event, "target", { value: giftSubButton, enumerable: true });
@@ -24268,21 +24340,23 @@ var KickUserInterface = class extends AbstractUserInterface {
       });
       userInfoModal2.enableGiftSubButton();
     };
-    const destroyKickModal = function(container) {
+    const destroyKickModal = (container) => {
       const closeBtnEl = container?.querySelector("& > button.absolute.select-none");
       const event = new MouseEvent("click", { bubbles: true, cancelable: true });
       Object.defineProperty(event, "target", { value: closeBtnEl, enumerable: true });
       closeBtnEl?.dispatchEvent(event);
     };
     const kickUserProfileCards = Array.from(document.querySelectorAll(".base-floating-card.user-profile"));
-    const kickUserInfoModalContainerEl = kickUserProfileCards.find((node) => findNodeWithTextContent(node, username));
+    const kickUserInfoModalContainerEl = kickUserProfileCards.find(
+      (node) => findNodeWithTextContent(node, username)
+    );
     if (kickUserInfoModalContainerEl) {
       const usernameEl = kickUserInfoModalContainerEl.querySelector('a[rel="noreferrer"][title]');
       const usernameElText = usernameEl?.textContent;
       if (!usernameElText || username !== usernameElText) return;
       processKickUserProfileModal(userInfoModal, kickUserInfoModalContainerEl);
     } else {
-      let hideModalFaster = document.getElementById("user-identity");
+      const hideModalFaster = document.getElementById("user-identity");
       if (hideModalFaster) {
         hideModalFaster.style.display = "none";
         hideModalFaster.style.opacity = "0";
@@ -24291,15 +24365,19 @@ var KickUserInterface = class extends AbstractUserInterface {
       const usernameElText = usernameEl?.textContent;
       if (!usernameElText || username !== usernameElText) return;
       const kickUserInfoModalContainerEl2 = document.getElementById("user-identity");
-      if (!kickUserInfoModalContainerEl2) return error29("KICK", "UI", "Kick user profile modal container not found");
+      if (!kickUserInfoModalContainerEl2)
+        return error29("KICK", "UI", "Kick user profile modal container not found");
       processKickUserProfileModal(userInfoModal, kickUserInfoModalContainerEl2);
     }
   }
   async observePinnedMessage() {
     const pinnedMessagesContainerSelector = "#channel-chatroom div:has(+ #chatroom-messages) > div";
     const pinnedMessageContentSelector = ".\\[\\&\\>a\\:hover\\]\\:text-primary-base";
-    const pinnedMessageContainerEl = document.querySelector(pinnedMessagesContainerSelector);
-    if (!pinnedMessageContainerEl) return error29("KICK", "UI", "Pinned message container not found for observation");
+    const pinnedMessageContainerEl = document.querySelector(
+      pinnedMessagesContainerSelector
+    );
+    if (!pinnedMessageContainerEl)
+      return error29("KICK", "UI", "Pinned message container not found for observation");
     const renderPinnedMessageBody = (contentBodyEl) => {
       Array.from(document.getElementsByClassName("ntv__pinned-message__content")).forEach((node) => {
         node.remove();
@@ -24351,10 +24429,12 @@ var KickUserInterface = class extends AbstractUserInterface {
     const settingStyle = settingsManager.getSetting(channelId, "chat.messages.style");
     const settingSeperator = settingsManager.getSetting(channelId, "chat.messages.seperators");
     const settingSpacing = settingsManager.getSetting(channelId, "chat.messages.spacing");
-    if (settingStyle && settingStyle !== "none") messageEl.classList.add("ntv__chat-message--theme-" + settingStyle);
+    if (settingStyle && settingStyle !== "none")
+      messageEl.classList.add("ntv__chat-message--theme-" + settingStyle);
     if (settingSeperator && settingSeperator !== "none")
       messageEl.classList.add(`ntv__chat-message--seperator-${settingSeperator}`);
-    if (settingSpacing && settingSpacing !== "none") messageEl.classList.add("ntv__chat-message--" + settingSpacing);
+    if (settingSpacing && settingSpacing !== "none")
+      messageEl.classList.add("ntv__chat-message--" + settingSpacing);
     if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
       const settingModeratorQuickAction = settingsManager.getSetting(
         channelId,
@@ -24422,7 +24502,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     const ntvIdentityWrapperEl = document.createElement("div");
     ntvIdentityWrapperEl.classList.add("ntv__chat-message__identity");
     let groupElementNode = messageNode.firstElementChild;
-    if (!groupElementNode?.classList.contains("group")) groupElementNode = groupElementNode?.nextElementSibling;
+    if (!groupElementNode?.classList.contains("group"))
+      groupElementNode = groupElementNode?.nextElementSibling;
     if (!groupElementNode?.classList.contains("group")) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error29("KICK", "UI", "Chat message content wrapper node not found", messageNode);
@@ -24546,7 +24627,8 @@ var KickUserInterface = class extends AbstractUserInterface {
         );
     }
     let usernameEl = identityEl.firstElementChild;
-    while (usernameEl && usernameEl.tagName !== "BUTTON") usernameEl = usernameEl.nextElementSibling;
+    while (usernameEl && usernameEl.tagName !== "BUTTON")
+      usernameEl = usernameEl.nextElementSibling;
     if (!usernameEl) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error29("KICK", "UI", "Chat message username node not found", messageNode);
@@ -24662,7 +24744,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     messageNode.append(ntvMessageInnerEl);
     messageNode.classList.add("ntv__chat-message");
     messageNode.classList.remove("ntv__chat-message--unrendered");
-    let chatMessageActionsEl = groupElementNode.querySelector(".z-absolute.rounded");
+    const chatMessageActionsEl = groupElementNode.querySelector(".z-absolute.rounded");
     if (chatMessageActionsEl) {
       const ntvChatMessageActionsEl = document.createElement("div");
       ntvChatMessageActionsEl.className = chatMessageActionsEl.className;
@@ -24780,7 +24862,9 @@ var KickUserInterface = class extends AbstractUserInterface {
       textFieldEl.parentElement.style.removeProperty("display");
       this.elm.submitButton.style.removeProperty("display");
       this.elm.originalSubmitButton.style.removeProperty("display");
-      document.querySelector(".ntv__quick-emotes-holder")?.style.removeProperty("display");
+      document.querySelector(".ntv__quick-emotes-holder")?.style.removeProperty(
+        "display"
+      );
       document.querySelector(".ntv__emote-menu-button")?.style.removeProperty("display");
       const kickEmoteButtonEl2 = kickTextFieldEl?.parentElement?.nextElementSibling;
       if (kickEmoteButtonEl2) kickEmoteButtonEl2.style.removeProperty("display");
@@ -24979,24 +25063,30 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   restoreOriginalUi() {
     document.querySelectorAll(".ntv__message-input__wrapper, .ntv__message-input, .ntv__submit-button").forEach((el) => el.remove());
-    Array.from(document.querySelectorAll(".ntv__chat-message, .ntv__chat-message--unrendered")).forEach((node) => {
-      const el = node;
-      el.querySelectorAll(".ntv__chat-message__inner").forEach((innerNode) => innerNode.remove());
-      el.querySelectorAll(".kick__chat-message__actions").forEach((node2) => node2.remove());
-      el.querySelectorAll("#chat-message-actions").forEach((node2) => {
-        node2.parentElement?.style.removeProperty("display");
-      });
-      Array.from(el.classList).forEach((className) => {
-        if (className.startsWith("ntv__")) el.classList.remove(className);
-      });
-    });
+    Array.from(document.querySelectorAll(".ntv__chat-message, .ntv__chat-message--unrendered")).forEach(
+      (node) => {
+        const el = node;
+        el.querySelectorAll(".ntv__chat-message__inner").forEach((innerNode) => innerNode.remove());
+        el.querySelectorAll(".kick__chat-message__actions").forEach((node2) => node2.remove());
+        el.querySelectorAll("#chat-message-actions").forEach((node2) => {
+          node2.parentElement?.style.removeProperty("display");
+        });
+        Array.from(el.classList).forEach((className) => {
+          if (className.startsWith("ntv__")) el.classList.remove(className);
+        });
+      }
+    );
     document.querySelectorAll(".ntv__chat-messages-container").forEach((node) => node.classList.remove("ntv__chat-messages-container"));
     ["ntv__pinned-message__content"].forEach((className) => {
       Array.from(document.querySelectorAll(`.${className}`)).forEach((node) => node.remove());
     });
-    ["ntv__emote-menu-button", "ntv__submit-button disabled", "ntv__quick-emotes-holder"].forEach((className) => {
-      Array.from(document.querySelectorAll(`.${className}`)).forEach((node) => node.classList.remove(className));
-    });
+    ["ntv__emote-menu-button", "ntv__submit-button disabled", "ntv__quick-emotes-holder"].forEach(
+      (className) => {
+        Array.from(document.querySelectorAll(`.${className}`)).forEach(
+          (node) => node.classList.remove(className)
+        );
+      }
+    );
   }
 };
 
@@ -27258,7 +27348,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.103";
+  VERSION = "1.5.104";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

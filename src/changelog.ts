@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.104',
+		date: '2026-05-30',
+		description: `
+                  Fix: compatibility issue with third party extension Mo'Kick
+            `
+	},
+	{
 		version: '1.5.103',
 		date: '2026-03-31',
 		description: `
