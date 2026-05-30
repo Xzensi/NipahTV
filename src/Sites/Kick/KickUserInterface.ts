@@ -125,7 +125,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.loadCelebrationsBehaviour()
 		this.loadInputBehaviour()
 
-		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const footerSelector = '#chatroom-footer > .z-common:not(.absolute)' //'#channel-chatroom > div > div > .z-common:not(.absolute)'
 
 		// Wait for chat footer to load
 		waitForElements([`${footerSelector}`], 15_000, abortSignal)
@@ -366,7 +366,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { abortController } = this
 		const abortSignal = abortController.signal
 
-		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const footerSelector = '#chatroom-footer > .z-common:not(.absolute)' //'#channel-chatroom > div > div > .z-common:not(.absolute)'
 		const footerBottomBarSelector = `${footerSelector} > div.flex > .flex.items-center > div.ml-auto`
 
 		// Wait for chat footer to load before we insert our component
@@ -443,7 +443,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const { abortController } = this
 		const abortSignal = abortController.signal
 
-		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const footerSelector = '#chatroom-footer > .z-common:not(.absolute)' //'#channel-chatroom > div > div > .z-common:not(.absolute)'
 		const quickEmotesHolderSelector = '#quick-emotes-holder'
 
 		const wrapperFunction = () => {
@@ -693,7 +693,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		const abortSignal = abortController.signal
 
 		// Wait for text input & submit button to load
-		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const footerSelector = '#chatroom-footer > .z-common:not(.absolute)' //'#channel-chatroom > div > div > .z-common:not(.absolute)'
 		const editorInputSelector = '#channel-chatroom .editor-input[contenteditable]'
 
 		const foundInputElements = await waitForElements([editorInputSelector], 15_000, abortSignal).catch(
@@ -911,7 +911,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			return log('KICK', 'UI', 'Input controller not initialized for submit button behaviour')
 
 		// Wait for text input & submit button to load
-		const footerSelector = '#channel-chatroom > div > div > .z-common:not(.absolute)'
+		const footerSelector = '#chatroom-footer > .z-common:not(.absolute)' //'#channel-chatroom > div > div > .z-common:not(.absolute)'
 		const submitButtonSelector = '#send-message-button'
 
 		const foundInputElements = await waitForElements([submitButtonSelector], 15_000, abortSignal).catch(
