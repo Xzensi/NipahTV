@@ -1,6 +1,6 @@
 import type { CommandEntry } from '@core/Common/Commands'
 import { Logger } from '@core/Common/Logger'
-import { isStringNumber } from '@core/Common/utils'
+import { getSecondsFromTimestring, isStringNumber, validateTimestring } from '@core/Common/utils'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -8,19 +8,21 @@ const { log, info, error } = logger.destruct()
 export const KICK_COMMANDS: readonly CommandEntry[] = [
 	{
 		name: 'timeout',
-		params: '<username> <minutes> [reason]',
+		params: '<username> <duration> [reason]',
 		minAllowedRole: 'moderator',
-		description: 'Temporarily ban an user from chat.',
+		description: 'Temporarily ban an user from chat. Specify time like 30s or 2h4m20s or 1M2w4d.',
 		argValidators: {
 			'<username>': arg =>
 				arg ? (arg.length > 2 ? null : 'Username is too short') : 'Username is required',
-			'<minutes>': arg => {
-				if (!isStringNumber(arg)) return 'Minutes must be a number'
-
-				const m = parseInt(arg, 10)
-				return !Number.isNaN(m) && m > 0 && m < 10080
-					? null
-					: 'Minutes must be a number between 1 and 10080 (7 days)'
+			'<duration>': arg => {
+				const validationError = validateTimestring(arg)
+				if (validationError) {
+					return `Invalid duration argument: ${validationError}`
+				}
+				if (getSecondsFromTimestring(arg) <= 0) {
+					return 'Duration must be greater than 0'
+				}
+				return null
 			}
 		},
 		api: {
@@ -29,7 +31,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans`,
 			data: args => ({
 				banned_username: args[0],
-				duration: args[1],
+				duration: getSecondsFromTimestring(String(args[1])) / 60,
 				reason: args.slice(2).join(' '),
 				permanent: false
 			}),
@@ -237,23 +239,27 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 	},
 	{
 		name: 'timer',
-		params: '<seconds/minutes/hours> [description]',
+		params: '<duration> [description]',
 		description:
-			'Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.',
+			'Start a timer to keep track of the duration of something. Specify time like 30s or 2h4m20s.',
 		argValidators: {
-			'<seconds/minutes/hours>': arg => {
-				const time = arg.match(/^(\d+)(s|m|h)$/i)
-				if (!time) return 'Invalid time format. Use e.g. 30s, 2m or 1h.'
-				const value = parseInt(time[1], 10)
-				if (time[2] === 's' && value > 0 && value <= 3600) return null
-				if (time[2] === 'm' && value > 0 && value <= 300) return null
-				if (time[2] === 'h' && value > 0 && value <= 20) return null
-				return 'Invalid time format. Use e.g. 30s, 2m or 1h.'
+			'<duration>': arg => {
+				const validationError = validateTimestring(arg)
+				if (validationError) {
+					return `Invalid duration argument: ${validationError}`
+				}
+				if (getSecondsFromTimestring(arg) <= 0) {
+					return 'Duration must be greater than 0'
+				}
+				return null
 			}
 		},
 		execute: async (deps: RootContext & Session, args) => {
 			const { eventBus } = deps
-			eventBus.publish('ntv.ui.timers.add', { duration: args[0], description: args[1] })
+			eventBus.publish('ntv.ui.timers.add', {
+				duration: getSecondsFromTimestring(String(args[0])),
+				description: args[1]
+			})
 			log('KICK', 'COMMANDS', 'Timer command executed with args:', args)
 		}
 	},

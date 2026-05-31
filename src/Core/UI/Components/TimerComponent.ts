@@ -9,12 +9,10 @@ export default class TimerComponent extends AbstractComponent {
 	event = new EventTarget()
 	element: HTMLElement
 
-	constructor(duration: string, description?: string) {
+	constructor(duration: number, description?: string) {
 		super()
 
-		// Duration can be in format of 30s, 30m or 30h where s is seconds, m is minutes and h is hours
-		// Calculate the remaining time in seconds based on the duration
-		this.remainingTime = parseInt(duration) * (duration.includes('s') ? 1 : duration.includes('m') ? 60 : 3600)
+		this.remainingTime = duration // in seconds
 
 		this.element = parseHTML(
 			cleanupHTML(`

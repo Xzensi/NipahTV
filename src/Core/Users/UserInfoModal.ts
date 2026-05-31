@@ -387,8 +387,8 @@ export default class UserInfoModal extends AbstractModal {
 		) as HTMLElement
 
 		this.timeoutSliderComponent = new SteppedInputSliderComponent(
-			['5 minutes', '15 minutes', '1 hour', '1 day', '1 week'],
-			[5, 15, 60, 60 * 24, 60 * 24 * 7]
+			['5 minutes', '15 minutes', '1 hour', '1 day', '1 week', '1 month'],
+			[5, 15, 60, 60 * 24, 60 * 24 * 7, 60 * 24 * 30.4]
 		).init()
 
 		rangeWrapperEl.appendChild(this.timeoutSliderComponent.element)

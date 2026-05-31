@@ -401,7 +401,7 @@ export default abstract class AbstractUserInterface {
 		).init()
 	}
 
-	addTimer({ duration, description }: { duration: string; description: string }) {
+	addTimer({ duration, description }: { duration: number; description: string }) {
 		log('CORE', 'UI', 'Adding timer..', duration, description)
 		const timersContainer = this.elm.timersContainer
 		if (!timersContainer)
