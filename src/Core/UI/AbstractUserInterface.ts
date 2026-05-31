@@ -1,15 +1,15 @@
-import { assertArgDefined, isElementInDOM, parseHTML } from '../Common/utils'
+import { Logger } from '@core/Common/Logger'
 import ReplyMessageComponent from '../Chat/Components/ReplyMessageComponent'
-import { UserBannedEvent, UserUnbannedEvent } from '../Common/EventService'
+import Clipboard2 from '../Common/Clipboard'
+import type { UserBannedEvent, UserUnbannedEvent } from '../Common/EventService'
 import { PriorityEventTarget } from '../Common/PriorityEventTarget'
+import { Toaster } from '../Common/Toaster'
+import { assertArgDefined, isElementInDOM, parseHTML } from '../Common/utils'
 import type InputController from '../Input/InputController'
-import TimerComponent from './Components/TimerComponent'
 import MessagesHistory from '../Input/MessagesHistory'
 import UserInfoModal from '../Users/UserInfoModal'
+import TimerComponent from './Components/TimerComponent'
 import PollModal from './Modals/PollModal'
-import { Toaster } from '../Common/Toaster'
-import Clipboard2 from '../Common/Clipboard'
-import { Logger } from '@core/Common/Logger'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -131,7 +131,10 @@ export default abstract class AbstractUserInterface {
 				result.push(newContentNode)
 			} else if (part.type === 'emote') {
 				const prevPartWasEmote =
-					prevPart && typeof prevPart !== 'string' && !(prevPart instanceof Node) && prevPart.type === 'emote'
+					prevPart &&
+					typeof prevPart !== 'string' &&
+					!(prevPart instanceof Node) &&
+					prevPart.type === 'emote'
 
 				if (prevPartWasEmote && part.emote.isZeroWidth) {
 					const prevElement = result[result.length - 1]
@@ -199,7 +202,11 @@ export default abstract class AbstractUserInterface {
 
 		const emoteBoxEl = messagePartEl.firstElementChild
 		if (!emoteBoxEl)
-			return error('CORE', 'UI', 'Failed to insert zero width emote part, target does not have child element.')
+			return error(
+				'CORE',
+				'UI',
+				'Failed to insert zero width emote part, target does not have child element.'
+			)
 
 		emoteBoxEl.appendChild(parseHTML(emoteRender))
 	}
@@ -244,7 +251,8 @@ export default abstract class AbstractUserInterface {
 		const updateInputStatus = () => {
 			const chatroomData = this.session.channelData.chatroom
 			const channelMeData = this.session.channelData.me
-			const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
+			const isPrivileged =
+				channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
 			let inputChanged = false
 
 			if (!chatroomData) return error('CORE', 'UI', 'Chatroom data is missing from channelData')
@@ -266,7 +274,11 @@ export default abstract class AbstractUserInterface {
 				inputChanged = true
 			}
 
-			if (!inputChanged && chatroomData.followersMode?.enabled && (!channelMeData.isFollowing || isPrivileged)) {
+			if (
+				!inputChanged &&
+				chatroomData.followersMode?.enabled &&
+				(!channelMeData.isFollowing || isPrivileged)
+			) {
 				log('CORE', 'UI', 'Followers only mode enabled')
 
 				const isEnabled = isPrivileged || channelMeData.isFollowing
@@ -300,7 +312,9 @@ export default abstract class AbstractUserInterface {
 					const hoursString = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : ''
 					const minutesString = minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : ''
 					const secondsString =
-						remainingTime % 60 > 0 ? `${remainingTime % 60} second${remainingTime % 60 > 1 ? 's' : ''}` : ''
+						remainingTime % 60 > 0
+							? `${remainingTime % 60} second${remainingTime % 60 > 1 ? 's' : ''}`
+							: ''
 					const formattedRemainingTime = hoursString
 						? `${hoursString} and ${minutesString || '0 minutes'}`.trim()
 						: minutesString
@@ -327,7 +341,8 @@ export default abstract class AbstractUserInterface {
 		}
 
 		// TODO there's no handle on the follow button yet so a page refresh is required..
-		const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
+		const isPrivileged =
+			channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
 		if (chatroomData.followersMode?.enabled && chatroomData.followersMode?.min_duration && !isPrivileged) {
 			const followingSince = new Date(channelMeData.followingSince!)
 			const minDuration = (chatroomData.followersMode?.min_duration || 0) * 60
@@ -337,7 +352,7 @@ export default abstract class AbstractUserInterface {
 
 			// Update remaining following only time every second until min channel following duration is reached
 			if (remainingTime > 0) {
-				let intervalHandle = setInterval(updateInputStatus, 1000)
+				const intervalHandle = setInterval(updateInputStatus, 1000)
 				setTimeout(() => {
 					clearInterval(intervalHandle)
 					updateInputStatus()
@@ -347,7 +362,8 @@ export default abstract class AbstractUserInterface {
 
 		this.session.eventBus.subscribe('ntv.channel.chatroom.me.banned', (data: UserBannedEvent) => {
 			const channelMeData = this.session.channelData.me
-			const isPrivileged = channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
+			const isPrivileged =
+				channelMeData.isSuperAdmin || channelMeData.isBroadcaster || channelMeData.isModerator
 
 			if (data.permanent) {
 				this.changeInputStatus(isPrivileged ? 'enabled' : 'disabled', `You are banned from chat.`)
@@ -388,7 +404,8 @@ export default abstract class AbstractUserInterface {
 	addTimer({ duration, description }: { duration: string; description: string }) {
 		log('CORE', 'UI', 'Adding timer..', duration, description)
 		const timersContainer = this.elm.timersContainer
-		if (!timersContainer) return error('CORE', 'UI', 'Unable to add timet, UI container does not exist yet.')
+		if (!timersContainer)
+			return error('CORE', 'UI', 'Unable to add timet, UI container does not exist yet.')
 
 		// Add a timer component to the timers container
 		const timer = new TimerComponent(duration, description).init()
@@ -418,7 +435,8 @@ export default abstract class AbstractUserInterface {
 		}
 
 		if (this.replyMessageData && !this.celebrationData) {
-			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } = this.replyMessageData
+			const { chatEntryId, chatEntryContentString, chatEntryUserId, chatEntryUsername } =
+				this.replyMessageData
 
 			inputExecutionStrategyRegister
 				.routeInput(
@@ -506,7 +524,8 @@ export default abstract class AbstractUserInterface {
 			return error('CORE', 'UI', 'Unable to send emote to chat, input controller is not loaded yet.')
 
 		const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid)
-		if (!emoteEmbedding) return error('CORE', 'UI', 'Failed to send emote to chat, emote embedding not found.')
+		if (!emoteEmbedding)
+			return error('CORE', 'UI', 'Failed to send emote to chat, emote embedding not found.')
 
 		inputExecutionStrategyRegister
 			.routeInput(contentEditableEditor, {
@@ -549,7 +568,10 @@ export default abstract class AbstractUserInterface {
 			chatEntryUserId: chatEntrySenderId
 		}
 
-		this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init()
+		this.replyMessageComponent = new ReplyMessageComponent(
+			this.elm.replyMessageWrapper,
+			messageNodes
+		).init()
 		this.replyMessageComponent.addEventListener('close', () => {
 			this.destroyReplyMessageContext()
 		})
