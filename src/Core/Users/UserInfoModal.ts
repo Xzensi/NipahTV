@@ -1,9 +1,9 @@
-import { SteppedInputSliderComponent } from '@core/UI/Components/SteppedInputSliderComponent'
-import { parseHTML, cleanupHTML, formatRelativeTime } from '@core/Common/utils'
-import type { UserChannelInfo, UserInfo } from '@core/Common/NetworkInterface'
-import { AbstractModal, ModalGeometry } from '@core/UI/Modals/AbstractModal'
-import type { Toaster } from '@core/Common/Toaster'
 import { Logger } from '@core/Common/Logger'
+import type { UserChannelInfo, UserInfo } from '@core/Common/NetworkInterface'
+import type { Toaster } from '@core/Common/Toaster'
+import { cleanupHTML, formatRelativeTime, parseHTML } from '@core/Common/utils'
+import { SteppedInputSliderComponent } from '@core/UI/Components/SteppedInputSliderComponent'
+import { AbstractModal, type ModalGeometry } from '@core/UI/Modals/AbstractModal'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -89,7 +89,8 @@ export default class UserInfoModal extends AbstractModal {
 		super.render()
 
 		const { channelData, usersManager, badgeProvider } = this.session
-		const isModerator = channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster
+		const isModerator =
+			channelData.me.isSuperAdmin || channelData.me.isModerator || channelData.me.isBroadcaster
 
 		await this.updateUserInfo()
 
@@ -171,8 +172,8 @@ export default class UserInfoModal extends AbstractModal {
 					</div>
 				</div>
 				<div class="ntv__user-info-modal__badges">${userChannelInfo.badges.length ? 'Badges: ' : ''}${userChannelInfo.badges
-				.map(badgeProvider.getBadge.bind(badgeProvider))
-				.join('')}</div>
+					.map(badgeProvider.getBadge.bind(badgeProvider))
+					.join('')}</div>
 				<div class="ntv__user-info-modal__actions">
 					<button class="ntv__button ntv__user-info-modal__follow">${userInfo.isFollowing ? 'Unfollow' : 'Follow'}</button>
 					<button class="ntv__button ntv__user-info-modal__mute">${
@@ -386,8 +387,8 @@ export default class UserInfoModal extends AbstractModal {
 		) as HTMLElement
 
 		this.timeoutSliderComponent = new SteppedInputSliderComponent(
-			['5 minutes', '15 minutes', '1 hour', '1 day', '1 week'],
-			[5, 15, 60, 60 * 24, 60 * 24 * 7]
+			['5 minutes', '15 minutes', '1 hour', '1 day', '1 week', '1 month'],
+			[5, 15, 60, 60 * 24, 60 * 24 * 7, 60 * 24 * 30.4]
 		).init()
 
 		rangeWrapperEl.appendChild(this.timeoutSliderComponent.element)
@@ -402,11 +403,11 @@ export default class UserInfoModal extends AbstractModal {
 			timeoutPageEl.setAttribute('disabled', '')
 
 			try {
-				await this.session.networkInterface.executeCommand('timeout', this.session.channelData.channelName, [
-					this.username,
-					duration,
-					reason
-				])
+				await this.session.networkInterface.executeCommand(
+					'timeout',
+					this.session.channelData.channelName,
+					[this.username, duration, reason]
+				)
 				await this.updateUserInfo()
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -450,9 +451,11 @@ export default class UserInfoModal extends AbstractModal {
 			log('CORE', 'UI', `Attempting to remove VIP status from user: ${userInfo.username}..`)
 
 			try {
-				await this.session.networkInterface.executeCommand('unvip', this.session.channelData.channelName, [
-					userInfo.username
-				])
+				await this.session.networkInterface.executeCommand(
+					'unvip',
+					this.session.channelData.channelName,
+					[userInfo.username]
+				)
 				log('CORE', 'UI', 'Successfully removed VIP status from user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -483,7 +486,11 @@ export default class UserInfoModal extends AbstractModal {
 				log('CORE', 'UI', 'Successfully gave VIP status to user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
-					this.toaster.addToast('Failed to give VIP status to user: ' + err.errors.join(' '), 6_000, 'error')
+					this.toaster.addToast(
+						'Failed to give VIP status to user: ' + err.errors.join(' '),
+						6_000,
+						'error'
+					)
 				} else if (err.message) {
 					this.toaster.addToast('Failed to give VIP status to user: ' + err.message, 6_000, 'error')
 				} else {
@@ -519,9 +526,11 @@ export default class UserInfoModal extends AbstractModal {
 			log('CORE', 'UI', `Attempting to remove mod status from user: ${userInfo.username}..`)
 
 			try {
-				await this.session.networkInterface.executeCommand('unmod', this.session.channelData.channelName, [
-					userInfo.username
-				])
+				await this.session.networkInterface.executeCommand(
+					'unmod',
+					this.session.channelData.channelName,
+					[userInfo.username]
+				)
 				log('CORE', 'UI', 'Successfully removed mod status from user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -552,7 +561,11 @@ export default class UserInfoModal extends AbstractModal {
 				log('CORE', 'UI', 'Successfully gave mod status to user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
-					this.toaster.addToast('Failed to give mod status to user: ' + err.errors.join(' '), 6_000, 'error')
+					this.toaster.addToast(
+						'Failed to give mod status to user: ' + err.errors.join(' '),
+						6_000,
+						'error'
+					)
 				} else if (err.message) {
 					this.toaster.addToast('Failed to give mod status to user: ' + err.message, 6_000, 'error')
 				} else {
@@ -584,9 +597,11 @@ export default class UserInfoModal extends AbstractModal {
 			log('CORE', 'UI', `Attempting to unban user: ${userInfo.username}..`)
 
 			try {
-				await this.session.networkInterface.executeCommand('unban', this.session.channelData.channelName, [
-					userInfo.username
-				])
+				await this.session.networkInterface.executeCommand(
+					'unban',
+					this.session.channelData.channelName,
+					[userInfo.username]
+				)
 				log('CORE', 'UI', 'Successfully unbanned user:', userInfo.username)
 			} catch (err: any) {
 				if (err.errors && err.errors.length > 0) {
@@ -720,7 +735,11 @@ export default class UserInfoModal extends AbstractModal {
 			res = await networkInterface.getUserMessages(channelData.channelId, userInfo.id, cursor)
 		} catch (err: any) {
 			if (err.errors && err.errors.length > 0) {
-				this.toaster.addToast('Failed to load user message history: ' + err.errors.join(' '), 6_000, 'error')
+				this.toaster.addToast(
+					'Failed to load user message history: ' + err.errors.join(' '),
+					6_000,
+					'error'
+				)
 			} else if (err.message) {
 				this.toaster.addToast('Failed to load user message history: ' + err.message, 6_000, 'error')
 			} else {
@@ -844,7 +863,9 @@ export default class UserInfoModal extends AbstractModal {
 	// TODO move this to dedicated class with methods
 	isUserPrivileged() {
 		return (
-			this.userChannelInfo?.isChannelOwner || this.userChannelInfo?.isModerator || this.userChannelInfo?.isStaff
+			this.userChannelInfo?.isChannelOwner ||
+			this.userChannelInfo?.isModerator ||
+			this.userChannelInfo?.isStaff
 		)
 	}
 
@@ -868,7 +889,10 @@ export default class UserInfoModal extends AbstractModal {
 		try {
 			delete this.userInfo
 			delete this.userChannelInfo
-			this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username)
+			this.userChannelInfo = await networkInterface.getUserChannelInfo(
+				channelData.channelName,
+				this.username
+			)
 			this.userInfo = await networkInterface.getUserInfo(this.userChannelInfo.slug)
 			// this.userChannelInfo.badges = [
 			// 	{

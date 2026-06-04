@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.105
+// @version 1.5.106
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-33655936.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-abae8aa3.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -11091,6 +11091,77 @@ function formatRelativeTime(date) {
   error3("UTILS", "-", "Unable to format relative time", date);
   return "error";
 }
+var timeStringRegex = /(\d+)([YMWdhms])/g;
+function validateTimestring(str) {
+  if (!/^(\d+[YMWdhms])+$/.test(str)) {
+    return 'Specify time as a combination of numbers and units, e.g. "1h30m" for 1 hour and 30 minutes.';
+  }
+  let match;
+  while ((match = timeStringRegex.exec(str)) !== null) {
+    const value = parseInt(match[1]);
+    const unit = match[2];
+    switch (unit) {
+      case "y":
+        if (value > 100) return "Years value too high";
+        break;
+      case "M":
+        if (value > 24) return "Months value too high";
+        break;
+      case "w":
+        if (value > 96) return "Weeks value too high";
+        break;
+      case "d":
+        if (value > 365) return "Days value too high";
+        break;
+      case "h":
+        if (value > 24 * 365 * 2) return "Hours value too high";
+        break;
+      case "m":
+        if (value > 60 * 24 * 365 * 2) return "Minutes value too high";
+        break;
+      case "s":
+        if (value > 60 * 60 * 24 * 365 * 2) return "Seconds value too high";
+        break;
+    }
+  }
+  return null;
+}
+function getSecondsFromTimestring(str) {
+  const validationError = validateTimestring(str);
+  if (validationError) {
+    throw new Error(`Invalid time string: ${validationError}`);
+  }
+  let match;
+  let seconds = 0;
+  while ((match = timeStringRegex.exec(str)) !== null) {
+    const value = parseInt(match[1]);
+    const unit = match[2];
+    switch (unit) {
+      case "y":
+        seconds += value * 365 * 24 * 60 * 60;
+        break;
+      case "M":
+        seconds += value * 30 * 24 * 60 * 60;
+        break;
+      case "w":
+        seconds += value * 7 * 24 * 60 * 60;
+        break;
+      case "d":
+        seconds += value * 24 * 60 * 60;
+        break;
+      case "h":
+        seconds += value * 60 * 60;
+        break;
+      case "m":
+        seconds += value * 60;
+        break;
+      case "s":
+        seconds += value;
+        break;
+    }
+  }
+  return seconds;
+}
 
 // src/Sites/Kick/KickCommands.ts
 var logger4 = new Logger();
@@ -11098,15 +11169,20 @@ var { log: log3, info: info2, error: error4 } = logger4.destruct();
 var KICK_COMMANDS = [
   {
     name: "timeout",
-    params: "<username> <minutes> [reason]",
+    params: "<username> <duration> [reason]",
     minAllowedRole: "moderator",
-    description: "Temporarily ban an user from chat.",
+    description: "Temporarily ban an user from chat. Specify time like 30s or 2h4m20s or 1M2w4d.",
     argValidators: {
       "<username>": (arg) => arg ? arg.length > 2 ? null : "Username is too short" : "Username is required",
-      "<minutes>": (arg) => {
-        if (!isStringNumber(arg)) return "Minutes must be a number";
-        const m = parseInt(arg, 10);
-        return !Number.isNaN(m) && m > 0 && m < 10080 ? null : "Minutes must be a number between 1 and 10080 (7 days)";
+      "<duration>": (arg) => {
+        const validationError = validateTimestring(arg);
+        if (validationError) {
+          return `Invalid duration argument: ${validationError}`;
+        }
+        if (getSecondsFromTimestring(arg) <= 0) {
+          return "Duration must be greater than 0";
+        }
+        return null;
       }
     },
     api: {
@@ -11115,7 +11191,7 @@ var KICK_COMMANDS = [
       uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans`,
       data: (args) => ({
         banned_username: args[0],
-        duration: args[1],
+        duration: getSecondsFromTimestring(String(args[1])) / 60,
         reason: args.slice(2).join(" "),
         permanent: false
       }),
@@ -11314,22 +11390,26 @@ var KICK_COMMANDS = [
   },
   {
     name: "timer",
-    params: "<seconds/minutes/hours> [description]",
-    description: "Start a timer to keep track of the duration of something. Specify time like 30s, 2m or 1h.",
+    params: "<duration> [description]",
+    description: "Start a timer to keep track of the duration of something. Specify time like 30s or 2h4m20s.",
     argValidators: {
-      "<seconds/minutes/hours>": (arg) => {
-        const time = arg.match(/^(\d+)(s|m|h)$/i);
-        if (!time) return "Invalid time format. Use e.g. 30s, 2m or 1h.";
-        const value = parseInt(time[1], 10);
-        if (time[2] === "s" && value > 0 && value <= 3600) return null;
-        if (time[2] === "m" && value > 0 && value <= 300) return null;
-        if (time[2] === "h" && value > 0 && value <= 20) return null;
-        return "Invalid time format. Use e.g. 30s, 2m or 1h.";
+      "<duration>": (arg) => {
+        const validationError = validateTimestring(arg);
+        if (validationError) {
+          return `Invalid duration argument: ${validationError}`;
+        }
+        if (getSecondsFromTimestring(arg) <= 0) {
+          return "Duration must be greater than 0";
+        }
+        return null;
       }
     },
     execute: async (deps, args) => {
       const { eventBus } = deps;
-      eventBus.publish("ntv.ui.timers.add", { duration: args[0], description: args[1] });
+      eventBus.publish("ntv.ui.timers.add", {
+        duration: getSecondsFromTimestring(String(args[0])),
+        description: args[1]
+      });
       log3("KICK", "COMMANDS", "Timer command executed with args:", args);
     }
   },
@@ -12352,6 +12432,20 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.106",
+    date: "2026-06-03",
+    description: `
+                  After a lot of testing I've finally come to the realisation that for some weird unknown reason, Kick keeps randomly unsticky'ing the chat when the cursor hovers anywhere over chat. This is really bizarre and I have no idea why Kick does this. 
+                  
+                  Until I figure why this is happening, if you got issues with chat randomly unsticky'ing, I recommend trying to not have cursor on top of chat.
+
+                  Feat: Timeout and timer commands now support more complex time strings
+                  Feat: Added 1 month as timeout duration option
+                  Feat: Uncapped maximum duration for timeout command
+                  Fix: Chat view sometimes spazzing out oscillating scroll position up and down
+            `
+  },
   {
     version: "1.5.105",
     date: "2026-05-31",
@@ -21378,88 +21472,177 @@ var ReplyMessageComponent = class extends AbstractComponent {
   }
 };
 
-// src/Core/UI/Components/TimerComponent.ts
-var TimerComponent = class extends AbstractComponent {
-  remainingTime;
-  paused = false;
-  interval;
-  event = new EventTarget();
-  element;
-  constructor(duration, description) {
-    super();
-    this.remainingTime = parseInt(duration) * (duration.includes("s") ? 1 : duration.includes("m") ? 60 : 3600);
-    this.element = parseHTML(
-      cleanupHTML(`
-                <div class="ntv__timer">
-                    <div class="ntv__timer__body">
-                        <div class="ntv__timer__duration">${this.formatTime(this.remainingTime)}</div>
-                        <div class="ntv__timer__description">${description || ""}</div>
-                    </div>
-                    <div class="ntv__timer__buttons">
-                        <button class="ntv__timer__pause ntv__icon-button">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 20 20">
-                                <path fill="currentColor" d="M5 4h3v12H5zm7 0h3v12h-3z" />
-                            </svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
-                                <path fill="currentColor" d="M10.804 8L5 4.633v6.734zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696z" />
-                            </svg>
-                        </button>
-                        <button class="ntv__timer__remove ntv__icon-button">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
-                                <path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
-                                <path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-        `),
+// src/Core/Common/Clipboard.ts
+var logger25 = new Logger();
+var { log: log24, info: info22, error: error25 } = logger25.destruct();
+function flattenNestedElement(node) {
+  const result = [];
+  function traverse(node2) {
+    if (node2.nodeType === Node.TEXT_NODE) {
+      result.push(node2);
+    } else if (node2.nodeType === Node.ELEMENT_NODE && node2.nodeName === "IMG") {
+      result.push(node2);
+    } else {
+      for (var i = 0; i < node2.childNodes.length; i++) {
+        traverse(node2.childNodes[i]);
+      }
+    }
+  }
+  traverse(node);
+  return result;
+}
+var Clipboard2 = class {
+  domParser = new DOMParser();
+  handleCopyEvent(event) {
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount) return error25("CORE", "UI", "Selection is null");
+    event.preventDefault();
+    const fragment = document.createDocumentFragment();
+    const nodeList = [];
+    for (let i = 0; i < selection.rangeCount; i++) {
+      fragment.append(selection.getRangeAt(i).cloneContents());
+    }
+    const walker = document.createTreeWalker(
+      fragment,
+      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() || node?.tagName === "IMG" ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+    );
+    let currentNode = walker.currentNode;
+    while (currentNode) {
+      nodeList.push(currentNode);
+      currentNode = walker.nextNode();
+    }
+    const copyString = nodeList.map((node) => {
+      if (node instanceof Text) {
+        return node.textContent?.trim();
+      } else if (node instanceof HTMLElement && node.dataset.emoteName) {
+        return node.dataset.emoteName || "UNSET_EMOTE_NAME";
+      } else if (node instanceof HTMLElement && node.tagName === "IMG" && node.hasAttribute("alt")) {
+        return node.getAttribute("alt");
+      }
+    }).filter((text) => typeof text === "string" && text.length > 0).join(" ").replaceAll(CHAR_ZWSP, "");
+    event.clipboardData?.setData("text/plain", copyString);
+    log24("CORE", "UI", `Copied: "${copyString}"`);
+  }
+  handleCutEvent(event) {
+    const selection = document.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!range) return;
+    const commonAncestorContainer = range.commonAncestorContainer;
+    if (!(commonAncestorContainer instanceof HTMLElement) && !commonAncestorContainer.isContentEditable && !commonAncestorContainer.parentElement.isContentEditable) {
+      return;
+    }
+    event.preventDefault();
+    this.handleCopyEvent(event);
+    selection.deleteFromDocument();
+  }
+  paste(text) {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    selection.deleteFromDocument();
+    selection.getRangeAt(0).insertNode(document.createTextNode(text));
+    selection.collapseToEnd();
+  }
+  pasteHTML(html) {
+    const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    selection.deleteFromDocument();
+    const range = selection.getRangeAt(0);
+    for (const node of nodes) {
+      Caret.insertNodeAtCaret(range, node);
+    }
+    const lastNode = nodes[nodes.length - 1];
+    if (lastNode) {
+      if (lastNode.nodeType === Node.TEXT_NODE) {
+        selection.collapse(lastNode, lastNode.length);
+        selection.collapseToEnd();
+      } else if (lastNode.nodeType === Node.ELEMENT_NODE) {
+        selection.collapse(lastNode, lastNode.childNodes.length);
+      }
+    }
+  }
+  parsePastedMessage(evt) {
+    const clipboardData = evt.clipboardData || window.clipboardData;
+    if (!clipboardData) return [];
+    const html = clipboardData.getData("text/html");
+    if (html) {
+      const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
+      const childNodes = doc.body.childNodes;
+      if (childNodes.length === 0) {
+        return [];
+      }
+      let startFragmentComment = null, endFragmentComment = null;
+      for (let i = 0; i < childNodes.length; i++) {
+        const node = childNodes[i];
+        if (node.nodeType === Node.COMMENT_NODE) {
+          if (node.textContent === "StartFragment") {
+            startFragmentComment = i;
+          } else if (node.textContent === "EndFragment") {
+            endFragmentComment = i;
+          }
+          if (startFragmentComment && endFragmentComment) {
+            break;
+          }
+        }
+      }
+      if (startFragmentComment === null || endFragmentComment === null) {
+        error25("CORE", "UI", "Failed to find fragment markers, clipboard data seems to be corrupted.");
+        return [];
+      }
+      const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
+      const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
+      const parsedNodes = [];
+      for (const node of flattenedNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent) {
+          parsedNodes.push(node.textContent);
+        } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
+          const emoteName = node.dataset.emoteName;
+          if (emoteName) {
+            parsedNodes.push(emoteName);
+          }
+        }
+      }
+      if (parsedNodes.length) return parsedNodes;
+      return [];
+    } else {
+      const text = clipboardData.getData("text/plain");
+      if (!text) return [];
+      return [text.replaceAll(CHAR_ZWSP, "")];
+    }
+  }
+};
+
+// src/Core/Common/Toaster.ts
+var Toaster = class {
+  toasts = [];
+  addToast(message, duration, type = "info") {
+    const toastEl = parseHTML(
+      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
       true
     );
-  }
-  render() {
-  }
-  attachEventHandlers() {
-    const pauseButton = this.element.querySelector(".ntv__timer__pause");
-    const removeButton = this.element.querySelector(".ntv__timer__remove");
-    pauseButton.addEventListener("click", () => {
-      if (this.paused) {
-        this.paused = false;
-        pauseButton.classList.remove("ntv__timer__pause--paused");
-        this.startTimer();
-        this.event.dispatchEvent(new CustomEvent("unpaused"));
-      } else {
-        this.paused = true;
-        pauseButton.classList.add("ntv__timer__pause--paused");
-        if (this.interval) {
-          clearInterval(this.interval);
-          delete this.interval;
-        }
-        this.event.dispatchEvent(new CustomEvent("paused"));
+    const timeout = Date.now() + duration;
+    const toast = { message, type, timeout, element: toastEl };
+    this.toasts.push(toast);
+    document.body.appendChild(toastEl);
+    setTimeout(() => {
+      const index = this.toasts.indexOf(toast);
+      if (index !== -1) {
+        this.toasts[index].element.remove();
+        this.toasts.splice(index, 1);
       }
-    });
-    removeButton.addEventListener("click", () => {
-      this.event.dispatchEvent(new CustomEvent("destroy"));
-      this.element.remove();
-    });
-    this.startTimer();
+    }, duration);
+    this.moveToasts();
   }
-  startTimer() {
-    const durationEl = this.element.querySelector(".ntv__timer__duration");
-    this.interval = setInterval(() => {
-      this.remainingTime--;
-      durationEl.textContent = this.formatTime(this.remainingTime);
-      if (this.remainingTime <= 0) {
-        durationEl?.classList.add("ntv__timer__duration--expired");
-      }
-    }, 1e3);
-  }
-  formatTime(time) {
-    const sign = time < 0 ? "-" : "";
-    time = Math.abs(time);
-    const hours = Math.floor(time / 3600);
-    const minutes = Math.floor(time % 3600 / 60);
-    const seconds = time % 60;
-    return `${sign}${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  moveToasts() {
+    const spacing = 20;
+    let y = 20;
+    const toasts = this.toasts.toReversed();
+    for (const toast of toasts) {
+      toast.element.style.top = `${y}px`;
+      y += toast.element.clientHeight + spacing;
+    }
   }
 };
 
@@ -21507,8 +21690,8 @@ var SteppedInputSliderComponent = class extends AbstractComponent {
 };
 
 // src/Core/Users/UserInfoModal.ts
-var logger25 = new Logger();
-var { log: log24, info: info22, error: error25 } = logger25.destruct();
+var logger26 = new Logger();
+var { log: log25, info: info23, error: error26 } = logger26.destruct();
 var UserInfoModal = class extends AbstractModal {
   rootContext;
   session;
@@ -21725,7 +21908,7 @@ var UserInfoModal = class extends AbstractModal {
     this.actionFollowEl?.addEventListener("click", this.clickFollowHandler.bind(this));
     this.actionMuteEl?.addEventListener("click", this.clickMuteHandler.bind(this));
     this.actionReportEl?.addEventListener("click", () => {
-      log24("CORE", "UI", "Report button clicked");
+      log25("CORE", "UI", "Report button clicked");
     });
     this.modActionButtonBanEl?.addEventListener("click", this.clickBanHandler.bind(this));
     this.modActionButtonTimeoutEl?.addEventListener("click", this.clickTimeoutHandler.bind(this));
@@ -21781,11 +21964,11 @@ var UserInfoModal = class extends AbstractModal {
     const user = usersManager.getUserById(username);
     if (!user) return;
     if (user.muted) {
-      log24("CORE", "UI", "Unmuting user:", username);
+      log25("CORE", "UI", "Unmuting user:", username);
       usersManager.unmuteUserById(user.id);
       this.actionMuteEl.textContent = "Mute";
     } else {
-      log24("CORE", "UI", "Muting user:", username);
+      log25("CORE", "UI", "Muting user:", username);
       usersManager.muteUserById(user.id, channelId);
       this.actionMuteEl.textContent = "Unmute";
     }
@@ -21812,8 +21995,8 @@ var UserInfoModal = class extends AbstractModal {
       ".ntv__user-info-modal__timeout-page__wrapper div"
     );
     this.timeoutSliderComponent = new SteppedInputSliderComponent(
-      ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week"],
-      [5, 15, 60, 60 * 24, 60 * 24 * 7]
+      ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week", "1 month"],
+      [5, 15, 60, 60 * 24, 60 * 24 * 7, 60 * 24 * 30.4]
     ).init();
     rangeWrapperEl.appendChild(this.timeoutSliderComponent.element);
     const buttonEl = timeoutWrapperEl.querySelector("button");
@@ -21823,11 +22006,11 @@ var UserInfoModal = class extends AbstractModal {
       const reason = timeoutWrapperEl.querySelector("textarea").value;
       timeoutPageEl.setAttribute("disabled", "");
       try {
-        await this.session.networkInterface.executeCommand("timeout", this.session.channelData.channelName, [
-          this.username,
-          duration,
-          reason
-        ]);
+        await this.session.networkInterface.executeCommand(
+          "timeout",
+          this.session.channelData.channelName,
+          [this.username, duration, reason]
+        );
         await this.updateUserInfo();
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
@@ -21845,7 +22028,7 @@ var UserInfoModal = class extends AbstractModal {
       timeoutPageEl.removeAttribute("disabled");
       delete this.timeoutSliderComponent;
       this.updateModStatusPage();
-      log24("CORE", "UI", `Successfully timed out user: ${this.username} for ${duration} minutes`);
+      log25("CORE", "UI", `Successfully timed out user: ${this.username} for ${duration} minutes`);
     });
   }
   async clickVIPHandler() {
@@ -21859,12 +22042,14 @@ var UserInfoModal = class extends AbstractModal {
     }
     this.modActionButtonVIPEl.classList.add("ntv__icon-button--disabled");
     if (this.isUserVIP()) {
-      log24("CORE", "UI", `Attempting to remove VIP status from user: ${userInfo.username}..`);
+      log25("CORE", "UI", `Attempting to remove VIP status from user: ${userInfo.username}..`);
       try {
-        await this.session.networkInterface.executeCommand("unvip", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log24("CORE", "UI", "Successfully removed VIP status from user:", userInfo.username);
+        await this.session.networkInterface.executeCommand(
+          "unvip",
+          this.session.channelData.channelName,
+          [userInfo.username]
+        );
+        log25("CORE", "UI", "Successfully removed VIP status from user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast(
@@ -21883,15 +22068,19 @@ var UserInfoModal = class extends AbstractModal {
       this.removeUserVIPStatus();
       this.modActionButtonVIPEl?.removeAttribute("active");
     } else {
-      log24("CORE", "UI", `Attempting to give VIP status to user: ${userInfo.username}..`);
+      log25("CORE", "UI", `Attempting to give VIP status to user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("vip", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log24("CORE", "UI", "Successfully gave VIP status to user:", userInfo.username);
+        log25("CORE", "UI", "Successfully gave VIP status to user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to give VIP status to user: " + err.errors.join(" "), 6e3, "error");
+          this.toaster.addToast(
+            "Failed to give VIP status to user: " + err.errors.join(" "),
+            6e3,
+            "error"
+          );
         } else if (err.message) {
           this.toaster.addToast("Failed to give VIP status to user: " + err.message, 6e3, "error");
         } else {
@@ -21917,12 +22106,14 @@ var UserInfoModal = class extends AbstractModal {
     }
     this.modActionButtonModEl.classList.add("ntv__icon-button--disabled");
     if (this.isUserPrivileged()) {
-      log24("CORE", "UI", `Attempting to remove mod status from user: ${userInfo.username}..`);
+      log25("CORE", "UI", `Attempting to remove mod status from user: ${userInfo.username}..`);
       try {
-        await this.session.networkInterface.executeCommand("unmod", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log24("CORE", "UI", "Successfully removed mod status from user:", userInfo.username);
+        await this.session.networkInterface.executeCommand(
+          "unmod",
+          this.session.channelData.channelName,
+          [userInfo.username]
+        );
+        log25("CORE", "UI", "Successfully removed mod status from user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast(
@@ -21941,15 +22132,19 @@ var UserInfoModal = class extends AbstractModal {
       this.removeUserModStatus();
       this.modActionButtonModEl?.removeAttribute("active");
     } else {
-      log24("CORE", "UI", `Attempting to give mod status to user: ${userInfo.username}..`);
+      log25("CORE", "UI", `Attempting to give mod status to user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("mod", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log24("CORE", "UI", "Successfully gave mod status to user:", userInfo.username);
+        log25("CORE", "UI", "Successfully gave mod status to user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
-          this.toaster.addToast("Failed to give mod status to user: " + err.errors.join(" "), 6e3, "error");
+          this.toaster.addToast(
+            "Failed to give mod status to user: " + err.errors.join(" "),
+            6e3,
+            "error"
+          );
         } else if (err.message) {
           this.toaster.addToast("Failed to give mod status to user: " + err.message, 6e3, "error");
         } else {
@@ -21971,12 +22166,14 @@ var UserInfoModal = class extends AbstractModal {
     const { userInfo, userChannelInfo } = this;
     if (!userInfo || !userChannelInfo) return;
     if (userChannelInfo.banned) {
-      log24("CORE", "UI", `Attempting to unban user: ${userInfo.username}..`);
+      log25("CORE", "UI", `Attempting to unban user: ${userInfo.username}..`);
       try {
-        await this.session.networkInterface.executeCommand("unban", this.session.channelData.channelName, [
-          userInfo.username
-        ]);
-        log24("CORE", "UI", "Successfully unbanned user:", userInfo.username);
+        await this.session.networkInterface.executeCommand(
+          "unban",
+          this.session.channelData.channelName,
+          [userInfo.username]
+        );
+        log25("CORE", "UI", "Successfully unbanned user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast("Failed to unban user: " + err.errors.join(" "), 6e3, "error");
@@ -21991,12 +22188,12 @@ var UserInfoModal = class extends AbstractModal {
       delete userChannelInfo.banned;
       this.modActionButtonBanEl.removeAttribute("active");
     } else {
-      log24("CORE", "UI", `Attempting to ban user: ${userInfo.username}..`);
+      log25("CORE", "UI", `Attempting to ban user: ${userInfo.username}..`);
       try {
         await this.session.networkInterface.executeCommand("ban", this.session.channelData.channelName, [
           userInfo.username
         ]);
-        log24("CORE", "UI", "Successfully banned user:", userInfo.username);
+        log25("CORE", "UI", "Successfully banned user:", userInfo.username);
       } catch (err) {
         if (err.errors && err.errors.length > 0) {
           this.toaster.addToast("Failed to ban user: " + err.errors.join(" "), 6e3, "error");
@@ -22025,12 +22222,12 @@ var UserInfoModal = class extends AbstractModal {
       true
     );
     modLogsPageEl.appendChild(messagesHistoryEl);
-    log24("CORE", "UI", `Fetching user messages of ${userInfo.username}..`);
+    log25("CORE", "UI", `Fetching user messages of ${userInfo.username}..`);
     await this.loadMoreMessagesHistory();
     let autoLoadCount = 0;
     const MAX_AUTO_LOADS = 5;
     while (this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight && !this.isLoadingMessages && autoLoadCount < MAX_AUTO_LOADS) {
-      log24(
+      log25(
         "CORE",
         "UI",
         `Content too short (scrollHeight: ${messagesHistoryEl.scrollHeight}, clientHeight: ${messagesHistoryEl.clientHeight}), auto-loading more messages for ${userInfo.username}...`
@@ -22039,7 +22236,7 @@ var UserInfoModal = class extends AbstractModal {
       await this.loadMoreMessagesHistory();
       autoLoadCount++;
       if (this.messagesHistoryCursor === null || messagesHistoryEl.scrollHeight === previousScrollHeight) {
-        log24(
+        log25(
           "CORE",
           "UI",
           `Auto-load break: cursor is ${this.messagesHistoryCursor}, scrollHeight changed from ${previousScrollHeight} to ${messagesHistoryEl.scrollHeight}`
@@ -22048,7 +22245,7 @@ var UserInfoModal = class extends AbstractModal {
       }
     }
     if (autoLoadCount >= MAX_AUTO_LOADS && this.messagesHistoryCursor !== null && messagesHistoryEl.scrollHeight <= messagesHistoryEl.clientHeight) {
-      log24(
+      log25(
         "CORE",
         "UI",
         `Max auto-loads (${MAX_AUTO_LOADS}) reached for ${userInfo.username}, but content may still be too short.`
@@ -22075,7 +22272,11 @@ var UserInfoModal = class extends AbstractModal {
       res = await networkInterface.getUserMessages(channelData.channelId, userInfo.id, cursor);
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
-        this.toaster.addToast("Failed to load user message history: " + err.errors.join(" "), 6e3, "error");
+        this.toaster.addToast(
+          "Failed to load user message history: " + err.errors.join(" "),
+          6e3,
+          "error"
+        );
       } else if (err.message) {
         this.toaster.addToast("Failed to load user message history: " + err.message, 6e3, "error");
       } else {
@@ -22193,7 +22394,10 @@ var UserInfoModal = class extends AbstractModal {
     try {
       delete this.userInfo;
       delete this.userChannelInfo;
-      this.userChannelInfo = await networkInterface.getUserChannelInfo(channelData.channelName, this.username);
+      this.userChannelInfo = await networkInterface.getUserChannelInfo(
+        channelData.channelName,
+        this.username
+      );
       this.userInfo = await networkInterface.getUserInfo(this.userChannelInfo.slug);
       this.updateGiftSubButton();
     } catch (err) {
@@ -22226,6 +22430,91 @@ var UserInfoModal = class extends AbstractModal {
     } else {
       while (statusPageEl.firstChild) statusPageEl.firstChild.remove();
     }
+  }
+};
+
+// src/Core/UI/Components/TimerComponent.ts
+var TimerComponent = class extends AbstractComponent {
+  remainingTime;
+  paused = false;
+  interval;
+  event = new EventTarget();
+  element;
+  constructor(duration, description) {
+    super();
+    this.remainingTime = duration;
+    this.element = parseHTML(
+      cleanupHTML(`
+                <div class="ntv__timer">
+                    <div class="ntv__timer__body">
+                        <div class="ntv__timer__duration">${this.formatTime(this.remainingTime)}</div>
+                        <div class="ntv__timer__description">${description || ""}</div>
+                    </div>
+                    <div class="ntv__timer__buttons">
+                        <button class="ntv__timer__pause ntv__icon-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 20 20">
+                                <path fill="currentColor" d="M5 4h3v12H5zm7 0h3v12h-3z" />
+                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M10.804 8L5 4.633v6.734zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696z" />
+                            </svg>
+                        </button>
+                        <button class="ntv__timer__remove ntv__icon-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 50 50">
+                                <path fill="currentColor" d="m37.304 11.282l1.414 1.414l-26.022 26.02l-1.414-1.413z" />
+                                <path fill="currentColor" d="m12.696 11.282l26.022 26.02l-1.414 1.415l-26.022-26.02z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+        `),
+      true
+    );
+  }
+  render() {
+  }
+  attachEventHandlers() {
+    const pauseButton = this.element.querySelector(".ntv__timer__pause");
+    const removeButton = this.element.querySelector(".ntv__timer__remove");
+    pauseButton.addEventListener("click", () => {
+      if (this.paused) {
+        this.paused = false;
+        pauseButton.classList.remove("ntv__timer__pause--paused");
+        this.startTimer();
+        this.event.dispatchEvent(new CustomEvent("unpaused"));
+      } else {
+        this.paused = true;
+        pauseButton.classList.add("ntv__timer__pause--paused");
+        if (this.interval) {
+          clearInterval(this.interval);
+          delete this.interval;
+        }
+        this.event.dispatchEvent(new CustomEvent("paused"));
+      }
+    });
+    removeButton.addEventListener("click", () => {
+      this.event.dispatchEvent(new CustomEvent("destroy"));
+      this.element.remove();
+    });
+    this.startTimer();
+  }
+  startTimer() {
+    const durationEl = this.element.querySelector(".ntv__timer__duration");
+    this.interval = setInterval(() => {
+      this.remainingTime--;
+      durationEl.textContent = this.formatTime(this.remainingTime);
+      if (this.remainingTime <= 0) {
+        durationEl?.classList.add("ntv__timer__duration--expired");
+      }
+    }, 1e3);
+  }
+  formatTime(time) {
+    const sign = time < 0 ? "-" : "";
+    time = Math.abs(time);
+    const hours = Math.floor(time / 3600);
+    const minutes = Math.floor(time % 3600 / 60);
+    const seconds = time % 60;
+    return `${sign}${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }
 };
 
@@ -22332,180 +22621,6 @@ var PollModal = class extends AbstractModal {
     this.cancelButtonEl.addEventListener("click", async () => {
       this.destroy();
     });
-  }
-};
-
-// src/Core/Common/Toaster.ts
-var Toaster = class {
-  toasts = [];
-  addToast(message, duration, type = "info") {
-    const toastEl = parseHTML(
-      `<div class="ntv__toast ntv__toast--${type} ntv__toast--top-right" aria-live="polite">${message}</div>`,
-      true
-    );
-    const timeout = Date.now() + duration;
-    const toast = { message, type, timeout, element: toastEl };
-    this.toasts.push(toast);
-    document.body.appendChild(toastEl);
-    setTimeout(() => {
-      const index = this.toasts.indexOf(toast);
-      if (index !== -1) {
-        this.toasts[index].element.remove();
-        this.toasts.splice(index, 1);
-      }
-    }, duration);
-    this.moveToasts();
-  }
-  moveToasts() {
-    const spacing = 20;
-    let y = 20;
-    const toasts = this.toasts.toReversed();
-    for (const toast of toasts) {
-      toast.element.style.top = `${y}px`;
-      y += toast.element.clientHeight + spacing;
-    }
-  }
-};
-
-// src/Core/Common/Clipboard.ts
-var logger26 = new Logger();
-var { log: log25, info: info23, error: error26 } = logger26.destruct();
-function flattenNestedElement(node) {
-  const result = [];
-  function traverse(node2) {
-    if (node2.nodeType === Node.TEXT_NODE) {
-      result.push(node2);
-    } else if (node2.nodeType === Node.ELEMENT_NODE && node2.nodeName === "IMG") {
-      result.push(node2);
-    } else {
-      for (var i = 0; i < node2.childNodes.length; i++) {
-        traverse(node2.childNodes[i]);
-      }
-    }
-  }
-  traverse(node);
-  return result;
-}
-var Clipboard2 = class {
-  domParser = new DOMParser();
-  handleCopyEvent(event) {
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return error26("CORE", "UI", "Selection is null");
-    event.preventDefault();
-    const fragment = document.createDocumentFragment();
-    const nodeList = [];
-    for (let i = 0; i < selection.rangeCount; i++) {
-      fragment.append(selection.getRangeAt(i).cloneContents());
-    }
-    const walker = document.createTreeWalker(
-      fragment,
-      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() || node?.tagName === "IMG" ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
-    );
-    let currentNode = walker.currentNode;
-    while (currentNode) {
-      nodeList.push(currentNode);
-      currentNode = walker.nextNode();
-    }
-    const copyString = nodeList.map((node) => {
-      if (node instanceof Text) {
-        return node.textContent?.trim();
-      } else if (node instanceof HTMLElement && node.dataset.emoteName) {
-        return node.dataset.emoteName || "UNSET_EMOTE_NAME";
-      } else if (node instanceof HTMLElement && node.tagName === "IMG" && node.hasAttribute("alt")) {
-        return node.getAttribute("alt");
-      }
-    }).filter((text) => typeof text === "string" && text.length > 0).join(" ").replaceAll(CHAR_ZWSP, "");
-    event.clipboardData?.setData("text/plain", copyString);
-    log25("CORE", "UI", `Copied: "${copyString}"`);
-  }
-  handleCutEvent(event) {
-    const selection = document.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    if (!range) return;
-    const commonAncestorContainer = range.commonAncestorContainer;
-    if (!(commonAncestorContainer instanceof HTMLElement) && !commonAncestorContainer.isContentEditable && !commonAncestorContainer.parentElement.isContentEditable) {
-      return;
-    }
-    event.preventDefault();
-    this.handleCopyEvent(event);
-    selection.deleteFromDocument();
-  }
-  paste(text) {
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    selection.deleteFromDocument();
-    selection.getRangeAt(0).insertNode(document.createTextNode(text));
-    selection.collapseToEnd();
-  }
-  pasteHTML(html) {
-    const nodes = Array.from(this.domParser.parseFromString(html, "text/html").body.childNodes);
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    selection.deleteFromDocument();
-    const range = selection.getRangeAt(0);
-    for (const node of nodes) {
-      Caret.insertNodeAtCaret(range, node);
-    }
-    const lastNode = nodes[nodes.length - 1];
-    if (lastNode) {
-      if (lastNode.nodeType === Node.TEXT_NODE) {
-        selection.collapse(lastNode, lastNode.length);
-        selection.collapseToEnd();
-      } else if (lastNode.nodeType === Node.ELEMENT_NODE) {
-        selection.collapse(lastNode, lastNode.childNodes.length);
-      }
-    }
-  }
-  parsePastedMessage(evt) {
-    const clipboardData = evt.clipboardData || window.clipboardData;
-    if (!clipboardData) return [];
-    const html = clipboardData.getData("text/html");
-    if (html) {
-      const doc = this.domParser.parseFromString(html.replaceAll(CHAR_ZWSP, ""), "text/html");
-      const childNodes = doc.body.childNodes;
-      if (childNodes.length === 0) {
-        return [];
-      }
-      let startFragmentComment = null, endFragmentComment = null;
-      for (let i = 0; i < childNodes.length; i++) {
-        const node = childNodes[i];
-        if (node.nodeType === Node.COMMENT_NODE) {
-          if (node.textContent === "StartFragment") {
-            startFragmentComment = i;
-          } else if (node.textContent === "EndFragment") {
-            endFragmentComment = i;
-          }
-          if (startFragmentComment && endFragmentComment) {
-            break;
-          }
-        }
-      }
-      if (startFragmentComment === null || endFragmentComment === null) {
-        error26("CORE", "UI", "Failed to find fragment markers, clipboard data seems to be corrupted.");
-        return [];
-      }
-      const pastedNodes = Array.from(childNodes).slice(startFragmentComment + 1, endFragmentComment);
-      const flattenedNodes = pastedNodes.map(flattenNestedElement).flat();
-      const parsedNodes = [];
-      for (const node of flattenedNodes) {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent) {
-          parsedNodes.push(node.textContent);
-        } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "IMG") {
-          const emoteName = node.dataset.emoteName;
-          if (emoteName) {
-            parsedNodes.push(emoteName);
-          }
-        }
-      }
-      if (parsedNodes.length) return parsedNodes;
-      return [];
-    } else {
-      const text = clipboardData.getData("text/plain");
-      if (!text) return [];
-      return [text.replaceAll(CHAR_ZWSP, "")];
-    }
   }
 };
 
@@ -22642,7 +22757,11 @@ var AbstractUserInterface = class {
     }
     const emoteBoxEl = messagePartEl.firstElementChild;
     if (!emoteBoxEl)
-      return error27("CORE", "UI", "Failed to insert zero width emote part, target does not have child element.");
+      return error27(
+        "CORE",
+        "UI",
+        "Failed to insert zero width emote part, target does not have child element."
+      );
     emoteBoxEl.appendChild(parseHTML(emoteRender));
   }
   createPlainTextMessagePartNode(textContent) {
@@ -22744,7 +22863,7 @@ var AbstractUserInterface = class {
       const timeElapsed = (now.getTime() - followingSince.getTime()) / 1e3 << 0;
       const remainingTime = minDuration - timeElapsed;
       if (remainingTime > 0) {
-        let intervalHandle = setInterval(updateInputStatus, 1e3);
+        const intervalHandle = setInterval(updateInputStatus, 1e3);
         setTimeout(() => {
           clearInterval(intervalHandle);
           updateInputStatus();
@@ -22788,7 +22907,8 @@ var AbstractUserInterface = class {
   addTimer({ duration, description }) {
     log26("CORE", "UI", "Adding timer..", duration, description);
     const timersContainer = this.elm.timersContainer;
-    if (!timersContainer) return error27("CORE", "UI", "Unable to add timet, UI container does not exist yet.");
+    if (!timersContainer)
+      return error27("CORE", "UI", "Unable to add timet, UI container does not exist yet.");
     const timer = new TimerComponent(duration, description).init();
     timersContainer.appendChild(timer.element);
   }
@@ -22883,7 +23003,8 @@ var AbstractUserInterface = class {
     if (!contentEditableEditor)
       return error27("CORE", "UI", "Unable to send emote to chat, input controller is not loaded yet.");
     const emoteEmbedding = emotesManager.getEmoteEmbeddable(emoteHid);
-    if (!emoteEmbedding) return error27("CORE", "UI", "Failed to send emote to chat, emote embedding not found.");
+    if (!emoteEmbedding)
+      return error27("CORE", "UI", "Failed to send emote to chat, emote embedding not found.");
     inputExecutionStrategyRegister.routeInput(contentEditableEditor, {
       input: emoteEmbedding,
       isReply: false
@@ -22913,7 +23034,10 @@ var AbstractUserInterface = class {
       chatEntryUsername: chatEntrySenderUsername,
       chatEntryUserId: chatEntrySenderId
     };
-    this.replyMessageComponent = new ReplyMessageComponent(this.elm.replyMessageWrapper, messageNodes).init();
+    this.replyMessageComponent = new ReplyMessageComponent(
+      this.elm.replyMessageWrapper,
+      messageNodes
+    ).init();
     this.replyMessageComponent.addEventListener("close", () => {
       this.destroyReplyMessageContext();
     });
@@ -23173,6 +23297,78 @@ var KickUserInterface = class extends AbstractUserInterface {
       const [chatMessagesContainerEl] = foundElements;
       this.elm.chatMessagesContainer = chatMessagesContainerEl;
       this.applyChatContainerClasses();
+      {
+        const scrollContainer = chatMessagesContainerEl.parentElement;
+        let lastDist = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
+        let lastSH = scrollContainer.scrollHeight;
+        const lastST = scrollContainer.scrollTop;
+        let pendingFrames = 0;
+        let pendingDrift = 0;
+        const oscHistory = [];
+        let oscFrameCount = 0;
+        let oscLastLogAt = -999;
+        const OSC_WINDOW = 12;
+        const OSC_MIN_SWINGS = 6;
+        const compensateDrift = () => {
+          const st = scrollContainer.scrollTop;
+          const sh = scrollContainer.scrollHeight;
+          const ch = scrollContainer.clientHeight;
+          const dist = sh - st - ch;
+          const drift = dist - lastDist;
+          oscFrameCount++;
+          oscHistory.push(st);
+          if (oscHistory.length > OSC_WINDOW) oscHistory.shift();
+          if (oscHistory.length >= OSC_WINDOW) {
+            let swings = 0;
+            let prevDir = 0;
+            for (let i = 1; i < oscHistory.length; i++) {
+              const dir = Math.sign(oscHistory[i] - oscHistory[i - 1]);
+              if (dir !== 0 && dir !== prevDir) {
+                swings++;
+                prevDir = dir;
+              }
+            }
+            if (swings >= OSC_MIN_SWINGS) {
+              if (oscFrameCount - oscLastLogAt > 60) {
+                oscLastLogAt = oscFrameCount;
+                const range = Math.max(...oscHistory) - Math.min(...oscHistory);
+                log28(
+                  "KICK",
+                  "DIAG",
+                  `OSCILLATION  swings=${swings}/${OSC_WINDOW}frames  range=${range}px  scrollT=${st}  dist=${dist}  sh=${sh}  ch=${ch}  pattern=${oscHistory.slice(-6).join("\u2192")}`
+                );
+                const amplitude = range > 0 ? range : 20;
+                scrollContainer.scrollTop += amplitude;
+                lastDist = scrollContainer.scrollHeight - scrollContainer.scrollTop - ch;
+                lastSH = scrollContainer.scrollHeight;
+                pendingFrames = 0;
+                pendingDrift = 0;
+              }
+            }
+          }
+          if (lastDist === 0 && drift > 0 && sh > lastSH) {
+            pendingDrift = drift;
+            pendingFrames = 3;
+          } else if (pendingFrames > 0) {
+            pendingFrames--;
+            if (pendingFrames === 0 && dist > 0) {
+              scrollContainer.scrollTop += pendingDrift;
+              lastDist = scrollContainer.scrollHeight - scrollContainer.scrollTop - ch;
+              lastSH = scrollContainer.scrollHeight;
+              pendingDrift = 0;
+              requestAnimationFrame(compensateDrift);
+              return;
+            } else if (dist < 3) {
+              pendingFrames = 0;
+              pendingDrift = 0;
+            }
+          }
+          lastDist = dist;
+          lastSH = sh;
+          requestAnimationFrame(compensateDrift);
+        };
+        requestAnimationFrame(compensateDrift);
+      }
       this.domEventManager.addEventListener(chatMessagesContainerEl, "copy", (evt) => {
         this.clipboard.handleCopyEvent(evt);
       });
@@ -24071,9 +24267,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     const renderChatMessagesLoop = () => {
       const queueLength = queue.length;
       if (queueLength) {
-        if (queueLength > 150) {
+        if (queueLength > 300) {
           log28("KICK", "UI", "Chat message queue is too large, discarding overhead..", queueLength);
-          queue.splice(queueLength - 1 - 150);
+          queue.splice(queueLength - 1 - 300);
         }
         let messageChunkSize = 10;
         if (queueLength > 100) {
@@ -24101,9 +24297,9 @@ var KickUserInterface = class extends AbstractUserInterface {
     renderChatMessagesLoop();
     this.clearQueuedChatMessagesInterval = setInterval(() => {
       const queue2 = this.queuedChatMessages;
-      if (queue2.length > 150) {
+      if (queue2.length > 300) {
         log28("KICK", "UI", "Chat message queue is too large, discarding overhead..", queue2.length);
-        queue2.splice(queue2.length - 1 - 150);
+        queue2.splice(queue2.length - 1 - 300);
       }
     }, 4e3);
     this.addExistingMessagesToQueue();
@@ -24117,6 +24313,8 @@ var KickUserInterface = class extends AbstractUserInterface {
     const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || []);
     if (chatMessageEls.length) {
       for (const chatMessageEl of chatMessageEls) {
+        if (chatMessageEl.classList.contains("ntv__chat-message") || chatMessageEl.classList.contains("ntv__chat-message--unrendered"))
+          continue;
         this.prepareMessageForRendering(chatMessageEl);
         this.queuedChatMessages.push(chatMessageEl);
       }
@@ -24157,7 +24355,8 @@ var KickUserInterface = class extends AbstractUserInterface {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes.length) {
             for (const messageNode of mutation.addedNodes) {
-              if (messageNode instanceof HTMLElement) {
+              if (messageNode instanceof HTMLElement && // Skip messages that have already been processed or queued
+              !messageNode.classList.contains("ntv__chat-message") && !messageNode.classList.contains("ntv__chat-message--unrendered")) {
                 this.prepareMessageForRendering(messageNode);
                 this.queuedChatMessages.push(messageNode);
               }
@@ -27376,7 +27575,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.105";
+  VERSION = "1.5.106";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -6,11 +6,35 @@
 // 	}
 // }
 
-// .ntv__chat-messages-container {
-// 	> div {
-// 		display: none;
-// 	}
-// }
+.ntv__chat-messages-container {
+	// contain: layout style;
+	
+	> div:not(.ntv__chat-message), > .ntv__chat-message--unrendered {
+		// This will spaz out the chat
+		// display: none;
+
+		// Necessary to prevent jitter due to difference in size
+		font-size: var(--ntv-chat-message-font-size);
+
+		padding: 0.25em 0;
+		margin: 0;
+
+		& > div > .w-full {
+			padding: 0;
+
+			// Mod buttons
+			button {
+				height: auto;
+				// width: none;
+			}
+
+			// Mod buttons, time, username, content
+			> * {
+				font-size: var(--ntv-chat-message-font-size);
+			}
+		}
+	}
+}
 
 // #chatroom-messages > .no-scrollbar > .ntv__chat-message--has-emotes {
 // 	min-height: 32px;
