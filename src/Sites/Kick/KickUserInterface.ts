@@ -163,6 +163,107 @@ export class KickUserInterface extends AbstractUserInterface {
 
 				this.applyChatContainerClasses()
 
+				// Kick's virtual scroller sometimes recovers sticky on its own
+				// with a 1‑frame delay.  Compensating immediately would race with
+				// that recovery and cause oscillation.  Instead, defer by 3 frames
+				// and only act if the drift hasn't self‑corrected by then.
+				{
+					const scrollContainer = chatMessagesContainerEl.parentElement as HTMLElement
+					let lastDist =
+						scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight
+					let lastSH = scrollContainer.scrollHeight
+					const lastST = scrollContainer.scrollTop
+					let pendingFrames = 0
+					let pendingDrift = 0
+
+					// Tracks recent scrollTop values.  When the virtual scroller
+					// oscillates scrollTop alternates rapidly between two positions
+					// (e.g. 10915 ↔ 10936, Δ≈21 px every ~3 rAF frames).
+					const oscHistory: number[] = [] // ring buffer, last 12 scrollTop samples
+					let oscFrameCount = 0 // total rAF frames since init
+					let oscLastLogAt = -999 // frame# of last oscillation log (throttle)
+					const OSC_WINDOW = 12 // samples to inspect
+					const OSC_MIN_SWINGS = 6 // direction changes needed to confirm oscillation
+
+					const compensateDrift = () => {
+						const st = scrollContainer.scrollTop
+						const sh = scrollContainer.scrollHeight
+						const ch = scrollContainer.clientHeight
+						const dist = sh - st - ch
+						const drift = dist - lastDist
+
+						// Oscillation detection
+						oscFrameCount++
+						oscHistory.push(st)
+						if (oscHistory.length > OSC_WINDOW) oscHistory.shift()
+
+						if (oscHistory.length >= OSC_WINDOW) {
+							let swings = 0
+							let prevDir = 0
+							for (let i = 1; i < oscHistory.length; i++) {
+								const dir = Math.sign(oscHistory[i] - oscHistory[i - 1])
+								if (dir !== 0 && dir !== prevDir) {
+									swings++
+									prevDir = dir
+								}
+							}
+							// Oscillation confirmed: scrollTop changed direction at
+							// least OSC_MIN_SWINGS times in the last OSC_WINDOW frames
+							if (swings >= OSC_MIN_SWINGS) {
+								// Throttle: log at most once every 60 frames (~1 s)
+								if (oscFrameCount - oscLastLogAt > 60) {
+									oscLastLogAt = oscFrameCount
+									const range = Math.max(...oscHistory) - Math.min(...oscHistory)
+									log(
+										'KICK',
+										'DIAG',
+										`OSCILLATION  swings=${swings}/${OSC_WINDOW}frames  range=${range}px  ` +
+											`scrollT=${st}  dist=${dist}  sh=${sh}  ch=${ch}` +
+											`  pattern=${oscHistory.slice(-6).join('→')}`
+									)
+
+									// Break the oscillation by forcing scroll down by the
+									// observed swing amplitude, the scroller should settle
+									// after one nudge.
+									const amplitude = range > 0 ? range : 20
+									scrollContainer.scrollTop += amplitude
+									// Flush state so compensateDrift doesn't fight the nudge
+									lastDist = scrollContainer.scrollHeight - scrollContainer.scrollTop - ch
+									lastSH = scrollContainer.scrollHeight
+									pendingFrames = 0
+									pendingDrift = 0
+								}
+							}
+						}
+
+						if (lastDist === 0 && drift > 0 && sh > lastSH) {
+							// Drift detected, start defer countdown
+							pendingDrift = drift
+							pendingFrames = 3
+						} else if (pendingFrames > 0) {
+							pendingFrames--
+							if (pendingFrames === 0 && dist > 0) {
+								// Kick didn't self‑correct, compensate now
+								scrollContainer.scrollTop += pendingDrift
+								lastDist = scrollContainer.scrollHeight - scrollContainer.scrollTop - ch
+								lastSH = scrollContainer.scrollHeight
+								pendingDrift = 0
+								requestAnimationFrame(compensateDrift)
+								return
+							} else if (dist < 3) {
+								// Kick self‑corrected, cancel compensation
+								pendingFrames = 0
+								pendingDrift = 0
+							}
+						}
+
+						lastDist = dist
+						lastSH = sh
+						requestAnimationFrame(compensateDrift)
+					}
+					requestAnimationFrame(compensateDrift)
+				}
+
 				this.domEventManager.addEventListener(chatMessagesContainerEl, 'copy', evt => {
 					this.clipboard.handleCopyEvent(evt as ClipboardEvent)
 				})
@@ -1334,9 +1435,9 @@ export class KickUserInterface extends AbstractUserInterface {
 			if (queueLength) {
 				// log('KICK', 'UI', 'Rendering chat messages..', queueLength)
 
-				if (queueLength > 150) {
+				if (queueLength > 300) {
 					log('KICK', 'UI', 'Chat message queue is too large, discarding overhead..', queueLength)
-					queue.splice(queueLength - 1 - 150)
+					queue.splice(queueLength - 1 - 300)
 				}
 
 				// Don't try to render many messages at once when chat is moving fast
@@ -1383,9 +1484,9 @@ export class KickUserInterface extends AbstractUserInterface {
 		//  when inactive tab and requestAnimationFrame never fires.
 		this.clearQueuedChatMessagesInterval = setInterval(() => {
 			const queue = this.queuedChatMessages
-			if (queue.length > 150) {
+			if (queue.length > 300) {
 				log('KICK', 'UI', 'Chat message queue is too large, discarding overhead..', queue.length)
-				queue.splice(queue.length - 1 - 150)
+				queue.splice(queue.length - 1 - 300)
 			}
 		}, 4000)
 
@@ -1403,11 +1504,11 @@ export class KickUserInterface extends AbstractUserInterface {
 		const chatMessageEls = Array.from(this.elm.chatMessagesContainer?.children || [])
 		if (chatMessageEls.length) {
 			for (const chatMessageEl of chatMessageEls) {
-				// if (
-				// 	chatMessageEl.classList.contains('ntv__chat-message') ||
-				// 	chatMessageEl.classList.contains('ntv__chat-message--unrendered')
-				// )
-				// 	continue
+				if (
+					chatMessageEl.classList.contains('ntv__chat-message') ||
+					chatMessageEl.classList.contains('ntv__chat-message--unrendered')
+				)
+					continue
 				this.prepareMessageForRendering(chatMessageEl as HTMLElement)
 				this.queuedChatMessages.push(chatMessageEl as HTMLElement)
 			}
@@ -1456,7 +1557,12 @@ export class KickUserInterface extends AbstractUserInterface {
 				mutations.forEach(mutation => {
 					if (mutation.addedNodes.length) {
 						for (const messageNode of mutation.addedNodes) {
-							if (messageNode instanceof HTMLElement) {
+							if (
+								messageNode instanceof HTMLElement &&
+								// Skip messages that have already been processed or queued
+								!messageNode.classList.contains('ntv__chat-message') &&
+								!messageNode.classList.contains('ntv__chat-message--unrendered')
+							) {
 								this.prepareMessageForRendering(messageNode as HTMLElement)
 								this.queuedChatMessages.push(messageNode)
 							}
@@ -2035,6 +2141,8 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
+		// ;(groupElementNode as HTMLElement).style.display = 'none'
+
 		let betterHoverEl = groupElementNode.firstElementChild
 		if (!betterHoverEl) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')
@@ -2130,7 +2238,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		// First element child might be the reply message attachment wrapper, so we get last instead
-		const contentWrapperNode = messageBodyWrapper.querySelector('span:last-of-type')
+		const contentWrapperNode = messageBodyWrapper.querySelector('span:last-of-type') as HTMLElement | null
 		if (!contentWrapperNode) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')
 			error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
@@ -2313,6 +2421,7 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		messageObject.content = messageParts
+
 		;(groupElementNode as HTMLElement).style.display = 'none'
 
 		// const ntvMessagePartsWrapperEl = document.createElement('div')
