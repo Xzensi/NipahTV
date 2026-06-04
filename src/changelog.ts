@@ -4,6 +4,20 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.106',
+		date: '2026-06-03',
+		description: `
+                  After a lot of testing I've finally come to the realisation that for some weird unknown reason, Kick keeps randomly unsticky'ing the chat when the cursor hovers anywhere over chat. This is really bizarre and I have no idea why Kick does this. 
+                  
+                  Until I figure why this is happening, if you got issues with chat randomly unsticky'ing, I recommend trying to not have cursor on top of chat.
+
+                  Feat: Timeout and timer commands now support more complex time strings
+                  Feat: Added 1 month as timeout duration option
+                  Feat: Uncapped maximum duration for timeout command
+                  Fix: Chat view sometimes spazzing out oscillating scroll position up and down
+            `
+	},
+	{
 		version: '1.5.105',
 		date: '2026-05-31',
 		description: `
