@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.106
+// @version 1.5.107
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -11091,9 +11091,9 @@ function formatRelativeTime(date) {
   error3("UTILS", "-", "Unable to format relative time", date);
   return "error";
 }
-var timeStringRegex = /(\d+)([YMWdhms])/g;
+var timeStringRegex = /(\d+)([YyMWwDdhms])/g;
 function validateTimestring(str) {
-  if (!/^(\d+[YMWdhms])+$/.test(str)) {
+  if (!/^(\d+[YyMWwDdhms])+$/.test(str)) {
     return 'Specify time as a combination of numbers and units, e.g. "1h30m" for 1 hour and 30 minutes.';
   }
   let match;
@@ -11101,15 +11101,18 @@ function validateTimestring(str) {
     const value = parseInt(match[1]);
     const unit = match[2];
     switch (unit) {
+      case "Y":
       case "y":
         if (value > 100) return "Years value too high";
         break;
       case "M":
         if (value > 24) return "Months value too high";
         break;
+      case "W":
       case "w":
         if (value > 96) return "Weeks value too high";
         break;
+      case "D":
       case "d":
         if (value > 365) return "Days value too high";
         break;
@@ -11182,6 +11185,9 @@ var KICK_COMMANDS = [
         if (getSecondsFromTimestring(arg) <= 0) {
           return "Duration must be greater than 0";
         }
+        if (getSecondsFromTimestring(arg) / 60 > 10080) {
+          return "Duration must be less than or equal to 1 week";
+        }
         return null;
       }
     },
@@ -11191,7 +11197,7 @@ var KICK_COMMANDS = [
       uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans`,
       data: (args) => ({
         banned_username: args[0],
-        duration: getSecondsFromTimestring(String(args[1])) / 60,
+        duration: Math.ceil(getSecondsFromTimestring(String(args[1])) / 60),
         reason: args.slice(2).join(" "),
         permanent: false
       }),
@@ -12432,6 +12438,15 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.107",
+    date: "2026-07-11",
+    description: `
+                  Apparently Kick lowered the maximum timeout duration limit to 1 week.
+
+                  Fix: Time formatting issues causing /timeout and timeout slider to not work correctly
+            `
+  },
   {
     version: "1.5.106",
     date: "2026-06-03",
@@ -21995,8 +22010,20 @@ var UserInfoModal = class extends AbstractModal {
       ".ntv__user-info-modal__timeout-page__wrapper div"
     );
     this.timeoutSliderComponent = new SteppedInputSliderComponent(
-      ["5 minutes", "15 minutes", "1 hour", "1 day", "1 week", "1 month"],
-      [5, 15, 60, 60 * 24, 60 * 24 * 7, 60 * 24 * 30.4]
+      [
+        "1 minute",
+        "3 minutes",
+        "5 minutes",
+        "10 minutes",
+        "15 minutes",
+        "1 hour",
+        "2 hours",
+        "8 hours",
+        "1 day",
+        "3 days",
+        "1 week"
+      ],
+      ["1m", "3m", "5m", "10m", "15m", "1h", "2h", "8h", "1d", "3d", "1w"]
     ).init();
     rangeWrapperEl.appendChild(this.timeoutSliderComponent.element);
     const buttonEl = timeoutWrapperEl.querySelector("button");
@@ -27575,7 +27602,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.106";
+  VERSION = "1.5.107";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
