@@ -22,6 +22,9 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 				if (getSecondsFromTimestring(arg) <= 0) {
 					return 'Duration must be greater than 0'
 				}
+				if (getSecondsFromTimestring(arg) / 60 > 10080) {
+					return 'Duration must be less than or equal to 1 week'
+				}
 				return null
 			}
 		},
@@ -31,7 +34,7 @@ export const KICK_COMMANDS: readonly CommandEntry[] = [
 			uri: (channelName, args) => `https://kick.com/api/v2/channels/${channelName}/bans`,
 			data: args => ({
 				banned_username: args[0],
-				duration: getSecondsFromTimestring(String(args[1])) / 60,
+				duration: Math.ceil(getSecondsFromTimestring(String(args[1])) / 60),
 				reason: args.slice(2).join(' '),
 				permanent: false
 			}),

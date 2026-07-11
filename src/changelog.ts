@@ -4,6 +4,15 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.107',
+		date: '2026-07-11',
+		description: `
+                  Apparently Kick lowered the maximum timeout duration limit to 1 week.
+
+                  Fix: Time formatting issues causing /timeout and timeout slider to not work correctly
+            `
+	},
+	{
 		version: '1.5.106',
 		date: '2026-06-03',
 		description: `

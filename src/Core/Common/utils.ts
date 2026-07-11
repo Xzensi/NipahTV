@@ -783,13 +783,13 @@ export function formatRelativeTime(date: Date) {
 	return 'error'
 }
 
-const timeStringRegex = /(\d+)([YMWdhms])/g
+const timeStringRegex = /(\d+)([YyMWwDdhms])/g
 
 /**
  * Returns a reason string if the timestring is invalid, or null if it's valid.
  */
 export function validateTimestring(str: string) {
-	if (!/^(\d+[YMWdhms])+$/.test(str)) {
+	if (!/^(\d+[YyMWwDdhms])+$/.test(str)) {
 		return 'Specify time as a combination of numbers and units, e.g. "1h30m" for 1 hour and 30 minutes.'
 	}
 
@@ -799,15 +799,18 @@ export function validateTimestring(str: string) {
 		const value = parseInt(match[1])
 		const unit = match[2]
 		switch (unit) {
+			case 'Y':
 			case 'y':
 				if (value > 100) return 'Years value too high'
 				break
 			case 'M':
 				if (value > 24) return 'Months value too high'
 				break
+			case 'W':
 			case 'w':
 				if (value > 96) return 'Weeks value too high'
 				break
+			case 'D':
 			case 'd':
 				if (value > 365) return 'Days value too high'
 				break
