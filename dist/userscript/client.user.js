@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.107
+// @version 1.5.108
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-abae8aa3.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-f7125d8f.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12438,6 +12438,14 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.108",
+    date: "2026-07-12",
+    description: `
+                  Fix: Kick changed the send message API payload
+                  Fix: Override Kick's styling to show chat input on one line on mobile, it simply doesn't fit.
+            `
+  },
   {
     version: "1.5.107",
     date: "2026-07-11",
@@ -25538,7 +25546,8 @@ var KickNetworkInterface = class {
     const userData = await RESTFromMainService.get("https://kick.com/api/v1/user").catch(() => {
     });
     if (!userData) throw new Error("Failed to fetch user data");
-    if (!userData.streamer_channel) throw new Error('Invalid user data, missing property "streamer_channel"');
+    if (!userData.streamer_channel)
+      throw new Error('Invalid user data, missing property "streamer_channel"');
     const { id, user_id, slug } = userData.streamer_channel;
     if (!id) throw new Error('Invalid user data, missing property "id"');
     if (!user_id) throw new Error('Invalid user data, missing property "user_id"');
@@ -25558,10 +25567,10 @@ var KickNetworkInterface = class {
       info27("KICK", "NET", "VOD video detected..");
       const videoId = pathArr[2];
       if (!videoId) throw new Error("Failed to extract video ID from URL");
-      const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v1/video/${videoId}`).catch(
-        () => {
-        }
-      );
+      const responseChannelData = await RESTFromMainService.get(
+        `https://kick.com/api/v1/video/${videoId}`
+      ).catch(() => {
+      });
       if (!responseChannelData) {
         throw new Error("Failed to fetch VOD data");
       }
@@ -25710,7 +25719,8 @@ var KickNetworkInterface = class {
     const chatroomId = this.session.channelData.chatroom.id;
     const makeRequest = async () => RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
       content: message + (noUtag ? "" : U_TAG_NTV_AFFIX),
-      type: "message"
+      type: "message",
+      message_ref: "" + Date.now()
       // metadata: {} // Pinned messages break if we send metadata
     }).then((res) => {
       const parsedError = tryParseErrorMessage(res);
@@ -25732,6 +25742,7 @@ var KickNetworkInterface = class {
     const makeRequest = async () => RESTFromMainService.post("https://kick.com/api/v2/messages/send/" + chatroomId, {
       content: message + (noUtag ? "" : U_TAG_NTV_AFFIX),
       type: "reply",
+      message_ref: "" + Date.now(),
       metadata: {
         original_message: {
           id: originalMessageId
@@ -25781,7 +25792,9 @@ var KickNetworkInterface = class {
     return successMessage;
   }
   async executeCommand(commandName, channelName, args) {
-    let command = KICK_COMMANDS.find((command2) => command2.name === commandName || command2.alias === commandName);
+    let command = KICK_COMMANDS.find(
+      (command2) => command2.name === commandName || command2.alias === commandName
+    );
     if (command?.alias) command = KICK_COMMANDS.find((n) => n.name === command.alias);
     if (command) {
       if (command.api && command.api.protocol === "http") {
@@ -25818,10 +25831,13 @@ var KickNetworkInterface = class {
     return RESTFromMainService.delete(`https://kick.com/api/v2/channels/${slug}/follow`);
   }
   async setChannelUserIdentity(channelId, userId, badges, color) {
-    return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/identity`, {
-      badges,
-      color
-    });
+    return RESTFromMainService.put(
+      `https://kick.com/api/v2/channels/${channelId}/users/${userId}/identity`,
+      {
+        badges,
+        color
+      }
+    );
   }
   async getUserInfo(slug) {
     const [res1, res2] = await Promise.allSettled([
@@ -27602,7 +27618,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.107";
+  VERSION = "1.5.108";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

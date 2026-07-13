@@ -119,6 +119,16 @@ div:has(> #chat-input-wrapper) {
 			display: none;
 		}
 	}
+
+	> div:has(#ntv__message-input) {
+		flex-direction: column;
+
+		// !NOTE the UI is simply too cramped, even with flex-dir row it doesnt fit on mobile.
+		// All devices except touchscreens
+		// @media (pointer: coarse) and (hover: none) and (max-width: 512px) {
+		// 	flex-direction: row;
+		// }
+	}
 }
 
 .kick__chat-input-container--share-celebration {

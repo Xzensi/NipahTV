@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.108',
+		date: '2026-07-12',
+		description: `
+                  Fix: Kick changed the send message API payload
+                  Fix: Override Kick's styling to show chat input on one line on mobile, it simply doesn't fit.
+            `
+	},
+	{
 		version: '1.5.107',
 		date: '2026-07-11',
 		description: `

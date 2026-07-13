@@ -1,8 +1,8 @@
-import type { NetworkInterface, UserMessage } from '@core/Common/NetworkInterface'
 import { U_TAG_NTV_AFFIX } from '@core/Common/constants'
-import { KICK_COMMANDS } from './KickCommands'
 import { Logger } from '@core/Common/Logger'
+import type { NetworkInterface, UserMessage } from '@core/Common/NetworkInterface'
 import RateLimiter from '@core/Common/RateLimiter'
+import { KICK_COMMANDS } from './KickCommands'
 import { KICK_EVENT_SEND_MESSAGE_RATE_LIMIT_UPDATE } from './KickEvents'
 
 const logger = new Logger()
@@ -191,7 +191,8 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const userData = await RESTFromMainService.get('https://kick.com/api/v1/user').catch(() => {})
 		if (!userData) throw new Error('Failed to fetch user data')
 
-		if (!userData.streamer_channel) throw new Error('Invalid user data, missing property "streamer_channel"')
+		if (!userData.streamer_channel)
+			throw new Error('Invalid user data, missing property "streamer_channel"')
 
 		const { id, user_id, slug } = userData.streamer_channel
 		if (!id) throw new Error('Invalid user data, missing property "id"')
@@ -220,9 +221,9 @@ export default class KickNetworkInterface implements NetworkInterface {
 			if (!videoId) throw new Error('Failed to extract video ID from URL')
 
 			// We extract channel data from the Kick API
-			const responseChannelData = await RESTFromMainService.get(`https://kick.com/api/v1/video/${videoId}`).catch(
-				() => {}
-			)
+			const responseChannelData = await RESTFromMainService.get(
+				`https://kick.com/api/v1/video/${videoId}`
+			).catch(() => {})
 			if (!responseChannelData) {
 				throw new Error('Failed to fetch VOD data')
 			}
@@ -414,7 +415,8 @@ export default class KickNetworkInterface implements NetworkInterface {
 		const makeRequest = async () =>
 			RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
 				content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
-				type: 'message'
+				type: 'message',
+				message_ref: '' + Date.now()
 				// metadata: {} // Pinned messages break if we send metadata
 			})
 				.then(res => {
@@ -457,6 +459,7 @@ export default class KickNetworkInterface implements NetworkInterface {
 			RESTFromMainService.post('https://kick.com/api/v2/messages/send/' + chatroomId, {
 				content: message + (noUtag ? '' : U_TAG_NTV_AFFIX),
 				type: 'reply',
+				message_ref: '' + Date.now(),
 				metadata: {
 					original_message: {
 						id: originalMessageId
@@ -530,7 +533,9 @@ export default class KickNetworkInterface implements NetworkInterface {
 	}
 
 	async executeCommand(commandName: string, channelName: string, args: Array<string | number>) {
-		let command = KICK_COMMANDS.find(command => command.name === commandName || command.alias === commandName)
+		let command = KICK_COMMANDS.find(
+			command => command.name === commandName || command.alias === commandName
+		)
 		if (command?.alias) command = KICK_COMMANDS.find(n => n.name === command!.alias)
 
 		if (command) {
@@ -551,7 +556,13 @@ export default class KickNetworkInterface implements NetworkInterface {
 		}
 	}
 
-	async createPoll(channelName: string, title: string, options: string[], duration: number, displayDuration: number) {
+	async createPoll(
+		channelName: string,
+		title: string,
+		options: string[],
+		duration: number,
+		displayDuration: number
+	) {
 		return RESTFromMainService.post(`https://kick.com/api/v2/channels/${channelName}/polls`, {
 			title,
 			options,
@@ -573,10 +584,13 @@ export default class KickNetworkInterface implements NetworkInterface {
 	}
 
 	async setChannelUserIdentity(channelId: ChannelId, userId: UserId, badges: string[], color: string) {
-		return RESTFromMainService.put(`https://kick.com/api/v2/channels/${channelId}/users/${userId}/identity`, {
-			badges,
-			color
-		})
+		return RESTFromMainService.put(
+			`https://kick.com/api/v2/channels/${channelId}/users/${userId}/identity`,
+			{
+				badges,
+				color
+			}
+		)
 	}
 
 	async getUserInfo(slug: string) {
@@ -629,7 +643,9 @@ export default class KickNetworkInterface implements NetworkInterface {
 			banned: channelUserInfo.banned
 				? {
 						reason: channelUserInfo.banned?.reason || 'No reason provided',
-						since: channelUserInfo.banned?.created_at ? new Date(channelUserInfo.banned?.created_at) : null,
+						since: channelUserInfo.banned?.created_at
+							? new Date(channelUserInfo.banned?.created_at)
+							: null,
 						expiresAt: channelUserInfo.banned?.expires_at
 							? new Date(channelUserInfo.banned?.expires_at)
 							: null,
