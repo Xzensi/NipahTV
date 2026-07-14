@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.109',
+		date: '2026-07-12',
+		description: `
+                  Fix: Match Kick's new API header signature
+            `
+	},
+	{
 		version: '1.5.108',
 		date: '2026-07-12',
 		description: `

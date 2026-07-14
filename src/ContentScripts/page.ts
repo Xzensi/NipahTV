@@ -2,7 +2,7 @@ import LexicalEditor from '@core/Common/LexicalEditor'
 
 console.log('[NTV] [ContentScripts/Page] Loaded')
 
-document.addEventListener('ntv_downstream', function (evt: Event) {
+document.addEventListener('ntv_downstream', (evt: Event) => {
 	const data = JSON.parse((evt as CustomEvent).detail)
 	const { rID, url, options } = data
 	const xhr = new XMLHttpRequest()
@@ -38,14 +38,18 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 		}
 	}
 
-	xhr.onload = function () {
+	if (new URL(url as string).host === 'kick.com') {
+		xhr.setRequestHeader('x-app-platform', 'web')
+	}
+
+	xhr.onload = () => {
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream', {
 				detail: JSON.stringify({ rID, xhr: { status: xhr.status, text: xhr.responseText } })
 			})
 		)
 	}
-	xhr.onerror = function () {
+	xhr.onerror = () => {
 		console.error('[NTV] [RESTAsPage] Request failed')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream', {
@@ -53,7 +57,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 			})
 		)
 	}
-	xhr.onabort = function () {
+	xhr.onabort = () => {
 		console.error('[NTV] [RESTAsPage] Request aborted')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream', {
@@ -61,7 +65,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 			})
 		)
 	}
-	xhr.ontimeout = function () {
+	xhr.ontimeout = () => {
 		console.error('[NTV] [RESTAsPage] Request timed out')
 		document.dispatchEvent(
 			new CustomEvent('ntv_upstream', {
@@ -75,7 +79,7 @@ document.addEventListener('ntv_downstream', function (evt: Event) {
 	else xhr.send()
 })
 
-document.addEventListener('ntv_downstream_reactive_props', function (evt: Event) {
+document.addEventListener('ntv_downstream_reactive_props', (evt: Event) => {
 	const data = JSON.parse((evt as CustomEvent).detail)
 	const { rID, className } = data
 
@@ -125,7 +129,7 @@ document.addEventListener('ntv_downstream_reactive_props', function (evt: Event)
 	)
 })
 
-document.addEventListener('ntv_downstream_lexical_command', function (evt: Event) {
+document.addEventListener('ntv_downstream_lexical_command', (evt: Event) => {
 	const data = JSON.parse((evt as CustomEvent).detail)
 	const { rID, command, commandContent } = data
 

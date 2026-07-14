@@ -36,6 +36,7 @@ export function getPlatformId(): PLATFORM_ENUM {
 	return PLATFORM_ENUM.NULL
 }
 
+// biome-ignore lint: static class
 export class REST {
 	static get(url: string) {
 		// TODO maybe do a second request if first one fails, just to add some robustness
@@ -86,10 +87,10 @@ export class REST {
 
 				xhr.withCredentials = true
 
-				xhr.setRequestHeader('site', 'v2')
+				// xhr.setRequestHeader('site', 'v2')
 
 				options.headers = Object.assign(options.headers || {}, {
-					site: 'v2'
+					// site: 'v2'
 				})
 
 				// const XSRFToken = getCookie('XSRF')
@@ -109,6 +110,14 @@ export class REST {
 						Authorization: 'Bearer ' + sessionToken
 					})
 				}
+			}
+
+			if (new URL(url as string).host === 'kick.com') {
+				xhr.setRequestHeader('x-app-platform', 'web')
+
+				options.headers = Object.assign(options.headers || {}, {
+					'x-app-platform': 'web'
+				})
 			}
 
 			// fetch(url, options)

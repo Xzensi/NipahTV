@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.108
+// @version 1.5.109
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -10559,9 +10559,8 @@ var REST = class _REST {
       const urlDomain = new URL(url).host.split(".").slice(-2).join(".");
       if (currentDomain === urlDomain) {
         xhr.withCredentials = true;
-        xhr.setRequestHeader("site", "v2");
         options.headers = Object.assign(options.headers || {}, {
-          site: "v2"
+          // site: 'v2'
         });
         const sessionToken = getCookie("session_token");
         if (sessionToken) {
@@ -10570,6 +10569,12 @@ var REST = class _REST {
             Authorization: "Bearer " + sessionToken
           });
         }
+      }
+      if (new URL(url).host === "kick.com") {
+        xhr.setRequestHeader("x-app-platform", "web");
+        options.headers = Object.assign(options.headers || {}, {
+          "x-app-platform": "web"
+        });
       }
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -12438,6 +12443,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.109",
+    date: "2026-07-12",
+    description: `
+                  Fix: Match Kick's new API header signature
+            `
+  },
   {
     version: "1.5.108",
     date: "2026-07-12",
@@ -27618,7 +27630,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.108";
+  VERSION = "1.5.109";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
