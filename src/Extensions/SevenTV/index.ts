@@ -1,17 +1,17 @@
-import { DatabaseProxy, DatabaseProxyFactory } from '@database/DatabaseProxy'
-import SevenTVEmoteProvider from './SevenTVEmoteProvider'
-import SevenTVDatabase from './Database/SevenTVDatabase'
 import { PLATFORM_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
-import { getUserCosmeticDataByConnection, getUserEmoteSetConnectionsDataByConnection } from './SevenTVGraphQL'
-import SevenTVEventAPI, { DispatchBody, DispatchEventType, EventAPIRoom } from './SevenTVEventAPI'
+import type { NTVMessageEvent } from '@core/Common/EventService'
 import { Logger } from '@core/Common/Logger'
-import { Extension } from '../Extension'
+import type RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
+import type { User } from '@core/Users/UsersDatastore'
+import { type DatabaseProxy, DatabaseProxyFactory } from '@database/DatabaseProxy'
 import Dexie from 'dexie'
-import { NTVMessageEvent } from '@core/Common/EventService'
+import { Extension } from '../Extension'
+import SevenTVDatabase from './Database/SevenTVDatabase'
 import SevenTVDatastore from './SevenTVDatastore'
+import SevenTVEmoteProvider from './SevenTVEmoteProvider'
+import SevenTVEventAPI, { type DispatchBody, type DispatchEventType, EventAPIRoom } from './SevenTVEventAPI'
+import { getUserCosmeticDataByConnection, getUserEmoteSetConnectionsDataByConnection } from './SevenTVGraphQL'
 import SevenTVPaintStyleGenerator from './SevenTVPaintStyleGenerator'
-import RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
-import { User } from '@core/Users/UsersDatastore'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -59,7 +59,7 @@ export namespace SevenTV {
 		privileged?: boolean
 		tags?: string[]
 
-		// emotes: ActiveEmote[]
+		emotes: Emote[]
 
 		// provider?: Provider
 		// priority?: number
@@ -392,14 +392,19 @@ export default class SevenTVExtension extends Extension {
 		const { settingsManager } = this.rootContext
 
 		if (!session.channelData)
-			return error('EXT:STV', 'MAIN', `Skipping session without channel data, you're probably not in a channel..`)
+			return error(
+				'EXT:STV',
+				'MAIN',
+				`Skipping session without channel data, you're probably not in a channel..`
+			)
 
 		const { channelId, userId: channelUserId } = session.channelData
 		const platformMeUserId = session.meData.userId
 
 		this.registerEmoteProvider(session)
 
-		if (!datastore) return error('EXT:STV', 'MAIN', 'Datastore is not initialized, cannot add session:', session)
+		if (!datastore)
+			return error('EXT:STV', 'MAIN', 'Datastore is not initialized, cannot add session:', session)
 
 		if (!this.eventAPI)
 			return error('EXT:STV', 'MAIN', 'Event API is not initialized, cannot add session:', session)
@@ -408,7 +413,7 @@ export default class SevenTVExtension extends Extension {
 		const platformId = getStvPlatformId()
 
 		// Fetch both the platform channel user and our own 7TV user
-		let promises = []
+		const promises = []
 		promises.push(
 			getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId)
 				.then(res => res ?? { id: STV_ID_NULL })
@@ -470,7 +475,9 @@ export default class SevenTVExtension extends Extension {
 		}
 
 		const stvMeUserId =
-			!this.cachedStvMeUser || this.cachedStvMeUser.id === STV_ID_NULL ? undefined : this.cachedStvMeUser.id
+			!this.cachedStvMeUser || this.cachedStvMeUser.id === STV_ID_NULL
+				? undefined
+				: this.cachedStvMeUser.id
 
 		/**
 		 * Channel user here is the platform user, not the 7TV user
@@ -478,7 +485,12 @@ export default class SevenTVExtension extends Extension {
 		 * stvMeUser is the current user's 7TV user
 		 * activeEmoteSet is the emote set that the channel user has selected
 		 */
-		const room = this.eventAPI.registerRoom(channelUserId, stvChannelUser?.id, stvMeUserId, activeEmoteSet?.id)
+		const room = this.eventAPI.registerRoom(
+			channelUserId,
+			stvChannelUser?.id,
+			stvMeUserId,
+			activeEmoteSet?.id
+		)
 
 		if (room && room.stvUserId && room.stvUserId !== STV_ID_NULL) {
 			eventBus.subscribe('ntv.chat.message.new', (message: NTVMessageEvent) => {
@@ -494,7 +506,8 @@ export default class SevenTVExtension extends Extension {
 					room,
 					'emotes_added',
 					((event: Event) => {
-						const data = (event as CustomEvent).detail as DispatchBody<DispatchEventType.EMOTE_SET_UPDATED>
+						const data = (event as CustomEvent)
+							.detail as DispatchBody<DispatchEventType.EMOTE_SET_UPDATED>
 						if (!data.pushed) return
 
 						// Check if emotes updated event is for the active emote set of this session's channel
@@ -534,7 +547,8 @@ export default class SevenTVExtension extends Extension {
 					room,
 					'emotes_removed',
 					((event: Event) => {
-						const data = (event as CustomEvent).detail as DispatchBody<DispatchEventType.EMOTE_SET_UPDATED>
+						const data = (event as CustomEvent)
+							.detail as DispatchBody<DispatchEventType.EMOTE_SET_UPDATED>
 						if (!data.pulled) return
 
 						// Check if emotes updated event is for the active emote set of this session's channel
@@ -643,7 +657,8 @@ export default class SevenTVExtension extends Extension {
 	}
 
 	unhookRenderMessagePipeline() {
-		if (this.renderMessageMiddleware) this.rootContext.renderMessagePipeline.remove(this.renderMessageMiddleware)
+		if (this.renderMessageMiddleware)
+			this.rootContext.renderMessagePipeline.remove(this.renderMessageMiddleware)
 	}
 
 	handlePaintCreated(event: CustomEvent) {

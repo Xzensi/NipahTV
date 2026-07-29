@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.109
+// @version 1.5.110
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12444,6 +12444,17 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.110",
+    date: "2026-07-29",
+    description: `
+                  Fix: Kick deleted the entire /api/v1/video/:livestream_id endpoint making NTV no longer load on VOD pages
+                  Fix: changes to 7TV API /v3/users/:platform/:platform_id endpoint
+                  Fix: 7TV emote set favicon's not showing in emote menu
+                  Fix: user messages history loading chunks too quickly
+                  Fix: VOD pages not applying chatroom behaviour correctly due to Kick website changes
+            `
+  },
+  {
     version: "1.5.109",
     date: "2026-07-12",
     description: `
@@ -22298,11 +22309,7 @@ var UserInfoModal = class extends AbstractModal {
         `Max auto-loads (${MAX_AUTO_LOADS}) reached for ${userInfo.username}, but content may still be too short.`
       );
     }
-    if (messagesHistoryEl.scrollHeight > messagesHistoryEl.clientHeight) {
-      messagesHistoryEl.scrollTop = messagesHistoryEl.scrollHeight - messagesHistoryEl.clientHeight;
-    } else {
-      messagesHistoryEl.scrollTop = 0;
-    }
+    messagesHistoryEl.scrollTop = 0;
     messagesHistoryEl.removeAttribute("loading");
     messagesHistoryEl.addEventListener("scroll", this.messagesScrollHandler.bind(this));
   }
@@ -22362,6 +22369,7 @@ var UserInfoModal = class extends AbstractModal {
 				<span class="ntv__chat-message__part">${message.content}</span>
 			</div>`;
     }
+    messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
     if (!this.messagesHistoryCursor && lastDate) {
       const formattedDate = lastDate.toLocaleDateString("en-US", {
         weekday: "long",
@@ -22369,9 +22377,14 @@ var UserInfoModal = class extends AbstractModal {
         month: "long",
         day: "numeric"
       });
-      entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`;
+      messagesHistoryEl.append(
+        parseHTML(
+          cleanupHTML(
+            `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`
+          )
+        )
+      );
     }
-    messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)));
     messagesHistoryEl.querySelectorAll(".ntv__chat-message[unrendered]").forEach((messageEl) => {
       messageEl.querySelectorAll(".ntv__chat-message__part").forEach((messagePartEl) => {
         const parsedMessageParts = emotesManager.parseEmoteText(messagePartEl.textContent || "");
@@ -22386,10 +22399,11 @@ var UserInfoModal = class extends AbstractModal {
   }
   async messagesScrollHandler(event) {
     const target = event.currentTarget;
-    if (target.scrollTop < 30 && this.messagesHistoryCursor !== null && !this.isLoadingMessages) {
-      await this.loadMoreMessagesHistory();
-      await this.loadMoreMessagesHistory();
-    }
+    const maxScrollTop = target.scrollHeight - target.clientHeight;
+    if (this.isLoadingMessages) return;
+    if (this.messagesHistoryCursor === null) return;
+    if (maxScrollTop - Math.abs(target.scrollTop) > 150) return;
+    await this.loadMoreMessagesHistory();
   }
   enableGiftSubButton() {
     this.giftSubButtonEnabled = true;
@@ -24553,7 +24567,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   loadVodBehaviour() {
     log28("KICK", "UI", "Loading VOD behaviour..");
-    const chatroomParentContainerEl = document.getElementById("channel-chatroom")?.querySelector("& > .bg-surface-lower");
+    const chatroomParentContainerEl = document.getElementById("channel-chatroom")?.querySelector("& > div:has(#chatroom-messages)");
     if (!chatroomParentContainerEl) return error29("KICK", "UI", "Chatroom container not found");
     this.addExistingMessagesToQueue();
     this.vodChatroomObserver = new MutationObserver((mutations) => {
@@ -25579,17 +25593,25 @@ var KickNetworkInterface = class {
       info27("KICK", "NET", "VOD video detected..");
       const videoId = pathArr[2];
       if (!videoId) throw new Error("Failed to extract video ID from URL");
+      const urlSlug = pathArr[0];
+      if (!urlSlug) throw new Error("Failed to extract channel slug from URL");
       const responseChannelData = await RESTFromMainService.get(
-        `https://kick.com/api/v1/video/${videoId}`
+        `https://kick.com/api/v2/channels/${urlSlug}`
       ).catch(() => {
       });
       if (!responseChannelData) {
-        throw new Error("Failed to fetch VOD data");
+        throw new Error("Failed to fetch channel data");
       }
-      if (!responseChannelData.livestream) {
-        throw new Error('Invalid VOD data, missing property "livestream"');
+      if (!responseChannelData.id) {
+        throw new Error('Invalid channel data, missing property "id"');
       }
-      const { id, user_id, slug, user } = responseChannelData.livestream.channel;
+      if (!responseChannelData.user_id) {
+        throw new Error('Invalid channel data, missing property "user_id"');
+      }
+      if (!responseChannelData.chatroom?.id) {
+        throw new Error('Invalid channel data, missing property "chatroom.id"');
+      }
+      const { id, user_id, slug, user } = responseChannelData;
       if (!id) {
         throw new Error('Invalid VOD data, missing property "id"');
       }
@@ -26155,9 +26177,86 @@ var KickBadgeProvider = class {
   }
 };
 
-// src/Extensions/SevenTV/SevenTVEmoteProvider.ts
+// src/Extensions/Extension.ts
+var Extension = class {
+  constructor(rootContext, sessions) {
+    this.rootContext = rootContext;
+    this.sessions = sessions;
+  }
+};
+
+// src/Extensions/SevenTV/Database/SevenTVDatabase.ts
+var SevenTVDatabase = class extends DatabaseAbstract {
+  idb;
+  dbName = "NTV_Ext_SevenTV";
+  constructor(SWDexie) {
+    super();
+    this.idb = SWDexie ? new SWDexie(this.dbName) : new import_wrapper_default(this.dbName);
+    this.idb.version(1).stores({});
+  }
+};
+
+// src/Extensions/SevenTV/SevenTVDatastore.ts
 var logger33 = new Logger();
 var { log: log32, info: info30, error: error33 } = logger33.destruct();
+var SevenTVDatastore = class {
+  constructor(database) {
+    this.database = database;
+  }
+  users = /* @__PURE__ */ new Map();
+  usersByName = /* @__PURE__ */ new Map();
+  entitlements = /* @__PURE__ */ new Map();
+  hashedEntitlements = /* @__PURE__ */ new Map();
+  cosmetics = /* @__PURE__ */ new Map();
+  createEntitlement(entitlement) {
+    const user = entitlement.user;
+    if (!user) return error33("EXT:STV", "STORE", "No user provided for entitlement");
+    if (!this.users.has(user.id)) {
+      this.users.set(user.id, user);
+      this.usersByName.set(user.display_name, user);
+    }
+    const entitlements = this.entitlements.get(user.id);
+    if (entitlements) entitlements.push(entitlement);
+    else this.entitlements.set(user.id, [entitlement]);
+    this.hashedEntitlements.set(user.id + "_" + entitlement.kind, entitlement);
+  }
+  deleteEntitlement(entitlement) {
+    const user = entitlement.user;
+    if (!user) return error33("EXT:STV", "STORE", "No user provided for entitlement");
+    const storedEntitlement = this.hashedEntitlements.get(user.id + "_" + entitlement.kind);
+    if (storedEntitlement) {
+      this.hashedEntitlements.delete(user.id + "_" + entitlement.kind);
+      const entitlements = this.entitlements.get(user.id);
+      if (entitlements) {
+        const index = entitlements.findIndex((e) => e.id === entitlement.id);
+        if (index !== -1) {
+          entitlements.splice(index, 1);
+        }
+      }
+    }
+  }
+  resetEntitlements(userId) {
+    this.entitlements.delete(userId);
+  }
+  createCosmetic(cosmetic) {
+    this.cosmetics.set(cosmetic.id, cosmetic);
+  }
+  getUserByName(name) {
+    return this.usersByName.get(name);
+  }
+  getUserPaint(userId) {
+    const entitlement = this.hashedEntitlements.get(userId + "_PAINT");
+    return entitlement && this.cosmetics.get(entitlement.ref_id)?.data;
+  }
+  getUserBadge(userId) {
+    const entitlement = this.hashedEntitlements.get(userId + "_BADGE");
+    return entitlement && this.cosmetics.get(entitlement.ref_id)?.data;
+  }
+};
+
+// src/Extensions/SevenTV/SevenTVEmoteProvider.ts
+var logger34 = new Logger();
+var { log: log33, info: info31, error: error34 } = logger34.destruct();
 var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProvider {
   static id = 2 /* SEVENTV */;
   id = 2 /* SEVENTV */;
@@ -26166,57 +26265,80 @@ var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProv
     super(settingsManager);
   }
   async fetchEmotes({ userId, channelId }) {
-    info30("EXT:STV", "EMOT:PROV", "Fetching emote data from SevenTV..");
+    info31("EXT:STV", "EMOT:PROV", "Fetching emote data from SevenTV..");
     this.status = "loading" /* LOADING */;
     if (!userId) {
       this.status = "connection_failed" /* CONNECTION_FAILED */;
       throw new Error("Missing Kick user id for SevenTV provider.");
     }
-    const isChatEnabled = !!this.settingsManager.getSetting(channelId, "chat.emote_providers.7tv.show_emotes");
+    const isChatEnabled = !!this.settingsManager.getSetting(
+      channelId,
+      "chat.emote_providers.7tv.show_emotes"
+    );
     if (!isChatEnabled) {
       this.status = "loaded" /* LOADED */;
       return;
     }
     const [globalData, userData] = await Promise.all([
       REST.get(`https://7tv.io/v3/emote-sets/global`).catch((err) => {
-        error33("EXT:STV", "EMOT:PROV", "Failed to fetch SevenTV global emotes:", err);
+        error34("EXT:STV", "EMOT:PROV", "Failed to fetch SevenTV global emotes:", err);
       }),
       REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch((err) => {
-        error33("EXT:STV", "EMOT:PROV", "Failed to fetch SevenTV user emotes:", err);
+        error34("EXT:STV", "EMOT:PROV", "Failed to fetch SevenTV user data:", err);
       })
     ]);
     if (!globalData) {
       this.status = "connection_failed" /* CONNECTION_FAILED */;
-      return error33("EXT:STV", "EMOT:PROV", "Failed to fetch SevenTV global emotes.");
+      return error34("EXT:STV", "EMOT:PROV", "Failed to fetch SevenTV global emotes.");
     }
     const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {});
-    const userEmoteSet = this.unpackUserEmotes(channelId, userData || {});
     if (!globalEmoteSet) {
       this.status = "connection_failed" /* CONNECTION_FAILED */;
-      return error33("EXT:STV", "EMOT:PROV", "Failed to unpack global emotes from SevenTV provider.");
+      return error34("EXT:STV", "EMOT:PROV", "Failed to unpack global emotes from SevenTV provider.");
+    }
+    let userEmoteSet = [];
+    if (userData?.emote_set_id) {
+      const userEmoteSetData = await REST.get(
+        `https://7tv.io/v3/emote-sets/${userData.emote_set_id}`
+      ).catch((err) => {
+        error34("EXT:STV", "EMOT:PROV", "Failed to fetch SevenTV user emote set:", err);
+      });
+      if (userEmoteSetData) {
+        userEmoteSet = this.unpackUserEmotes(channelId, userEmoteSetData);
+      }
     }
     if (userEmoteSet) {
       const plural = globalEmoteSet.length + userEmoteSet.length > 1 ? "sets" : "set";
-      log32(
+      log33(
         "EXT:STV",
         "EMOT:PROV",
         `Fetched ${globalEmoteSet.length + userEmoteSet.length} emote ${plural} from SevenTV.`
       );
     } else {
-      log32("EXT:STV", "EMOT:PROV", `Fetched ${globalEmoteSet.length} global emote set from SevenTV.`);
+      log33("EXT:STV", "EMOT:PROV", `Fetched ${globalEmoteSet.length} global emote set from SevenTV.`);
     }
     this.status = "loaded" /* LOADED */;
     return userEmoteSet && [...globalEmoteSet, ...userEmoteSet] || [...globalEmoteSet];
   }
   unpackGlobalEmotes(channelId, globalData) {
-    if (!globalData.emotes || !globalData.emotes?.length) {
-      error33("EXT:STV", "EMOT:PROV", "No global emotes found for SevenTV provider");
-      return;
+    if (!globalData.emotes?.length) {
+      error34("EXT:STV", "EMOT:PROV", "No global emotes found for SevenTV provider");
+      return [];
     }
     let emotesMapped = globalData.emotes.map((emote) => {
-      if (!emote.data?.host?.files || !emote.data.host.files.length) {
-        error33("EXT:STV", "EMOT:PROV", "Emote has no files:", emote);
-        return;
+      if (!emote.data?.host?.files?.length) {
+        error34("EXT:STV", "EMOT:PROV", "Emote has no files:", emote);
+        return {
+          id: emote.id ?? "ERROR",
+          hid: md5(emote.name ?? "ERROR"),
+          name: emote.name ?? "ERROR",
+          provider: this.id,
+          isZeroWidth: (emote.flags & 1) !== 0,
+          spacing: true,
+          width: 0,
+          size: 0,
+          parts: []
+        };
       }
       const parts = splitEmoteName(emote.name, 2);
       const file = emote.data.host.files[0];
@@ -26247,7 +26369,10 @@ var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProv
       };
     });
     emotesMapped = emotesMapped.filter(Boolean);
-    const isMenuEnabled = !!this.settingsManager.getSetting(channelId, "emote_menu.emote_providers.7tv.show_global");
+    const isMenuEnabled = !!this.settingsManager.getSetting(
+      channelId,
+      "emote_menu.emote_providers.7tv.show_global"
+    );
     return [
       {
         provider: this.id,
@@ -26265,12 +26390,12 @@ var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProv
       }
     ];
   }
-  unpackUserEmotes(channelId, userData) {
-    if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
-      log32("EXT:STV", "EMOT:PROV", "No user emotes found for SevenTV provider");
-      return;
+  unpackUserEmotes(channelId, emoteSet) {
+    if (!emoteSet?.emotes?.length) {
+      log33("EXT:STV", "EMOT:PROV", "No user emotes found for SevenTV provider");
+      return [];
     }
-    let emotesMapped = userData.emote_set.emotes.map(_SevenTVEmoteProvider.unpackUserEmote);
+    let emotesMapped = emoteSet.emotes.map(_SevenTVEmoteProvider.unpackUserEmote);
     emotesMapped = emotesMapped.filter(Boolean);
     const isMenuEnabled = !!this.settingsManager.getSetting(
       channelId,
@@ -26280,7 +26405,7 @@ var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProv
       {
         provider: this.id,
         orderIndex: 8,
-        name: userData.emote_set.name,
+        name: emoteSet.name,
         emotes: emotesMapped,
         enabledInMenu: isMenuEnabled,
         isEmoji: false,
@@ -26288,15 +26413,25 @@ var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProv
         isCurrentChannel: true,
         isOtherChannel: false,
         isSubscribed: false,
-        icon: userData.emote_set?.user?.avatar_url || "https://7tv.app/favicon.svg",
-        id: "7tv_" + userData.emote_set.id
+        icon: emoteSet.owner?.avatar_url || "https://7tv.app/favicon.svg",
+        id: "7tv_" + emoteSet.id
       }
     ];
   }
   static unpackUserEmote(emoteData) {
     if (!emoteData.data?.host?.files || !emoteData.data.host.files.length) {
-      error33("EXT:STV", "EMOT:PROV", "Emote has no files:", emoteData);
-      return;
+      error34("EXT:STV", "EMOT:PROV", "Emote has no files:", emoteData);
+      return {
+        id: emoteData.id ?? "ERROR",
+        hid: md5(emoteData.name ?? "ERROR"),
+        name: emoteData.name ?? "ERROR",
+        provider: _SevenTVEmoteProvider.id,
+        isZeroWidth: (emoteData.flags & 1) !== 0,
+        spacing: true,
+        width: 0,
+        size: 0,
+        parts: []
+      };
     }
     const file = emoteData.data.host.files[0];
     const size = file.width / 24 + 0.5 << 0;
@@ -26332,140 +26467,9 @@ var SevenTVEmoteProvider = class _SevenTVEmoteProvider extends AbstractEmoteProv
   }
 };
 
-// src/Extensions/SevenTV/Database/SevenTVDatabase.ts
-var SevenTVDatabase = class extends DatabaseAbstract {
-  idb;
-  dbName = "NTV_Ext_SevenTV";
-  constructor(SWDexie) {
-    super();
-    this.idb = SWDexie ? new SWDexie(this.dbName) : new import_wrapper_default(this.dbName);
-    this.idb.version(1).stores({});
-  }
-};
-
-// src/Extensions/SevenTV/SevenTVGraphQL.ts
-function getUserCosmeticDataByConnection(platformId, userId) {
-  return REST.post("https://7tv.io/v3/gql", {
-    query: `query GetUsersByConnection($platform: ConnectionPlatform!, $user_id: String!) {
-                    userByConnection(platform: $platform, id: $user_id) {
-                        id
-                        display_name
-                        style {
-                            badge_id
-                            color
-                            paint_id
-                            paint {
-                                angle
-                                color
-                                function
-                                gradients {
-                                    angle
-                                    at
-                                    canvas_repeat
-                                    canvas_size
-                                    function
-                                    image_url
-                                    repeat
-                                    shape
-                                    stops {
-                                        center_at
-                                        at
-                                        color
-                                    }
-                                }
-                                id
-                                image_url
-                                kind
-                                name
-                                repeat
-                                shadows {
-                                    y_offset
-                                    x_offset
-                                    radius
-                                    color
-                                }
-                                shape
-                                text {
-                                    weight
-                                    variant
-                                    transform
-                                    stroke {
-                                        width
-                                        color
-                                    }
-                                    shadows {
-                                        color
-                                        radius
-                                        x_offset
-                                        y_offset
-                                    }
-                                }
-                                stops {
-                                    color
-                                    at
-                                    center_at
-                                }
-                            }
-                            badge {
-                                id
-                                kind
-                                name
-                                tag
-                                tooltip
-                                host {
-                                    url
-                                    files {
-                                        size
-                                        height
-                                        width
-                                        format
-                                    }
-                                }
-                            }
-                        }
-                        avatar_url
-                        cosmetics {
-                            id
-                            kind
-                            selected
-                        }
-                        username
-                    }
-                }`,
-    variables: {
-      platform: platformId,
-      user_id: userId
-    }
-  }).then((res) => res.data);
-}
-function getUserEmoteSetConnectionsDataByConnection(platformId, userId) {
-  return REST.post("https://7tv.io/v3/gql", {
-    query: `query GetUsersByConnection($platform: ConnectionPlatform!, $user_id: String!) {
-                    userByConnection(platform: $platform, id: $user_id) {
-                        id
-                        emote_sets(entitled: true) {
-                            flags
-                            id
-                            name
-                            tags
-                            owner_id
-                        }
-                        connections {
-                            platform
-                            emote_set_id
-                        }
-                    }
-                }`,
-    variables: {
-      platform: platformId,
-      user_id: userId
-    }
-  }).then((res) => res.data?.userByConnection);
-}
-
 // src/Extensions/SevenTV/SevenTVEventAPI.ts
-var logger34 = new Logger();
-var { log: log33, info: info31, error: error34 } = logger34.destruct();
+var logger35 = new Logger();
+var { log: log34, info: info32, error: error35 } = logger35.destruct();
 function createRoom(channelId, stvChannelUserId, stvUserId, emoteSetId) {
   return stvUserId && {
     presenceTimestamp: 0,
@@ -26592,7 +26596,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
       this.socket = new WebSocket(url);
       this.connectionTimeoutId = setTimeout(() => {
         if (this.connectionState === 1 /* CONNECTING */) {
-          error34("EXT:STV", "EVENTAPI", "Connection attempt timed out");
+          error35("EXT:STV", "EVENTAPI", "Connection attempt timed out");
           this.cleanupSocket();
           this.scheduleReconnect(true);
         }
@@ -26601,30 +26605,30 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
         clearTimeout(this.connectionTimeoutId);
         this.connectionState = 2 /* CONNECTED */;
         this.reconnectAttempts = 0;
-        log33("EXT:STV", "EVENTAPI", "EventAPI Connected!");
+        log34("EXT:STV", "EVENTAPI", "EventAPI Connected!");
       };
       this.socket.onclose = (event) => {
         const wasConnecting = this.connectionState === 1 /* CONNECTING */;
         clearTimeout(this.connectionTimeoutId);
         this.cleanupSocket();
         if (!this.shouldReconnect)
-          return log33("EXT:STV", "EVENTAPI", "EventAPI Disconnected, not reconnecting..");
+          return log34("EXT:STV", "EVENTAPI", "EventAPI Disconnected, not reconnecting..");
         if (this.reconnectAttempts >= _SevenTVEventAPI.MAX_RECONNECT_ATTEMPTS) {
-          error34("EXT:STV", "EVENTAPI", "Max reconnection attempts reached");
+          error35("EXT:STV", "EVENTAPI", "Max reconnection attempts reached");
           return;
         }
         this.scheduleReconnect(wasConnecting);
       };
       this.socket.onmessage = (event) => {
         if (this.connectionState !== 2 /* CONNECTED */ || !this.socket) {
-          log33("EXT:STV", "EVENTAPI", "Dropping message - socket not ready");
+          log34("EXT:STV", "EVENTAPI", "Dropping message - socket not ready");
           return;
         }
         let payload;
         try {
           payload = JSON.parse(event.data);
         } catch (err) {
-          error34("EXT:STV", "EVENTAPI", "EventAPI[HELLO] Failed to parse message:", event);
+          error35("EXT:STV", "EVENTAPI", "EventAPI[HELLO] Failed to parse message:", event);
           return;
         }
         const { d: data, op } = payload;
@@ -26651,7 +26655,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
             this.onEndOfStreamEvent(data);
             break;
           default:
-            error34("EXT:STV", "EVENTAPI", "EventAPI[MESSAGE] Unknown opcode:", payload.op);
+            error35("EXT:STV", "EVENTAPI", "EventAPI[MESSAGE] Unknown opcode:", payload.op);
             break;
         }
       };
@@ -26668,23 +26672,23 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
   }
   resume() {
     if (!this.socket || this.connectionState !== 2 /* CONNECTED */) {
-      return error34("EXT:STV", "EVENTAPI", "EventAPI[RESUME] Socket is not connected!");
+      return error35("EXT:STV", "EVENTAPI", "EventAPI[RESUME] Socket is not connected!");
     }
-    if (!this.connectionId) return error34("EXT:STV", "EVENTAPI", "EventAPI[RESUME] No connection id to resume!");
+    if (!this.connectionId) return error35("EXT:STV", "EVENTAPI", "EventAPI[RESUME] No connection id to resume!");
     this.emit({
       op: 34 /* RESUME */,
       d: {
         session_id: this.connectionId
       }
     });
-    log33("EXT:STV", "EVENTAPI", `EventAPI[RESUME] Sent resume connection <${this.connectionId}> request...`);
+    log34("EXT:STV", "EVENTAPI", `EventAPI[RESUME] Sent resume connection <${this.connectionId}> request...`);
   }
   scheduleReconnect(useBackoff) {
     if (this.connectionState !== 0 /* DISCONNECTED */) return;
     const jitter = (Math.min(this.reconnectAttempts, 1) * 800 + Math.min(this.reconnectAttempts ** 2 * 100, 1200)) * Math.random();
     const delay = useBackoff ? Math.min(this.reconnectAttempts ** 2 * 500 + jitter, _SevenTVEventAPI.MAX_RECONNECT_DELAY) : 0;
     this.reconnectAttempts++;
-    log33(
+    log34(
       "EXT:STV",
       "EVENTAPI",
       `EventAPI Attempting reconnect ${this.reconnectAttempts}/${_SevenTVEventAPI.MAX_RECONNECT_ATTEMPTS} in ${(delay / 10 << 0) / 100}s`
@@ -26702,7 +26706,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     }
     if (this.connectionState === 2 /* CONNECTED */ && this.socket) {
       this.heartbeatTimeoutId = setTimeout(() => {
-        error34("EXT:STV", "EVENTAPI", "Heartbeat timed out");
+        error35("EXT:STV", "EVENTAPI", "Heartbeat timed out");
         this.cleanupSocket();
         this.scheduleReconnect(true);
       }, this.heartbeatInterval);
@@ -26724,13 +26728,13 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     this.connectionId = null;
   }
   registerRoom(channelId, stvChannelUserId, stvUserId, emoteSetId) {
-    log33(
+    log34(
       "EXT:STV",
       "EVENTAPI",
       `Registering room <${channelId}@${stvChannelUserId || "no channel"}> with user <${stvUserId || "no user"}>`
     );
     if (this.rooms.some((room2) => room2.channelId === channelId))
-      return error34("EXT:STV", "EVENTAPI", "EventAPI Room is already registered!");
+      return error35("EXT:STV", "EVENTAPI", "EventAPI Room is already registered!");
     const room = createRoom(channelId, stvChannelUserId, stvUserId, emoteSetId);
     if (this.connectionState !== 2 /* CONNECTED */) {
       this.roomBuffer.push(room);
@@ -26742,9 +26746,9 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     return room;
   }
   removeRoom(channelId) {
-    log33("EXT:STV", "EVENTAPI", `Removing room <${channelId}>`);
+    log34("EXT:STV", "EVENTAPI", `Removing room <${channelId}>`);
     const index = this.rooms.findIndex((room2) => room2.channelId === channelId);
-    if (index === -1) return error34("EXT:STV", "EVENTAPI", `Unable to find room to remove <${channelId}>`);
+    if (index === -1) return error35("EXT:STV", "EVENTAPI", `Unable to find room to remove <${channelId}>`);
     const room = this.rooms[index];
     this.rooms.splice(index, 1);
     this.unsubscribeRoom(room);
@@ -26791,7 +26795,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
   sendPresence(room, self2 = false, force = false) {
     if (this.connectionState !== 2 /* CONNECTED */) return;
     const { channelId, stvUserId } = room;
-    if (!stvUserId) return error34("EXT:STV", "EVENTAPI", "No user ID provided for presence update");
+    if (!stvUserId) return error35("EXT:STV", "EVENTAPI", "No user ID provided for presence update");
     if (!force) {
       const now = Date.now();
       if (room.presenceTimestamp > now - _SevenTVEventAPI.PRESENCE_THROTTLE_INTERVAL) return;
@@ -26807,7 +26811,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
         id: channelId
       }
     }).catch((err) => {
-      error34("EXT:STV", "EVENTAPI", "Failed to send presence:", err);
+      error35("EXT:STV", "EVENTAPI", "Failed to send presence:", err);
     });
     return true;
   }
@@ -26832,7 +26836,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
     this.socket.send(JSON.stringify(payload));
   }
   onHelloEvent(event) {
-    log33(
+    log34(
       "EXT:STV",
       "EVENTAPI",
       `[HELLO] <${event.session_id}> Heartbeat: ${event.heartbeat_interval}ms Population: ${event.instance.population}`
@@ -26850,7 +26854,7 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
       }
       this.roomBuffer = [];
     }
-    if (!this.socket) return error34("EXT:STV", "EVENTAPI", "[HELLO] Socket is not connected!");
+    if (!this.socket) return error35("EXT:STV", "EVENTAPI", "[HELLO] Socket is not connected!");
     if (this.msgBuffer.length) {
       for (const payload of this.msgBuffer) {
         this.socket.send(JSON.stringify(payload));
@@ -26868,52 +26872,52 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
       case "RESUME":
         const { success, dispatches_replayed, subscriptions_restored } = event.data;
         if (success) {
-          log33(
+          log34(
             "EXT:STV",
             "EVENTAPI",
             "[ACK] Resumed connection successfully..",
             `[dispatchesReplayed=${dispatches_replayed} subscriptionsRestored=${subscriptions_restored}]`
           );
         } else {
-          log33("EXT:STV", "EVENTAPI", "[ACK] Failed to resume connection..");
+          log34("EXT:STV", "EVENTAPI", "[ACK] Failed to resume connection..");
           this.shouldResume = false;
           this.subscribeRooms();
         }
         break;
       case "IDENTIFY":
-        log33("EXT:STV", "EVENTAPI", "[ACK] Identified..");
+        log34("EXT:STV", "EVENTAPI", "[ACK] Identified..");
         break;
       case "SUBSCRIBE":
-        log33(
+        log34(
           "EXT:STV",
           "EVENTAPI",
           `[ACK] Subscribed to <${event.data?.type}> at <${event.data?.condition?.id || event.data?.condition?.object_id}>`
         );
         break;
       case "UNSUBSCRIBE":
-        log33(
+        log34(
           "EXT:STV",
           "EVENTAPI",
           `[ACK] Unsubscribed to <${event.data?.type}> at <${event.data?.condition?.id || event.data?.condition?.object_id}>`
         );
         break;
       case "SIGNAL":
-        log33("EXT:STV", "EVENTAPI", "[ACK] Signaled..");
+        log34("EXT:STV", "EVENTAPI", "[ACK] Signaled..");
         break;
       case "BRIDGE":
-        log33("EXT:STV", "EVENTAPI", "[ACK] Bridged..");
+        log34("EXT:STV", "EVENTAPI", "[ACK] Bridged..");
         break;
       default:
-        error34("EXT:STV", "EVENTAPI", "[ACK] Unknown command:", command);
+        error35("EXT:STV", "EVENTAPI", "[ACK] Unknown command:", command);
         break;
     }
   }
   onReconnectEvent(event) {
-    log33("EXT:STV", "EVENTAPI", "[RECONNECT]", event);
+    log34("EXT:STV", "EVENTAPI", "[RECONNECT]", event);
     this.scheduleReconnect(true);
   }
   onErrorEvent(event) {
-    error34("EXT:STV", "EVENTAPI", "[ERROR]", event);
+    error35("EXT:STV", "EVENTAPI", "[ERROR]", event);
   }
   onEndOfStreamEvent(event) {
     if ([
@@ -26923,16 +26927,16 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
       4007 /* MAINTENANCE */,
       4008 /* TIMEOUT */
     ].includes(event.code)) {
-      log33("EXT:STV", "EVENTAPI", "[END_OF_STREAM] Reconnecting due to:", event);
+      log34("EXT:STV", "EVENTAPI", "[END_OF_STREAM] Reconnecting due to:", event);
       this.shouldReconnect = true;
       this.scheduleReconnect(true);
     } else {
-      error34("EXT:STV", "EVENTAPI", "[END_OF_STREAM] Unexpected end of stream:", event);
+      error35("EXT:STV", "EVENTAPI", "[END_OF_STREAM] Unexpected end of stream:", event);
       this.shouldReconnect = false;
     }
   }
   onDispatchEvent(event) {
-    log33("EXT:STV", "EVENTAPI", `[DISPATCH] <${event.type}>`, event);
+    log34("EXT:STV", "EVENTAPI", `[DISPATCH] <${event.type}>`, event);
     switch (event.type) {
       case "system.announcement" /* SYSTEM_ANNOUNCEMENT */:
         break;
@@ -26977,71 +26981,125 @@ var SevenTVEventAPI = class _SevenTVEventAPI {
   }
 };
 
-// src/Extensions/Extension.ts
-var Extension = class {
-  constructor(rootContext, sessions) {
-    this.rootContext = rootContext;
-    this.sessions = sessions;
-  }
-};
-
-// src/Extensions/SevenTV/SevenTVDatastore.ts
-var logger35 = new Logger();
-var { log: log34, info: info32, error: error35 } = logger35.destruct();
-var SevenTVDatastore = class {
-  constructor(database) {
-    this.database = database;
-  }
-  users = /* @__PURE__ */ new Map();
-  usersByName = /* @__PURE__ */ new Map();
-  entitlements = /* @__PURE__ */ new Map();
-  hashedEntitlements = /* @__PURE__ */ new Map();
-  cosmetics = /* @__PURE__ */ new Map();
-  createEntitlement(entitlement) {
-    const user = entitlement.user;
-    if (!user) return error35("EXT:STV", "STORE", "No user provided for entitlement");
-    if (!this.users.has(user.id)) {
-      this.users.set(user.id, user);
-      this.usersByName.set(user.display_name, user);
+// src/Extensions/SevenTV/SevenTVGraphQL.ts
+function getUserCosmeticDataByConnection(platformId, userId) {
+  return REST.post("https://7tv.io/v3/gql", {
+    query: `query GetUsersByConnection($platform: ConnectionPlatform!, $user_id: String!) {
+                    userByConnection(platform: $platform, id: $user_id) {
+                        id
+                        display_name
+                        style {
+                            badge_id
+                            color
+                            paint_id
+                            paint {
+                                angle
+                                color
+                                function
+                                gradients {
+                                    angle
+                                    at
+                                    canvas_repeat
+                                    canvas_size
+                                    function
+                                    image_url
+                                    repeat
+                                    shape
+                                    stops {
+                                        center_at
+                                        at
+                                        color
+                                    }
+                                }
+                                id
+                                image_url
+                                kind
+                                name
+                                repeat
+                                shadows {
+                                    y_offset
+                                    x_offset
+                                    radius
+                                    color
+                                }
+                                shape
+                                text {
+                                    weight
+                                    variant
+                                    transform
+                                    stroke {
+                                        width
+                                        color
+                                    }
+                                    shadows {
+                                        color
+                                        radius
+                                        x_offset
+                                        y_offset
+                                    }
+                                }
+                                stops {
+                                    color
+                                    at
+                                    center_at
+                                }
+                            }
+                            badge {
+                                id
+                                kind
+                                name
+                                tag
+                                tooltip
+                                host {
+                                    url
+                                    files {
+                                        size
+                                        height
+                                        width
+                                        format
+                                    }
+                                }
+                            }
+                        }
+                        avatar_url
+                        cosmetics {
+                            id
+                            kind
+                            selected
+                        }
+                        username
+                    }
+                }`,
+    variables: {
+      platform: platformId,
+      user_id: userId
     }
-    const entitlements = this.entitlements.get(user.id);
-    if (entitlements) entitlements.push(entitlement);
-    else this.entitlements.set(user.id, [entitlement]);
-    this.hashedEntitlements.set(user.id + "_" + entitlement.kind, entitlement);
-  }
-  deleteEntitlement(entitlement) {
-    const user = entitlement.user;
-    if (!user) return error35("EXT:STV", "STORE", "No user provided for entitlement");
-    const storedEntitlement = this.hashedEntitlements.get(user.id + "_" + entitlement.kind);
-    if (storedEntitlement) {
-      this.hashedEntitlements.delete(user.id + "_" + entitlement.kind);
-      const entitlements = this.entitlements.get(user.id);
-      if (entitlements) {
-        const index = entitlements.findIndex((e) => e.id === entitlement.id);
-        if (index !== -1) {
-          entitlements.splice(index, 1);
-        }
-      }
+  }).then((res) => res.data);
+}
+function getUserEmoteSetConnectionsDataByConnection(platformId, userId) {
+  return REST.post("https://7tv.io/v3/gql", {
+    query: `query GetUsersByConnection($platform: ConnectionPlatform!, $user_id: String!) {
+                    userByConnection(platform: $platform, id: $user_id) {
+                        id
+                        emote_sets(entitled: true) {
+                            flags
+                            id
+                            name
+                            tags
+                            owner_id
+                        }
+                        connections {
+                            platform
+                            emote_set_id
+                        }
+                    }
+                }`,
+    variables: {
+      platform: platformId,
+      user_id: userId
     }
-  }
-  resetEntitlements(userId) {
-    this.entitlements.delete(userId);
-  }
-  createCosmetic(cosmetic) {
-    this.cosmetics.set(cosmetic.id, cosmetic);
-  }
-  getUserByName(name) {
-    return this.usersByName.get(name);
-  }
-  getUserPaint(userId) {
-    const entitlement = this.hashedEntitlements.get(userId + "_PAINT");
-    return entitlement && this.cosmetics.get(entitlement.ref_id)?.data;
-  }
-  getUserBadge(userId) {
-    const entitlement = this.hashedEntitlements.get(userId + "_BADGE");
-    return entitlement && this.cosmetics.get(entitlement.ref_id)?.data;
-  }
-};
+  }).then((res) => res.data?.userByConnection);
+}
 
 // src/Extensions/SevenTV/SevenTVPaintStyleGenerator.ts
 var SevenTVPaintStyleGenerator = class _SevenTVPaintStyleGenerator {
@@ -27230,16 +27288,21 @@ var SevenTVExtension = class extends Extension {
     const { eventBus, emotesManager } = session;
     const { settingsManager } = this.rootContext;
     if (!session.channelData)
-      return error36("EXT:STV", "MAIN", `Skipping session without channel data, you're probably not in a channel..`);
+      return error36(
+        "EXT:STV",
+        "MAIN",
+        `Skipping session without channel data, you're probably not in a channel..`
+      );
     const { channelId, userId: channelUserId } = session.channelData;
     const platformMeUserId = session.meData.userId;
     this.registerEmoteProvider(session);
-    if (!datastore) return error36("EXT:STV", "MAIN", "Datastore is not initialized, cannot add session:", session);
+    if (!datastore)
+      return error36("EXT:STV", "MAIN", "Datastore is not initialized, cannot add session:", session);
     if (!this.eventAPI)
       return error36("EXT:STV", "MAIN", "Event API is not initialized, cannot add session:", session);
     const STV_ID_NULL = "00000000000000000000000000";
     const platformId = getStvPlatformId();
-    let promises = [];
+    const promises = [];
     promises.push(
       getUserEmoteSetConnectionsDataByConnection(getStvPlatformId(), channelUserId).then((res) => res ?? { id: STV_ID_NULL }).catch((err) => {
         id: STV_ID_NULL;
@@ -27286,7 +27349,12 @@ var SevenTVExtension = class extends Extension {
       );
     }
     const stvMeUserId = !this.cachedStvMeUser || this.cachedStvMeUser.id === STV_ID_NULL ? void 0 : this.cachedStvMeUser.id;
-    const room = this.eventAPI.registerRoom(channelUserId, stvChannelUser?.id, stvMeUserId, activeEmoteSet?.id);
+    const room = this.eventAPI.registerRoom(
+      channelUserId,
+      stvChannelUser?.id,
+      stvMeUserId,
+      activeEmoteSet?.id
+    );
     if (room && room.stvUserId && room.stvUserId !== STV_ID_NULL) {
       eventBus.subscribe("ntv.chat.message.new", (message) => {
         this.eventAPI?.sendPresence(room);
@@ -27417,7 +27485,8 @@ var SevenTVExtension = class extends Extension {
     );
   }
   unhookRenderMessagePipeline() {
-    if (this.renderMessageMiddleware) this.rootContext.renderMessagePipeline.remove(this.renderMessageMiddleware);
+    if (this.renderMessageMiddleware)
+      this.rootContext.renderMessagePipeline.remove(this.renderMessageMiddleware);
   }
   handlePaintCreated(event) {
     if (!this.paintSheet) {
@@ -27630,7 +27699,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.109";
+  VERSION = "1.5.110";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

@@ -1779,7 +1779,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 		const chatroomParentContainerEl = document
 			.getElementById('channel-chatroom')
-			?.querySelector('& > .bg-surface-lower')
+			?.querySelector('& > div:has(#chatroom-messages)')
 		if (!chatroomParentContainerEl) return error('KICK', 'UI', 'Chatroom container not found')
 
 		this.addExistingMessagesToQueue()

@@ -220,18 +220,39 @@ export default class KickNetworkInterface implements NetworkInterface {
 			const videoId = pathArr[2]
 			if (!videoId) throw new Error('Failed to extract video ID from URL')
 
+			const urlSlug = pathArr[0]
+			if (!urlSlug) throw new Error('Failed to extract channel slug from URL')
+
+			// We extract channel data from the Kick API
+			// const responseChannelData = await RESTFromMainService.get(
+			// 	`https://kick.com/api/v1/video/${videoId}`
+			// ).catch(() => {})
+			// if (!responseChannelData) {
+			// 	throw new Error('Failed to fetch VOD data')
+			// }
+			// if (!responseChannelData.livestream) {
+			// 	throw new Error('Invalid VOD data, missing property "livestream"')
+			// }
+
 			// We extract channel data from the Kick API
 			const responseChannelData = await RESTFromMainService.get(
-				`https://kick.com/api/v1/video/${videoId}`
+				`https://kick.com/api/v2/channels/${urlSlug}`
 			).catch(() => {})
+
 			if (!responseChannelData) {
-				throw new Error('Failed to fetch VOD data')
+				throw new Error('Failed to fetch channel data')
 			}
-			if (!responseChannelData.livestream) {
-				throw new Error('Invalid VOD data, missing property "livestream"')
+			if (!responseChannelData.id) {
+				throw new Error('Invalid channel data, missing property "id"')
+			}
+			if (!responseChannelData.user_id) {
+				throw new Error('Invalid channel data, missing property "user_id"')
+			}
+			if (!responseChannelData.chatroom?.id) {
+				throw new Error('Invalid channel data, missing property "chatroom.id"')
 			}
 
-			const { id, user_id, slug, user } = responseChannelData.livestream.channel
+			const { id, user_id, slug, user } = responseChannelData
 			if (!id) {
 				throw new Error('Invalid VOD data, missing property "id"')
 			}
