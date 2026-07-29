@@ -4,6 +4,17 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.110',
+		date: '2026-07-29',
+		description: `
+                  Fix: Kick deleted the entire /api/v1/video/:livestream_id endpoint making NTV no longer load on VOD pages
+                  Fix: changes to 7TV API /v3/users/:platform/:platform_id endpoint
+                  Fix: 7TV emote set favicon's not showing in emote menu
+                  Fix: user messages history loading chunks too quickly
+                  Fix: VOD pages not applying chatroom behaviour correctly due to Kick website changes
+            `
+	},
+	{
 		version: '1.5.109',
 		date: '2026-07-12',
 		description: `
