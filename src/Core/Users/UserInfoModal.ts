@@ -720,11 +720,7 @@ export default class UserInfoModal extends AbstractModal {
 			)
 		}
 
-		if (messagesHistoryEl.scrollHeight > messagesHistoryEl.clientHeight) {
-			messagesHistoryEl.scrollTop = messagesHistoryEl.scrollHeight - messagesHistoryEl.clientHeight
-		} else {
-			messagesHistoryEl.scrollTop = 0
-		}
+		messagesHistoryEl.scrollTop = 0
 
 		messagesHistoryEl.removeAttribute('loading')
 		messagesHistoryEl.addEventListener('scroll', this.messagesScrollHandler.bind(this))
@@ -799,6 +795,8 @@ export default class UserInfoModal extends AbstractModal {
 			</div>`
 		}
 
+		messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)))
+
 		if (!this.messagesHistoryCursor && lastDate) {
 			const formattedDate = lastDate.toLocaleDateString('en-US', {
 				weekday: 'long',
@@ -807,10 +805,15 @@ export default class UserInfoModal extends AbstractModal {
 				day: 'numeric'
 			})
 
-			entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div><span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`
+			messagesHistoryEl.append(
+				parseHTML(
+					cleanupHTML(
+						`<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>` +
+							`<span class="ntv__chat-message-separator ntv__chat-message-separator--start">Start of user's messages</span>`
+					)
+				)
+			)
 		}
-
-		messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)))
 
 		messagesHistoryEl.querySelectorAll('.ntv__chat-message[unrendered]').forEach((messageEl: Element) => {
 			messageEl.querySelectorAll('.ntv__chat-message__part').forEach((messagePartEl: Element) => {
@@ -828,11 +831,16 @@ export default class UserInfoModal extends AbstractModal {
 
 	async messagesScrollHandler(event: Event) {
 		const target = event.currentTarget as HTMLElement
+		const maxScrollTop = target.scrollHeight - target.clientHeight
 
-		if (target.scrollTop < 30 && this.messagesHistoryCursor !== null && !this.isLoadingMessages) {
-			await this.loadMoreMessagesHistory()
-			await this.loadMoreMessagesHistory()
-		}
+		if (this.isLoadingMessages) return
+		if (this.messagesHistoryCursor === null) return
+
+		// column-reverse: scrollTop=0 is visual bottom
+		// Chrome uses positive scrollTop (0 = bottom, +max = top), Firefox uses negative (0 = bottom, -max = top).
+		if (maxScrollTop - Math.abs(target.scrollTop) > 150) return
+
+		await this.loadMoreMessagesHistory()
 	}
 
 	enableGiftSubButton() {

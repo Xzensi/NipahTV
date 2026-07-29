@@ -1,8 +1,13 @@
-import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
 import { BROWSER_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
-import type SettingsManager from '@core/Settings/SettingsManager'
-import { REST, md5, splitEmoteName } from '@core/Common/utils'
 import { Logger } from '@core/Common/Logger'
+import { md5, REST, splitEmoteName } from '@core/Common/utils'
+import {
+	AbstractEmoteProvider,
+	EmoteProviderStatus,
+	type IAbstractEmoteProvider
+} from '@core/Emotes/AbstractEmoteProvider'
+import type SettingsManager from '@core/Settings/SettingsManager'
+import type { SevenTV } from '.'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -25,18 +30,22 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			throw new Error('Missing Kick user id for SevenTV provider.')
 		}
 
-		const isChatEnabled = !!this.settingsManager.getSetting(channelId, 'chat.emote_providers.7tv.show_emotes')
+		const isChatEnabled = !!this.settingsManager.getSetting(
+			channelId,
+			'chat.emote_providers.7tv.show_emotes'
+		)
 		if (!isChatEnabled) {
 			this.status = EmoteProviderStatus.LOADED
 			return
 		}
 
+		// Fetch global emotes and user data
 		const [globalData, userData] = await Promise.all([
 			REST.get(`https://7tv.io/v3/emote-sets/global`).catch(err => {
 				error('EXT:STV', 'EMOT:PROV', 'Failed to fetch SevenTV global emotes:', err)
 			}),
 			REST.get(`https://7tv.io/v3/users/KICK/${userId}`).catch(err => {
-				error('EXT:STV', 'EMOT:PROV', 'Failed to fetch SevenTV user emotes:', err)
+				error('EXT:STV', 'EMOT:PROV', 'Failed to fetch SevenTV user data:', err)
 			})
 		])
 
@@ -46,12 +55,26 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		}
 
 		const globalEmoteSet = this.unpackGlobalEmotes(channelId, globalData || {})
-		const userEmoteSet = this.unpackUserEmotes(channelId, userData || {})
 
 		// 7TV should always have global emotes
 		if (!globalEmoteSet) {
 			this.status = EmoteProviderStatus.CONNECTION_FAILED
 			return error('EXT:STV', 'EMOT:PROV', 'Failed to unpack global emotes from SevenTV provider.')
+		}
+
+		// 7TV API no longer returns the full emote-set in /v3/users/:platform/:platform_id endpoint,
+		// it's now nulled out so we need to make a separate request to /v3/emote-sets/:id
+		let userEmoteSet: EmoteSet[] = []
+		if (userData?.emote_set_id) {
+			const userEmoteSetData: SevenTV.EmoteSet = await REST.get(
+				`https://7tv.io/v3/emote-sets/${userData.emote_set_id}`
+			).catch(err => {
+				error('EXT:STV', 'EMOT:PROV', 'Failed to fetch SevenTV user emote set:', err)
+			})
+
+			if (userEmoteSetData) {
+				userEmoteSet = this.unpackUserEmotes(channelId, userEmoteSetData)
+			}
 		}
 
 		if (userEmoteSet) {
@@ -69,21 +92,31 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		return (userEmoteSet && [...globalEmoteSet, ...userEmoteSet]) || [...globalEmoteSet]
 	}
 
-	private unpackGlobalEmotes(channelId: ChannelId, globalData: any): EmoteSet[] | void {
-		if (!globalData.emotes || !globalData.emotes?.length) {
+	private unpackGlobalEmotes(channelId: ChannelId, globalData: any): EmoteSet[] {
+		if (!globalData.emotes?.length) {
 			error('EXT:STV', 'EMOT:PROV', 'No global emotes found for SevenTV provider')
-			return
+			return []
 		}
 
-		let emotesMapped = globalData.emotes.map((emote: any): Emote | void => {
-			if (!emote.data?.host?.files || !emote.data.host.files.length) {
+		let emotesMapped = globalData.emotes.map((emote: any): Emote => {
+			if (!emote.data?.host?.files?.length) {
 				error('EXT:STV', 'EMOT:PROV', 'Emote has no files:', emote)
-				return
+				return {
+					id: emote.id ?? 'ERROR',
+					hid: md5(emote.name ?? 'ERROR'),
+					name: emote.name ?? 'ERROR',
+					provider: this.id,
+					isZeroWidth: (emote.flags & 1) !== 0,
+					spacing: true,
+					width: 0,
+					size: 0,
+					parts: []
+				}
 			}
 			// Map of emote names splitted into parts for more relevant search results
 			const parts = splitEmoteName(emote.name, 2)
 			const file = emote.data.host.files[0]
-			let size
+			let size: number
 			switch (true) {
 				case file.width > 74:
 					size = 4
@@ -113,7 +146,10 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		// removed undefined entries from the array
 		emotesMapped = emotesMapped.filter(Boolean)
 
-		const isMenuEnabled = !!this.settingsManager.getSetting(channelId, 'emote_menu.emote_providers.7tv.show_global')
+		const isMenuEnabled = !!this.settingsManager.getSetting(
+			channelId,
+			'emote_menu.emote_providers.7tv.show_global'
+		)
 
 		return [
 			{
@@ -133,13 +169,13 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		]
 	}
 
-	private unpackUserEmotes(channelId: ChannelId, userData: any): EmoteSet[] | void {
-		if (!userData.emote_set || !userData.emote_set?.emotes?.length) {
+	private unpackUserEmotes(channelId: ChannelId, emoteSet: SevenTV.EmoteSet): EmoteSet[] {
+		if (!emoteSet?.emotes?.length) {
 			log('EXT:STV', 'EMOT:PROV', 'No user emotes found for SevenTV provider')
-			return
+			return []
 		}
 
-		let emotesMapped = userData.emote_set.emotes.map(SevenTVEmoteProvider.unpackUserEmote)
+		let emotesMapped = emoteSet.emotes.map(SevenTVEmoteProvider.unpackUserEmote)
 
 		// removed undefined entries from the array
 		emotesMapped = emotesMapped.filter(Boolean)
@@ -153,7 +189,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			{
 				provider: this.id,
 				orderIndex: 8,
-				name: userData.emote_set.name,
+				name: emoteSet.name,
 				emotes: emotesMapped,
 				enabledInMenu: isMenuEnabled,
 				isEmoji: false,
@@ -161,16 +197,26 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 				isCurrentChannel: true,
 				isOtherChannel: false,
 				isSubscribed: false,
-				icon: userData.emote_set?.user?.avatar_url || 'https://7tv.app/favicon.svg',
-				id: '7tv_' + userData.emote_set.id
+				icon: emoteSet.owner?.avatar_url || 'https://7tv.app/favicon.svg',
+				id: '7tv_' + emoteSet.id
 			}
 		]
 	}
 
-	static unpackUserEmote(emoteData: any): Emote | void {
+	static unpackUserEmote(emoteData: any): Emote {
 		if (!emoteData.data?.host?.files || !emoteData.data.host.files.length) {
 			error('EXT:STV', 'EMOT:PROV', 'Emote has no files:', emoteData)
-			return
+			return {
+				id: emoteData.id ?? 'ERROR',
+				hid: md5(emoteData.name ?? 'ERROR'),
+				name: emoteData.name ?? 'ERROR',
+				provider: SevenTVEmoteProvider.id,
+				isZeroWidth: (emoteData.flags & 1) !== 0,
+				spacing: true,
+				width: 0,
+				size: 0,
+				parts: []
+			}
 		}
 		const file = emoteData.data.host.files[0]
 		const size = (file.width / 24 + 0.5) << 0
