@@ -2476,8 +2476,23 @@ export class KickUserInterface extends AbstractUserInterface {
 						case 'ar': // Arabic
 							ariaLabel = 'ردّ'
 							break
+						case 'be': // Belarusian
+							ariaLabel = 'Адказаць'
+							break
+						case 'bg': // Bulgarian
+							ariaLabel = 'Отговаряне'
+							break
+						case 'cs': // Czech
+							ariaLabel = 'Odpovědět'
+							break
+						case 'da': // Danish
+							ariaLabel = 'Svar'
+							break
 						case 'de': // German
 							ariaLabel = 'Antworten'
+							break
+						case 'el': // Greece
+							ariaLabel = 'Απάντηση'
 							break
 						case 'es': // Spain
 							ariaLabel = 'Responder'
@@ -2491,6 +2506,12 @@ export class KickUserInterface extends AbstractUserInterface {
 						case 'hi': // Hindi
 							ariaLabel = 'जवाब देना'
 							break
+						case 'hr': // Croatian
+							ariaLabel = 'Odgovori'
+							break
+						case 'hu': // Hungarian
+							ariaLabel = 'Válasz'
+							break
 						case 'id': // Indonesian
 							ariaLabel = 'Jawab'
 							break
@@ -2503,14 +2524,47 @@ export class KickUserInterface extends AbstractUserInterface {
 						case 'ko': // Korean
 							ariaLabel = '답장'
 							break
+						case 'lt': // Lithuanian
+							ariaLabel = 'Atsakyti'
+							break
+						case 'lv': // Latvian
+							ariaLabel = 'Atbildēt'
+							break
+						case 'mk': // Macedonian
+							ariaLabel = 'Одговори'
+							break
+						case 'mn': // Mongolian
+							ariaLabel = 'Хариулах'
+							break
+						case 'ms': // Malaysian
+							ariaLabel = 'Balas'
+							break
+						case 'nl': // Nederlands
+							ariaLabel = 'Reageer'
+							break
+						case 'no': // Norsk
+							ariaLabel = 'Svar'
+							break
 						case 'pl': // Polish
 							ariaLabel = 'Odpowiedz'
 							break
 						case 'pt': // Portuguese
 							ariaLabel = 'Responder'
 							break
+						case 'ro': // Romanian
+							ariaLabel = 'Răspunde'
+							break
 						case 'ru': // Russian
 							ariaLabel = 'Ответить'
+							break
+						case 'sk': // Slovak
+							ariaLabel = 'Odpovedať'
+							break
+						case 'sr': // Serbian
+							ariaLabel = 'Odgovori'
+							break
+						case 'sv': // Swedish
+							ariaLabel = 'Svara'
 							break
 						case 'tr': // Turkish
 							ariaLabel = 'Yanıtla'
@@ -2527,6 +2581,123 @@ export class KickUserInterface extends AbstractUserInterface {
 						case 'zh-Hant': // Chinese (Traditional)
 							ariaLabel = '回覆'
 							break
+
+						// Predictive entries
+						case 'af': // Afrikaans
+							ariaLabel = 'Antwoord'
+							break
+						case 'az': // Azerbaijani
+							ariaLabel = 'Cavab ver'
+							break
+						case 'bn': // Bengali
+							ariaLabel = 'উত্তর দিন'
+							break
+						case 'bs': // Bosnian
+							ariaLabel = 'Odgovori'
+							break
+						case 'ca': // Catalan
+							ariaLabel = 'Respon'
+							break
+						case 'cy': // Welsh
+							ariaLabel = 'Ymateb'
+							break
+						case 'et': // Estonian
+							ariaLabel = 'Vasta'
+							break
+						case 'eu': // Basque
+							ariaLabel = 'Erantzun'
+							break
+						case 'fa': // Persian
+							ariaLabel = 'پاسخ'
+							break
+						case 'fil': // Filipino
+							ariaLabel = 'Tumugon'
+							break
+						case 'ga': // Irish
+							ariaLabel = 'Freagair'
+							break
+						case 'gl': // Galician
+							ariaLabel = 'Responder'
+							break
+						case 'gu': // Gujarati
+							ariaLabel = 'જવાબ આપો'
+							break
+						case 'he': // Hebrew
+							ariaLabel = 'השב'
+							break
+						case 'hy': // Armenian
+							ariaLabel = 'Պատասխանել'
+							break
+						case 'is': // Icelandic
+							ariaLabel = 'Svara'
+							break
+						case 'ka': // Georgian
+							ariaLabel = 'პასუხი'
+							break
+						case 'kk': // Kazakh
+							ariaLabel = 'Жауап беру'
+							break
+						case 'km': // Khmer
+							ariaLabel = 'ឆ្លើយតប'
+							break
+						case 'kn': // Kannada
+							ariaLabel = 'ಉತ್ತರಿಸಿ'
+							break
+						case 'lo': // Lao
+							ariaLabel = 'ຕອບ'
+							break
+						case 'ml': // Malayalam
+							ariaLabel = 'മറുപടി നൽകുക'
+							break
+						case 'mr': // Marathi
+							ariaLabel = 'उत्तर द्या'
+							break
+						case 'mt': // Maltese
+							ariaLabel = 'Wieġeb'
+							break
+						case 'my': // Burmese
+							ariaLabel = 'ပြန်ကြားရန်'
+							break
+						case 'nb': // Norwegian Bokmål
+							ariaLabel = 'Svar'
+							break
+						case 'ne': // Nepali
+							ariaLabel = 'जवाफ दिनुहोस्'
+							break
+						case 'nn': // Norwegian Nynorsk
+							ariaLabel = 'Svar'
+							break
+						case 'pa': // Punjabi
+							ariaLabel = 'ਜਵਾਬ ਦਿਓ'
+							break
+						case 'sl': // Slovenian
+							ariaLabel = 'Odgovori'
+							break
+						case 'sq': // Albanian
+							ariaLabel = 'Përgjigju'
+							break
+						case 'sw': // Swahili
+							ariaLabel = 'Jibu'
+							break
+						case 'ta': // Tamil
+							ariaLabel = 'பதிலளி'
+							break
+						case 'te': // Telugu
+							ariaLabel = 'ప్రత్యుత్తరం ఇవ్వండి'
+							break
+						case 'uk': // Ukrainian
+							ariaLabel = 'Відповісти'
+							break
+						case 'ur': // Urdu
+							ariaLabel = 'جواب دیں'
+							break
+						case 'uz': // Uzbek
+							ariaLabel = 'Javob berish'
+							break
+						case 'zh-Hans': // Chinese (Simplified)
+							ariaLabel = '回复'
+							break
+
 						default:
 							ariaLabel = 'Reply'
 					}

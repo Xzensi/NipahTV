@@ -4,6 +4,29 @@ export const CHANGELOG: {
 	description: string
 }[] = [
 	{
+		version: '1.5.111',
+		date: '2026-08-24',
+		description: `
+                  Feat: Added language support for newly added Kick languages causing the reply button to not work in those languages:
+                        - Belarusian
+                        - Bulgarian
+                        - Czech
+                        - Danish
+                        - Greece
+                        - Croatian
+                        - Hungarian
+                        - Lithuanian
+                        - Macedonian
+                        - Mongolian
+                        - Malaysian
+                        - Nederlands
+                        - Romanian
+                        - Slovak
+                        - Serbian
+                        - Swedish
+            `
+	},
+	{
 		version: '1.5.110',
 		date: '2026-07-29',
 		description: `
