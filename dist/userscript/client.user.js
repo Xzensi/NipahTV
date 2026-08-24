@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.110
+// @version 1.5.111
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12443,6 +12443,29 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.111",
+    date: "2026-08-24",
+    description: `
+                  Feat: Added language support for newly added Kick languages causing the reply button to not work in those languages:
+                        - Belarusian
+                        - Bulgarian
+                        - Czech
+                        - Danish
+                        - Greece
+                        - Croatian
+                        - Hungarian
+                        - Lithuanian
+                        - Macedonian
+                        - Mongolian
+                        - Malaysian
+                        - Nederlands
+                        - Romanian
+                        - Slovak
+                        - Serbian
+                        - Swedish
+            `
+  },
   {
     version: "1.5.110",
     date: "2026-07-29",
@@ -25042,8 +25065,23 @@ var KickUserInterface = class extends AbstractUserInterface {
             case "ar":
               ariaLabel = "\u0631\u062F\u0651";
               break;
+            case "be":
+              ariaLabel = "\u0410\u0434\u043A\u0430\u0437\u0430\u0446\u044C";
+              break;
+            case "bg":
+              ariaLabel = "\u041E\u0442\u0433\u043E\u0432\u0430\u0440\u044F\u043D\u0435";
+              break;
+            case "cs":
+              ariaLabel = "Odpov\u011Bd\u011Bt";
+              break;
+            case "da":
+              ariaLabel = "Svar";
+              break;
             case "de":
               ariaLabel = "Antworten";
+              break;
+            case "el":
+              ariaLabel = "\u0391\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B7";
               break;
             case "es":
               ariaLabel = "Responder";
@@ -25057,6 +25095,12 @@ var KickUserInterface = class extends AbstractUserInterface {
             case "hi":
               ariaLabel = "\u091C\u0935\u093E\u092C \u0926\u0947\u0928\u093E";
               break;
+            case "hr":
+              ariaLabel = "Odgovori";
+              break;
+            case "hu":
+              ariaLabel = "V\xE1lasz";
+              break;
             case "id":
               ariaLabel = "Jawab";
               break;
@@ -25069,14 +25113,47 @@ var KickUserInterface = class extends AbstractUserInterface {
             case "ko":
               ariaLabel = "\uB2F5\uC7A5";
               break;
+            case "lt":
+              ariaLabel = "Atsakyti";
+              break;
+            case "lv":
+              ariaLabel = "Atbild\u0113t";
+              break;
+            case "mk":
+              ariaLabel = "\u041E\u0434\u0433\u043E\u0432\u043E\u0440\u0438";
+              break;
+            case "mn":
+              ariaLabel = "\u0425\u0430\u0440\u0438\u0443\u043B\u0430\u0445";
+              break;
+            case "ms":
+              ariaLabel = "Balas";
+              break;
+            case "nl":
+              ariaLabel = "Reageer";
+              break;
+            case "no":
+              ariaLabel = "Svar";
+              break;
             case "pl":
               ariaLabel = "Odpowiedz";
               break;
             case "pt":
               ariaLabel = "Responder";
               break;
+            case "ro":
+              ariaLabel = "R\u0103spunde";
+              break;
             case "ru":
               ariaLabel = "\u041E\u0442\u0432\u0435\u0442\u0438\u0442\u044C";
+              break;
+            case "sk":
+              ariaLabel = "Odpoveda\u0165";
+              break;
+            case "sr":
+              ariaLabel = "Odgovori";
+              break;
+            case "sv":
+              ariaLabel = "Svara";
               break;
             case "tr":
               ariaLabel = "Yan\u0131tla";
@@ -25092,6 +25169,120 @@ var KickUserInterface = class extends AbstractUserInterface {
               break;
             case "zh-Hant":
               ariaLabel = "\u56DE\u8986";
+              break;
+            case "af":
+              ariaLabel = "Antwoord";
+              break;
+            case "az":
+              ariaLabel = "Cavab ver";
+              break;
+            case "bn":
+              ariaLabel = "\u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8";
+              break;
+            case "bs":
+              ariaLabel = "Odgovori";
+              break;
+            case "ca":
+              ariaLabel = "Respon";
+              break;
+            case "cy":
+              ariaLabel = "Ymateb";
+              break;
+            case "et":
+              ariaLabel = "Vasta";
+              break;
+            case "eu":
+              ariaLabel = "Erantzun";
+              break;
+            case "fa":
+              ariaLabel = "\u067E\u0627\u0633\u062E";
+              break;
+            case "fil":
+              ariaLabel = "Tumugon";
+              break;
+            case "ga":
+              ariaLabel = "Freagair";
+              break;
+            case "gl":
+              ariaLabel = "Responder";
+              break;
+            case "gu":
+              ariaLabel = "\u0A9C\u0AB5\u0ABE\u0AAC \u0A86\u0AAA\u0ACB";
+              break;
+            case "he":
+              ariaLabel = "\u05D4\u05E9\u05D1";
+              break;
+            case "hy":
+              ariaLabel = "\u054A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u0565\u056C";
+              break;
+            case "is":
+              ariaLabel = "Svara";
+              break;
+            case "ka":
+              ariaLabel = "\u10DE\u10D0\u10E1\u10E3\u10EE\u10D8";
+              break;
+            case "kk":
+              ariaLabel = "\u0416\u0430\u0443\u0430\u043F \u0431\u0435\u0440\u0443";
+              break;
+            case "km":
+              ariaLabel = "\u1786\u17D2\u179B\u17BE\u1799\u178F\u1794";
+              break;
+            case "kn":
+              ariaLabel = "\u0C89\u0CA4\u0CCD\u0CA4\u0CB0\u0CBF\u0CB8\u0CBF";
+              break;
+            case "lo":
+              ariaLabel = "\u0E95\u0EAD\u0E9A";
+              break;
+            case "ml":
+              ariaLabel = "\u0D2E\u0D31\u0D41\u0D2A\u0D1F\u0D3F \u0D28\u0D7D\u0D15\u0D41\u0D15";
+              break;
+            case "mr":
+              ariaLabel = "\u0909\u0924\u094D\u0924\u0930 \u0926\u094D\u092F\u093E";
+              break;
+            case "mt":
+              ariaLabel = "Wie\u0121eb";
+              break;
+            case "my":
+              ariaLabel = "\u1015\u103C\u1014\u103A\u1000\u103C\u102C\u1038\u101B\u1014\u103A";
+              break;
+            case "nb":
+              ariaLabel = "Svar";
+              break;
+            case "ne":
+              ariaLabel = "\u091C\u0935\u093E\u092B \u0926\u093F\u0928\u0941\u0939\u094B\u0938\u094D";
+              break;
+            case "nn":
+              ariaLabel = "Svar";
+              break;
+            case "pa":
+              ariaLabel = "\u0A1C\u0A35\u0A3E\u0A2C \u0A26\u0A3F\u0A13";
+              break;
+            case "sl":
+              ariaLabel = "Odgovori";
+              break;
+            case "sq":
+              ariaLabel = "P\xEBrgjigju";
+              break;
+            case "sw":
+              ariaLabel = "Jibu";
+              break;
+            case "ta":
+              ariaLabel = "\u0BAA\u0BA4\u0BBF\u0BB2\u0BB3\u0BBF";
+              break;
+            case "te":
+              ariaLabel = "\u0C2A\u0C4D\u0C30\u0C24\u0C4D\u0C2F\u0C41\u0C24\u0C4D\u0C24\u0C30\u0C02 \u0C07\u0C35\u0C4D\u0C35\u0C02\u0C21\u0C3F";
+              break;
+            case "uk":
+              ariaLabel = "\u0412\u0456\u0434\u043F\u043E\u0432\u0456\u0441\u0442\u0438";
+              break;
+            case "ur":
+              ariaLabel = "\u062C\u0648\u0627\u0628 \u062F\u06CC\u06BA";
+              break;
+            case "uz":
+              ariaLabel = "Javob berish";
+              break;
+            case "zh-Hans":
+              ariaLabel = "\u56DE\u590D";
               break;
             default:
               ariaLabel = "Reply";
@@ -27699,7 +27890,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.110";
+  VERSION = "1.5.111";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
