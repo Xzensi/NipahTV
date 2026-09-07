@@ -3,6 +3,13 @@ export const CHANGELOG: {
 	date: string
 	description: string
 }[] = [
+      {
+		version: '1.5.112',
+		date: '2026-09-07',
+		description: `
+                  Fix: Kick broke mention message highlighting
+            `
+	},
 	{
 		version: '1.5.111',
 		date: '2026-08-24',
