@@ -68,7 +68,7 @@ declare global {
 	interface Session {
 		eventBus: Publisher
 		networkInterface: NetworkInterface
-		meData: MeData
+		meData?: MeData
 		channelData: ChannelData
 		usersManager: UsersManager
 		userInterface?: AbstractUserInterface
