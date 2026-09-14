@@ -146,7 +146,7 @@ div:has(> #chat-input-wrapper) {
 }
 
 // Hide celebration banners
-#chatroom-footer div:not(.ntv__celebrations):has(path[d='M19 4H13V10H19V4Z']) > div.relative {
+#chatroom-footer div:has(.ntv__celebrations) > div:not(.ntv__celebrations) > *:has(svg[data-ds-icon="MoreVertical"]) {
 	display: none;
 }
 
