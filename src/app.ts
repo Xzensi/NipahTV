@@ -47,7 +47,7 @@ const logger = new Logger()
 const { log, info, error } = logger.destruct()
 
 class NipahClient {
-	VERSION = '1.5.112'
+	VERSION = '1.5.113'
 
 	ENV_VARS = {
 		LOCAL_RESOURCE_ROOT: 'http://localhost:3010/',
@@ -402,7 +402,6 @@ class NipahClient {
 			}
 		}
 
-		if (!session.meData) throw new Error('Failed to load me user data.')
 		if (!session.channelData) throw new Error('Failed to load channel data.')
 
 		const channelData = session.channelData
@@ -549,7 +548,7 @@ class NipahClient {
 		rootContext.eventService.addEventListener(channelData, 'USER_BANNED', data => {
 			eventBus.publish('ntv.channel.chatroom.user.banned', data)
 
-			if (data.user.id === meData.userId) {
+			if (meData && data.user.id === meData.userId) {
 				log('CORE', 'MAIN', 'You have been banned from the channel..')
 
 				session.channelData.me.isBanned = {
@@ -576,7 +575,7 @@ class NipahClient {
 		rootContext.eventService.addEventListener(channelData, 'USER_UNBANNED', data => {
 			eventBus.publish('ntv.channel.chatroom.user.unbanned', data)
 
-			if (data.user.id === meData.userId) {
+			if (meData && data.user.id === meData.userId) {
 				if (unbanTimeoutHandle) clearTimeout(unbanTimeoutHandle)
 				log('CORE', 'MAIN', 'You have been unbanned from the channel..')
 

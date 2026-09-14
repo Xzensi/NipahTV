@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.112
+// @version 1.5.113
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-f7125d8f.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-703b82a5.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12444,6 +12444,16 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.113",
+    date: "2026-09-15",
+    description: `
+                  Thank you for the contribution @igorovh!
+
+                  Fix: Support sessions for logged out users (@igorovh)
+                  Fix: Kick update has broken celebrations styling
+            `
+  },
+  {
     version: "1.5.112",
     date: "2026-09-07",
     description: `
@@ -12705,7 +12715,7 @@ var CHANGELOG = [
     version: "1.5.81",
     date: "2025-12-02",
     description: `
-                  Feat: Make user info modal username handle better compatible with other extensions @igorovh
+                  Feat: Make user info modal username handle better compatible with other extensions (@igorovh)
             `
   },
   {
@@ -24258,15 +24268,15 @@ var KickUserInterface = class extends AbstractUserInterface {
             cleanupHTML(`
 					<div class="ntv__celebration ntv__celebration--subscription-renewed relative flex min-h-[60px] flex-row flex-nowrap items-center justify-between gap-2 rounded p-2 text-black [&>svg]:fill-black mb-2" style="background-color: #ff9d00">
 						<div class="flex h-full flex-row flex-nowrap items-center gap-2 empty:hidden shrink grow">
-							<svg width="32" height="32" viewBox="0 0 32 32" class="size-6 shrink-0 grow-0 fill-black" fill="white" xmlns="http://www.w3.org/2000/svg" class="size-6 shrink-0 grow-0 fill-black"><path d="M5.00215 17.5057L12.6433 13.9772C13.2297 13.7058 13.7024 13.233 13.9737 12.6464L17.5011 5.00286L21.0285 12.6464C21.2998 13.233 21.7724 13.7058 22.3589 13.9772L30 17.5057L22.3589 21.0342C21.7724 21.3056 21.2998 21.7784 21.0285 22.365L17.5011 30.0085L13.9737 22.365C13.7024 21.7784 13.2297 21.3056 12.6433 21.0342L4.9934 17.5057H5.00215Z"></path><path d="M2 7.37587L5.29104 5.86117C5.54487 5.74735 5.74618 5.54597 5.85997 5.29207L7.37419 2L8.88842 5.29207C9.0022 5.54597 9.20352 5.74735 9.45735 5.86117L12.7484 7.37587L9.45735 8.89057C9.20352 9.0044 9.0022 9.20577 8.88842 9.45968L7.37419 12.7517L5.85997 9.46844C5.74618 9.21453 5.54487 9.01315 5.29104 8.89933L2 7.38463V7.37587Z"></path></svg>
+							<svg width="32" height="32" viewBox="0 0 32 32" class="size-6 shrink-0 grow-0 fill-black" fill="black" xmlns="http://www.w3.org/2000/svg" class="size-6 shrink-0 grow-0 fill-black"><path d="M5.00215 17.5057L12.6433 13.9772C13.2297 13.7058 13.7024 13.233 13.9737 12.6464L17.5011 5.00286L21.0285 12.6464C21.2998 13.233 21.7724 13.7058 22.3589 13.9772L30 17.5057L22.3589 21.0342C21.7724 21.3056 21.2998 21.7784 21.0285 22.365L17.5011 30.0085L13.9737 22.365C13.7024 21.7784 13.2297 21.3056 12.6433 21.0342L4.9934 17.5057H5.00215Z"></path><path d="M2 7.37587L5.29104 5.86117C5.54487 5.74735 5.74618 5.54597 5.85997 5.29207L7.37419 2L8.88842 5.29207C9.0022 5.54597 9.20352 5.74735 9.45735 5.86117L12.7484 7.37587L9.45735 8.89057C9.20352 9.0044 9.0022 9.20577 8.88842 9.45968L7.37419 12.7517L5.85997 9.46844C5.74618 9.21453 5.54487 9.01315 5.29104 8.89933L2 7.38463V7.37587Z"></path></svg>
 							<div class="relative flex h-full grow flex-col justify-center">
 								<span class="text-sm font-medium leading-5 absolute left-0">It's your ${months} month sub anniversary!</span>
 							</div>
 						</div>
 
 						<div class="flex h-full flex-row flex-nowrap items-center gap-2 empty:hidden ml-auto shrink-0 grow-0">
-							<button class="group inline-flex gap-1.5 items-center justify-center rounded font-semibold box-border relative transition-all betterhover:active:scale-[0.98] disabled:pointer-events-none select-none whitespace-nowrap [&amp;_svg]:size-[1em] outline-transparent outline-2 outline-offset-2 disabled:text-disabled-onSurface focus-visible:outline-outline-decorative text-white [&amp;_svg]:fill-current focus-visible:bg-secondary-base/40 disabled:opacity-30 px-3 py-1.5 text-sm betterhover:hover:bg-surface-base bg-surface-highest" dir="ltr">Share</button>
-							<button class="group relative box-border flex shrink-0 grow-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded font-semibold ring-0 transition-all focus-visible:outline-none active:scale-[0.95] disabled:pointer-events-none [&amp;_svg]:size-[1em] bg-transparent focus-visible:outline-grey-300 [&amp;_svg]:fill-current lg:data-[state=open]:bg-surface-tint data-[state=active]:bg-surface-tint disabled:text-grey-600 disabled:bg-grey-1000 size-8 text-sm leading-none betterhover:hover:bg-black/10 text-black" data-state="closed" type="button" id="radix-:r8t:" aria-haspopup="menu" aria-expanded="true" aria-controls="radix-:r8u:" data-aria-hidden="true" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M19 4H13V10H19V4Z" fill="current"></path><path d="M19 13H13V19H19V13Z" fill="current"></path><path d="M19 22H13V28H19V22Z" fill="current"></path></svg></button>
+							<button class="group inline-flex gap-1.5 items-center justify-center rounded font-semibold box-border relative transition-all betterhover:active:scale-[0.98] disabled:pointer-events-none select-none whitespace-nowrap [&_svg]:size-[1em] outline-transparent outline-2 outline-offset-2 focus-visible:outline-surface-fg-decorative text-white [&_svg]:fill-current focus-visible:bg-neutral-bg-default/40 disabled:opacity-30 px-3 py-1.5 text-sm bg-surface-bg-highest betterhover:hover:bg-surface-bg-default" dir="ltr">Share</button>
+							<button class="group relative box-border flex shrink-0 grow-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded font-semibold ring-0 transition-all focus-visible:outline-hidden active:scale-[0.95] disabled:pointer-events-none [&amp;_svg]:size-[1em] state-layer bg-transparent [&amp;_svg]:fill-current lg:data-[state=open]:bg-surface-bg-highest data-[state=active]:bg-surface-bg-highest size-8 text-sm leading-none text-black betterhover:hover:bg-black/10" data-state="closed" type="button" id="radix-_r_2p_" aria-haspopup="menu" aria-expanded="false"><svg data-ds-icon="MoreVertical" width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" class="inline-block shrink-0"><path fill="currentColor" d="M10 6.67a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5m0 5.83a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5m0 5.83a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"></path></svg></button>
 						</div>
 					</div>
 				`),
@@ -25769,9 +25779,10 @@ var KickNetworkInterface = class {
   async loadMeData() {
     const userData = await RESTFromMainService.get("https://kick.com/api/v1/user").catch(() => {
     });
-    if (!userData) throw new Error("Failed to fetch user data");
-    if (!userData.streamer_channel)
-      throw new Error('Invalid user data, missing property "streamer_channel"');
+    if (!userData?.streamer_channel) {
+      info27("KICK", "NET", "User is not logged in, skipping personal user data.");
+      return;
+    }
     const { id, user_id, slug } = userData.streamer_channel;
     if (!id) throw new Error('Invalid user data, missing property "id"');
     if (!user_id) throw new Error('Invalid user data, missing property "user_id"');
@@ -26077,10 +26088,10 @@ var KickNetworkInterface = class {
       RESTFromMainService.get(`https://kick.com/api/v2/channels/${slug}/me`),
       RESTFromMainService.get(`https://kick.com/api/v2/channels/${slug}`)
     ]);
-    if (res1.status === "rejected" || res2.status === "rejected") {
+    if (res2.status === "rejected") {
       throw new Error("Failed to fetch user data");
     }
-    const userMeInfo = res1.value;
+    const userMeInfo = res1.status === "fulfilled" ? res1.value : void 0;
     const userOwnChannelInfo = res2.value;
     return {
       id: userOwnChannelInfo.user.id,
@@ -26089,7 +26100,7 @@ var KickNetworkInterface = class {
       profilePic: userOwnChannelInfo.user.profile_pic || NTV_RESOURCE_ROOT + "assets/img/kick/default-user-profile.png",
       bannerImg: userOwnChannelInfo?.banner_image?.url || "",
       createdAt: userOwnChannelInfo?.chatroom?.created_at ? new Date(userOwnChannelInfo?.chatroom?.created_at) : null,
-      isFollowing: userMeInfo.is_following
+      isFollowing: !!userMeInfo?.is_following
     };
   }
   async getUserChannelInfo(channelName, username) {
@@ -27492,7 +27503,7 @@ var SevenTVExtension = class extends Extension {
         `Skipping session without channel data, you're probably not in a channel..`
       );
     const { channelId, userId: channelUserId } = session.channelData;
-    const platformMeUserId = session.meData.userId;
+    const platformMeUserId = session.meData?.userId;
     this.registerEmoteProvider(session);
     if (!datastore)
       return error36("EXT:STV", "MAIN", "Datastore is not initialized, cannot add session:", session);
@@ -27506,7 +27517,7 @@ var SevenTVExtension = class extends Extension {
         id: STV_ID_NULL;
       })
     );
-    if (!this.cachedStvMeUser) {
+    if (!this.cachedStvMeUser && platformMeUserId) {
       promises.push(
         getUserCosmeticDataByConnection(platformId, platformMeUserId).then((res) => res?.userByConnection ?? { id: STV_ID_NULL }).then((user) => {
           if (user.id === STV_ID_NULL)
@@ -27897,7 +27908,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.112";
+  VERSION = "1.5.113";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
@@ -28156,7 +28167,6 @@ var NipahClient = class {
         return error39("CORE", "MAIN", "Failed to create session because:", res.reason);
       }
     }
-    if (!session.meData) throw new Error("Failed to load me user data.");
     if (!session.channelData) throw new Error("Failed to load channel data.");
     const channelData = session.channelData;
     eventBus.publish("ntv.channel.loaded.channel_data", channelData);
@@ -28249,7 +28259,7 @@ var NipahClient = class {
     let unbanTimeoutHandle = null;
     rootContext.eventService.addEventListener(channelData, "USER_BANNED", (data) => {
       eventBus.publish("ntv.channel.chatroom.user.banned", data);
-      if (data.user.id === meData.userId) {
+      if (meData && data.user.id === meData.userId) {
         log38("CORE", "MAIN", "You have been banned from the channel..");
         session.channelData.me.isBanned = {
           bannedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -28273,7 +28283,7 @@ var NipahClient = class {
     });
     rootContext.eventService.addEventListener(channelData, "USER_UNBANNED", (data) => {
       eventBus.publish("ntv.channel.chatroom.user.unbanned", data);
-      if (data.user.id === meData.userId) {
+      if (meData && data.user.id === meData.userId) {
         if (unbanTimeoutHandle) clearTimeout(unbanTimeoutHandle);
         log38("CORE", "MAIN", "You have been unbanned from the channel..");
         delete session.channelData.me.isBanned;

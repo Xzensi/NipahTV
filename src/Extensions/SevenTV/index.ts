@@ -399,7 +399,7 @@ export default class SevenTVExtension extends Extension {
 			)
 
 		const { channelId, userId: channelUserId } = session.channelData
-		const platformMeUserId = session.meData.userId
+		const platformMeUserId = session.meData?.userId
 
 		this.registerEmoteProvider(session)
 
@@ -422,7 +422,8 @@ export default class SevenTVExtension extends Extension {
 				})
 		)
 
-		if (!this.cachedStvMeUser) {
+		// Logged out users have no platform user id, so there is no personal 7TV data to fetch.
+		if (!this.cachedStvMeUser && platformMeUserId) {
 			promises.push(
 				getUserCosmeticDataByConnection(platformId, platformMeUserId)
 					.then(res => res?.userByConnection ?? { id: STV_ID_NULL })
