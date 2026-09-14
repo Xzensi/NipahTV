@@ -4,6 +4,16 @@ export const CHANGELOG: {
 	description: string
 }[] = [
       {
+		version: '1.5.113',
+		date: '2026-09-15',
+		description: `
+                  Thank you for the contribution @igorovh!
+
+                  Fix: Support sessions for logged out users (@igorovh)
+                  Fix: Kick update has broken celebrations styling
+            `
+	},
+      {
 		version: '1.5.112',
 		date: '2026-09-07',
 		description: `
@@ -265,7 +275,7 @@ export const CHANGELOG: {
 		version: '1.5.81',
 		date: '2025-12-02',
 		description: `
-                  Feat: Make user info modal username handle better compatible with other extensions @igorovh
+                  Feat: Make user info modal username handle better compatible with other extensions (@igorovh)
             `
 	},
 	{
