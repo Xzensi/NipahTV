@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.113
+// @version 1.5.114
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12444,6 +12444,13 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.114",
+    date: "2026-09-26",
+    description: `
+                  Fix: Native quick emote bar usage showing emotes as deleted by moderator
+            `
+  },
+  {
     version: "1.5.113",
     date: "2026-09-15",
     description: `
@@ -24584,6 +24591,9 @@ var KickUserInterface = class extends AbstractUserInterface {
         if (mutation.addedNodes.length && mutation.addedNodes[0] instanceof HTMLElement) {
           const addedNode = mutation.addedNodes[0];
           const chatMessageElement = addedNode.closest(".ntv__chat-message");
+          if (addedNode.hasAttribute("data-emote-id") || addedNode.hasAttribute("data-emote-name")) {
+            return;
+          }
           if (!chatMessageElement || chatMessageElement.classList.contains("ntv__chat-message--deleted"))
             return;
           chatMessageElement.classList.add("ntv__chat-message--deleted");
@@ -27908,7 +27918,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.113";
+  VERSION = "1.5.114";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
