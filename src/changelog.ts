@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
       {
+		version: '1.5.114',
+		date: '2026-09-26',
+		description: `
+                  Fix: Native quick emote bar usage showing emotes as deleted by moderator
+            `
+	},
+      {
 		version: '1.5.113',
 		date: '2026-09-15',
 		description: `
