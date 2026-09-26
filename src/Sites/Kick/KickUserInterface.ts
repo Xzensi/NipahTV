@@ -1744,6 +1744,11 @@ export class KickUserInterface extends AbstractUserInterface {
 					const addedNode = mutation.addedNodes[0]
 					const chatMessageElement = addedNode.closest('.ntv__chat-message')! as HTMLElement
 
+					// Native kick quick emote holder usage makes kick insert emotes after the message wrapper was rendered
+					if (addedNode.hasAttribute('data-emote-id') || addedNode.hasAttribute('data-emote-name')) {
+						return
+					}
+
 					if (!chatMessageElement || chatMessageElement.classList.contains('ntv__chat-message--deleted'))
 						return
 
