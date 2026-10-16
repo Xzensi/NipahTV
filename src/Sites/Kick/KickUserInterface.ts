@@ -1903,7 +1903,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async observePinnedMessage() {
 		const pinnedMessagesContainerSelector = '#channel-chatroom div:has(+ #chatroom-messages) > div'
-		const pinnedMessageContentSelector = '.\\[\\&\\>a\\:hover\\]\\:text-primary-base'
+		const pinnedMessageContentSelector = '[data-testid="pinned-message-content"]'
 
 		const pinnedMessageContainerEl = document.querySelector(
 			pinnedMessagesContainerSelector
@@ -1923,22 +1923,28 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.session.eventBus.subscribe('ntv.providers.loaded', () => {
 			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
 				for (const mutation of mutations) {
-					if (mutation.type === 'characterData') {
-						if (mutation.target.parentElement?.classList.contains('[&>a:hover]:text-primary-base')) {
-							const contentBodyEl = mutation.target.parentElement
-							renderPinnedMessageBody(contentBodyEl)
-							return
-						}
-					} else if (mutation.addedNodes.length) {
-						for (const node of mutation.addedNodes) {
-							if (node instanceof HTMLElement && node.classList.contains('z-absolute')) {
-								const contentBodyEl = node.querySelector(pinnedMessageContentSelector)
-								if (!contentBodyEl) return
+					// Handle changes inside existing pinned message content
+					const targetEl =
+						mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
 
+					const existingContentEl = targetEl?.closest<HTMLElement>(pinnedMessageContentSelector)
+
+					if (existingContentEl) {
+						renderPinnedMessageBody(existingContentEl)
+						return
+					}
+
+					// Handle newly inserted pinned messages, including nested wrappers
+					if (mutation.type === 'childList') {
+						for (const node of mutation.addedNodes) {
+							if (!(node instanceof Element)) continue
+
+							const contentBodyEl = node.matches(pinnedMessageContentSelector)
+								? node
+								: node.querySelector<HTMLElement>(pinnedMessageContentSelector)
+
+							if (contentBodyEl) {
 								renderPinnedMessageBody(contentBodyEl as HTMLElement)
-								return
-							} else if (node.parentElement?.classList.contains('[&>a:hover]:text-primary-base')) {
-								renderPinnedMessageBody(node.parentElement)
 								return
 							}
 						}
@@ -1946,12 +1952,20 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}))
 
-			observer.observe(pinnedMessageContainerEl, { childList: true, subtree: true, characterData: true })
+			observer.observe(pinnedMessageContainerEl, {
+				childList: true,
+				subtree: true,
+				characterData: true
+			})
 
-			const pinnedMessageContent = document.querySelector(
-				pinnedMessagesContainerSelector + ' ' + pinnedMessageContentSelector
+			// Render an already existing pinned message
+			const pinnedMessageContent = pinnedMessageContainerEl.querySelector<HTMLElement>(
+				pinnedMessageContentSelector
 			)
-			if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent as HTMLElement)
+
+			if (pinnedMessageContent) {
+				renderPinnedMessageBody(pinnedMessageContent)
+			}
 		})
 
 		// Clicking on emotes in pinned message
@@ -2035,72 +2049,112 @@ export class KickUserInterface extends AbstractUserInterface {
 		const channelId = channelData.channelId
 
 		/*
-		  * Old Kick chat message structure:
+		* Old Kick chat message structure:
 			<div>
 				<div data-chat-entry="...">
-					<div class="chat-entry">
-						<div></div> <---|| Wrapper for reply message attachment ||
-						<div> <---|| Chat message wrapper node ||
-							<span class="chat-message-identity">Foobar</span>
-							<span class="font-bold text-white">: </span>
-							<span class="chat-entry-content-deleted"></span> <--|| Element created when message is deleted, elements below are removed ||
-							<span> <---|| The content nodes start here ||
-								<span class="chat-entry-content"> <---|| Chat message components (text component) ||
-									Foobar
-								</div>
-							</span>
-							<span>
-								<div class="chat-emote-container"> <---|| Chat message components (emote component) ||
-									<div class="relative">
-										<img>
-									</div>
-								</div>
-							</span>
+						<div class="chat-entry">
+							<div></div> <--|| Wrapper for reply message attachment ||
+							<div> <--|| Chat message wrapper node ||
+								<span class="chat-message-identity">Foobar</span>
+								<span class="font-bold text-white">: </span>
+								<span class="chat-entry-content-deleted"></span> <--|| Element created when message is deleted, elements below are removed ||
+								<span> <--|| The content nodes start here ||
+										<span class="chat-entry-content"> <--|| Chat message components (text component) ||
+											Foobar
+										</span>
+								</span>
+								<span>
+										<div class="chat-emote-container"> <--|| Chat message components (emote component) ||
+											<div class="relative">
+												<img>
+											</div>
+										</div>
+								</span>
+							</div>
 						</div>
-					</div>
-				</div>
-			</div>
-		
-		  * New Kick chat message structure
-			<div class="absolute inset-0 ...">
-				<div class="group relative">
-					<div class="betterhover:group-hover:bg-shade-lower ..." ...>
-						<div class="inline-flex" style="display: var(--chatroom-mod-actions-display);">
-							<button></button> <---|| Delete message ||
-							<button></button> <---|| Timeout user ||
-							<button></button> <---|| Ban user ||
-						</div>
-						<span>02:20 PM</span>
-						<div class="flex-nowrap">
-							<div></div> <---|| Badges container ||
-							<button title="The Username">The Username</button>
-						</div>
-						<span>: </span>
-						<span> <---|| Chat message components ||
-							<span data-emote-id="39284" data-emote-name="vibePlz">...</span>
-							KEKW
-						</span>
-					</div>
-					<div id="chat-message-actions" class="...">
-						<button aria-label="Pin"></button>
-						<button aria-label="Delete"></button>
-					</div>
 				</div>
 			</div>
 
-		  * We unpack the chat message components and render them in our format:
+		* Previous Kick chat message structure:
+			<div class="absolute inset-x-0 top-0" data-index="0">
+				<div class="group relative">
+						<div class="betterhover:group-hover:bg-shade-lower ..."> <--|| Chat message body wrapper ||
+							<div class="inline-flex" style="display: var(--chatroom-mod-actions-display);">
+								<button></button> <--|| Delete message ||
+								<button></button> <--|| Timeout user ||
+								<button></button> <--|| Ban user ||
+							</div>
+							<span>02:20 PM</span> <--|| Timestamp ||
+							<div class="flex-nowrap"> <--|| Identity container ||
+								<div></div> <--|| Badges container ||
+								<button title="The Username">The Username</button>
+							</div>
+							<span>: </span> <--|| Identity separator ||
+							<span> <--|| Chat message content wrapper ||
+								<span data-emote-id="39284" data-emote-name="vibePlz">...</span>
+								KEKW
+							</span>
+						</div>
+						<div id="chat-message-actions" class="...">
+							<button aria-label="Pin"></button>
+							<button aria-label="Delete"></button>
+						</div>
+				</div>
+			</div>
+
+		* Current Kick chat message structure:
+			<div id="chatroom-messages" class="relative h-full w-full overflow-y-auto contain-strict"> <--|| Scroll container ||
+				<div class="no-scrollbar relative"> <--|| Virtualized messages container ||
+						<div class="absolute inset-x-0 top-0" data-index="0" style="transform: translateY(...);"> <--|| Virtualized chat message row ||
+							<div class="group relative px-2 lg:px-3">
+								<div class="w-full min-w-0 shrink-0 rounded-lg px-2 break-words ..."> <--|| Chat message body wrapper ||
+										<div class="inline-flex max-w-full flex-nowrap items-baseline"> <--|| NEW: Header wrapper containing mod actions, timestamp, identity and separator ||
+											<div class="inline-flex" style="display: var(--chatroom-mod-actions-display);">
+												<button></button> <--|| Delete message ||
+												<button></button> <--|| Timeout user ||
+												<button></button> <--|| Ban user ||
+											</div>
+											<span class="text-neutral pr-1 font-semibold whitespace-nowrap">02:20 PM</span> <--|| Timestamp ||
+											<div class="inline-flex min-w-0 flex-nowrap items-baseline rounded cursor-pointer ..."> <--|| Identity container ||
+												<div class="flex items-center gap-1 self-center pr-1">
+														<div data-testid="identity-badge-broadcaster">...</div> <--|| Badges container ||
+												</div>
+												<button title="The Username" data-prevent-expand="true">The Username</button> <--|| Username ||
+											</div>
+											<span class="inline-flex font-bold" aria-hidden="true">: </span> <--|| Identity separator ||
+										</div>
+										<span class="leading-[1.55] font-normal"> <--|| Chat message content wrapper, now OUTSIDE the header wrapper ||
+											<span data-emote-id="39284" data-emote-name="vibePlz">...</span>
+											KEKW
+										</span>
+								</div>
+								<div class="first-of absolute right-0 bottom-0 z-absolute ..."> <--|| Hover message actions ||
+										<button aria-label="Pin"></button>
+										<button aria-label="Delete"></button>
+								</div>
+							</div>
+						</div>
+				</div>
+			</div>
+
+		* Important structural change:
+		* The timestamp, identity and separator are no longer direct siblings of the message content.
+		* They are nested inside a new inline-flex header wrapper, while the message content remains
+		* a direct child of the chat message body wrapper.
+
+		* We unpack the chat message components and render them in our format:
 			<div class="ntv__chat-message">
 				<div class="group relative">
-					<--|| Content remains the same ||-->
+						<--|| Original Kick content remains the same ||-->
 				</div>
 				<div class="ntv__chat-message__inner">
-					<div class="ntv__chat-message">
-						<span class="ntv__chat-message__identity">...</span>
-						<span class="ntv__chat-message__part">Foobar</span>
-						<span class="ntv__chat-message__part ntv__inline-emote-box">
-							<img>
-						</span>
-					</div>
+						<div class="ntv__chat-message">
+							<span class="ntv__chat-message__identity">...</span>
+							<span class="ntv__chat-message__part">Foobar</span>
+							<span class="ntv__chat-message__part ntv__inline-emote-box">
+								<img>
+							</span>
+						</div>
 				</div>
 			</div>
 		*/
@@ -2206,10 +2260,14 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
+		const headerWrapperEl = messageBodyWrapper.firstElementChild?.matches('div.inline-flex.items-baseline')
+			? messageBodyWrapper.firstElementChild
+			: messageBodyWrapper
+
 		let ntvModBtnsWrapperEl: HTMLElement | null = null
 		if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
 			// mod quick buttons can be in different places depending on if message is a reply or not
-			const modBtnsWrapperEl = messageBodyWrapper.firstElementChild
+			const modBtnsWrapperEl = headerWrapperEl.firstElementChild
 
 			if (modBtnsWrapperEl?.classList.contains('inline-flex')) {
 				ntvModBtnsWrapperEl = document.createElement('div')
@@ -2243,14 +2301,16 @@ export class KickUserInterface extends AbstractUserInterface {
 		}
 
 		// First element child might be the reply message attachment wrapper, so we get last instead
-		const contentWrapperNode = messageBodyWrapper.querySelector('span:last-of-type') as HTMLElement | null
+		const contentWrapperNode = messageBodyWrapper.querySelector(
+			':scope > span:last-of-type'
+		) as HTMLElement | null
 		if (!contentWrapperNode) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')
 			error('KICK', 'UI', 'Chat message content wrapper node not found', messageNode)
 			return
 		}
 
-		let timestampEl = messageBodyWrapper.firstElementChild
+		let timestampEl = headerWrapperEl.firstElementChild
 		while (timestampEl && timestampEl.tagName !== 'SPAN') timestampEl = timestampEl.nextElementSibling
 		if (!timestampEl) {
 			messageNode.classList.remove('ntv__chat-message--unrendered')

@@ -4,6 +4,14 @@ export const CHANGELOG: {
 	description: string
 }[] = [
       {
+		version: '1.5.115',
+		date: '2026-10-16',
+		description: `
+                  Fix: Major Kick website changes broke message rendering
+                  Fix: Major Kick website changes broke pinned message rendering
+            `
+	},
+      {
 		version: '1.5.114',
 		date: '2026-09-26',
 		description: `
