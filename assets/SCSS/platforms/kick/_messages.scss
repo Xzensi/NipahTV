@@ -76,7 +76,7 @@
 		font-size: $root_font_size;
 
 		// Hide the original Kick pinned message content
-		& + .\[\&\>a\:hover\]\:text-primary-base {
+		& + [data-testid="pinned-message-content"] {
 			display: none !important;
 		}
 

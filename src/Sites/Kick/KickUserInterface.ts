@@ -1903,7 +1903,7 @@ export class KickUserInterface extends AbstractUserInterface {
 
 	async observePinnedMessage() {
 		const pinnedMessagesContainerSelector = '#channel-chatroom div:has(+ #chatroom-messages) > div'
-		const pinnedMessageContentSelector = '.\\[\\&\\>a\\:hover\\]\\:text-primary-base'
+		const pinnedMessageContentSelector = '[data-testid="pinned-message-content"]'
 
 		const pinnedMessageContainerEl = document.querySelector(
 			pinnedMessagesContainerSelector
@@ -1923,22 +1923,28 @@ export class KickUserInterface extends AbstractUserInterface {
 		this.session.eventBus.subscribe('ntv.providers.loaded', () => {
 			const observer = (this.pinnedMessageObserver = new MutationObserver(mutations => {
 				for (const mutation of mutations) {
-					if (mutation.type === 'characterData') {
-						if (mutation.target.parentElement?.classList.contains('[&>a:hover]:text-primary-base')) {
-							const contentBodyEl = mutation.target.parentElement
-							renderPinnedMessageBody(contentBodyEl)
-							return
-						}
-					} else if (mutation.addedNodes.length) {
-						for (const node of mutation.addedNodes) {
-							if (node instanceof HTMLElement && node.classList.contains('z-absolute')) {
-								const contentBodyEl = node.querySelector(pinnedMessageContentSelector)
-								if (!contentBodyEl) return
+					// Handle changes inside existing pinned message content
+					const targetEl =
+						mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
 
+					const existingContentEl = targetEl?.closest<HTMLElement>(pinnedMessageContentSelector)
+
+					if (existingContentEl) {
+						renderPinnedMessageBody(existingContentEl)
+						return
+					}
+
+					// Handle newly inserted pinned messages, including nested wrappers
+					if (mutation.type === 'childList') {
+						for (const node of mutation.addedNodes) {
+							if (!(node instanceof Element)) continue
+
+							const contentBodyEl = node.matches(pinnedMessageContentSelector)
+								? node
+								: node.querySelector<HTMLElement>(pinnedMessageContentSelector)
+
+							if (contentBodyEl) {
 								renderPinnedMessageBody(contentBodyEl as HTMLElement)
-								return
-							} else if (node.parentElement?.classList.contains('[&>a:hover]:text-primary-base')) {
-								renderPinnedMessageBody(node.parentElement)
 								return
 							}
 						}
@@ -1946,12 +1952,20 @@ export class KickUserInterface extends AbstractUserInterface {
 				}
 			}))
 
-			observer.observe(pinnedMessageContainerEl, { childList: true, subtree: true, characterData: true })
+			observer.observe(pinnedMessageContainerEl, {
+				childList: true,
+				subtree: true,
+				characterData: true
+			})
 
-			const pinnedMessageContent = document.querySelector(
-				pinnedMessagesContainerSelector + ' ' + pinnedMessageContentSelector
+			// Render an already existing pinned message
+			const pinnedMessageContent = pinnedMessageContainerEl.querySelector<HTMLElement>(
+				pinnedMessageContentSelector
 			)
-			if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent as HTMLElement)
+
+			if (pinnedMessageContent) {
+				renderPinnedMessageBody(pinnedMessageContent)
+			}
 		})
 
 		// Clicking on emotes in pinned message
