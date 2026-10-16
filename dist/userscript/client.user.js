@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.114
+// @version 1.5.115
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
 // @match https://dashboard.kick.com/*
-// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-703b82a5.min.css
+// @resource KICK_CSS https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/kick-be86b44c.min.css
 // @supportURL https://github.com/Xzensi/NipahTV
 // @homepageURL https://github.com/Xzensi/NipahTV
 // @downloadURL https://raw.githubusercontent.com/Xzensi/NipahTV/master/dist/userscript/client.user.js
@@ -12444,6 +12444,14 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.115",
+    date: "2026-10-16",
+    description: `
+                  Fix: Major Kick website changes broke message rendering
+                  Fix: Major Kick website changes broke pinned message rendering
+            `
+  },
+  {
     version: "1.5.114",
     date: "2026-09-26",
     description: `
@@ -24701,7 +24709,7 @@ var KickUserInterface = class extends AbstractUserInterface {
   }
   async observePinnedMessage() {
     const pinnedMessagesContainerSelector = "#channel-chatroom div:has(+ #chatroom-messages) > div";
-    const pinnedMessageContentSelector = ".\\[\\&\\>a\\:hover\\]\\:text-primary-base";
+    const pinnedMessageContentSelector = '[data-testid="pinned-message-content"]';
     const pinnedMessageContainerEl = document.querySelector(
       pinnedMessagesContainerSelector
     );
@@ -24716,32 +24724,35 @@ var KickUserInterface = class extends AbstractUserInterface {
     this.session.eventBus.subscribe("ntv.providers.loaded", () => {
       const observer = this.pinnedMessageObserver = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
-          if (mutation.type === "characterData") {
-            if (mutation.target.parentElement?.classList.contains("[&>a:hover]:text-primary-base")) {
-              const contentBodyEl = mutation.target.parentElement;
-              renderPinnedMessageBody(contentBodyEl);
-              return;
-            }
-          } else if (mutation.addedNodes.length) {
+          const targetEl = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+          const existingContentEl = targetEl?.closest(pinnedMessageContentSelector);
+          if (existingContentEl) {
+            renderPinnedMessageBody(existingContentEl);
+            return;
+          }
+          if (mutation.type === "childList") {
             for (const node of mutation.addedNodes) {
-              if (node instanceof HTMLElement && node.classList.contains("z-absolute")) {
-                const contentBodyEl = node.querySelector(pinnedMessageContentSelector);
-                if (!contentBodyEl) return;
+              if (!(node instanceof Element)) continue;
+              const contentBodyEl = node.matches(pinnedMessageContentSelector) ? node : node.querySelector(pinnedMessageContentSelector);
+              if (contentBodyEl) {
                 renderPinnedMessageBody(contentBodyEl);
-                return;
-              } else if (node.parentElement?.classList.contains("[&>a:hover]:text-primary-base")) {
-                renderPinnedMessageBody(node.parentElement);
                 return;
               }
             }
           }
         }
       });
-      observer.observe(pinnedMessageContainerEl, { childList: true, subtree: true, characterData: true });
-      const pinnedMessageContent = document.querySelector(
-        pinnedMessagesContainerSelector + " " + pinnedMessageContentSelector
+      observer.observe(pinnedMessageContainerEl, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      const pinnedMessageContent = pinnedMessageContainerEl.querySelector(
+        pinnedMessageContentSelector
       );
-      if (pinnedMessageContent) this.renderPinnedMessageContent(pinnedMessageContent);
+      if (pinnedMessageContent) {
+        renderPinnedMessageBody(pinnedMessageContent);
+      }
     });
     this.domEventManager.addEventListener(pinnedMessageContainerEl, "click", (evt) => {
       const target = evt.target;
@@ -24887,9 +24898,10 @@ var KickUserInterface = class extends AbstractUserInterface {
       error29("KICK", "UI", "Chat message body wrapper node not found", messageNode);
       return;
     }
+    const headerWrapperEl = messageBodyWrapper.firstElementChild?.matches("div.inline-flex.items-baseline") ? messageBodyWrapper.firstElementChild : messageBodyWrapper;
     let ntvModBtnsWrapperEl = null;
     if (channelData.me.isBroadcaster || channelData.me.isModerator || channelData.me.isSuperAdmin) {
-      const modBtnsWrapperEl = messageBodyWrapper.firstElementChild;
+      const modBtnsWrapperEl = headerWrapperEl.firstElementChild;
       if (modBtnsWrapperEl?.classList.contains("inline-flex")) {
         ntvModBtnsWrapperEl = document.createElement("div");
         ntvModBtnsWrapperEl.className = "ntv__chat-message__mod-buttons";
@@ -24917,13 +24929,15 @@ var KickUserInterface = class extends AbstractUserInterface {
         });
       }
     }
-    const contentWrapperNode = messageBodyWrapper.querySelector("span:last-of-type");
+    const contentWrapperNode = messageBodyWrapper.querySelector(
+      ":scope > span:last-of-type"
+    );
     if (!contentWrapperNode) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
       error29("KICK", "UI", "Chat message content wrapper node not found", messageNode);
       return;
     }
-    let timestampEl = messageBodyWrapper.firstElementChild;
+    let timestampEl = headerWrapperEl.firstElementChild;
     while (timestampEl && timestampEl.tagName !== "SPAN") timestampEl = timestampEl.nextElementSibling;
     if (!timestampEl) {
       messageNode.classList.remove("ntv__chat-message--unrendered");
@@ -27918,7 +27932,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.114";
+  VERSION = "1.5.115";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
