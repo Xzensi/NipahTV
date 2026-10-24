@@ -1,7 +1,7 @@
 import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
 import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
 import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
-import { parseHTML } from '@core/Common/utils'
+import { escapeHTML, parseHTML } from '@core/Common/utils'
 import { Logger } from '@core/Common/Logger'
 import { Caret } from '@core/UI/Caret'
 
@@ -126,7 +126,7 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 			navWindow.addEntry(
 				{ emoteHid },
 				parseHTML(
-					`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
+					`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${escapeHTML(emoteName)}</span></li>`,
 					true
 				) as HTMLElement
 			)

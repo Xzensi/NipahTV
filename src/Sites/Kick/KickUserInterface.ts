@@ -8,6 +8,7 @@ import type { RateLimiterState } from '@core/Common/RateLimiter'
 import {
 	assertArgDefined,
 	cleanupHTML,
+	escapeHTML,
 	findNodeWithTextContent,
 	hex2rgb,
 	isElementInDOM,
@@ -1633,7 +1634,7 @@ export class KickUserInterface extends AbstractUserInterface {
 				if (!emoteName) return
 
 				const tooltipEl = parseHTML(
-					`<div class="ntv__emote-tooltip" data-emote-for="${emoteName}"><span class="ntv__emote-tooltip__title">${emoteName}</span></div>`,
+					`<div class="ntv__emote-tooltip" data-emote-for="${escapeHTML(emoteName)}"><span class="ntv__emote-tooltip__title">${escapeHTML(emoteName)}</span></div>`,
 					true
 				) as HTMLElement
 
@@ -1768,11 +1769,11 @@ export class KickUserInterface extends AbstractUserInterface {
 							node => node.remove()
 						)
 
-						const deletedMessageContent = addedNode.textContent || 'Deleted by a moderator'
+						const deletedMessageEl = document.createElement('span')
+						deletedMessageEl.className = 'ntv__chat-message__part'
+						deletedMessageEl.textContent = addedNode.textContent || 'Deleted by a moderator'
 
-						chatMessageInnerEl.append(
-							parseHTML(`<span class="ntv__chat-message__part">${deletedMessageContent}</span>`, true)
-						)
+						chatMessageInnerEl.append(deletedMessageEl)
 					}
 				}
 			})
@@ -2023,7 +2024,7 @@ export class KickUserInterface extends AbstractUserInterface {
 							${emotesManager.getRenderableEmote(emote, '', true)}
 						</div>
 					</span>
-					<span class="ntv__chat-message__part">got ${type === 'emote_added' ? 'added to' : 'removed from'} channel by ${actorName}</span>
+					<span class="ntv__chat-message__part">got ${type === 'emote_added' ? 'added to' : 'removed from'} channel by ${escapeHTML(actorName)}</span>
 				</div>
 			</div>
 		`)

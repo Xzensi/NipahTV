@@ -1,6 +1,6 @@
 import { BROWSER_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
 import { Logger } from '@core/Common/Logger'
-import { md5, REST, splitEmoteName } from '@core/Common/utils'
+import { md5, REST, splitEmoteName, escapeHTML } from '@core/Common/utils'
 import {
 	AbstractEmoteProvider,
 	EmoteProviderStatus,
@@ -221,15 +221,13 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		const file = emoteData.data.host.files[0]
 		const size = (file.width / 24 + 0.5) << 0
 
-		const sanitizedEmoteName = emoteData.name.replaceAll('<', '&lt;').replaceAll('"', '&quot;')
-
 		// Map of emote names splitted into parts for more relevant search results
-		const parts = splitEmoteName(sanitizedEmoteName, 2)
+		const parts = splitEmoteName(emoteData.name, 2)
 
 		return {
 			id: '' + emoteData.id,
 			hid: md5(emoteData.name),
-			name: sanitizedEmoteName,
+			name: emoteData.name,
 			provider: SevenTVEmoteProvider.id,
 			isZeroWidth: (emoteData.flags & 1) !== 0,
 			spacing: true,
@@ -250,9 +248,10 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 			srcSet = `https://cdn.7tv.app/emote/${emote.id}/1x.${ext} 1x, https://cdn.7tv.app/emote/${emote.id}/2x.${ext} 2x, https://cdn.7tv.app/emote/${emote.id}/3x.${ext} 3x, https://cdn.7tv.app/emote/${emote.id}/4x.${ext} 4x`
 		}
 
-		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ''}" data-emote-hid="${
-			emote.hid || ''
-		}" alt="${emote.name || ''}" srcset="${srcSet}" loading="lazy" decoding="async" draggable="false">`
+		const name = escapeHTML(emote.name || '')
+		return `<img class="ntv__emote ${escapeHTML(classes)}" tabindex="0" data-emote-name="${name}" data-emote-hid="${
+			escapeHTML(emote.hid || '')
+		}" alt="${name}" srcset="${escapeHTML(srcSet)}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getEmbeddableEmote(emote: Emote) {
