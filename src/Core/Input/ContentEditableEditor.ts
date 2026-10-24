@@ -556,7 +556,7 @@ export class ContentEditableEditor {
 		const emote = emotesManager.getEmote(emoteHID)
 		if (!emote) return error('CORE', 'EDITOR', 'Emote not found for HID', emoteHID)
 
-		const emoteHTML = emotesManager.getRenderableEmote(emote, (emote.isZeroWidth && 'ntv__emote--zero-width') || '')
+		const emoteHTML = emotesManager.getRenderableEmote(emote, (emote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || '')
 		if (!emoteHTML) return error('CORE', 'EDITOR', 'Failed to get renderable emote for HID', emoteHID)
 
 		const component = document.createElement('span')

@@ -237,7 +237,7 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		}
 	}
 
-	getRenderableEmote(emote: Emote, classes = '', srcSetWidthDescriptor?: boolean) {
+	getRenderableEmote(emote: Emote, classes?: EmoteClasses | '', srcSetWidthDescriptor?: boolean) {
 		const ext = (SUPPORTS_AVIF && BROWSER !== BROWSER_ENUM.SAFARI && 'avif') || 'webp'
 
 		let srcSet: string
@@ -249,8 +249,8 @@ export default class SevenTVEmoteProvider extends AbstractEmoteProvider implemen
 		}
 
 		const name = escapeHTML(emote.name || '')
-		return `<img class="ntv__emote ${escapeHTML(classes)}" tabindex="0" data-emote-name="${name}" data-emote-hid="${
-			escapeHTML(emote.hid || '')
+		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${name}" data-emote-hid="${
+			emote.hid || ''
 		}" alt="${name}" srcset="${escapeHTML(srcSet)}" loading="lazy" decoding="async" draggable="false">`
 	}
 

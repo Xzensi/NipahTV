@@ -284,7 +284,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 			const tooltipEl = parseHTML(
 				cleanupHTML(
 					`<div class="ntv__emote-tooltip ${imageInTooltop ? 'ntv__emote-tooltip--has-image' : ''}">
-						${(imageInTooltop && emotesManager.getRenderableEmote(emote, 'ntv__emote', true)) || ''}
+						${(imageInTooltop && emotesManager.getRenderableEmote(emote, EMOTE_CLASSES.emote, true)) || ''}
 						<span class="ntv__emote-tooltip__title">${escapeHTML(emote.name)}</span>
 					</div>`
 				),
@@ -510,7 +510,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				parseHTML(
 					`<div class="ntv__emote-box ${emoteBoxClasses}" size="${
 						emote.size
-					}">${emotesManager.getRenderableEmote(emote, 'ntv__emote')}</div>`
+					}">${emotesManager.getRenderableEmote(emote, EMOTE_CLASSES.emote)}</div>`
 				)
 			)
 		}
@@ -609,7 +609,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 					maybeFavoriteEmote.size
 				}">${emotesManager.getRenderableEmote(
 					maybeFavoriteEmote,
-					(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
+					(maybeFavoriteEmote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || ''
 				)}</div>`,
 				true
 			) as HTMLElement
@@ -696,7 +696,7 @@ export default class EmoteMenuComponent extends AbstractComponent {
 				parseHTML(
 					`<div class="ntv__emote-box ${emoteBoxClasses}" size="${
 						emote.size
-					}">${emotesManager.getRenderableEmote(emote, 'ntv__emote-set__emote ntv__emote')}</div>`
+					}">${emotesManager.getRenderableEmote(emote, EMOTE_CLASSES.setEmote)}</div>`
 				)
 			)
 		}

@@ -321,7 +321,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 					maybeFavoriteEmote.size
 				}">${emotesManager.getRenderableEmote(
 					maybeFavoriteEmote,
-					(maybeFavoriteEmote.isZeroWidth && 'ntv__emote--zero-width') || ''
+					(maybeFavoriteEmote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || ''
 				)}</div>`,
 				true
 			) as HTMLElement
@@ -363,7 +363,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 			// if (!favoriteEmoteDocument) return error('CORE', 'UI','Unable to reorder favorited emote, emote does not exist..')
 			// this.favoritesEl.appendChild(
 			// 	parseHTML(
-			// 		emotesManager.getRenderableEmote(favoriteEmoteDocument.emote, 'ntv__emote')!
+			// 		emotesManager.getRenderableEmote(favoriteEmoteDocument.emote, EMOTE_CLASSES.emote)!
 			// 	) as HTMLElement
 			// )
 			return
@@ -423,7 +423,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 			const emoteRender = emotesManager.getRenderableEmote(
 				emote,
-				(emote.isZeroWidth && 'ntv__emote--zero-width') || ''
+				(emote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || ''
 			)
 			if (!emoteRender) continue
 
@@ -478,7 +478,7 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 			const emoteHTML = emotesManager.getRenderableEmote(
 				emote,
-				(emote.isZeroWidth && 'ntv__emote--zero-width') || ''
+				(emote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || ''
 			)
 			if (!emoteHTML) return error('CORE', 'UI', 'Unable to render commonly used emote:', emoteHid)
 

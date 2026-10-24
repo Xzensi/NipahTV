@@ -529,8 +529,9 @@ export function escapeHTML(text: string | null | undefined) {
 }
 
 // Only strips template whitespace; escape untrusted values before interpolating them.
+const newlineSpacesRegex = /\s\s|\r\n|\r|\n|	/gm
 export function cleanupHTML(html: string) {
-	return html.trim().replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+	return html.trim().replaceAll(newlineSpacesRegex, '')
 }
 
 export function countStringOccurrences(str: string, substr: string) {

@@ -2,7 +2,7 @@ import type InputCompletionStrategyRegister from '../Core/Input/Completion/Input
 import type InputCompletionStrategyManager from '../Core/Input/Completion/InputCompletionStrategyManager'
 import type InputExecutionStrategyRegister from '../Core/Input/Execution/InputExecutionStrategyRegister'
 import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM, PROVIDER_ENUM } from '../Core/Common/constants'
-import type { LexicalCommandFromMain, ReactivePropsFromMain, RESTFromMain } from '../Core/Common/utils'
+import type { LexicalCommandFromMain as LexicalCommandFromMain2, ReactivePropsFromMain as ReactivePropsFromMain2, RESTFromMain } from '../Core/Common/utils'
 import type RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
 import type AnnouncementService from '../Core/Services/AnnouncementService'
 import type AbstractUserInterface from '../Core/UI/AbstractUserInterface'
@@ -32,8 +32,8 @@ declare global {
 	var GM_addStyle: Function
 	var GM_getResourceText: Function
 	var RESTFromMainService: RESTFromMain
-	var ReactivePropsFromMain: ReactivePropsFromMain
-	var LexicalCommandFromMain: LexicalCommandFromMain
+	var ReactivePropsFromMain: ReactivePropsFromMain2
+	var LexicalCommandFromMain: LexicalCommandFromMain2
 
 	type PlatformId = PLATFORM_ENUM // ValueOf<typeof PLATFORM_ENUM> // `${PLATFORM_ENUM}`
 	type ChannelId = string
@@ -194,4 +194,12 @@ declare global {
 	}
 
 	type ChatMessagePart = string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
+
+	enum EMOTE_CLASSES {
+		emote = 'ntv__emote',
+		setEmote = 'ntv__emote-set__emote ntv__emote',
+		zeroWidth =  'ntv__emote--zero-width',
+	}
+
+	type EmoteClasses = (typeof EMOTE_CLASSES)[keyof typeof EMOTE_CLASSES];
 }
