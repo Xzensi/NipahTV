@@ -1653,11 +1653,11 @@ export class KickUserInterface extends AbstractUserInterface {
 							true
 						) as HTMLElement
 
-						imageNode.className = 'ntv__emote'
+						imageNode.className = EMOTE_CLASSES.emote
 						tooltipEl.prepend(imageNode)
 					} else {
 						const imgEl = target.cloneNode(true) as HTMLElement
-						imgEl.className = 'ntv__emote'
+						imgEl.className = EMOTE_CLASSES.emote
 						imgEl.setAttribute('loading', 'lazy')
 						imgEl.setAttribute('decoding', 'async')
 						tooltipEl.prepend(imgEl)

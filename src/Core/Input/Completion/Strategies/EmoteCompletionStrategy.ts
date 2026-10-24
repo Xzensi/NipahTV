@@ -1,9 +1,9 @@
-import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
-import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
-import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
-import { escapeHTML, parseHTML } from '@core/Common/utils'
-import { Caret } from '@core/UI/Caret'
 import { Logger } from '@core/Common/Logger'
+import type NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
+import { escapeHTML, parseHTML } from '@core/Common/utils'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
+import { Caret } from '@core/UI/Caret'
+import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -27,7 +27,10 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 		super(rootContext, session, contentEditableEditor, navListWindowManager)
 	}
 
-	shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean {
+	shouldUseStrategy(
+		event: KeyboardEvent | MouseEvent,
+		contentEditableEditor: ContentEditableEditor
+	): boolean {
 		const word = Caret.getWordBeforeCaret().word
 		const codepoint = word ? word.codePointAt(0) || 0 : 0
 		return (
@@ -93,7 +96,7 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 		for (let i = 0; i < emoteNames.length; i++) {
 			const emoteName = emoteNames[i]
 			const emoteHid = emoteHids[i]
-			const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid!, 'ntv__emote')
+			const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid!, EMOTE_CLASSES.emote)
 			navWindow.addEntry(
 				{ emoteHid },
 				parseHTML(
@@ -151,7 +154,8 @@ export default class EmoteCompletionStrategy extends AbstractInputCompletionStra
 
 	restoreOriginalText() {
 		if (this.word) {
-			if (!this.emoteComponent) return error('CORE', 'EMCOMST', 'Invalid embed node to restore original text')
+			if (!this.emoteComponent)
+				return error('CORE', 'EMCOMST', 'Invalid embed node to restore original text')
 
 			this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word)
 		}
