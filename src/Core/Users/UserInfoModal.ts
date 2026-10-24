@@ -1,7 +1,7 @@
 import { Logger } from '@core/Common/Logger'
 import type { UserChannelInfo, UserInfo } from '@core/Common/NetworkInterface'
 import type { Toaster } from '@core/Common/Toaster'
-import { cleanupHTML, formatRelativeTime, parseHTML } from '@core/Common/utils'
+import { cleanupHTML, escapeHTML, formatRelativeTime, parseHTML } from '@core/Common/utils'
 import { SteppedInputSliderComponent } from '@core/UI/Components/SteppedInputSliderComponent'
 import { AbstractModal, type ModalGeometry } from '@core/UI/Modals/AbstractModal'
 
@@ -759,9 +759,8 @@ export default class UserInfoModal extends AbstractModal {
 
 		this.messagesHistoryCursor = res.cursor ? +res.cursor : null
 
-		let entriesHTML = '',
-			lastDate,
-			dateCursor
+		const entries = document.createDocumentFragment()
+		let lastDate, dateCursor
 
 		for (const message of res.messages) {
 			const d = new Date(message.createdAt)
@@ -778,24 +777,36 @@ export default class UserInfoModal extends AbstractModal {
 
 				dateCursor = dateString
 				lastDate = d
-				entriesHTML += `<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>`
+				entries.append(
+					parseHTML(
+						`<div class="ntv__chat-message-separator ntv__chat-message-separator--date"><div></div><span>${formattedDate}</span><div></div></div>`
+					)
+				)
 			} else if (!lastDate) {
 				lastDate = d
 				dateCursor = dateString
 			}
 
-			entriesHTML += `<div class="ntv__chat-message" unrendered>
-				<span class="ntv__chat-message__identity">
-					<span class="ntv__chat-message__timestamp">${time}</span>
-					<span class="ntv__chat-message__badges"></span>
-					<span class="ntv__chat-message__username" style="color:${message.sender.color}">${message.sender.username}</span>
-					<span class="ntv__chat-message__separator">: </span>
-				</span>
-				<span class="ntv__chat-message__part">${message.content}</span>
-			</div>`
+			const messageEl = parseHTML(
+				cleanupHTML(`<div class="ntv__chat-message" unrendered>
+					<span class="ntv__chat-message__identity">
+						<span class="ntv__chat-message__timestamp">${time}</span>
+						<span class="ntv__chat-message__badges"></span>
+						<span class="ntv__chat-message__username"></span>
+						<span class="ntv__chat-message__separator">: </span>
+					</span>
+					<span class="ntv__chat-message__part"></span>
+				</div>`),
+				true
+			) as HTMLElement
+			const usernameEl = messageEl.querySelector<HTMLElement>('.ntv__chat-message__username')!
+			usernameEl.textContent = message.sender.username
+			usernameEl.style.color = message.sender.color
+			messageEl.querySelector('.ntv__chat-message__part')!.textContent = message.content
+			entries.append(messageEl)
 		}
 
-		messagesHistoryEl.append(parseHTML(cleanupHTML(entriesHTML)))
+		messagesHistoryEl.append(entries)
 
 		if (!this.messagesHistoryCursor && lastDate) {
 			const formattedDate = lastDate.toLocaleDateString('en-US', {
@@ -1006,7 +1017,7 @@ export default class UserInfoModal extends AbstractModal {
 			statusPageEl.innerHTML = cleanupHTML(`
 				<div class="ntv__user-info-modal__status-page__banned">
 					<span><b>Banned</b></span>
-					<span>Reason: ${userChannelInfo.banned.reason}</span>
+					<span>Reason: ${escapeHTML(userChannelInfo.banned.reason)}</span>
 					<span>Expires: ${
 						userChannelInfo.banned.expiresAt
 							? formatRelativeTime(userChannelInfo.banned.expiresAt)
