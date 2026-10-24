@@ -183,7 +183,7 @@ export default abstract class AbstractUserInterface {
 				'UI',
 				'Failed to create emote message part element, emote render not found.',
 				emote,
-				(emote.isZeroWidth && 'ntv__emote--zero-width') || ''
+				(emote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || ''
 			)
 			// TODO insert a placeholder emote
 			return spanEl
@@ -194,7 +194,7 @@ export default abstract class AbstractUserInterface {
 	}
 
 	insertZeroWidthEmotePart(emote: Emote, messagePartEl: HTMLElement) {
-		const emoteRender = this.session.emotesManager.getRenderableEmote(emote, 'ntv__emote--zero-width')
+		const emoteRender = this.session.emotesManager.getRenderableEmote(emote, EMOTE_CLASSES.zeroWidth)
 		if (!emoteRender) {
 			error('CORE', 'UI', 'Failed to insert zero width emote part, emote render not found.', emote)
 			return

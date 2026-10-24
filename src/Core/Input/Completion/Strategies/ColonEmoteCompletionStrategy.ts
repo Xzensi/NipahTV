@@ -1,9 +1,9 @@
-import NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
-import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
-import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
-import { parseHTML } from '@core/Common/utils'
 import { Logger } from '@core/Common/Logger'
+import type NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
+import { escapeHTML, parseHTML } from '@core/Common/utils'
+import type { ContentEditableEditor } from '@core/Input/ContentEditableEditor'
 import { Caret } from '@core/UI/Caret'
+import AbstractInputCompletionStrategy from './AbstractInputCompletionStrategy'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -28,7 +28,10 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 		super(rootContext, session, contentEditableEditor, navListWindowManager)
 	}
 
-	shouldUseStrategy(event: KeyboardEvent | MouseEvent, contentEditableEditor: ContentEditableEditor): boolean {
+	shouldUseStrategy(
+		event: KeyboardEvent | MouseEvent,
+		contentEditableEditor: ContentEditableEditor
+	): boolean {
 		const word = Caret.getWordBeforeCaret().word
 		// return (event.key === ':' && word === null) || (word !== null && word[0] === ':')
 		return (word !== null && word[0] === ':') || (event instanceof KeyboardEvent && event.key === ':')
@@ -47,18 +50,20 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 		if (searchString.length) {
 			const emotesManager = this.session.emotesManager
 
-			return this.session.emotesManager.searchEmotes(searchString.substring(0, 20), 20).filter(fuseResult => {
-				const emote = fuseResult.item
-				const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid)
-				if (!emoteSet) return false
+			return this.session.emotesManager
+				.searchEmotes(searchString.substring(0, 20), 20)
+				.filter(fuseResult => {
+					const emote = fuseResult.item
+					const emoteSet = emotesManager.getEmoteSetByEmoteHid(emote.hid)
+					if (!emoteSet) return false
 
-				// Don't show emotes if they are not enabled in the menu
-				// Don't show subscribers only emotes if user is not subscribed
-				return (
-					emoteSet.enabledInMenu &&
-					(!emote.isSubscribersOnly || (emote.isSubscribersOnly && emoteSet.isSubscribed))
-				)
-			})
+					// Don't show emotes if they are not enabled in the menu
+					// Don't show subscribers only emotes if user is not subscribed
+					return (
+						emoteSet.enabledInMenu &&
+						(!emote.isSubscribersOnly || (emote.isSubscribersOnly && emoteSet.isSubscribed))
+					)
+				})
 		} else {
 			return []
 			// return this.session.emotesManager
@@ -122,11 +127,11 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 		for (let i = 0; i < emoteNames.length; i++) {
 			const emoteName = emoteNames[i]
 			const emoteHid = emoteHids[i]
-			const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid!, 'ntv__emote')
+			const emoteRender = emotesManager.getRenderableEmoteByHid(emoteHid!, EMOTE_CLASSES.emote)
 			navWindow.addEntry(
 				{ emoteHid },
 				parseHTML(
-					`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${emoteName}</span></li>`,
+					`<li data-emote-hid="${emoteHid}">${emoteRender}<span>${escapeHTML(emoteName)}</span></li>`,
 					true
 				) as HTMLElement
 			)
@@ -171,7 +176,8 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 	}
 
 	renderInlineCompletion() {
-		if (!this.navWindow) return error('CORE', 'EMCOMPS', 'No tab completion window to render inline completion')
+		if (!this.navWindow)
+			return error('CORE', 'EMCOMPS', 'No tab completion window to render inline completion')
 
 		const selectedEntry = this.navWindow.getSelectedEntry()
 		if (!selectedEntry) return error('CORE', 'EMCOMPS', 'No selected entry to render completion')
@@ -202,7 +208,8 @@ export default class ColonEmoteCompletionStrategy extends AbstractInputCompletio
 
 	restoreOriginalText() {
 		if (this.word) {
-			if (!this.emoteComponent) return error('CORE', 'EMCOMPS', 'Invalid embed node to restore original text')
+			if (!this.emoteComponent)
+				return error('CORE', 'EMCOMPS', 'Invalid embed node to restore original text')
 
 			this.contentEditableEditor.replaceEmoteWithText(this.emoteComponent, this.word)
 		}

@@ -181,14 +181,14 @@ export default class EmotesManager {
 		return this.providers.get(id)
 	}
 
-	getRenderableEmote(emote: Emote, classes = '', srcSetWidthDescriptor?: boolean) {
+	getRenderableEmote(emote: Emote, classes?: EmoteClasses | '', srcSetWidthDescriptor?: boolean) {
 		const provider = this.providers.get(emote.provider)
 		if (!provider) return error('CORE', 'EMOT:MGR', 'Provider not found for emote', emote)
 
 		return provider.getRenderableEmote(emote, classes, srcSetWidthDescriptor)
 	}
 
-	getRenderableEmoteByHid(emoteHid: string, classes = '', srcSetWidthDescriptor?: boolean) {
+	getRenderableEmoteByHid(emoteHid: string, classes?: EmoteClasses | '', srcSetWidthDescriptor?: boolean) {
 		const emote = this.getEmote(emoteHid)
 		if (!emote) return error('CORE', 'EMOT:MGR', 'Emote not found')
 

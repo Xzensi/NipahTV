@@ -75,7 +75,7 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 		return []
 	}
 
-	getRenderableEmote(emote: Emote, classes = '', srcSetWidthDescriptor?: boolean) {
+	getRenderableEmote(emote: Emote, classes?: EmoteClasses | '', srcSetWidthDescriptor?: boolean) {
 		const ext = (SUPPORTS_AVIF && BROWSER !== BROWSER_ENUM.SAFARI && 'avif') || 'webp'
 
 		let srcSet: string

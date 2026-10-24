@@ -519,8 +519,19 @@ export function parseHTML(html: string, firstElement = false) {
 	}
 }
 
+export function escapeHTML(text: string | null | undefined) {
+	return String(text ?? '')
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#39;')
+}
+
+// Only strips template whitespace; escape untrusted values before interpolating them.
+const newlineSpacesRegex = /\s\s|\r\n|\r|\n|	/gm
 export function cleanupHTML(html: string) {
-	return html.trim().replaceAll(/\s\s|\r\n|\r|\n|	/gm, '')
+	return html.trim().replaceAll(newlineSpacesRegex, '')
 }
 
 export function countStringOccurrences(str: string, substr: string) {
