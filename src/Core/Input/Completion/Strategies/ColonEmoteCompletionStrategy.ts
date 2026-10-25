@@ -1,3 +1,4 @@
+import { EMOTE_CLASSES } from '@core/Common/EmoteClasses'
 import { Logger } from '@core/Common/Logger'
 import type NavigatableListWindowManager from '@core/Common/NavigatableListWindowManager'
 import { escapeHTML, parseHTML } from '@core/Common/utils'

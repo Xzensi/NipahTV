@@ -1,8 +1,13 @@
-import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
 import { BROWSER_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
-import type SettingsManager from '@core/Settings/SettingsManager'
-import { REST, md5 } from '@core/Common/utils'
+import type { EmoteClasses } from '@core/Common/EmoteClasses'
 import { Logger } from '@core/Common/Logger'
+import { md5, REST } from '@core/Common/utils'
+import {
+	AbstractEmoteProvider,
+	EmoteProviderStatus,
+	type IAbstractEmoteProvider
+} from '@core/Emotes/AbstractEmoteProvider'
+import type SettingsManager from '@core/Settings/SettingsManager'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -25,7 +30,10 @@ export default class ExampleEmoteProvider extends AbstractEmoteProvider implemen
 			throw new Error('Missing Kick user id for Example provider.')
 		}
 
-		const isChatEnabled = !!this.settingsManager.getSetting(channelId, 'chat.emote_providers.example.show_emotes')
+		const isChatEnabled = !!this.settingsManager.getSetting(
+			channelId,
+			'chat.emote_providers.example.show_emotes'
+		)
 		if (!isChatEnabled) {
 			this.status = EmoteProviderStatus.LOADED
 			return

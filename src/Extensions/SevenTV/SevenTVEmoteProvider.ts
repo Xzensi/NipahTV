@@ -1,6 +1,7 @@
 import { BROWSER_ENUM, PROVIDER_ENUM } from '@core/Common/constants'
+import type { EmoteClasses } from '@core/Common/EmoteClasses'
 import { Logger } from '@core/Common/Logger'
-import { md5, REST, splitEmoteName, escapeHTML } from '@core/Common/utils'
+import { escapeHTML, md5, REST, splitEmoteName } from '@core/Common/utils'
 import {
 	AbstractEmoteProvider,
 	EmoteProviderStatus,

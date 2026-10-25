@@ -1,5 +1,6 @@
-import SettingsManager from '../Settings/SettingsManager'
 import { PROVIDER_ENUM } from '../Common/constants'
+import type { EmoteClasses } from '../Common/EmoteClasses'
+import type SettingsManager from '../Settings/SettingsManager'
 
 export enum EmoteProviderStatus {
 	UNLOADED = 'unloaded',
@@ -26,6 +27,10 @@ export abstract class AbstractEmoteProvider {
 	constructor(protected settingsManager: SettingsManager) {}
 
 	abstract fetchEmotes(params: ChannelData): Promise<Array<EmoteSet> | void>
-	abstract getRenderableEmote(emote: Emote, classes?: EmoteClasses | '', srcSetWidthDescriptor?: boolean): string
+	abstract getRenderableEmote(
+		emote: Emote,
+		classes?: EmoteClasses | '',
+		srcSetWidthDescriptor?: boolean
+	): string
 	abstract getEmbeddableEmote(emote: Emote): string
 }

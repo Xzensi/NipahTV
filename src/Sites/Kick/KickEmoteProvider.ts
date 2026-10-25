@@ -1,8 +1,13 @@
-import { AbstractEmoteProvider, EmoteProviderStatus, IAbstractEmoteProvider } from '@core/Emotes/AbstractEmoteProvider'
-import type SettingsManager from '@core/Settings/SettingsManager'
 import { PROVIDER_ENUM } from '@core/Common/constants'
-import { REST, md5, splitEmoteName, escapeHTML } from '@core/Common/utils'
+import type { EmoteClasses } from '@core/Common/EmoteClasses'
 import { Logger } from '@core/Common/Logger'
+import { escapeHTML, md5, REST, splitEmoteName } from '@core/Common/utils'
+import {
+	AbstractEmoteProvider,
+	EmoteProviderStatus,
+	type IAbstractEmoteProvider
+} from '@core/Emotes/AbstractEmoteProvider'
+import type SettingsManager from '@core/Settings/SettingsManager'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -77,11 +82,17 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 			if (dataSet.id === 'Global') {
 				isGlobalSet = true
 				dataSetId = 'global'
-				isMenuEnabled = !!settingsManager.getSetting(channelId, 'emote_menu.emote_providers.kick.show_global')
+				isMenuEnabled = !!settingsManager.getSetting(
+					channelId,
+					'emote_menu.emote_providers.kick.show_global'
+				)
 			} else if (dataSet.id === 'Emoji') {
 				isEmoji = true
 				dataSetId = 'emoji'
-				isMenuEnabled = !!settingsManager.getSetting(channelId, 'emote_menu.emote_providers.kick.show_emojis')
+				isMenuEnabled = !!settingsManager.getSetting(
+					channelId,
+					'emote_menu.emote_providers.kick.show_emojis'
+				)
 			} else if ('' + dataSet.id === channelId) {
 				isMenuEnabled = !!settingsManager.getSetting(
 					channelId,
@@ -132,9 +143,9 @@ export default class KickEmoteProvider extends AbstractEmoteProvider implements 
 		const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`
 
 		const name = escapeHTML(emote.name || '')
-		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${name}" data-emote-hid="${
-			escapeHTML(emote.hid || '')
-		}" alt="${name}" srcset="${escapeHTML(srcset)}" loading="lazy" decoding="async" draggable="false">`
+		return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${name}" data-emote-hid="${escapeHTML(
+			emote.hid || ''
+		)}" alt="${name}" srcset="${escapeHTML(srcset)}" loading="lazy" decoding="async" draggable="false">`
 	}
 
 	getRenderableEmoteById(emoteId: string, classes?: EmoteClasses | '') {

@@ -1,6 +1,7 @@
-import { AbstractComponent } from '@core/UI/Components/AbstractComponent'
-import { assertArgDefined, parseHTML } from '@core/Common/utils'
+import { EMOTE_CLASSES } from '@core/Common/EmoteClasses'
 import { Logger } from '@core/Common/Logger'
+import { assertArgDefined, parseHTML } from '@core/Common/utils'
+import { AbstractComponent } from '@core/UI/Components/AbstractComponent'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -16,7 +17,11 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 	private lastDraggedEmoteEl: string | null = null
 	private favoriteEmoteElHIDMap: Map<HTMLElement, string> = new Map()
 
-	constructor(private rootContext: RootContext, private session: Session, private placeholder: HTMLElement) {
+	constructor(
+		private rootContext: RootContext,
+		private session: Session,
+		private placeholder: HTMLElement
+	) {
 		super()
 	}
 
@@ -199,7 +204,9 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		if (!emote) return error('CORE', 'UI', 'Invalid emote')
 
 		const channelId = channelData.channelId
-		if (this.rootContext.settingsManager.getSetting(channelId, 'chat.quick_emote_holder.send_immediately')) {
+		if (
+			this.rootContext.settingsManager.getSetting(channelId, 'chat.quick_emote_holder.send_immediately')
+		) {
 			sendImmediately = true
 		}
 
@@ -245,9 +252,11 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 				const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl)
 
 				const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl)
-				if (!hoveredEmoteHid) return error('CORE', 'UI', 'Invalid favorite emote hid while dragging emote..')
+				if (!hoveredEmoteHid)
+					return error('CORE', 'UI', 'Invalid favorite emote hid while dragging emote..')
 
-				const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid)
+				const hoveredEmoteOrderIndex =
+					this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid)
 				if (undefined === hoveredEmoteOrderIndex)
 					return error('CORE', 'UI', 'Invalid favorite emote order index..')
 
@@ -291,7 +300,9 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments()
 		if (
 			emoteSet &&
-			!unsortedFavoriteEmoteDocuments.some(doc => emoteSet.emotes.find(emote => emote.hid === doc.emote.hid))
+			!unsortedFavoriteEmoteDocuments.some(doc =>
+				emoteSet.emotes.find(emote => emote.hid === doc.emote.hid)
+			)
 		) {
 			// No need to re-render if the emote set is not in the favorites
 			return
@@ -303,7 +314,9 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 
 		if (!settingsManager.getSetting(channelId, 'quick_emote_holder.show_favorites')) return
 
-		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => a.orderIndex - b.orderIndex)
+		const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort(
+			(a, b) => a.orderIndex - b.orderIndex
+		)
 
 		// Render the emotes
 		for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
@@ -467,7 +480,8 @@ export default class QuickEmotesHolderComponent extends AbstractComponent {
 		if (!emoteEl) {
 			const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid)
 			const emote = emotesManager.getEmote(emoteHid)
-			if (!emoteSet || !emote) return error('CORE', 'UI', 'Unable to render commonly used emote:', emoteHid)
+			if (!emoteSet || !emote)
+				return error('CORE', 'UI', 'Unable to render commonly used emote:', emoteHid)
 
 			const isSubscribed = emoteSet.isSubscribed
 			const isMenuEnabled = emoteSet.enabledInMenu

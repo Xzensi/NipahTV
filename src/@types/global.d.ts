@@ -1,20 +1,24 @@
-import type InputCompletionStrategyRegister from '../Core/Input/Completion/InputCompletionStrategyRegister'
-import type InputCompletionStrategyManager from '../Core/Input/Completion/InputCompletionStrategyManager'
-import type InputExecutionStrategyRegister from '../Core/Input/Execution/InputExecutionStrategyRegister'
-import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM, PROVIDER_ENUM } from '../Core/Common/constants'
-import type { LexicalCommandFromMain as LexicalCommandFromMain2, ReactivePropsFromMain as ReactivePropsFromMain2, RESTFromMain } from '../Core/Common/utils'
 import type RenderMessagePipeline from '@core/Common/RenderMessagePipeline'
-import type AnnouncementService from '../Core/Services/AnnouncementService'
-import type AbstractUserInterface from '../Core/UI/AbstractUserInterface'
-import type { NetworkInterface } from '../Core/Common/NetworkInterface'
-import type SettingsManager from '../Core/Settings/SettingsManager'
-import type { IBadgeProvider } from '../Core/Emotes/BadgeProvider'
-import type { EventService } from '../Core/Common/EventService'
-import type EmotesManager from '../Core/Emotes/EmotesManager'
-import type UsersManager from '../Core/Users/UsersManager'
-import type Publisher from '../Core/Common/Publisher'
-import type Database from '../Database/Database'
 import type { User } from '@core/Users/UsersDatastore'
+import type { BROWSER_ENUM, DEVICE_ENUM, PLATFORM_ENUM, PROVIDER_ENUM } from '../Core/Common/constants'
+import type { EventService } from '../Core/Common/EventService'
+import type { NetworkInterface } from '../Core/Common/NetworkInterface'
+import type Publisher from '../Core/Common/Publisher'
+import type {
+	LexicalCommandFromMain as LexicalCommandFromMain2,
+	RESTFromMain,
+	ReactivePropsFromMain as ReactivePropsFromMain2
+} from '../Core/Common/utils'
+import type { IBadgeProvider } from '../Core/Emotes/BadgeProvider'
+import type EmotesManager from '../Core/Emotes/EmotesManager'
+import type InputCompletionStrategyManager from '../Core/Input/Completion/InputCompletionStrategyManager'
+import type InputCompletionStrategyRegister from '../Core/Input/Completion/InputCompletionStrategyRegister'
+import type InputExecutionStrategyRegister from '../Core/Input/Execution/InputExecutionStrategyRegister'
+import type AnnouncementService from '../Core/Services/AnnouncementService'
+import type SettingsManager from '../Core/Settings/SettingsManager'
+import type AbstractUserInterface from '../Core/UI/AbstractUserInterface'
+import type UsersManager from '../Core/Users/UsersManager'
+import type Database from '../Database/Database'
 
 declare global {
 	type ValueOf<T> = T[keyof T]
@@ -193,13 +197,9 @@ declare global {
 		}
 	}
 
-	type ChatMessagePart = string | Node | { type: 'emote'; emote: Emote } | { type: 'emoji'; url: string; alt: string }
-
-	enum EMOTE_CLASSES {
-		emote = 'ntv__emote',
-		setEmote = 'ntv__emote-set__emote ntv__emote',
-		zeroWidth =  'ntv__emote--zero-width',
-	}
-
-	type EmoteClasses = (typeof EMOTE_CLASSES)[keyof typeof EMOTE_CLASSES];
+	type ChatMessagePart =
+		| string
+		| Node
+		| { type: 'emote'; emote: Emote }
+		| { type: 'emoji'; url: string; alt: string }
 }

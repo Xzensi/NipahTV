@@ -1,3 +1,4 @@
+import { EMOTE_CLASSES } from '@core/Common/EmoteClasses'
 import { Logger } from '@core/Common/Logger'
 import ReplyMessageComponent from '../Chat/Components/ReplyMessageComponent'
 import Clipboard2 from '../Common/Clipboard'
