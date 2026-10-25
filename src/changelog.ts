@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
       {
+		version: '1.5.118',
+		date: '2026-10-25',
+		description: `
+                  Fix: Enum missing a constant
+            `
+	},
+      {
 		version: '1.5.116',
 		date: '2026-10-25',
 		description: `
