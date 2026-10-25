@@ -4,15 +4,6 @@ export const CHANGELOG: {
 	description: string
 }[] = [
       {
-		version: '1.5.116',
-		date: '2026-10-25',
-		description: `
-                  Thank you for the contribution @igorovh!
-
-                  Fix: Escape untrusted values when rendering HTML @igorovh
-            `
-	},
-      {
 		version: '1.5.115',
 		date: '2026-10-16',
 		description: `
