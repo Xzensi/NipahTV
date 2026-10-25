@@ -3,6 +3,7 @@ import EmoteMenuComponent from '@core/Chat/Components/EmoteMenuComponent'
 import QuickEmotesHolderComponent from '@core/Chat/Components/QuickEmotesHolderComponent'
 import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '@core/Common/constants'
 import DOMEventManager from '@core/Common/DOMEventManager'
+import { EMOTE_CLASSES } from '@core/Common/EmoteClasses'
 import { Logger } from '@core/Common/Logger'
 import type { RateLimiterState } from '@core/Common/RateLimiter'
 import {

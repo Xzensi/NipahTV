@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.115
+// @version 1.5.118
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12444,6 +12444,22 @@ var ColorComponent = class extends AbstractComponent {
 // src/changelog.ts
 var CHANGELOG = [
   {
+    version: "1.5.118",
+    date: "2026-10-25",
+    description: `
+                  Fix: Enum missing a constant
+            `
+  },
+  {
+    version: "1.5.116",
+    date: "2026-10-25",
+    description: `
+                  Thank you for the contribution @igorovh!
+
+                  Fix: Escape untrusted values when rendering HTML @igorovh
+            `
+  },
+  {
     version: "1.5.115",
     date: "2026-10-16",
     description: `
@@ -17962,6 +17978,13 @@ var EmoteMenuButtonComponent = class extends AbstractComponent {
   }
 };
 
+// src/Core/Common/EmoteClasses.ts
+var EMOTE_CLASSES = {
+  emote: "ntv__emote",
+  setEmote: "ntv__emote-set__emote ntv__emote",
+  zeroWidth: "ntv__emote--zero-width"
+};
+
 // src/Core/Chat/Components/EmoteMenuComponent.ts
 var logger16 = new Logger();
 var { log: log15, info: info13, error: error16 } = logger16.destruct();
@@ -18075,10 +18098,10 @@ var EmoteMenuComponent = class extends AbstractComponent {
         root: this.scrollableEl,
         rootMargin: "0px",
         threshold: (() => {
-          let thresholds = [];
-          let numSteps = 100;
+          const thresholds = [];
+          const numSteps = 100;
           for (let i = 1; i <= numSteps; i++) {
-            let ratio = i / numSteps;
+            const ratio = i / numSteps;
             thresholds.push(ratio);
           }
           thresholds.push(0);
@@ -18320,7 +18343,10 @@ var EmoteMenuComponent = class extends AbstractComponent {
     while (this.panels.search?.firstChild) {
       this.panels.search.removeChild(this.panels.search.firstChild);
     }
-    const hideSubscribersEmotes = settingsManager.getSetting(channelId, "chat.emotes.hide_subscriber_emotes");
+    const hideSubscribersEmotes = settingsManager.getSetting(
+      channelId,
+      "chat.emotes.hide_subscriber_emotes"
+    );
     if (!this.panels.search) return error16("CORE", "UI", "Search panel element does not exist");
     for (const emoteResult of emotesResult) {
       const emote = emoteResult.item;
@@ -18362,7 +18388,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { sidebarSetsEl, scrollableEl } = this;
     const channelId = this.session.channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
-    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error16("CORE", "UI", "Invalid emote menu elements");
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl)
+      return error16("CORE", "UI", "Invalid emote menu elements");
     const { settingsManager } = this.rootContext;
     if (!settingsManager.getSetting(channelId, "emote_menu.show_favorites")) return;
     const sidebarFavoritesBtn = parseHTML(
@@ -18371,7 +18398,10 @@ var EmoteMenuComponent = class extends AbstractComponent {
     );
     sidebarSetsEl.appendChild(sidebarFavoritesBtn);
     this.emoteSetSidebarEls.set("favorites", sidebarFavoritesBtn);
-    const showUnavailableEmotes = settingsManager.getSetting(channelId, "emote_menu.show_unavailable_favorites");
+    const showUnavailableEmotes = settingsManager.getSetting(
+      channelId,
+      "emote_menu.show_unavailable_favorites"
+    );
     this.favoritesEmoteSetEl = parseHTML(
       cleanupHTML(
         `<div class="ntv__emote-set" data-id="favorites">
@@ -18426,7 +18456,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
     const { emotesManager, channelData } = this.session;
     const channelId = channelData.channelId;
     const emotesPanelEl = this.panels.emotes;
-    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl) return error16("CORE", "UI", "Invalid emote menu elements");
+    if (!emotesPanelEl || !sidebarSetsEl || !scrollableEl)
+      return error16("CORE", "UI", "Invalid emote menu elements");
     if (this.emoteSetEls.has(emoteSet.id)) {
       error16("CORE", "UI", `Emote set "${emoteSet.name}" already exists, removing it before re-adding..`);
       this.emoteSetEls.get(emoteSet.id)?.remove();
@@ -18534,7 +18565,9 @@ var EmoteMenuComponent = class extends AbstractComponent {
     log15("CORE", "UI", "Starting emote drag mode..");
     this.isDraggingEmote = true;
     this.favoritesEmoteSetEl.classList.add("ntv__emote-set--dragging-emote");
-    const favoriteEmotesSetBodyEl = this.favoritesEmoteSetEl.querySelector(".ntv__emote-set__emotes");
+    const favoriteEmotesSetBodyEl = this.favoritesEmoteSetEl.querySelector(
+      ".ntv__emote-set__emotes"
+    );
     const dragHandleEmoteEl = this.dragHandleEmoteEl = emoteBoxEl.cloneNode(true);
     dragHandleEmoteEl.classList.add("ntv__emote-box--dragging");
     document.body.appendChild(dragHandleEmoteEl);
@@ -18553,7 +18586,8 @@ var EmoteMenuComponent = class extends AbstractComponent {
         const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl);
         const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl);
         const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl);
-        if (!hoveredEmoteHid) return error16("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
+        if (!hoveredEmoteHid)
+          return error16("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
         const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid);
         if (void 0 === hoveredEmoteOrderIndex)
           return error16("CORE", "UI", "Invalid favorite emote order index..");
@@ -18800,7 +18834,8 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
         const emoteIndex = favoriteEmoteEls.indexOf(emoteBoxEl);
         const hoveredEmoteIndex = favoriteEmoteEls.indexOf(hoveredEmoteEl);
         const hoveredEmoteHid = this.favoriteEmoteElHIDMap.get(hoveredEmoteEl);
-        if (!hoveredEmoteHid) return error17("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
+        if (!hoveredEmoteHid)
+          return error17("CORE", "UI", "Invalid favorite emote hid while dragging emote..");
         const hoveredEmoteOrderIndex = this.session.emotesManager.getFavoriteEmoteOrderIndex(hoveredEmoteHid);
         if (void 0 === hoveredEmoteOrderIndex)
           return error17("CORE", "UI", "Invalid favorite emote order index..");
@@ -18833,13 +18868,17 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     const { emotesManager, channelData } = this.session;
     const channelId = channelData.channelId;
     const unsortedFavoriteEmoteDocuments = emotesManager.getFavoriteEmoteDocuments();
-    if (emoteSet && !unsortedFavoriteEmoteDocuments.some((doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid))) {
+    if (emoteSet && !unsortedFavoriteEmoteDocuments.some(
+      (doc) => emoteSet.emotes.find((emote) => emote.hid === doc.emote.hid)
+    )) {
       return;
     }
     while (this.favoritesEl.firstChild) this.favoritesEl.firstChild.remove();
     this.favoriteEmoteElHIDMap = /* @__PURE__ */ new Map();
     if (!settingsManager.getSetting(channelId, "quick_emote_holder.show_favorites")) return;
-    const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort((a, b) => a.orderIndex - b.orderIndex);
+    const favoriteEmoteDocuments = unsortedFavoriteEmoteDocuments.sort(
+      (a, b) => a.orderIndex - b.orderIndex
+    );
     for (const favoriteEmoteDoc of favoriteEmoteDocuments) {
       const emote = emotesManager.getEmote(favoriteEmoteDoc.emote.hid);
       const maybeFavoriteEmote = emote || favoriteEmoteDoc.emote;
@@ -18955,7 +18994,8 @@ var QuickEmotesHolderComponent = class extends AbstractComponent {
     if (!emoteEl) {
       const emoteSet = emotesManager.getEmoteSetByEmoteHid(emoteHid);
       const emote = emotesManager.getEmote(emoteHid);
-      if (!emoteSet || !emote) return error17("CORE", "UI", "Unable to render commonly used emote:", emoteHid);
+      if (!emoteSet || !emote)
+        return error17("CORE", "UI", "Unable to render commonly used emote:", emoteHid);
       const isSubscribed = emoteSet.isSubscribed;
       const isMenuEnabled = emoteSet.enabledInMenu;
       if (!isMenuEnabled || !isSubscribed && emote.isSubscribersOnly) return;
@@ -20757,7 +20797,10 @@ var ContentEditableEditor = class {
         event.shiftKey ? selection.modify("extend", direction ? "forward" : "backward", "character") : selection.modify("move", direction ? "forward" : "backward", "character");
       } else if (isRightSideOfComp && direction) {
         if (component.nextSibling instanceof Text) {
-          event.shiftKey ? selection.extend(component.nextSibling, component.nextSibling.textContent?.length || 0) : selection.setPosition(component.nextSibling, component.nextSibling.textContent?.length || 0);
+          event.shiftKey ? selection.extend(component.nextSibling, component.nextSibling.textContent?.length || 0) : selection.setPosition(
+            component.nextSibling,
+            component.nextSibling.textContent?.length || 0
+          );
         } else if (component.nextSibling instanceof HTMLElement && component.nextSibling.classList.contains("ntv__input-component")) {
           event.shiftKey ? selection.extend(component.nextSibling.childNodes[2], 1) : selection.setPosition(component.nextSibling.childNodes[2], 1);
         }
@@ -20822,7 +20865,10 @@ var ContentEditableEditor = class {
     const emotesManager = this.session.emotesManager;
     const emote = emotesManager.getEmote(emoteHID);
     if (!emote) return error23("CORE", "EDITOR", "Emote not found for HID", emoteHID);
-    const emoteHTML = emotesManager.getRenderableEmote(emote, emote.isZeroWidth && "ntv__emote--zero-width" || "");
+    const emoteHTML = emotesManager.getRenderableEmote(
+      emote,
+      emote.isZeroWidth && EMOTE_CLASSES.zeroWidth || ""
+    );
     if (!emoteHTML) return error23("CORE", "EDITOR", "Failed to get renderable emote for HID", emoteHID);
     const component = document.createElement("span");
     component.className = "ntv__input-component";
@@ -20862,7 +20908,7 @@ var ContentEditableEditor = class {
     const { inputNode } = this;
     const buffer = [];
     let bufferString = "";
-    let emotesInMessage = this.emotesInMessage;
+    const emotesInMessage = this.emotesInMessage;
     emotesInMessage.clear();
     for (const node of inputNode.childNodes) {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -21004,7 +21050,9 @@ var ContentEditableEditor = class {
       const isAnchorInComponent = anchorNode?.parentElement?.classList.contains("ntv__input-component");
       let adjustedFocusOffset = null, adjustedAnchorOffset = null;
       if (isFocusInComponent) {
-        const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode?.parentElement);
+        const componentIndex = Array.from(inputNode.childNodes).indexOf(
+          focusNode?.parentElement
+        );
         if (focusNode?.nextSibling) {
           if (hasMouseDown) {
             adjustedFocusOffset = componentIndex;
@@ -21175,7 +21223,7 @@ var ContentEditableEditor = class {
         }
       }
     }
-    let range = selection.getRangeAt(0);
+    const range = selection.getRangeAt(0);
     range.deleteContents();
     for (let i = nodes.length - 1; i >= 0; i--) {
       range.insertNode(nodes[i]);
@@ -26237,11 +26285,17 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
       if (dataSet.id === "Global") {
         isGlobalSet = true;
         dataSetId = "global";
-        isMenuEnabled = !!settingsManager.getSetting(channelId, "emote_menu.emote_providers.kick.show_global");
+        isMenuEnabled = !!settingsManager.getSetting(
+          channelId,
+          "emote_menu.emote_providers.kick.show_global"
+        );
       } else if (dataSet.id === "Emoji") {
         isEmoji = true;
         dataSetId = "emoji";
-        isMenuEnabled = !!settingsManager.getSetting(channelId, "emote_menu.emote_providers.kick.show_emojis");
+        isMenuEnabled = !!settingsManager.getSetting(
+          channelId,
+          "emote_menu.emote_providers.kick.show_emojis"
+        );
       } else if ("" + dataSet.id === channelId) {
         isMenuEnabled = !!settingsManager.getSetting(
           channelId,
@@ -26283,7 +26337,10 @@ var KickEmoteProvider = class extends AbstractEmoteProvider {
   }
   getRenderableEmote(emote, classes = "", srcSetWidthDescriptor) {
     const srcset = `https://files.kick.com/emotes/${emote.id}/fullsize 1x`;
-    return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${emote.name || ""}" data-emote-hid="${emote.hid || ""}" alt="${emote.name || ""}" srcset="${srcset}" loading="lazy" decoding="async" draggable="false">`;
+    const name = escapeHTML(emote.name || "");
+    return `<img class="ntv__emote ${classes}" tabindex="0" data-emote-name="${name}" data-emote-hid="${escapeHTML(
+      emote.hid || ""
+    )}" alt="${name}" srcset="${escapeHTML(srcset)}" loading="lazy" decoding="async" draggable="false">`;
   }
   getRenderableEmoteById(emoteId, classes = "") {
     const srcset = `https://files.kick.com/emotes/${emoteId}/fullsize 1x`;
@@ -27932,7 +27989,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.115";
+  VERSION = "1.5.118";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',

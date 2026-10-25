@@ -1,3 +1,7 @@
+import type Clipboard2 from '@core/Common/Clipboard'
+import { EMOTE_CLASSES } from '@core/Common/EmoteClasses'
+import { Logger } from '@core/Common/Logger'
+import { PriorityEventTarget } from '@core/Common/PriorityEventTarget'
 import {
 	assertArgDefined,
 	CHAR_ZWSP,
@@ -5,11 +9,8 @@ import {
 	eventKeyIsLetterDigitPuncSpaceChar,
 	parseHTML
 } from '@core/Common/utils'
-import { PriorityEventTarget } from '@core/Common/PriorityEventTarget'
-import MessagesHistory from './MessagesHistory'
-import Clipboard2 from '@core/Common/Clipboard'
-import { Logger } from '@core/Common/Logger'
 import { Caret } from '@core/UI/Caret'
+import type MessagesHistory from './MessagesHistory'
 
 const logger = new Logger()
 const { log, info, error } = logger.destruct()
@@ -365,7 +366,8 @@ export class ContentEditableEditor {
 			this.normalizeComponents()
 		}
 
-		const isNotEmpty = inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
+		const isNotEmpty =
+			inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
 
 		if (this.hasUnprocessedContentChanges) {
 			if (isNotEmpty) {
@@ -434,7 +436,8 @@ export class ContentEditableEditor {
 		const { inputNode } = this
 		const direction = event.key === 'ArrowRight'
 
-		const isFocusInComponent = selection.focusNode?.parentElement?.classList.contains('ntv__input-component')
+		const isFocusInComponent =
+			selection.focusNode?.parentElement?.classList.contains('ntv__input-component')
 
 		// NOTE: selection.modify() will trigger selectionchange event, so no need for `this.adjustSelection()`
 
@@ -450,7 +453,10 @@ export class ContentEditableEditor {
 				if (component.nextSibling instanceof Text) {
 					event.shiftKey
 						? selection.extend(component.nextSibling, component.nextSibling.textContent?.length || 0)
-						: selection.setPosition(component.nextSibling, component.nextSibling.textContent?.length || 0)
+						: selection.setPosition(
+								component.nextSibling,
+								component.nextSibling.textContent?.length || 0
+							)
 				} else if (
 					component.nextSibling instanceof HTMLElement &&
 					component.nextSibling.classList.contains('ntv__input-component')
@@ -556,7 +562,10 @@ export class ContentEditableEditor {
 		const emote = emotesManager.getEmote(emoteHID)
 		if (!emote) return error('CORE', 'EDITOR', 'Emote not found for HID', emoteHID)
 
-		const emoteHTML = emotesManager.getRenderableEmote(emote, (emote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || '')
+		const emoteHTML = emotesManager.getRenderableEmote(
+			emote,
+			(emote.isZeroWidth && EMOTE_CLASSES.zeroWidth) || ''
+		)
 		if (!emoteHTML) return error('CORE', 'EDITOR', 'Failed to get renderable emote for HID', emoteHID)
 
 		const component = document.createElement('span')
@@ -583,7 +592,8 @@ export class ContentEditableEditor {
 	updateEmptyInputContent() {
 		const inputNode = this.inputNode
 
-		const isNotEmpty = !!inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
+		const isNotEmpty =
+			!!inputNode.childNodes.length && (inputNode.childNodes[0] as HTMLElement)?.tagName !== 'BR'
 		if (this.inputEmpty === !isNotEmpty) return
 
 		this.inputEmpty = !isNotEmpty
@@ -609,7 +619,7 @@ export class ContentEditableEditor {
 		const { inputNode } = this
 		const buffer = []
 		let bufferString = ''
-		let emotesInMessage = this.emotesInMessage
+		const emotesInMessage = this.emotesInMessage
 		emotesInMessage.clear()
 
 		for (const node of inputNode.childNodes) {
@@ -820,7 +830,9 @@ export class ContentEditableEditor {
 				adjustedAnchorOffset = null
 
 			if (isFocusInComponent) {
-				const componentIndex = Array.from(inputNode.childNodes).indexOf(focusNode?.parentElement as HTMLElement)
+				const componentIndex = Array.from(inputNode.childNodes).indexOf(
+					focusNode?.parentElement as HTMLElement
+				)
 				if (focusNode?.nextSibling) {
 					if (hasMouseDown) {
 						adjustedFocusOffset = componentIndex
@@ -1017,7 +1029,7 @@ export class ContentEditableEditor {
 			}
 		}
 
-		let range = selection.getRangeAt(0)
+		const range = selection.getRangeAt(0)
 		range.deleteContents()
 
 		for (let i = nodes.length - 1; i >= 0; i--) {

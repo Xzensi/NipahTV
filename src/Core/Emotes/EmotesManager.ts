@@ -1,6 +1,7 @@
 import { Logger } from '@core/Common/Logger'
 import { parse as twemojiParse } from '@twemoji/parser'
 import { PROVIDER_ENUM, U_TAG_NTV_AFFIX } from '../Common/constants'
+import type { EmoteClasses } from '../Common/EmoteClasses'
 import { splitEmoteName } from '../Common/utils'
 import type SettingsManager from '../Settings/SettingsManager'
 import { type AbstractEmoteProvider, EmoteProviderStatus } from './AbstractEmoteProvider'
