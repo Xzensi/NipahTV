@@ -4,6 +4,13 @@ export const CHANGELOG: {
 	description: string
 }[] = [
       {
+		version: '1.5.119',
+		date: '2026-11-12',
+		description: `
+                  Fix: Mention highlighting no longer working
+            `
+	},
+      {
 		version: '1.5.118',
 		date: '2026-10-25',
 		description: `

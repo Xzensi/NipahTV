@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name NipahTV
 // @namespace https://github.com/Xzensi/NipahTV
-// @version 1.5.118
+// @version 1.5.119
 // @author Xzensi
 // @description Better Kick and 7TV emote integration for Kick chat.
 // @match https://kick.com/*
@@ -12447,6 +12447,13 @@ var ColorComponent = class extends AbstractComponent {
 
 // src/changelog.ts
 var CHANGELOG = [
+  {
+    version: "1.5.119",
+    date: "2026-11-12",
+    description: `
+                  Fix: Mention highlighting no longer working
+            `
+  },
   {
     version: "1.5.118",
     date: "2026-10-25",
@@ -24933,7 +24940,7 @@ var KickUserInterface = class extends AbstractUserInterface {
       error29("KICK", "UI", "Better hover element not found");
       return;
     }
-    const messageHasMentionedMe = betterHoverEl.classList.contains("border-kick-voltGreen-150");
+    const messageHasMentionedMe = betterHoverEl.classList.contains("border-surface-fg-brand");
     if (messageHasMentionedMe) {
       messageNode.classList.add("ntv__chat-message--mentioned-me");
     }
@@ -24942,7 +24949,7 @@ var KickUserInterface = class extends AbstractUserInterface {
     if (betterHoverEl.firstElementChild?.classList.contains("w-full")) {
       isReply = true;
       messageObject.isReply = true;
-      if (betterHoverEl.classList.contains("border-kick-voltGreen-150")) {
+      if (betterHoverEl.classList.contains("border-surface-fg-brand")) {
         isReplyToMe = true;
         messageObject.isReplyToMe = true;
         messageNode.classList.add("ntv__chat-message--reply-to-me");
@@ -28010,7 +28017,7 @@ var BotrixExtension = class extends Extension {
 var logger39 = new Logger();
 var { log: log38, info: info36, error: error39 } = logger39.destruct();
 var NipahClient = class {
-  VERSION = "1.5.118";
+  VERSION = "1.5.119";
   ENV_VARS = {
     LOCAL_RESOURCE_ROOT: "http://localhost:3010/",
     // GITHUB_ROOT: 'https://github.com/Xzensi/NipahTV/raw/master',
