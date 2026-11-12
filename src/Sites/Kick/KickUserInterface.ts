@@ -2219,7 +2219,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			return
 		}
 
-		const messageHasMentionedMe = betterHoverEl.classList.contains('border-kick-voltGreen-150')
+		const messageHasMentionedMe = betterHoverEl.classList.contains('border-surface-fg-brand')
 		if (messageHasMentionedMe) {
 			messageNode.classList.add('ntv__chat-message--mentioned-me')
 		}
@@ -2230,7 +2230,7 @@ export class KickUserInterface extends AbstractUserInterface {
 			isReply = true
 			messageObject.isReply = true
 
-			if (betterHoverEl.classList.contains('border-kick-voltGreen-150')) {
+			if (betterHoverEl.classList.contains('border-surface-fg-brand')) {
 				isReplyToMe = true
 				messageObject.isReplyToMe = true
 				messageNode.classList.add('ntv__chat-message--reply-to-me')
